@@ -1,4 +1,4 @@
-// Moteur NUTS : cartes, évaluateur 7 cartes, ranges, équité Monte-Carlo / exacte.
+// Moteur SIGMA 52 : cartes, évaluateur 7 cartes, ranges, équité Monte-Carlo / exacte.
 // Carte = entier 0..51 : rang = c >> 2 (0 = 2 ... 12 = As), couleur = c & 3.
 (function (root) {
   const RANKS = '23456789TJQKA';
