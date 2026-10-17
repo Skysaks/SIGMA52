@@ -3,9 +3,10 @@
   const E = root.Engine || require('./engine.js');
   const Charts = root.Charts || require('./charts.js');
   const Course = root.Course || require('./course.js');
+  const Solver = root.Solver || require('./solver.js');
 
   const TYPES = {
-    rfi: 'Ouverture', odds: 'Cotes du pot', tirage: 'Tirage au turn', meilleure: 'Meilleure main', situations: 'Situations',
+    rfi: 'Ouverture', odds: 'Cotes du pot', tirage: 'Tirage au turn', pushfold: 'Tapis ou couché', outs: 'Compter les outs', meilleure: 'Meilleure main', situations: 'Situations',
   };
   const pick = (a, r) => a[(r() * a.length) | 0];
   const pct = (x) => (x * 100).toFixed(1).replace('.', ',') + ' %';
@@ -49,6 +50,7 @@
       type: 'odds', title: 'Cotes du pot',
       prompt: `Pot de <strong>${eur(pot)}</strong>. L'adversaire mise <strong>${eur(bet)}</strong>. Quelle équité te faut-il au minimum pour suivre ?`,
       opts: opts.map(pct), ok: opts.indexOf(need),
+      ev: null,
       why: `Tu paies ${eur(bet)} pour un pot final de ${eur(pot + 2 * bet)} : ${eur(bet)} ÷ ${eur(pot + 2 * bet)} = ${pct(need)}. Erreur classique : diviser par le pot avant ta mise (${pct(bet / (pot + bet))}).`,
     };
   }
@@ -105,7 +107,52 @@
         cards: hero, board, opts: ['Suivre', 'Se coucher'], ok: call ? 0 : 1,
         why: `Ton équité exacte à la river contre cette range (${range.length} combinaisons) : ${pct(eq)}. Équité requise : ${pct(need)}. ` +
           (call ? 'Le call est rentable même sans gains implicites.' : 'Sans gains implicites, le call perd de l\'argent. Contre un fish qui paiera ta couleur à la river, la marge se réduit : c\'est le rôle des cotes implicites.'),
-        meta: { eq, need },
+        meta: { eq, need }, ev: { call: eq * (pot + bet) - (1 - eq) * bet, unit: '€' },
+      };
+    }
+    return odds(r);
+  }
+
+
+  // Tapis ou couché : équilibre de Nash tête-à-tête (SB contre BB), en jetons. Noté en perte d'EV.
+  const nashCache = {};
+  const nash = (S) => nashCache[S] || (nashCache[S] = Solver.solveChip(S));
+  function pushfold(r) {
+    const S = pick([3, 4, 5, 6, 7, 8, 10, 12, 15, 18, 20], r), sol = nash(S), sb = r() < 0.6;
+    let cards, i, freq;
+    for (let k = 0; k < 30; k++) {
+      cards = deal(2, r); i = E.ALL169.indexOf(E.abstractOf(cards[0], cards[1])); freq = sb ? sol.push[i] : sol.call[i];
+      const ev = Math.abs(sb ? sol.evPush[i] : sol.evCall[i]);
+      if (freq > 0.05 && freq < 0.95) continue; // mains mixtes : pas de bonne réponse unique
+      if (ev < 0.6 || r() < 0.3) break; // privilégie les décisions serrées
+    }
+    const h = E.ALL169[i], ev = sb ? sol.evPush[i] : sol.evCall[i], yes = freq >= 0.5;
+    return {
+      type: 'pushfold', title: `Tapis ou couché · ${S} bb · tête-à-tête`,
+      prompt: sb ? `Tout le monde s'est couché. Tu es <strong>petite blinde</strong> avec <strong>${h}</strong>, tapis effectif <strong>${S} bb</strong>. Tapis ou couché ?`
+        : `La petite blinde fait tapis (${S} bb effectifs). Tu es <strong>grosse blinde</strong> avec <strong>${h}</strong>. Tu paies ?`,
+      cards, opts: sb ? ['Tapis', 'Se coucher'] : ['Payer', 'Se coucher'], ok: yes ? 0 : 1,
+      why: `Équilibre de Nash à ${S} bb : la SB pousse ${pct(sol.pushPct)} des mains, la BB paie ${pct(sol.callPct)}. ` +
+        `${h} : ${sb ? 'pousser' : 'payer'} ${ev >= 0 ? 'rapporte' : 'coûte'} ${Math.abs(ev).toFixed(2).replace('.', ',')} bb de plus que se coucher. ` +
+        'Valable en Expresso (le gagnant prend tout, donc les jetons valent leur poids en argent) et en cash ; en tournoi près de l\'argent, l\'ICM resserre.',
+      ev: { diff: ev, unit: 'bb' },
+    };
+  }
+
+  // Compter les outs : main du héros et de l'adversaire visibles, flop ou turn.
+  function outsSpot(r) {
+    for (let k = 0; k < 300; k++) {
+      const n = r() < 0.6 ? 3 : 4, board = deal(n, r), hero = deal(2, r, board), vil = deal(2, r, [...board, ...hero]);
+      if (E.evaluate([...hero, ...board]) >= E.evaluate([...vil, ...board])) continue;
+      const o = E.outs(hero, vil, board).length;
+      if (o < 3 || o > 21) continue;
+      const opts = [...new Set([o, o + 2, o - 2, o + 4].filter((x) => x > 0))].slice(0, 4).sort((a, b) => a - b);
+      const left = 52 - 4 - n;
+      return {
+        type: 'outs', title: n === 3 ? 'Outs au flop' : 'Outs au turn',
+        prompt: `Tu es derrière. Combien de cartes te font passer devant à la ${n === 3 ? 'turn' : 'river'} ? (Les cartes de l'adversaire sont connues.)`,
+        cards: hero, board, vil, opts: opts.map(String), ok: opts.indexOf(o),
+        why: `${o} outs sur ${left} cartes inconnues : ${pct(o / left)} à la prochaine carte` + (n === 3 ? `, ${pct(1 - ((left - o) * (left - o - 1)) / (left * (left - 1)))} d'ici la river si tu vois les deux cartes.` : '.') + ' Règle du 2 et 4 : ' + (o * 2) + ' % ' + (n === 3 ? 'puis ' + (o * 4) + ' %.' : '.'),
       };
     }
     return odds(r);
@@ -130,7 +177,7 @@
     return { type: 'situations', title: 'Situation · ' + s.cat, prompt: s.q, opts: s.opts, ok: s.ok, why: s.why, sid: s.id };
   }
 
-  const GEN = { rfi, odds, tirage, meilleure, situations: situation };
+  const GEN = { rfi, odds, tirage, pushfold, outs: outsSpot, meilleure, situations: situation };
   // Mix : favorise les types les moins réussis (stats = { type: { ok, n } }).
   function mix(r, stats = {}) {
     const types = Object.keys(GEN), w = types.map((t) => { const s = stats[t] || { ok: 0, n: 0 }; return 1.5 - (s.ok + 1) / (s.n + 2); });

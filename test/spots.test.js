@@ -31,4 +31,10 @@ t('meilleure main : partage détecté', () => {
   let ties = 0; for (let i = 0; i < 2000; i++) if (S.GEN.meilleure(R).ok === 3) ties++;
   assert(ties > 0);
 });
+t('tapis ou couché : réponse = signe de l\'EV Nash', () => {
+  for (let i = 0; i < 80; i++) { const s = S.GEN.pushfold(R); assert.strictEqual(s.ok === 0, s.ev.diff > 0, s.prompt); }
+});
+t('outs : la bonne option est le décompte exact', () => {
+  for (let i = 0; i < 80; i++) { const s = S.GEN.outs(R); if (s.type !== 'outs') continue; assert.strictEqual(+s.opts[s.ok], E.outs(s.cards, s.vil, s.board).length); }
+});
 console.log(n, 'tests passés');

@@ -1,25 +1,29 @@
-// Interface NUTS : onglets, stockage (db privé par utilisateur, sinon navigateur), vues.
+// Interface SIGMA 52 : onglets, stockage (espace privé de la page, sinon navigateur), vues.
 (function () {
-  const E = window.Engine, C = window.Charts, K = window.Course, S = window.Spots;
+  const E = window.Engine, C = window.Charts, K = window.Course, S = window.Spots, SV = window.Solver, B = window.Board, HH = window.HH, TS = window.TableSim;
   const $ = (s, el = document) => el.querySelector(s);
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const fr = (x, d = 2) => Number(x).toLocaleString('fr-FR', { minimumFractionDigits: d, maximumFractionDigits: d });
   const eur = (x) => (x < 0 ? '−' : '') + fr(Math.abs(x)) + ' €';
+  const sgn = (x, d = 1) => (x < 0 ? '−' : '+') + fr(Math.abs(x), d);
   const pct = (x, d = 0) => fr(x * 100, d) + ' %';
-  const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const today = () => ymd(new Date());
+  const addDays = (n) => ymd(new Date(Date.now() + n * 864e5));
   const rand = Math.random;
 
   // ---------- Stockage ----------
   const DEF = {
-    progress: { stats: {}, streak: 0, best: 0, read: {}, daily: { date: '', done: 0, ok: 0 } },
+    progress: { stats: {}, hist: {}, streak: 0, best: 0, read: {}, daily: { date: '', done: 0, ok: 0 }, review: [] },
     settings: { bankroll0: 0, biRule: 40 },
     journal: { sessions: [] },
+    notes: { opponents: {}, lastImport: null },
   };
   const state = JSON.parse(JSON.stringify(DEF));
   const Store = {
     db: null, uid: null, timers: {}, mode: 'local',
     async init() {
-      for (const k of Object.keys(DEF)) { try { const v = localStorage.getItem('nuts.' + k); if (v) Object.assign(state[k], JSON.parse(v)); } catch (e) { /* stockage indisponible */ } }
+      for (const k of Object.keys(DEF)) { try { const v = localStorage.getItem('sigma52.' + k) || localStorage.getItem('nuts.' + k); if (v) Object.assign(state[k], JSON.parse(v)); } catch (e) { /* stockage indisponible */ } }
       try {
         const [db, user] = await Promise.all([window.claude?.use?.('db'), window.claude?.use?.('user')]);
         const uid = user ? await user.id() : null;
@@ -35,36 +39,44 @@
       setSaveState();
     },
     save(k) {
-      try { localStorage.setItem('nuts.' + k, JSON.stringify(state[k])); } catch (e) { /* ignoré */ }
+      try { localStorage.setItem('sigma52.' + k, JSON.stringify(state[k])); } catch (e) { /* ignoré */ }
       if (!this.db) return;
       clearTimeout(this.timers[k]);
       this.timers[k] = setTimeout(async () => {
         try { await this.db.doc(`data/users/${this.uid}/${k}`).set(JSON.parse(JSON.stringify(state[k]))); setSaveState(); }
         catch (e) { setSaveState('Sauvegarde en ligne impossible : données gardées sur cet appareil'); }
-      }, 500);
+      }, 600);
     },
   };
-  function setSaveState(msg) {
-    $('#saveState').textContent = msg || (Store.mode === 'db' ? '' : 'Données sur cet appareil uniquement');
-  }
+  function setSaveState(msg) { $('#saveState').textContent = msg || (Store.mode === 'db' ? '' : 'Données sur cet appareil uniquement'); }
 
   // ---------- Rendu commun ----------
   const SUITCLS = ['s', 'h', 'd', 'c'];
   const cardHTML = (c, sm) => `<span class="cd ${SUITCLS[c & 3]}${sm ? ' sm' : ''}" aria-label="${E.cardStr(c)}">${E.RANKS[c >> 2].replace('T', '10')}<i>${E.SUIT_SYM[E.SUITS[c & 3]]}</i></span>`;
+  const backHTML = (sm) => `<span class="cd back${sm ? ' sm' : ''}" aria-label="carte cachée"></span>`;
   const cardsHTML = (cs, sm) => `<div class="cards">${cs.map((c) => cardHTML(c, sm)).join('')}</div>`;
   const statOf = (t) => state.progress.stats[t] || { ok: 0, n: 0 };
+  const mastery = (t) => { const h = state.progress.hist[t] || []; return h.length ? h.reduce((a, b) => a + b, 0) / h.length : null; };
   const totalStat = () => Object.values(state.progress.stats).reduce((a, s) => ({ ok: a.ok + s.ok, n: a.n + s.n }), { ok: 0, n: 0 });
+  const dueReviews = () => state.progress.review.filter((r) => r.due <= today());
+  const head = (title, lead) => `<section style="display:grid;gap:8px"><h1>${title}</h1>${lead ? `<p class="lead">${lead}</p>` : ''}</section>`;
+  // Couleur de chaleur pour les grilles (fréquence 0..1) : du fond vers le bordeaux.
+  const heat = (f) => (f <= 0.001 ? '' : `style="background:color-mix(in srgb, var(--accent) ${Math.round(25 + 75 * f)}%, var(--sunk));color:${f >= 0.5 ? 'var(--accent-ink)' : 'var(--ink)'}"`);
+  function grid169(cellFn) {
+    const cells = []; for (let i = 0; i < 13; i++) for (let j = 0; j < 13; j++) { const h = E.handName(i, j); cells.push(cellFn(h, E.ALL169.indexOf(h))); }
+    return `<div class="rgrid" role="group" aria-label="Grille des 169 mains">${cells.join('')}</div>`;
+  }
 
-  const TABS = [['jour', 'Aujourd\'hui'], ['cours', 'Cours A-Z'], ['spots', 'Spots'], ['equite', 'Équité'], ['ranges', 'Ranges'], ['journal', 'Journal']];
+  const TABS = [['jour', 'Aujourd\'hui'], ['cours', 'Cours'], ['spots', 'Spots'], ['table', 'Table'], ['outils', 'Outils'], ['analyse', 'Analyse'], ['journal', 'Journal']];
   let tab = (location.hash || '').slice(1);
   if (!TABS.some(([k]) => k === tab)) tab = 'jour';
   function go(t) { tab = t; try { history.replaceState(null, '', '#' + t); } catch (e) { /* ignoré */ } render(); window.scrollTo(0, 0); }
   function renderTabs() {
-    $('#tabs').innerHTML = TABS.map(([k, l]) => `<button class="tab" role="tab" aria-selected="${k === tab}" data-tab="${k}">${l}</button>`).join('');
+    const due = dueReviews().length;
+    $('#tabs').innerHTML = TABS.map(([k, l]) => `<button class="tab" role="tab" aria-selected="${k === tab}" data-tab="${k}">${l}${k === 'spots' && due ? `<span class="badge">${due}</span>` : ''}</button>`).join('');
   }
-  const VIEWS = {};
+  const VIEWS = {}, AFTER = {};
   function render() { renderTabs(); $('#view').innerHTML = VIEWS[tab](); AFTER[tab]?.(); }
-  const AFTER = {};
 
   // ---------- Bankroll ----------
   const bbOf = (stake) => { const m = /^NL\s*(\d+)$/i.exec(stake || ''); return m ? +m[1] / 100 : null; };
@@ -74,8 +86,7 @@
     const total = ss.reduce((a, s) => a + s.result, 0), mins = ss.reduce((a, s) => a + (s.minutes || 0), 0);
     let bbWon = 0, hands = 0;
     ss.forEach((s) => { const bb = bbOf(s.stake); if (s.format === 'Cash' && bb && s.hands) { bbWon += s.result / bb; hands += s.hands; } });
-    const wr = hands ? bbWon / hands * 100 : null, ci = hands ? 1.96 * 90 / Math.sqrt(hands / 100) : null;
-    const sd = new Date(Date.now() - 30 * 864e5), since = `${sd.getFullYear()}-${String(sd.getMonth() + 1).padStart(2, '0')}-${String(sd.getDate()).padStart(2, '0')}`;
+    const wr = hands ? bbWon / hands * 100 : null, ci = hands ? 1.96 * 90 / Math.sqrt(hands / 100) : null, since = addDays(-30);
     return { ss, total, mins, bank: (+state.settings.bankroll0 || 0) + total, wr, ci, hands, last30: ss.filter((s) => s.date >= since).reduce((a, s) => a + s.result, 0) };
   }
   function maxStake(bank) { const ok = [2, 5, 10, 25, 50, 100, 200].filter((x) => x * (+state.settings.biRule || 40) <= bank); return ok.length ? 'NL' + ok[ok.length - 1] : null; }
@@ -83,36 +94,41 @@
   // ---------- Aujourd'hui ----------
   VIEWS.jour = () => {
     const js = journalStats(), ts = totalStat(), d = state.progress.daily.date === today() ? state.progress.daily : { done: 0, ok: 0 };
-    const nextMod = K.MODULES.find((m) => !state.progress.read[m.id]);
-    const read = K.MODULES.filter((m) => state.progress.read[m.id]).length;
-    const ms = maxStake(js.bank);
-    return `
-    <section style="display:grid;gap:8px"><span class="eyebrow">${new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
-      <h1>Ta séance d'aujourd'hui</h1>
-      <p class="lead">10 spots, un module, puis la checklist avant de jouer. Tout se fait hors table.</p></section>
-    <div class="warnbox"><strong>Règle de fair-play.</strong> Ferme cette page avant d'ouvrir une table et ne la rouvre qu'après la session. Une aide consultée pendant une main est sanctionnée par les rooms (fermeture du compte, solde confisqué).</div>
+    const nextMod = K.MODULES.find((m) => !state.progress.read[m.id]), read = K.MODULES.filter((m) => state.progress.read[m.id]).length;
+    const ms = maxStake(js.bank), due = dueReviews().length, li = state.notes.lastImport;
+    return `<section style="display:grid;gap:8px"><span class="eyebrow">${new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
+      <h1>Ta séance d'aujourd'hui</h1><p class="lead">Révisions, 10 spots, un module, une session à la table d'entraînement. Puis la checklist avant de jouer en room.</p></section>
+    <div class="warnbox"><strong>Fair-play.</strong> SIGMA 52 se ferme avant d'ouvrir une table et ne se rouvre qu'après la session. Toute aide consultée pendant une main est sanctionnée par les rooms : fermeture du compte et solde confisqué.</div>
     <div class="stats">
-      <div class="stat"><span>Spots réussis</span><b>${ts.n ? pct(ts.ok / ts.n) : '—'}</b><span>${ts.n} réponses</span></div>
-      <div class="stat"><span>Série en cours</span><b>${state.progress.streak}</b><span>record ${state.progress.best}</span></div>
+      <div class="stat hero"><span>Spots réussis</span><b>${ts.n ? pct(ts.ok / ts.n) : '—'}</b><span>${ts.n} réponses · série ${state.progress.streak}</span></div>
+      <div class="stat"><span>Révisions dues</span><b>${due}</b><span>${state.progress.review.length} erreurs suivies</span></div>
       <div class="stat"><span>Cours lu</span><b>${read}/${K.MODULES.length}</b><span>modules</span></div>
       <div class="stat"><span>Bankroll</span><b>${state.settings.bankroll0 || js.ss.length ? eur(js.bank) : '—'}</b><span>${js.ss.length ? '30 j : ' + eur(js.last30) : 'à renseigner dans Journal'}</span></div>
     </div>
-    <div class="grid2">
-      <section class="panel"><span class="eyebrow">Entraînement du jour</span><h2>${d.done >= 10 ? 'Fait : ' + d.ok + '/10' : d.done + '/10 spots'}</h2>
+    <div class="grid3">
+      <section class="panel"><span class="eyebrow">1 · Révisions</span><h2>${due ? due + ' erreur' + (due > 1 ? 's' : '') + ' à revoir' : 'Rien à revoir'}</h2>
+        <p class="note">Chaque erreur revient après 1, 3, 7 puis 18 jours, jusqu'à ce que tu la réussisses.</p>
+        <div class="row"><button class="btn${due ? ' primary' : ''}" data-act="review" ${due ? '' : 'disabled'}>Réviser</button></div></section>
+      <section class="panel"><span class="eyebrow">2 · Entraînement du jour</span><h2>${d.done >= 10 ? 'Fait : ' + d.ok + '/10' : d.done + '/10 spots'}</h2>
         <div class="meter"><i style="width:${Math.min(100, d.done * 10)}%"></i></div>
-        <p class="note">Le mix choisit plus souvent les types où tu te trompes le plus.</p>
+        <p class="note">Le mix tire plus souvent tes types de spots les plus faibles.</p>
         <div class="row"><button class="btn primary" data-act="daily">${d.done ? 'Continuer' : 'Commencer'}</button></div></section>
-      <section class="panel"><span class="eyebrow">Cours</span><h2>${nextMod ? esc(nextMod.title) : 'Cours terminé'}</h2>
-        <p class="note">${nextMod ? 'Lecture : ' + nextMod.minutes + ' min. Puis l\'exercice lié.' : 'Relis les modules où tes spots sont les plus faibles.'}</p>
-        <div class="row"><button class="btn" data-act="openmod" data-id="${nextMod ? nextMod.id : K.MODULES[0].id}">${nextMod ? 'Lire' : 'Revoir le cours'}</button></div></section>
+      <section class="panel"><span class="eyebrow">3 · Cours</span><h2>${nextMod ? esc(nextMod.title) : 'Cours terminé'}</h2>
+        <p class="note">${nextMod ? nextMod.minutes + ' min de lecture, puis l\'exercice lié.' : 'Relis les modules liés à tes spots faibles.'}</p>
+        <div class="row"><button class="btn" data-act="openmod" data-id="${nextMod ? nextMod.id : K.MODULES[0].id}">${nextMod ? 'Lire' : 'Revoir'}</button></div></section>
     </div>
-    <section class="panel"><span class="eyebrow">Points faibles</span><h2>Réussite par type de spot</h2>
-      ${Object.entries(S.TYPES).map(([k, l]) => { const s = statOf(k), r = s.n ? s.ok / s.n : 0; return `<div class="typerow"><span>${l}</span><div class="meter"><i style="width:${r * 100}%"></i></div><span class="mono">${s.n ? pct(r) : '—'}</span></div>`; }).join('')}
-      <p class="note">Objectif avant de jouer en argent réel : 90 % en Ouverture et en Cotes du pot.</p></section>
-    <section class="panel"><span class="eyebrow">Avant de lancer une session</span><h2>Checklist anti-tilt</h2>
-      ${['Je suis reposé, calme, sans perte récente qui me travaille.', 'J\'ai fait mes 10 spots du jour.', ms ? `Ma bankroll permet la limite que je vais jouer (maximum : ${ms}).` : 'Ma bankroll permet la limite que je vais jouer (renseigne-la dans Journal).', 'Mon stop-loss est fixé : 3 caves perdues, j\'arrête.', 'NUTS sera fermé pendant toute la session.']
+    <div class="grid2">
+      <section class="panel"><span class="eyebrow">Maîtrise</span><h2>Tes 30 dernières réponses par type</h2>
+        ${Object.entries(S.TYPES).map(([k, l]) => { const m = mastery(k); return `<div class="typerow"><span>${l}</span><div class="meter"><i style="width:${(m || 0) * 100}%;background:var(${m === null ? '--muted' : m >= 0.9 ? '--good' : m >= 0.7 ? '--accent' : '--bad'})"></i></div><span class="mono">${m === null ? '—' : pct(m)}</span></div>`; }).join('')}
+        <p class="note">Seuil avant de jouer en argent réel : 90 % en Ouverture, Cotes du pot et Tapis ou couché.</p></section>
+      <section class="panel"><span class="eyebrow">Dernière analyse</span>${li ? `<h2>${li.hands} mains · ${sgn(li.bb100)} bb/100</h2>
+        <p class="note">Du ${esc(li.from || '?')} au ${esc(li.to || '?')} · EV des all-in : ${sgn(li.ev100)} bb/100 · ${li.leaks} fuites préflop repérées.</p>` : '<h2>Aucun historique importé</h2><p class="note">Après une session, colle tes historiques dans Analyse : fuites préflop, chance aux all-in, profil de chaque adversaire.</p>'}
+        <div class="row"><button class="btn" data-tab="analyse">Ouvrir Analyse</button><button class="btn" data-tab="table">Table d'entraînement</button></div></section>
+    </div>
+    <section class="panel"><span class="eyebrow">Avant de lancer une session en room</span><h2>Checklist anti-tilt</h2>
+      ${['Je suis reposé, calme, sans perte récente qui me travaille.', 'J\'ai fait mes révisions et mes 10 spots du jour.', ms ? `Ma bankroll permet la limite que je vais jouer (maximum : ${ms}).` : 'Ma bankroll permet la limite que je vais jouer (renseigne-la dans Journal).', 'Mon stop-loss est fixé : 3 caves perdues, j\'arrête.', 'SIGMA 52 sera fermé pendant toute la session.']
         .map((t, i) => `<label class="check"><input type="checkbox" id="ck${i}" data-act="check"><span>${t}</span></label>`).join('')}
-      <p id="ckDone" class="pill good" hidden>Prêt. Ferme NUTS, ouvre la room, une seule chose à travailler.</p></section>`;
+      <p id="ckDone" class="pill good" hidden>Prêt. Ferme SIGMA 52, ouvre la room, une seule chose à travailler.</p></section>`;
   };
 
   // ---------- Cours ----------
@@ -121,67 +137,135 @@
     if (openMod) {
       const m = K.MODULES.find((x) => x.id === openMod), i = K.MODULES.indexOf(m), nxt = K.MODULES[i + 1];
       return `<div class="row"><button class="btn small" data-act="closemod">← Tous les modules</button><span class="eyebrow">Module ${i + 1} sur ${K.MODULES.length} · ${m.minutes} min</span></div>
-      <article class="panel prose"><h1>${esc(m.title)}</h1>
-        ${m.sections.map(([h, html]) => `<section><h2>${h}</h2><div class="prose tw">${html}</div></section>`).join('')}</article>
+      <article class="panel prose"><h1>${esc(m.title)}</h1>${m.sections.map(([h, html]) => `<section><h2>${h}</h2><div class="prose tw">${html}</div></section>`).join('')}</article>
       <div class="row"><button class="btn primary" data-act="readmod" data-id="${m.id}">${state.progress.read[m.id] ? 'Lu ✓' : 'Marquer comme lu'}</button>
         <button class="btn" data-act="drill" data-type="${m.drill}">S'entraîner : ${S.TYPES[m.drill]}</button>
         ${nxt ? `<button class="btn" data-act="openmod" data-id="${nxt.id}">Module suivant →</button>` : ''}</div>`;
     }
-    return `<section style="display:grid;gap:8px"><h1>Cours A-Z</h1><p class="lead">Dans l'ordre. Chaque module se termine par un exercice dans Spots. Total : ${K.MODULES.reduce((a, m) => a + m.minutes, 0)} minutes de lecture.</p></section>
-      <div class="modlist">${K.MODULES.map((m, i) => `<button class="mod${state.progress.read[m.id] ? ' done' : ''}" data-act="openmod" data-id="${m.id}"><span class="n">${state.progress.read[m.id] ? '✓' : String(i + 1).padStart(2, '0')}</span><span><h3>${esc(m.title)}</h3><span class="note">${m.sections.map((s) => s[0]).join(' · ')}</span></span><span class="note mono">${m.minutes} min</span></button>`).join('')}</div>`;
+    return head('Cours A-Z', `Dans l'ordre. Chaque module se termine par un exercice dans Spots. ${K.MODULES.reduce((a, m) => a + m.minutes, 0)} minutes de lecture au total.`) +
+      `<div class="modlist">${K.MODULES.map((m, i) => `<button class="mod${state.progress.read[m.id] ? ' done' : ''}" data-act="openmod" data-id="${m.id}"><span class="n">${state.progress.read[m.id] ? '✓' : String(i + 1).padStart(2, '0')}</span><span><h3>${esc(m.title)}</h3><span class="note">${m.sections.map((s) => s[0]).join(' · ')}</span></span><span class="note mono">${m.minutes} min</span></button>`).join('')}</div>`;
   };
   AFTER.cours = () => {
-    const tb = $('#rfi-pct'); if (tb) tb.innerHTML = C.POS.map((p) => `<tr><td>${C.RFI[p].label}</td><td>${fr(E.rangePct(E.parseRange(C.RFI[p].range)), 0)} %</td></tr>`).join('') + '<tr><td>BB</td><td>Défend selon l\'ouverture adverse</td></tr>';
+    const tb0 = $('#rfi-pct'); if (tb0) tb0.innerHTML = C.POS.map((p) => `<tr><td>${C.RFI[p].label}</td><td>${fr(E.rangePct(E.parseRange(C.RFI[p].range)), 0)} %</td></tr>`).join('') + '<tr><td>BB</td><td>Défend selon l\'ouverture adverse</td></tr>';
   };
 
   // ---------- Spots ----------
-  let spotMode = 'mix', sitCat = '', spot = null, answered = null, daily = false;
+  let spotMode = 'mix', sitCat = '', spot = null, answered = null, daily = false, reviewItem = null;
+  const spotKey = (s) => s.type + ':' + (s.sid || s.prompt.replace(/<[^>]+>/g, '') + (s.cards || []).join('-') + (s.board || []).join('-'));
   function newSpot() {
+    answered = null; reviewItem = null;
+    if (spotMode === 'review') {
+      const due = dueReviews(); if (!due.length) { spotMode = 'mix'; return newSpot(); }
+      reviewItem = due[0]; spot = reviewItem.spot; return;
+    }
     spot = spotMode === 'mix' ? S.mix(rand, state.progress.stats) : spotMode === 'situations' ? S.GEN.situations(rand, sitCat) : S.GEN[spotMode](rand);
-    answered = null;
   }
   function answer(i) {
     if (answered !== null || !spot) return;
     answered = i;
-    const ok = Array.isArray(spot.ok) ? spot.ok.includes(i) : spot.ok === i, p = state.progress;
+    const ok = spot.ok === i, p = state.progress;
     const st = p.stats[spot.type] || (p.stats[spot.type] = { ok: 0, n: 0 });
     st.n++; if (ok) st.ok++;
+    const h = p.hist[spot.type] || (p.hist[spot.type] = []); h.push(ok ? 1 : 0); if (h.length > 30) h.shift();
     p.streak = ok ? p.streak + 1 : 0; p.best = Math.max(p.best, p.streak);
     if (daily) { if (p.daily.date !== today()) p.daily = { date: today(), done: 0, ok: 0 }; p.daily.done++; if (ok) p.daily.ok++; if (p.daily.done >= 10) daily = false; }
+    // Répétition espacée : une erreur entre dans la file ; une réussite en révision espace la suivante (1, 3, 7, 18, 45 jours).
+    const key = spotKey(spot), idx = p.review.findIndex((r) => r.key === key);
+    if (!ok) { const item = { key, spot: JSON.parse(JSON.stringify(spot)), iv: 1, due: addDays(1) }; if (idx >= 0) p.review[idx] = item; else p.review.push(item); if (p.review.length > 150) p.review.shift(); }
+    else if (idx >= 0) { const r = p.review[idx]; r.iv = r.iv === 1 ? 3 : Math.round(r.iv * 2.5); r.due = addDays(r.iv); if (r.iv > 40) p.review.splice(idx, 1); }
     Store.save('progress'); render();
   }
   VIEWS.spots = () => {
     if (!spot) newSpot();
-    const cats = [...new Set(K.SITUATIONS.map((s) => s.cat))];
-    const ok = answered !== null && (spot.ok === answered);
-    const st = statOf(spot.type), d = state.progress.daily;
+    const cats = [...new Set(K.SITUATIONS.map((s) => s.cat))], ok = answered !== null && spot.ok === answered;
+    const st = statOf(spot.type), d = state.progress.daily, due = dueReviews().length;
     const visual = spot.hands
       ? `<div class="felt"><span class="eyebrow">Board</span>${cardsHTML(spot.board)}${spot.hands.map((h, i) => `<div class="row"><span class="mono" style="width:80px">Joueur ${i + 1}</span>${cardsHTML(h, true)}</div>`).join('')}</div>`
-      : spot.cards || spot.board ? `<div class="felt">${spot.board ? `<span class="eyebrow">Board</span>${cardsHTML(spot.board)}` : ''}${spot.cards ? `<span class="eyebrow">Ta main</span>${cardsHTML(spot.cards)}` : ''}</div>` : '';
-    return `<section style="display:grid;gap:8px"><h1>Spots</h1><p class="lead">Une décision, une correction immédiate. Raccourcis : touches 1 à 4 pour répondre, Entrée pour la suite.</p></section>
-      <div class="row" role="group" aria-label="Type de spot">${[['mix', 'Mix'], ...Object.entries(S.TYPES)].map(([k, l]) => `<button class="chip" aria-pressed="${spotMode === k}" data-act="mode" data-mode="${k}">${l}</button>`).join('')}</div>
-      ${spotMode === 'situations' ? `<label class="f" style="max-width:260px">Catégorie<select id="sitcat" data-act="sitcat"><option value="">Toutes</option>${cats.map((c) => `<option ${c === sitCat ? 'selected' : ''}>${c}</option>`).join('')}</select></label>` : ''}
-      ${daily ? `<div class="row"><span class="pill">Entraînement du jour · ${d.date === today() ? d.done : 0}/10</span></div>` : ''}
+      : spot.cards || spot.board ? `<div class="felt">${spot.board ? `<span class="eyebrow">Board</span>${cardsHTML(spot.board)}` : ''}${spot.cards ? `<span class="eyebrow">Ta main</span>${cardsHTML(spot.cards)}` : ''}${spot.vil ? `<span class="eyebrow">Adversaire</span>${cardsHTML(spot.vil, true)}` : ''}</div>` : '';
+    let evLine = '';
+    if (answered !== null && spot.ev) {
+      if (spot.ev.unit === 'bb') evLine = ok ? `<span class="pill good">Meilleure décision · écart ${fr(Math.abs(spot.ev.diff), 2)} bb</span>` : `<span class="pill bad">Perte d'EV : ${fr(Math.abs(spot.ev.diff), 2)} bb</span>`;
+      else if (spot.ev.call !== undefined) evLine = `<span class="pill ${spot.ev.call >= 0 ? 'good' : 'bad'}">EV du call : ${spot.ev.call >= 0 ? '+' : '−'}${fr(Math.abs(spot.ev.call))} €</span>`;
+    }
+    return head('Spots', 'Une décision, une correction immédiate, chiffrée en EV quand c\'est calculable. Touches 1 à 4 pour répondre, Entrée pour la suite.') +
+      `<div class="row" role="group" aria-label="Type de spot">${[['mix', 'Mix'], ...Object.entries(S.TYPES)].map(([k, l]) => `<button class="chip" aria-pressed="${spotMode === k}" data-act="mode" data-mode="${k}">${l}</button>`).join('')}
+        <button class="chip" aria-pressed="${spotMode === 'review'}" data-act="mode" data-mode="review" ${due ? '' : 'disabled'}>Révisions (${due})</button></div>
+      ${spotMode === 'situations' ? `<label class="f" style="max-width:260px">Catégorie<select id="sitcat"><option value="">Toutes</option>${cats.map((c) => `<option ${c === sitCat ? 'selected' : ''}>${c}</option>`).join('')}</select></label>` : ''}
+      ${daily ? `<div class="row"><span class="pill acc">Entraînement du jour · ${d.date === today() ? d.done : 0}/10</span></div>` : ''}
+      ${reviewItem ? `<div class="row"><span class="pill acc">Révision · intervalle actuel ${reviewItem.iv} j</span></div>` : ''}
       <section class="panel"><div class="row" style="justify-content:space-between"><span class="eyebrow">${esc(spot.title)}</span><span class="note mono">${st.n ? pct(st.ok / st.n) + ' sur ' + st.n : 'premier essai'} · série ${state.progress.streak}</span></div>
         <p style="font-size:17px">${spot.prompt}</p>${visual}
         <div class="opts">${spot.opts.map((o, i) => `<button class="opt${answered !== null && i === spot.ok ? ' ok' : ''}${answered === i && i !== spot.ok ? ' ko' : ''}" data-act="ans" data-i="${i}" ${answered !== null ? 'disabled' : ''}><span class="mono note">${i + 1}</span> ${esc(o)}</button>`).join('')}</div>
-        ${answered !== null ? `<div class="verdict ${ok ? 'good' : 'bad'}"><b>${ok ? 'Juste.' : 'Non : ' + esc(spot.opts[spot.ok]) + '.'}</b>${esc(spot.why)}</div>
-        <div class="row"><button class="btn primary" data-act="next" id="nextBtn">Spot suivant</button>${spot.type === 'tirage' || spot.type === 'meilleure' ? '<button class="btn" data-act="toEq">Analyser dans Équité</button>' : ''}</div>` : ''}
+        ${answered !== null ? `<div class="verdict ${ok ? 'good' : 'bad'}"><b>${ok ? 'Juste.' : 'Non : ' + esc(spot.opts[spot.ok]) + '.'}</b>${evLine ? `<div>${evLine}</div>` : ''}<span>${esc(spot.why)}</span>${!ok ? '<span class="note">Ajouté à tes révisions : il revient demain.</span>' : ''}</div>
+        <div class="row"><button class="btn primary" data-act="next">Spot suivant</button>${['tirage', 'meilleure', 'outs'].includes(spot.type) ? '<button class="btn" data-act="toEq">Analyser dans Équité</button>' : ''}${spot.type === 'pushfold' ? '<button class="btn" data-act="toPF">Voir le tableau Nash</button>' : ''}</div>` : ''}
       </section>`;
   };
-  document.addEventListener('keydown', (e) => {
-    if (tab !== 'spots' || e.target.closest('input,select,textarea')) return;
-    if (/^[1-4]$/.test(e.key) && answered === null && spot && +e.key <= spot.opts.length) answer(+e.key - 1);
-    else if (e.key === 'Enter' && answered !== null) { newSpot(); render(); }
-  });
 
-  // ---------- Équité ----------
+  // ---------- Table d'entraînement ----------
+  const LINEUPS = { equilibree: ['station', 'reg', 'maniaque', 'station', 'nit'], fish: ['station', 'station', 'reg', 'station', 'maniaque'], regs: ['reg', 'reg', 'nit', 'reg', 'maniaque'] };
+  let tb = null, lineup = 'equilibree', showHelp = false, showProfiles = false, raiseTo = null;
+  function startTable() { tb = new TS.Table({ lineup: LINEUPS[lineup] }); tb.newHand(); tb.runBots(); raiseTo = null; }
+  function heroAct(type, to) { if (!tb || tb.done || tb.toAct !== 0) return; tb.act(type, to); tb.runBots(); raiseTo = null; render(); }
+  const bbs = (x) => fr(x / tb.bb, 1);
+  VIEWS.table = () => {
+    if (!tb) startTable();
+    const hero = tb.players[0], L = !tb.done && tb.toAct === 0 ? tb.legal() : null;
+    const seat = (i) => {
+      const p = tb.players[i], showCards = i === 0 || (tb.done && p.inHand && tb.alive().length > 1);
+      const last = p.acts.length ? p.acts[p.acts.length - 1] : null, lastTxt = last ? { fold: 'Couché', check: 'Parole', call: 'Suit', raise: 'Mise / relance' }[last.final] : '';
+      return `<div class="seat${tb.toAct === i && !tb.done ? ' turn' : ''}${p.inHand ? '' : ' out'}" style="grid-area:s${i}">${tb.button === i ? '<span class="dealer">D</span>' : ''}
+        <span class="nm">${esc(p.name)}</span><span class="pf">${p.profile && showProfiles ? TS.PROFILES[p.profile].label : TS.posName(tb, i)}</span>
+        <div class="cards">${p.inHand || showCards ? (showCards ? p.cards.map((c) => cardHTML(c, true)).join('') : backHTML(true) + backHTML(true)) : ''}</div>
+        <span class="stk">${bbs(p.stack)} bb${p.allin ? ' · tapis' : ''}</span>${p.put > 0 && !tb.done ? `<span class="bet">${bbs(p.put)}</span>` : ''}<span class="last">${lastTxt}</span></div>`;
+    };
+    let actions = '';
+    if (L) {
+      const pot = L.pot, sizes = tb.street === 'pre'
+        ? [['2,5 bb', tb.bb * 2.5], ['3 bb', tb.bb * 3], ['Isoler', tb.bb * (3.5 + tb.limpers())], ['3 × la relance', tb.cur * 3]].filter(([, v]) => v > tb.cur + 1e-9)
+        : [['⅓ pot', pot / 3], ['½ pot', pot / 2], ['¾ pot', pot * 0.75], ['Pot', pot]].map(([l, v]) => [l, tb.cur + Math.max(v, tb.minRaise)]);
+      const valid = sizes.filter(([, v]) => v >= L.minTo - 1e-9 && v < L.maxTo).slice(0, 4), canRaise = L.maxTo > tb.cur + 1e-9;
+      actions = `<div class="actions">${L.canCheck ? '' : '<button class="btn" data-act="hfold">Se coucher <span class="note">F</span></button>'}
+        <button class="btn primary" data-act="hcall">${L.canCheck ? 'Parole' : 'Suivre ' + bbs(L.toCall) + ' bb'} <span style="opacity:.7">C</span></button>
+        ${canRaise ? valid.map(([l, v]) => `<button class="btn" data-act="hraise" data-to="${v}">${l} · ${bbs(v)}</button>`).join('') + `<button class="btn" data-act="hraise" data-to="${L.maxTo}">Tapis ${bbs(L.maxTo)}</button>` : ''}</div>
+        ${canRaise ? `<div class="row"><label class="f" style="flex:1;min-width:200px">Montant libre : <span class="mono" id="rtv">${bbs(raiseTo || L.minTo)} bb</span><input type="range" id="rto" min="${L.minTo}" max="${L.maxTo}" step="${tb.bb / 2}" value="${raiseTo || L.minTo}"></label><button class="btn" data-act="hraisefree">Miser ce montant</button></div>` : ''}`;
+      if (showHelp) { const H = tb.heroHelp(); actions += `<p class="note">Aide du simulateur : équité contre ${tb.alive().length - 1} main(s) au hasard ${pct(H.eqRandom, 1)}${H.toCall > 0 ? ` · équité requise ${pct(H.need, 1)}` : ''}. Contre de vraies ranges, ton équité est plus basse.</p>`; }
+    }
+    let debrief = '';
+    if (tb.done && tb.notes) {
+      const n = tb.notes;
+      debrief = `<section class="panel"><div class="row" style="justify-content:space-between"><h2>Débrief : ${n.net >= 0 ? '+' : '−'}${fr(Math.abs(n.net), 1)} bb</h2><button class="btn primary" data-act="nexthand">Main suivante <span style="opacity:.7">Entrée</span></button></div>
+        <div class="advice">${n.advice.length ? n.advice.map((a) => `<div class="${a.k}">${esc(a.t)}</div>`).join('') : '<div>Rien à signaler sur cette main.</div>'}</div>
+        ${n.reveal.length ? `<div class="tw"><table class="t"><thead><tr><th>Joueur</th><th>Profil</th><th>Cartes</th><th class="n">Résultat</th></tr></thead><tbody>${n.reveal.map((r) => `<tr><td>${esc(r.name)}</td><td>${TS.PROFILES[r.profile].label}</td><td>${cardsHTML(r.cards, true)}</td><td class="n">${sgn(r.net / tb.bb)} bb</td></tr>`).join('')}</tbody></table></div>` : ''}</section>`;
+    }
+    return head('Table d\'entraînement', 'Cash 6-max, 100 bb, contre des bots qui jouent comme les profils réels. C\'est un simulateur : l\'aide y est permise. Tes mains s\'exportent vers Analyse.') +
+      `<div class="row"><span class="note">Table :</span>${Object.entries({ equilibree: 'Équilibrée', fish: 'Riche en fish', regs: 'Réguliers' }).map(([k, l]) => `<button class="chip" aria-pressed="${lineup === k}" data-act="lineup" data-l="${k}">${l}</button>`).join('')}
+        <label class="check"><input type="checkbox" id="showprof" data-act="showprof" ${showProfiles ? 'checked' : ''}><span class="note">Profils visibles</span></label>
+        <label class="check"><input type="checkbox" id="showhelp" data-act="showhelp" ${showHelp ? 'checked' : ''}><span class="note">Aide</span></label></div>
+      <div class="pokertable">${[0, 1, 2, 3, 4, 5].map(seat).join('')}
+        <div class="mid">${tb.board.length ? cardsHTML(tb.board) : '<span style="opacity:.7">Préflop</span>'}<span class="pot">Pot ${bbs(tb.pot)} bb</span></div></div>
+      ${L ? `<section class="panel"><span class="eyebrow">À toi · ${TS.posName(tb, 0)} · ${E.abstractOf(hero.cards[0], hero.cards[1])}</span>${actions}</section>` : ''}
+      ${debrief}
+      <div class="stats"><div class="stat hero"><span>Session</span><b>${sgn(tb.session.net, 1)} bb</b><span>${tb.session.hands} mains</span></div>
+        <div class="stat"><span>Winrate session</span><b>${tb.session.hands ? sgn(tb.session.net / tb.session.hands * 100, 0) : '—'}</b><span>bb/100 · sur peu de mains, surtout de la variance</span></div>
+        <div class="stat"><span>Historique</span><b>${tb.history.length}</b><span>mains exportables</span></div></div>
+      <div class="row"><button class="btn" data-act="tb2an" ${tb.history.length ? '' : 'disabled'}>Analyser ces mains</button><button class="btn" data-act="newtable">Nouvelle table</button></div>
+      <details class="panel"><summary class="note">Historique de la main (format Winamax)</summary><pre class="hh">${esc(tb.lines.join('\n'))}</pre></details>`;
+  };
+
+  // ---------- Outils ----------
+  let tool = 'equite';
+  const TOOLS = [['equite', 'Équité'], ['board', 'Board'], ['pushfold', 'Push/Fold & ICM'], ['ranges', 'Ranges']];
+  const TOOLVIEWS = {};
+  VIEWS.outils = () => head('Outils', 'Pour étudier hors session : équité exacte, lecture de board, solveur tapis/couché avec ICM, ranges d\'ouverture.') +
+    `<div class="subtabs" role="tablist">${TOOLS.map(([k, l]) => `<button class="chip" aria-pressed="${tool === k}" data-act="tool" data-t="${k}">${l}</button>`).join('')}</div>` + TOOLVIEWS[tool]();
+
+  // Équité
   const eqIn = { p: ['AhKh', 'QcQs', '', ''], board: '2h7hJd' };
   let eqOut = null;
   function parsePlayer(s) {
     s = (s || '').trim(); if (!s) return null;
     if (/^([2-9TJQKA][shdc]){2}$/i.test(s.replace(/\s/g, ''))) return { hand: E.parseCards(s), label: s };
-    return { combos: E.rangeCombos(s), label: s };
+    return { combos: E.rangeCombos(s), label: s, set: E.parseRange(s) };
   }
   function runEquity() {
     try {
@@ -191,60 +275,182 @@
       if (board.length > 5 || board.length === 1 || board.length === 2) throw new Error('Le board fait 0, 3, 4 ou 5 cartes.');
       const all = [...board, ...ps.flatMap((p) => p.hand || [])];
       if (new Set(all).size !== all.length) throw new Error('Une carte apparaît deux fois.');
-      const t0 = performance.now(), r = E.equity(ps, board, { iterations: 60000 });
-      let outs = null;
+      const t0 = performance.now(), r = E.equity(ps, board, { iterations: 80000 });
+      let outs = null, matrix = null;
       if (ps.length === 2 && ps[0].hand && ps[1].hand && (board.length === 3 || board.length === 4)) outs = E.outs(ps[0].hand, ps[1].hand, board);
-      eqOut = { ps, r, ms: performance.now() - t0, outs, board };
+      if (ps.length === 2 && !board.length && (ps[0].set || ps[1].set)) {
+        const f = (p) => SV.setToFreq(p.set || new Set([E.abstractOf(p.hand[0], p.hand[1])]));
+        matrix = SV.rangeVsRange(f(ps[0]), f(ps[1]));
+      }
+      eqOut = { ps, r, ms: performance.now() - t0, outs, board, matrix };
     } catch (e) { eqOut = { err: e.message }; }
   }
-  VIEWS.equite = () => {
+  const EQEX = [['AA contre KK', ['AsAh', 'KdKc', '', ''], ''], ['Tirage couleur contre top paire', ['AhKh', 'QcQs', '', ''], '2h7hJd'], ['AK contre une range de 3-bet', ['AdKc', 'QQ+, AK', '', ''], ''], ['Ouverture UTG contre BTN', [C.RFI.UTG.range, C.RFI.BTN.range, '', ''], ''], ['Paire de 5 contre 3 joueurs', ['5s5c', 'random', 'random', 'random'], '']];
+  TOOLVIEWS.equite = () => {
     if (!eqOut) runEquity();
-    const ex = [['AA contre KK', ['AsAh', 'KdKc', '', ''], ''], ['Tirage couleur contre top paire', ['AhKh', 'QcQs', '', ''], '2h7hJd'], ['AK contre une range de 3-bet', ['AdKc', 'QQ+, AK', '', ''], ''], ['Paire de 5 contre 3 joueurs', ['5s5c', 'random', 'random', 'random'], '']];
     let res = '';
-    if (eqOut?.err) res = `<p class="pill bad">${esc(eqOut.err)}</p>`;
+    if (eqOut?.err) res = `<p class="pill bad" style="white-space:normal">${esc(eqOut.err)}</p>`;
     else if (eqOut) {
-      res = eqOut.ps.map((p, i) => `<div class="eqrow"><div style="display:grid;gap:4px;min-width:0"><span class="note">Joueur ${p.idx + 1} · ${p.hand ? '' : 'range ' + E.rangePct(E.parseRange(p.label)).toFixed(1).replace('.', ',') + ' % · '}${esc(p.label)}</span><div class="eqbar"><i style="width:${eqOut.r.equity[i] * 100}%"></i></div></div><b class="mono" style="font-size:18px;text-align:right">${pct(eqOut.r.equity[i], 1)}</b></div>`).join('')
-        + `<p class="note">${eqOut.r.exact ? 'Calcul exact' : 'Monte-Carlo'} sur ${eqOut.r.n.toLocaleString('fr-FR')} ${eqOut.r.exact ? 'tirages' : 'simulations'} en ${Math.round(eqOut.ms)} ms. Égalités : ${eqOut.r.tie.map((x) => pct(x, 1)).join(' / ')}.</p>`
-        + (eqOut.outs ? `<div class="felt"><span class="eyebrow">Outs du joueur 1 à la prochaine carte : ${eqOut.outs.length} sur ${52 - 4 - eqOut.board.length}</span>${eqOut.outs.length ? cardsHTML(eqOut.outs, true) : '<p class="note">Aucune carte ne le fait passer devant.</p>'}</div>` : '');
+      res = eqOut.ps.map((p, i) => `<div class="eqrow"><div style="display:grid;gap:4px;min-width:0"><span class="note" style="overflow-wrap:anywhere">Joueur ${p.idx + 1} · ${p.hand ? '' : 'range ' + fr(E.rangePct(p.set), 1) + ' % · '}${esc(p.label.length > 60 ? p.label.slice(0, 60) + '…' : p.label)}</span><div class="eqbar"><i style="width:${eqOut.r.equity[i] * 100}%"></i></div></div><b class="mono" style="font-size:18px;text-align:right">${pct(eqOut.r.equity[i], 1)}</b></div>`).join('')
+        + `<p class="note">${eqOut.r.exact ? 'Calcul exact' : 'Monte-Carlo'} sur ${eqOut.r.n.toLocaleString('fr-FR')} ${eqOut.r.exact ? 'tirages' : 'simulations'} en ${Math.round(eqOut.ms)} ms.${eqOut.matrix !== null ? ` Matrice préflop (50 000 tirages par paire de mains, effet de blocage inclus) : ${pct(eqOut.matrix, 1)} pour le joueur 1.` : ''}</p>`
+        + (eqOut.outs ? `<div class="felt"><span class="eyebrow">Outs du joueur 1 à la prochaine carte : ${eqOut.outs.length} sur ${52 - 4 - eqOut.board.length}</span>${eqOut.outs.length ? cardsHTML(eqOut.outs, true) : '<p>Aucune carte ne le fait passer devant.</p>'}</div>` : '');
     }
-    return `<section style="display:grid;gap:8px"><h1>Calculateur d'équité</h1><p class="lead">Pour revoir tes mains après la session. Une main se note <span class="mono">AhKh</span> (h cœur, d carreau, c trèfle, s pique, T pour le 10). Une range se note <span class="mono">22+, A2s+, KQo, 76s-54s</span> ou <span class="mono">random</span>.</p></section>
-      <section class="panel"><div class="form">
+    return `<section class="panel"><p class="note">Main : <span class="mono">AhKh</span> (h cœur, d carreau, c trèfle, s pique, T = 10). Range : <span class="mono">22+, A2s+, KQo, 76s-54s</span> ou <span class="mono">random</span>.</p><div class="form">
         ${eqIn.p.map((v, i) => `<label class="f">Joueur ${i + 1}${i === 0 ? ' (toi)' : ''}<input id="eqp${i}" data-eq="${i}" value="${esc(v)}" placeholder="${i < 2 ? 'main ou range' : 'facultatif'}" autocomplete="off" spellcheck="false"></label>`).join('')}
         <label class="f">Board (0, 3, 4 ou 5 cartes)<input id="eqb" data-eq="b" value="${esc(eqIn.board)}" placeholder="2h7hJd" autocomplete="off" spellcheck="false"></label></div>
-        <div class="row"><button class="btn primary" data-act="calc">Calculer</button>${ex.map(([l], i) => `<button class="btn small" data-act="eqex" data-i="${i}">${l}</button>`).join('')}</div>
-        ${res}</section>`;
+        <div class="row"><button class="btn primary" data-act="calc">Calculer</button>${EQEX.map(([l], i) => `<button class="btn small" data-act="eqex" data-i="${i}">${l}</button>`).join('')}</div>${res}</section>`;
   };
-  const EQEX = [[['AsAh', 'KdKc', '', ''], ''], [['AhKh', 'QcQs', '', ''], '2h7hJd'], [['AdKc', 'QQ+, AK', '', ''], ''], [['5s5c', 'random', 'random', 'random'], '']];
 
-  // ---------- Ranges ----------
+  // Board
+  const bdIn = { range: C.RFI.BTN.range, board: 'Kh7c2d', label: 'BTN' };
+  TOOLVIEWS.board = () => {
+    let out = '';
+    try {
+      const board = E.parseCards(bdIn.board); if (board.length < 3 || board.length > 5) throw new Error('Le board fait 3 à 5 cartes.');
+      if (new Set(board).size !== board.length) throw new Error('Une carte apparaît deux fois.');
+      const a = B.analyze(E.parseRange(bdIn.range), board);
+      const row = (l, n) => `<div class="hbar"><span>${l}</span><div class="eqbar"><i style="width:${a.total ? n / a.total * 100 : 0}%"></i></div><span class="mono">${pct(a.total ? n / a.total : 0, 1)} · ${n}</span></div>`;
+      const madeRows = B.MADE.map((l, k) => a.made[k] ? row(l, a.made[k]) + `<p class="note mono" style="overflow-wrap:anywhere;margin-top:-6px">${[...a.byMade[k].entries()].sort((x, y) => y[1] - x[1]).slice(0, 14).map(([h, c]) => h + '×' + c).join('  ')}</p>` : '').join('');
+      const pairPlus = a.made.slice(0, 12).reduce((x, y) => x + y, 0);
+      out = `<div class="felt"><span class="eyebrow">${B.texture(board).join(' · ')}</span>${cardsHTML(board)}</div>
+        <div class="stats"><div class="stat hero"><span>Paire ou mieux</span><b>${pct(pairPlus / a.total, 0)}</b><span>${pairPlus} combos sur ${a.total}</span></div>
+          <div class="stat"><span>Avec un tirage</span><b>${pct(a.comboDraw / a.total, 0)}</b><span>${a.comboDraw} combos</span></div>
+          <div class="stat"><span>Rien</span><b>${pct(a.made[12] / a.total, 0)}</b><span>ni paire ni main faite avec tes cartes</span></div></div>
+        <section class="panel"><h2>Mains faites</h2>${madeRows}</section>
+        ${board.length < 5 ? `<section class="panel"><h2>Tirages</h2>${B.DRAWS.map((l, k) => row(l, a.draws[k])).join('')}<p class="note">Une main peut cumuler plusieurs tirages.</p></section>` : ''}`;
+    } catch (e) { out = `<p class="pill bad" style="white-space:normal">${esc(e.message)}</p>`; }
+    return `<section class="panel"><p class="note">Comment une range touche un board : la base pour choisir ta taille de mise et tes bluffs.</p>
+      <div class="row">${C.POS.map((p) => `<button class="chip" aria-pressed="${bdIn.label === p}" data-act="bdpos" data-p="${p}">Ouverture ${p}</button>`).join('')}</div>
+      <div class="form"><label class="f" style="grid-column:1/-1">Range<input id="bdr" data-bd="range" value="${esc(bdIn.range)}" spellcheck="false"></label><label class="f">Board<input id="bdb" data-bd="board" value="${esc(bdIn.board)}" spellcheck="false"></label></div>
+      <div class="row">${['Kh7c2d', '9h8h7c', 'As5s5d', 'QhJhTd', '2c2d2h', 'Ah9s4d6c'].map((b) => `<button class="btn small" data-act="bdex" data-b="${b}">${b}</button>`).join('')}</div></section>${out}`;
+  };
+
+  // Push/Fold & ICM
+  const pf = { S: 10, ante: 0, view: 'push', icm: false, n: 3, stacks: [12, 8, 20], payouts: '50, 30, 20', sb: 1, bb: 2, sol: null, icmVals: null, err: null };
+  const PAYPRESETS = [['Expresso (le gagnant prend tout)', '100'], ['Sit&Go 6 joueurs 65/35', '65, 35'], ['Sit&Go 9 joueurs 50/30/20', '50, 30, 20'], ['Table finale 30/20/14/10/8/6', '30, 20, 14, 10, 8, 6']];
+  function solvePF() {
+    if (!pf.icm) { pf.sol = SV.solveChip(pf.S, pf.ante); pf.icmVals = null; pf.err = null; return; }
+    try {
+      const st = pf.stacks.slice(0, pf.n).map(Number), pay = pf.payouts.split(/[;\s,]+/).map((x) => +x).filter((x) => x > 0);
+      if (st.some((x) => !(x > 1))) throw new Error('Chaque tapis doit dépasser 1 bb.');
+      if (pf.sb === pf.bb || pf.sb >= pf.n || pf.bb >= pf.n) throw new Error('Choisis deux joueurs différents pour la SB et la BB.');
+      if (!pay.length) throw new Error('Indique au moins un gain.');
+      const o = SV.icmOutcomes(st, pf.sb, pf.bb, pay, pf.ante);
+      pf.sol = SV.solveOutcomes(o.V); pf.chip = SV.solveChip(Math.min(st[pf.sb], st[pf.bb]), pf.ante);
+      pf.icmVals = { now: SV.icm(st, pay), st, pay, eff: Math.min(st[pf.sb], st[pf.bb]), total: pay.reduce((a, b) => a + b, 0) }; pf.err = null;
+    } catch (e) { pf.err = e.message; pf.sol = null; }
+  }
+  TOOLVIEWS.pushfold = () => {
+    if (!pf.sol && !pf.err) solvePF();
+    const sol = pf.sol, freq = sol ? (pf.view === 'push' ? sol.push : sol.call) : null, iv = pf.icmVals;
+    const g = sol ? grid169((h, i) => `<button class="rc${freq[i] > 0.001 ? ' heat' : ''}" ${heat(freq[i])} data-act="pfcell" data-h="${h}" aria-label="${h} ${Math.round(freq[i] * 100)} %">${h}</button>`) : '';
+    const icmBlock = `<div class="form">
+        <label class="f">Joueurs<select id="pfn" data-pf="n">${[2, 3, 4, 5, 6].map((n) => `<option ${n === pf.n ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+        ${Array.from({ length: pf.n }, (_, i) => `<label class="f">Tapis J${i + 1} (bb)<input id="pfs${i}" data-pfs="${i}" inputmode="decimal" value="${pf.stacks[i] ?? 10}"></label>`).join('')}
+        <label class="f">Petite blinde<select id="pfsb" data-pf="sb">${Array.from({ length: pf.n }, (_, i) => `<option value="${i}" ${i === pf.sb ? 'selected' : ''}>J${i + 1}</option>`).join('')}</select></label>
+        <label class="f">Grosse blinde<select id="pfbb" data-pf="bb">${Array.from({ length: pf.n }, (_, i) => `<option value="${i}" ${i === pf.bb ? 'selected' : ''}>J${i + 1}</option>`).join('')}</select></label>
+        <label class="f" style="grid-column:1/-1">Gains par place (% du prize pool)<input id="pfpay" data-pf="payouts" value="${esc(pf.payouts)}"></label></div>
+      <div class="row">${PAYPRESETS.map(([l, v]) => `<button class="btn small" data-act="pfpreset" data-v="${v}">${l}</button>`).join('')}</div>`;
+    return `<section class="panel"><div class="row"><button class="chip" aria-pressed="${!pf.icm}" data-act="pfmode" data-m="chip">En jetons (cash, Expresso)</button><button class="chip" aria-pressed="${pf.icm}" data-act="pfmode" data-m="icm">ICM (Sit&Go, tournoi)</button></div>
+      ${pf.icm ? icmBlock : `<label class="f">Tapis effectif : <b class="mono" id="pfsv">${pf.S} bb</b><input type="range" id="pfS" min="1" max="25" step="0.5" value="${pf.S}" data-pf="S"></label>`}
+      <label class="check"><input type="checkbox" id="pfante" data-act="pfante" ${pf.ante ? 'checked' : ''}><span>Antes de 12,5 % de la BB par joueur</span></label>
+      ${pf.err ? `<p class="pill bad" style="white-space:normal">${esc(pf.err)}</p>` : ''}</section>
+      ${sol ? `<div class="stats"><div class="stat hero"><span>La SB pousse</span><b>${pct(sol.pushPct, 1)}</b><span>des mains</span></div><div class="stat"><span>La BB paie</span><b>${pct(sol.callPct, 1)}</b><span>des mains</span></div>
+        ${iv ? `<div class="stat"><span>Effet de l'ICM</span><b>${sgn((sol.callPct - pf.chip.callPct) * 100, 1)} pts</b><span>sur les calls de la BB. En jetons, à ${fr(iv.eff, 1)} bb : tapis ${pct(pf.chip.pushPct, 1)}, call ${pct(pf.chip.callPct, 1)}</span></div>` : ''}</div>
+      <section class="panel"><div class="row"><button class="chip" aria-pressed="${pf.view === 'push'}" data-act="pfview" data-v="push">Tapis de la SB</button><button class="chip" aria-pressed="${pf.view === 'call'}" data-act="pfview" data-v="call">Call de la BB</button></div>
+        ${g}<div class="legend"><span><i style="background:var(--accent)"></i>toujours</span><span><i style="background:color-mix(in srgb, var(--accent) 55%, var(--sunk))"></i>mixte</span><span><i style="background:var(--sunk)"></i>jamais</span></div>
+        <p class="note" id="pfdetail">Clique une main pour voir son EV. Solveur : meilleures réponses itérées (400 passes) sur la matrice préflop, effet de blocage inclus. Contrôle : à 10 bb en jetons, la SB pousse 58,4 % des mains, comme la référence publiée.</p></section>
+      ${iv ? `<section class="panel"><h2>Équité ICM actuelle</h2><div class="tw"><table class="t"><thead><tr><th>Joueur</th><th class="n">Tapis</th><th class="n">Part des jetons</th><th class="n">Équité ICM</th></tr></thead><tbody>${iv.st.map((s, i) => `<tr><td>J${i + 1}${i === pf.sb ? ' (SB)' : i === pf.bb ? ' (BB)' : ''}</td><td class="n">${fr(s, 1)} bb</td><td class="n">${pct(s / iv.st.reduce((a, b) => a + b, 0), 1)}</td><td class="n">${pct(iv.now[i] / iv.total, 1)}</td></tr>`).join('')}</tbody></table></div>
+        <p class="note">Modèle de Malmuth-Harville. Avec une seule place payée, l'équité ICM égale la part de jetons : l'ICM ne change rien en Expresso.</p></section>` : ''}` : ''}`;
+  };
+
+  // Ranges
   let rPos = 'BTN', custom = null;
-  VIEWS.ranges = () => {
+  TOOLVIEWS.ranges = () => {
     const set = custom || E.parseRange(C.RFI[rPos].range);
-    const cells = []; for (let i = 0; i < 13; i++) for (let j = 0; j < 13; j++) { const h = E.handName(i, j); cells.push(`<button class="rc${set.has(h) ? ' on' : ''}" data-act="cell" data-h="${h}" aria-pressed="${set.has(h)}" aria-label="${h}">${h}</button>`); }
-    return `<section style="display:grid;gap:8px"><h1>Ranges d'ouverture</h1><p class="lead">Premier à entrer dans le coup, 6-max, 100 bb. Point de départ standard, à élargir contre des blindes faibles et à resserrer contre des joueurs agressifs. Clique une case pour créer ta propre range.</p></section>
-      <div class="row">${C.POS.map((p) => `<button class="chip" aria-pressed="${p === rPos && !custom}" data-act="pos" data-p="${p}">${p}</button>`).join('')}${custom ? '<span class="pill">Range perso</span>' : ''}</div>
-      <section class="panel"><div class="row" style="justify-content:space-between"><h2>${custom ? 'Range perso' : C.RFI[rPos].label}</h2><b class="mono" style="font-size:20px">${fr(E.rangePct(set), 1)} %</b></div>
-        <div class="rgrid" role="group" aria-label="Grille des 169 mains">${cells.join('')}</div>
-        <p class="note">Diagonale : paires. Au-dessus : mains assorties (s). En dessous : dépareillées (o). Taille d'ouverture : ${C.RFI[rPos].size}.</p>
-        <p class="mono note" style="word-break:break-word">${esc([...set].join(', '))}</p>
-        <div class="row"><button class="btn" data-act="r2eq">Utiliser comme range adverse dans Équité</button>${custom ? '<button class="btn" data-act="rreset">Revenir à la range standard</button>' : ''}<button class="btn" data-act="drill" data-type="rfi">S'entraîner aux ouvertures</button></div></section>`;
+    return `<section class="panel"><div class="row">${C.POS.map((p) => `<button class="chip" aria-pressed="${p === rPos && !custom}" data-act="pos" data-p="${p}">${p}</button>`).join('')}${custom ? '<span class="pill acc">Range perso</span>' : ''}</div>
+      <div class="row" style="justify-content:space-between"><h2>${custom ? 'Range perso' : C.RFI[rPos].label}</h2><b class="mono" style="font-size:20px">${fr(E.rangePct(set), 1)} %</b></div>
+      ${grid169((h) => `<button class="rc${set.has(h) ? ' on' : ''}" data-act="cell" data-h="${h}" aria-pressed="${set.has(h)}" aria-label="${h}">${h}</button>`)}
+      <p class="note">Premier à entrer, 6-max, 100 bb. Diagonale : paires. Au-dessus : assorties (s). En dessous : dépareillées (o). Ouverture : ${C.RFI[rPos].size}. Clique une case pour créer ta range.</p>
+      <p class="mono note" style="overflow-wrap:anywhere">${esc([...set].join(', '))}</p>
+      <div class="row"><button class="btn" data-act="r2eq">Envoyer vers Équité</button><button class="btn" data-act="r2bd">Envoyer vers Board</button>${custom ? '<button class="btn" data-act="rreset">Revenir au standard</button>' : ''}<button class="btn" data-act="drill" data-type="rfi">S'entraîner</button></div></section>`;
+  };
+
+  // ---------- Analyse ----------
+  let anText = '', anRes = null, anOpen = null, anErr = '';
+  // kind : 'real' (tes mains, enregistrées), 'table' (table d'entraînement), 'sample' (exemple simulé). Seules les vraies mains alimentent tes fiches.
+  function runAnalysis(text, kind) {
+    try {
+      const r = HH.analyze(text);
+      if (!r.hands) throw new Error('Aucune main reconnue. Colle le texte brut des historiques Winamax ou PokerStars (une main commence par « Winamax Poker - » ou « PokerStars Hand »).');
+      if (!r.hero) throw new Error('Mains reconnues, mais aucune ligne « Dealt to … » : impossible de savoir qui tu es.');
+      const me = r.me;
+      r.ev100 = me.hands ? (me.netBB - me.allins.reduce((a, x) => a + x.luck / x.bb, 0)) / me.hands * 100 : 0;
+      r.kind = kind; anRes = r; anErr = ''; anOpen = null;
+      if (kind === 'real') {
+        state.notes.lastImport = { hands: r.hands, bb100: me.hands ? me.netBB / me.hands * 100 : 0, ev100: r.ev100, from: r.from, to: r.to, leaks: r.leaks.limps.length + r.leaks.tooLoose.length + r.leaks.tooTight.length, at: today() };
+        for (const o of r.opponents) {
+          const prev = state.notes.opponents[o.name] || { hands: 0, vpip: 0, pfr: 0, aggr: 0, calls: 0, sd: 0, sawFlop: 0 };
+          state.notes.opponents[o.name] = { hands: prev.hands + o.hands, vpip: prev.vpip + o.vpip, pfr: prev.pfr + o.pfr, aggr: prev.aggr + o.aggr, calls: prev.calls + o.calls, sd: prev.sd + o.sd, sawFlop: prev.sawFlop + o.sawFlop, at: today() };
+        }
+        const names = Object.keys(state.notes.opponents);
+        if (names.length > 400) names.sort((a, b) => state.notes.opponents[a].hands - state.notes.opponents[b].hands).slice(0, names.length - 400).forEach((n) => delete state.notes.opponents[n]);
+        Store.save('notes');
+      }
+    } catch (e) { anErr = e.message; anRes = null; }
+  }
+  const rate = (a, b) => (b ? pct(a / b, 0) : '—');
+  VIEWS.analyse = () => {
+    let res = '';
+    if (anRes) {
+      const r = anRes, me = r.me, bb100 = me.hands ? me.netBB / me.hands * 100 : 0;
+      const posOrder = ['UTG', 'UTG+1', 'UTG+2', 'LJ', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
+      const leakRow = (l, arr, why) => `<tr><td>${l}</td><td class="n">${arr.length}</td><td class="note">${arr.slice(0, 6).map((x) => x.hand + ' ' + x.pos).join(', ')}${arr.length > 6 ? '…' : ''}</td><td class="note">${why}</td></tr>`;
+      res = `${r.kind === 'sample' ? '<div class="warnbox"><strong>Exemple simulé</strong> : 300 mains jouées automatiquement par un bot régulier à la table d\'entraînement. Ce ne sont pas tes mains.</div>' : r.kind === 'table' ? '<div class="warnbox"><strong>Mains de la table d\'entraînement</strong> : elles n\'alimentent pas tes fiches adversaires.</div>' : ''}
+      <div class="stats"><div class="stat hero"><span>Résultat</span><b>${sgn(bb100, 1)}</b><span>bb/100 sur ${me.hands} mains (${esc(r.hero)})</span></div>
+        <div class="stat"><span>EV des all-in</span><b>${sgn(r.ev100, 1)}</b><span>bb/100 si chaque all-in avait rapporté son équité · ${me.allins.length} all-in</span></div>
+        <div class="stat"><span>VPIP / PFR</span><b>${rate(me.vpip, me.hands)} / ${rate(me.pfr, me.hands)}</b><span>repère 6-max : 22-28 / 17-23</span></div>
+        <div class="stat"><span>3-bet</span><b>${rate(me.three, me.threeOpp)}</b><span>repère : 6-10 %</span></div>
+        <div class="stat"><span>Abattage</span><b>${rate(me.sd, me.sawFlop)}</b><span>WTSD · gagné à l'abattage ${rate(me.wsd, me.sd)}</span></div></div>
+      <p class="note">Écart entre résultat et EV des all-in = ta chance sur les tapis : ${sgn(bb100 - r.ev100, 1)} bb/100 sur cet échantillon.</p>
+      <section class="panel"><h2>Résultat par position</h2><div class="tw"><table class="t"><thead><tr><th>Position</th><th class="n">Mains</th><th class="n">bb gagnées</th><th class="n">bb/100</th></tr></thead><tbody>
+        ${posOrder.filter((p) => me.byPos[p]).map((p) => { const x = me.byPos[p]; return `<tr><td>${p}</td><td class="n">${x.hands}</td><td class="n">${sgn(x.bb, 1)}</td><td class="n" style="color:var(${x.bb >= 0 ? '--good' : '--bad'})">${sgn(x.bb / x.hands * 100, 0)}</td></tr>`; }).join('')}</tbody></table></div>
+        <p class="note">Les blindes perdent chez presque tous les joueurs. Le bouton et le cutoff doivent être tes positions les plus gagnantes.</p></section>
+      <section class="panel"><h2>Fuites préflop, quand tu entres en premier</h2><div class="tw"><table class="t"><thead><tr><th>Fuite</th><th class="n">Cas</th><th>Exemples</th><th>Pourquoi</th></tr></thead><tbody>
+        ${leakRow('Limp en premier', r.leaks.limps, 'Relance ou couche-toi : le limp abandonne l\'initiative.')}
+        ${leakRow('Ouverture hors range', r.leaks.tooLoose, 'Trop large pour la position, sauf blindes très faibles.')}
+        ${leakRow('Fold d\'une main de la range', r.leaks.tooTight, 'Tu laisses passer des ouvertures rentables.')}</tbody></table></div></section>
+      <section class="panel"><h2>Adversaires et plan d'exploitation</h2><div class="tw"><table class="t"><thead><tr><th>Joueur</th><th class="n">Mains</th><th class="n">VPIP</th><th class="n">PFR</th><th class="n">Agress.</th><th>Profil</th><th class="n">Perte (bb)</th></tr></thead><tbody>
+        ${r.opponents.slice(0, 25).map((o) => `<tr><td><button class="btn small" data-act="opp" data-n="${esc(o.name)}">${esc(o.name)}</button></td><td class="n">${o.hands}</td><td class="n">${rate(o.vpip, o.hands)}</td><td class="n">${rate(o.pfr, o.hands)}</td><td class="n">${o.calls ? fr(o.aggr / o.calls, 1) : '—'}</td><td><span class="pill ${o.profile.key === 'station' || o.profile.key === 'recreatif' ? 'good' : o.profile.key === 'reg' ? 'bad' : ''}">${o.profile.label}</span></td><td class="n">${sgn(-o.net, 1)}</td></tr>
+          ${anOpen === o.name ? `<tr><td colspan="7"><div class="advice">${HH.EXPLOIT[o.profile.key].map((t) => `<div>${esc(t)}</div>`).join('')}</div></td></tr>` : ''}`).join('')}</tbody></table></div>
+        <p class="note">Clique un joueur pour son plan d'exploitation. « Perte » : ce qu'il a perdu à la table, toutes mains confondues. Profil fiable à partir d'une cinquantaine de mains.</p></section>
+      <section class="panel"><h2>Plus gros pots</h2>${r.pots.map((p) => `<details><summary><span class="mono">${sgn(p.bb, 1)} bb</span> · main ${esc(p.id)}${p.hand.heroCards ? ' · ' + p.hand.heroCards.map(E.cardStr).join(' ') : ''}</summary><pre class="hh">${esc(p.hand.raw)}</pre></details>`).join('')}</section>`;
+    }
+    const known = Object.entries(state.notes.opponents).filter(([, o]) => o.hands >= 15).sort((a, b) => b[1].hands - a[1].hands).slice(0, 30);
+    return head('Analyse de tes mains', 'Après la session, colle tes historiques Winamax ou PokerStars : résultat, chance aux all-in, fuites préflop, profil de chaque adversaire. Uniquement tes propres mains : analyser des mains achetées ou partagées est interdit par les rooms.') +
+      `<section class="panel"><label class="f">Historiques (texte brut)<textarea id="antext" class="f mono" rows="7" style="font-size:12px" placeholder="Winamax Poker - CashGame - HandId: #…">${esc(anText)}</textarea></label>
+        <div class="row"><button class="btn primary" data-act="analyze">Analyser</button><label class="btn" for="anfile">Charger des fichiers .txt</label><input type="file" id="anfile" accept=".txt,text/plain" multiple hidden>
+        <button class="btn" data-act="ansample">Exemple : 300 mains simulées</button></div>
+        <p class="note">Winamax enregistre tes historiques dans le dossier « history » de son répertoire d'installation. Parseur testé sur des historiques Winamax et sur ceux de la table d'entraînement. Si un fichier récent ne passe pas, envoie-moi une main d'exemple : le parseur s'ajuste.</p>
+        ${anErr ? `<p class="pill bad" style="white-space:normal">${esc(anErr)}</p>` : ''}</section>${res}
+      ${known.length ? `<section class="panel"><h2>Fiches adversaires cumulées</h2><div class="tw"><table class="t"><thead><tr><th>Joueur</th><th class="n">Mains</th><th class="n">VPIP</th><th class="n">PFR</th><th>Profil</th></tr></thead><tbody>${known.map(([n, o]) => `<tr><td>${esc(n)}</td><td class="n">${o.hands}</td><td class="n">${rate(o.vpip, o.hands)}</td><td class="n">${rate(o.pfr, o.hands)}</td><td>${HH.profileOf(o).label}</td></tr>`).join('')}</tbody></table></div><p class="note">Cumul de tous tes imports. Relis-les avant une session, jamais pendant.</p></section>` : ''}`;
   };
 
   // ---------- Journal ----------
   const ROOMS = ['Winamax', 'PokerStars.fr', 'Betclic', 'PMU', 'Casino', 'Autre'], FORMATS = ['Cash', 'MTT', 'Expresso', 'Sit&Go'];
-  let jMsg = '', confirmDel = null, sim = { wr: 5, sd: 90, hands: 50000, bi: 40, seed: 1 };
+  let jMsg = '', confirmDel = null;
+  const sim = { wr: 5, sd: 90, hands: 50000, bi: 40, seed: 1 };
   VIEWS.journal = () => {
     const js = journalStats(), ms = maxStake(js.bank);
-    const rows = js.ss.slice().reverse().map((s) => `<tr><td class="mono">${s.date.split('-').reverse().join('/')}</td><td>${esc(s.room)}</td><td>${esc(s.format)} ${esc(s.stake)}</td><td class="mono" style="color:var(${s.result >= 0 ? '--good' : '--bad'})">${eur(s.result)}</td><td class="mono">${s.hands || '—'}</td><td>${'●'.repeat(s.tilt || 0) || '—'}</td><td class="note">${esc(s.notes)}</td><td><button class="btn small" data-act="${confirmDel === s.id ? 'delok' : 'del'}" data-id="${s.id}">${confirmDel === s.id ? 'Confirmer' : 'Supprimer'}</button></td></tr>`).join('');
-    return `<section style="display:grid;gap:8px"><h1>Journal</h1><p class="lead">Saisis chaque session juste après l'avoir jouée. Le journal applique ton stop-loss et dit quelle limite ta bankroll autorise.</p></section>
-      <div class="stats">
-        <div class="stat"><span>Bankroll</span><b>${eur(js.bank)}</b><span>départ ${eur(+state.settings.bankroll0 || 0)}</span></div>
+    const rows = js.ss.slice().reverse().map((s) => `<tr><td class="mono">${s.date.split('-').reverse().join('/')}</td><td>${esc(s.room)}</td><td>${esc(s.format)} ${esc(s.stake)}</td><td class="n" style="color:var(${s.result >= 0 ? '--good' : '--bad'})">${eur(s.result)}</td><td class="n">${s.hands || '—'}</td><td>${'●'.repeat(s.tilt || 0) || '—'}</td><td class="note">${esc(s.notes)}</td><td><button class="btn small" data-act="${confirmDel === s.id ? 'delok' : 'del'}" data-id="${s.id}">${confirmDel === s.id ? 'Confirmer' : 'Supprimer'}</button></td></tr>`).join('');
+    return head('Journal', 'Chaque session juste après l\'avoir jouée. Le journal applique ton stop-loss et dit quelle limite ta bankroll autorise.') +
+      `<div class="stats">
+        <div class="stat hero"><span>Bankroll</span><b>${eur(js.bank)}</b><span>départ ${eur(+state.settings.bankroll0 || 0)}</span></div>
         <div class="stat"><span>Résultat total</span><b style="color:var(${js.total >= 0 ? '--good' : '--bad'})">${eur(js.total)}</b><span>${js.ss.length} sessions</span></div>
         <div class="stat"><span>Par heure</span><b>${js.mins ? eur(js.total / js.mins * 60) : '—'}</b><span>${Math.round(js.mins / 60)} h jouées</span></div>
         <div class="stat"><span>Winrate cash</span><b>${js.wr !== null ? fr(js.wr, 1) : '—'}</b><span>${js.wr !== null ? `bb/100 · ±${fr(js.ci, 1)} (95 %) sur ${js.hands.toLocaleString('fr-FR')} mains` : 'renseigne les mains jouées'}</span></div>
-        <div class="stat"><span>Limite max</span><b>${ms || '—'}</b><span>règle des ${state.settings.biRule} caves</span></div>
-      </div>
-      ${js.wr !== null ? `<p class="note">L'intervalle suppose un écart-type de 90 bb/100, valeur courante en 6-max. Tant qu'il contient 0, le résultat ne prouve rien.</p>` : ''}
+        <div class="stat"><span>Limite max</span><b>${ms || '—'}</b><span>règle des ${state.settings.biRule} caves</span></div></div>
+      ${js.wr !== null ? '<p class="note">Intervalle calculé avec un écart-type de 90 bb/100, valeur courante en 6-max. Tant qu\'il contient 0, le résultat ne prouve rien.</p>' : ''}
       ${jMsg ? `<div class="warnbox" role="alert">${jMsg}</div>` : ''}
       <section class="panel"><span class="eyebrow">Nouvelle session</span><form id="jform" class="form">
         <label class="f">Date<input id="jdate" name="date" type="date" value="${today()}" required></label>
@@ -258,12 +464,12 @@
         <label class="f" style="grid-column:1/-1">Note (une main à revoir, une leçon)<input id="jnotes" name="notes" maxlength="200"></label>
         <div class="row" style="grid-column:1/-1"><button class="btn primary" type="submit">Enregistrer la session</button></div></form></section>
       <section class="panel"><span class="eyebrow">Courbe</span><h2>Bankroll</h2>${js.ss.length ? '<canvas id="bankc" height="220" aria-label="Courbe de bankroll"></canvas>' : '<p class="note">Aucune session pour l\'instant. Renseigne ta bankroll de départ ci-dessous, puis ta première session : la courbe apparaîtra ici.</p>'}</section>
-      ${rows ? `<section class="panel"><span class="eyebrow">Sessions</span><div class="tw"><table class="t"><thead><tr><th>Date</th><th>Room</th><th>Jeu</th><th>Résultat</th><th>Mains</th><th>Tilt</th><th>Note</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></section>` : ''}
+      ${rows ? `<section class="panel"><span class="eyebrow">Sessions</span><div class="tw"><table class="t"><thead><tr><th>Date</th><th>Room</th><th>Jeu</th><th class="n">Résultat</th><th class="n">Mains</th><th>Tilt</th><th>Note</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></section>` : ''}
       <section class="panel"><span class="eyebrow">Réglages</span><div class="form">
         <label class="f">Bankroll de départ (€)<input id="sbank" data-set="bankroll0" inputmode="decimal" value="${state.settings.bankroll0 || ''}" placeholder="200"></label>
         <label class="f">Règle de caves (cash)<input id="sbi" data-set="biRule" inputmode="numeric" value="${state.settings.biRule}"></label></div>
-        <details><summary class="note" style="cursor:pointer">Sauvegarde manuelle (copier / coller)</summary><div style="display:grid;gap:8px;margin-top:10px">
-          <textarea id="jexport" rows="4" class="mono" style="width:100%;font-size:12px;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px" aria-label="Données du journal"></textarea>
+        <details><summary class="note">Sauvegarde manuelle (copier / coller)</summary><div style="display:grid;gap:8px;margin-top:10px">
+          <textarea id="jexport" rows="4" class="f mono" style="font-size:12px" aria-label="Données"></textarea>
           <div class="row"><button class="btn small" data-act="exp">Afficher et copier mes données</button><button class="btn small" data-act="imp">Importer le texte collé</button></div></div></details></section>
       <section class="panel"><span class="eyebrow">Simulateur de variance</span><h2>À quoi ressemblent ${sim.hands.toLocaleString('fr-FR')} mains</h2>
         <div class="form">
@@ -273,7 +479,7 @@
           <label class="f">Bankroll (caves)<input id="vbi" data-sim="bi" inputmode="numeric" value="${sim.bi}"></label></div>
         <canvas id="simc" height="240" aria-label="Trajectoires simulées"></canvas><div id="simstats" class="stats"></div>
         <div class="row"><button class="btn" data-act="resim">Relancer 30 trajectoires</button></div>
-        <p class="note">Chaque courbe est un joueur au même niveau réel. Les écarts entre elles, c'est la chance. Risque de ruine : formule exp(−2 × winrate × bankroll ÷ écart-type²).</p></section>`;
+        <p class="note">Chaque courbe est un joueur au même niveau réel ; les écarts entre elles viennent de la chance. Risque de ruine : exp(−2 × winrate × bankroll ÷ écart-type²).</p></section>`;
   };
   function drawLines(cv, series, opts = {}) {
     const dpr = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.height / (cv._dpr || 1);
@@ -282,7 +488,7 @@
     const all = series.flatMap((s) => s.pts), z = opts.zero !== false ? [0] : [];
     let ymin = Math.min(...z, ...all, opts.floor ?? all[0]), ymax = Math.max(...z, ...all);
     if (ymax - ymin < 1e-9) { ymin -= 1; ymax += 1; } else if (opts.zero === false) { const m = (ymax - ymin) * 0.1; ymin -= m; ymax += m; }
-    const pad = { l: 56, r: 10, t: 10, b: 22 }, n = Math.max(...series.map((s) => s.pts.length)) - 1 || 1;
+    const pad = { l: 60, r: 10, t: 10, b: 22 }, n = Math.max(...series.map((s) => s.pts.length)) - 1 || 1;
     const X = (i) => pad.l + (w - pad.l - pad.r) * i / n, Y = (v) => pad.t + (h - pad.t - pad.b) * (1 - (v - ymin) / ((ymax - ymin) || 1));
     g.font = '11px ' + col('--f-mono'); g.fillStyle = col('--muted'); g.strokeStyle = col('--line'); g.lineWidth = 1;
     for (let k = 0; k <= 4; k++) { const v = ymin + (ymax - ymin) * k / 4, y = Y(v); g.beginPath(); g.moveTo(pad.l, y); g.lineTo(w - pad.r, y); g.stroke(); g.fillText((opts.fmt || ((x) => fr(x, 0)))(v), 4, y + 4); }
@@ -294,35 +500,45 @@
   }
   function runSim() {
     const R = E.rng(sim.seed), steps = Math.max(1, Math.round(sim.hands / 100)), paths = [];
-    const gauss = () => { let u = 0, v = 0; while (!u) u = R(); v = R(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };
-    let losers = 0, dds = [];
+    const gauss = () => { let u = 0; while (!u) u = R(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * R()); };
+    let losers = 0; const dds = [];
     for (let p = 0; p < 30; p++) {
       const pts = [0]; let x = 0, peak = 0, dd = 0;
       for (let s = 0; s < steps; s++) { x += sim.wr + sim.sd * gauss(); pts.push(x); peak = Math.max(peak, x); dd = Math.max(dd, peak - x); }
       if (x < 0) losers++; dds.push(dd); paths.push(pts.filter((_, i) => i % Math.ceil(steps / 300) === 0 || i === steps));
     }
     dds.sort((a, b) => a - b);
-    const ror = sim.wr > 0 ? Math.exp(-2 * sim.wr * sim.bi * 100 / (sim.sd * sim.sd)) : 1;
-    return { paths, losers, ddMed: dds[15] / 100, ror };
+    return { paths, losers, ddMed: dds[15] / 100, ror: sim.wr > 0 ? Math.exp(-2 * sim.wr * sim.bi * 100 / (sim.sd * sim.sd)) : 1 };
   }
   AFTER.journal = () => {
-    const js = journalStats();
-    const bc = $('#bankc');
+    const js = journalStats(), bc = $('#bankc');
     if (bc) { let b = +state.settings.bankroll0 || 0; const pts = [b, ...js.ss.map((s) => (b += s.result))]; drawLines(bc, [{ pts }], { zero: false, fmt: (v) => fr(v, 0) + ' €' }); }
-    const r = runSim(), sc = $('#simc');
-    drawLines(sc, r.paths.map((pts, i) => ({ pts, color: i === 0 ? '--accent' : '--muted', alpha: i === 0 ? 1 : 0.35, width: i === 0 ? 2.5 : 1 })), { floor: -sim.bi * 100, fmt: (v) => fr(v / 100, 0) + ' c', xlabel: 'mains →' });
+    const r = runSim();
+    drawLines($('#simc'), r.paths.map((pts, i) => ({ pts, color: i === 0 ? '--accent' : '--muted', alpha: i === 0 ? 1 : 0.35, width: i === 0 ? 2.5 : 1 })), { floor: -sim.bi * 100, fmt: (v) => fr(v / 100, 0) + ' c', xlabel: 'mains →' });
     $('#simstats').innerHTML = `<div class="stat"><span>Trajectoires perdantes</span><b>${r.losers}/30</b><span>avec un vrai winrate de ${fr(sim.wr, 1)}</span></div>
       <div class="stat"><span>Pire chute (médiane)</span><b>${fr(r.ddMed, 1)} caves</b><span>du sommet au creux</span></div>
       <div class="stat"><span>Risque de ruine</span><b>${sim.wr > 0 ? pct(r.ror, r.ror < 0.01 ? 2 : 0) : '100 %'}</b><span>bankroll de ${sim.bi} caves</span></div>`;
   };
 
   // ---------- Événements ----------
+  document.addEventListener('keydown', (e) => {
+    if (e.target.closest('input,select,textarea')) return;
+    if (tab === 'spots') {
+      if (/^[1-4]$/.test(e.key) && answered === null && spot && +e.key <= spot.opts.length) answer(+e.key - 1);
+      else if (e.key === 'Enter' && answered !== null) { newSpot(); render(); }
+    }
+    if (tab === 'table' && tb) {
+      if (!tb.done && tb.toAct === 0) { const L = tb.legal(); if (e.key === 'f' && !L.canCheck) heroAct('fold'); else if (e.key === 'c') heroAct(L.canCheck ? 'check' : 'call'); }
+      else if (tb.done && e.key === 'Enter') { tb.newHand(); tb.runBots(); render(); }
+    }
+  });
   document.addEventListener('click', async (e) => {
-    const t = e.target.closest('[data-tab],[data-act]'); if (!t) return;
+    const t = e.target.closest('[data-tab],[data-act]'); if (!t || t.disabled) return;
     if (t.dataset.tab) return go(t.dataset.tab);
     const a = t.dataset.act;
-    if (a === 'check') { const all = [...document.querySelectorAll('[data-act=check]')].every((c) => c.checked); $('#ckDone').hidden = !all; return; }
+    if (a === 'check') { $('#ckDone').hidden = ![...document.querySelectorAll('[data-act=check]')].every((c) => c.checked); return; }
     if (a === 'daily') { daily = true; spotMode = 'mix'; spot = null; return go('spots'); }
+    if (a === 'review') { daily = false; spotMode = 'review'; spot = null; return go('spots'); }
     if (a === 'openmod') { openMod = t.dataset.id; return go('cours'); }
     if (a === 'closemod') { openMod = null; return render(); }
     if (a === 'readmod') { state.progress.read[t.dataset.id] = true; Store.save('progress'); return render(); }
@@ -332,40 +548,87 @@
     if (a === 'next') { newSpot(); render(); $('.opt')?.focus(); return; }
     if (a === 'toEq') {
       if (spot.hands) { eqIn.p = spot.hands.map((h) => h.map(E.cardStr).join('')).concat(['']); eqIn.board = spot.board.slice(0, 3).map(E.cardStr).join(''); }
+      else if (spot.vil) { eqIn.p = [spot.cards.map(E.cardStr).join(''), spot.vil.map(E.cardStr).join(''), '', '']; eqIn.board = spot.board.map(E.cardStr).join(''); }
       else { eqIn.p = [spot.cards.map(E.cardStr).join(''), '', '', '']; eqIn.board = spot.board.map(E.cardStr).join(''); const v = S.villainRange(spot.board).filter((c) => !spot.cards.includes(c[0]) && !spot.cards.includes(c[1])); eqIn.p[1] = [...new Set(v.map((c) => E.abstractOf(c[0], c[1])))].join(', '); }
-      eqOut = null; return go('equite');
+      eqOut = null; tool = 'equite'; return go('outils');
     }
+    if (a === 'toPF') { const m = spot.title.match(/(\d+) bb/); pf.icm = false; pf.S = m ? +m[1] : 10; pf.view = /grosse blinde/.test(spot.prompt) ? 'call' : 'push'; pf.sol = null; tool = 'pushfold'; return go('outils'); }
+    // Table
+    if (a === 'hfold') return heroAct('fold');
+    if (a === 'hcall') { const L = tb.legal(); return heroAct(L.canCheck ? 'check' : 'call'); }
+    if (a === 'hraise') return heroAct('raise', +t.dataset.to);
+    if (a === 'hraisefree') return heroAct('raise', +($('#rto')?.value || 0));
+    if (a === 'nexthand') { tb.newHand(); tb.runBots(); return render(); }
+    if (a === 'lineup') { lineup = t.dataset.l; startTable(); return render(); }
+    if (a === 'newtable') { startTable(); return render(); }
+    if (a === 'showprof') { showProfiles = t.checked; return render(); }
+    if (a === 'showhelp') { showHelp = t.checked; return render(); }
+    if (a === 'tb2an') { anText = ''; runAnalysis(tb.exportHH(), 'table'); return go('analyse'); }
+    // Outils
+    if (a === 'tool') { tool = t.dataset.t; return render(); }
     if (a === 'calc') { runEquity(); return render(); }
-    if (a === 'eqex') { const [p, b] = EQEX[+t.dataset.i]; eqIn.p = p.slice(); eqIn.board = b; runEquity(); return render(); }
+    if (a === 'eqex') { const [, p, b] = EQEX[+t.dataset.i]; eqIn.p = p.slice(); eqIn.board = b; runEquity(); return render(); }
+    if (a === 'bdpos') { bdIn.label = t.dataset.p; bdIn.range = C.RFI[t.dataset.p].range; return render(); }
+    if (a === 'bdex') { bdIn.board = t.dataset.b; return render(); }
+    if (a === 'pfmode') { pf.icm = t.dataset.m === 'icm'; pf.sol = null; pf.err = null; return render(); }
+    if (a === 'pfview') { pf.view = t.dataset.v; return render(); }
+    if (a === 'pfante') { pf.ante = t.checked ? 0.125 : 0; pf.sol = null; return render(); }
+    if (a === 'pfpreset') { pf.payouts = t.dataset.v; pf.sol = null; pf.err = null; return render(); }
+    if (a === 'pfcell') {
+      const i = E.ALL169.indexOf(t.dataset.h), s = pf.sol, isPush = pf.view === 'push', ev = isPush ? s.evPush[i] : s.evCall[i], f = isPush ? s.push[i] : s.call[i];
+      const val = pf.icm ? `${ev >= 0 ? '+' : '−'}${fr(Math.abs(ev) / pf.icmVals.total * 100, 2)} % du prize pool` : `${ev >= 0 ? '+' : '−'}${fr(Math.abs(ev), 2)} bb`;
+      $('#pfdetail').textContent = `${t.dataset.h} : ${isPush ? 'tapis' : 'call'} ${f > 0.95 ? 'toujours' : f < 0.05 ? 'jamais' : 'mixte (' + Math.round(f * 100) + ' %)'}. ${isPush ? 'Pousser' : 'Payer'} vaut ${val} par rapport à se coucher.`;
+      return;
+    }
     if (a === 'pos') { rPos = t.dataset.p; custom = null; return render(); }
     if (a === 'cell') { if (!custom) custom = new Set(E.parseRange(C.RFI[rPos].range)); const h = t.dataset.h; custom.has(h) ? custom.delete(h) : custom.add(h); return render(); }
     if (a === 'rreset') { custom = null; return render(); }
-    if (a === 'r2eq') { eqIn.p[1] = [...(custom || E.parseRange(C.RFI[rPos].range))].join(', '); eqIn.board = ''; eqOut = null; return go('equite'); }
+    if (a === 'r2eq') { eqIn.p[1] = [...(custom || E.parseRange(C.RFI[rPos].range))].join(', '); eqIn.board = ''; eqOut = null; tool = 'equite'; return render(); }
+    if (a === 'r2bd') { bdIn.range = [...(custom || E.parseRange(C.RFI[rPos].range))].join(', '); bdIn.label = custom ? '' : rPos; tool = 'board'; return render(); }
+    // Analyse
+    if (a === 'analyze') { anText = $('#antext').value; runAnalysis(anText, 'real'); return render(); }
+    if (a === 'ansample') {
+      const sim2 = new TS.Table({ lineup: LINEUPS.equilibree });
+      for (let h = 0; h < 300; h++) { sim2.newHand(); let g = 0; while (!sim2.done && g++ < 300) { sim2.runBots(); if (!sim2.done) sim2.autoHero('reg'); } }
+      anText = ''; runAnalysis(sim2.exportHH(), 'sample'); return render();
+    }
+    if (a === 'opp') { anOpen = anOpen === t.dataset.n ? null : t.dataset.n; return render(); }
+    // Journal
     if (a === 'del') { confirmDel = t.dataset.id; return render(); }
     if (a === 'delok') { state.journal.sessions = state.journal.sessions.filter((s) => s.id !== t.dataset.id); confirmDel = null; jMsg = 'Session supprimée.'; Store.save('journal'); return render(); }
     if (a === 'resim') { sim.seed++; return AFTER.journal(); }
     if (a === 'exp') {
-      const ta = $('#jexport'); ta.value = JSON.stringify({ settings: state.settings, journal: state.journal, progress: state.progress });
+      const ta = $('#jexport'); ta.value = JSON.stringify({ settings: state.settings, journal: state.journal, progress: state.progress, notes: state.notes });
       ta.select(); try { await navigator.clipboard.writeText(ta.value); jMsg = 'Données copiées. Colle-les dans un fichier pour les garder.'; } catch (err) { jMsg = 'Copie automatique refusée : le texte est sélectionné, copie-le à la main.'; }
-      const keep = ta.value; render(); $('#jexport').value = keep; $('details').open = true; return;
+      const keep = ta.value; render(); $('#jexport').value = keep; $('#jexport').closest('details').open = true; return;
     }
     if (a === 'imp') {
       try { const d = JSON.parse($('#jexport').value); if (!Array.isArray(d.journal?.sessions)) throw new Error();
-        Object.assign(state.settings, d.settings || {}); state.journal.sessions = d.journal.sessions; if (d.progress) Object.assign(state.progress, d.progress);
-        ['settings', 'journal', 'progress'].forEach((k) => Store.save(k)); jMsg = d.journal.sessions.length + ' sessions importées.';
+        Object.assign(state.settings, d.settings || {}); state.journal.sessions = d.journal.sessions; if (d.progress) Object.assign(state.progress, d.progress); if (d.notes) Object.assign(state.notes, d.notes);
+        ['settings', 'journal', 'progress', 'notes'].forEach((k) => Store.save(k)); jMsg = d.journal.sessions.length + ' sessions importées.';
       } catch (err) { jMsg = 'Texte illisible : colle exactement le texte copié depuis « Afficher et copier mes données ».'; }
       return render();
     }
   });
-  document.addEventListener('change', (e) => {
+  document.addEventListener('change', async (e) => {
     const t = e.target;
     if (t.id === 'sitcat') { sitCat = t.value; spot = null; render(); }
     if (t.dataset.set) { state.settings[t.dataset.set] = +String(t.value).replace(',', '.') || 0; Store.save('settings'); render(); }
     if (t.dataset.sim) { sim[t.dataset.sim] = Math.max(t.dataset.sim === 'hands' ? 100 : t.dataset.sim === 'sd' ? 1 : -50, +String(t.value).replace(',', '.') || 0); render(); }
+    if (t.dataset.pf) {
+      const k = t.dataset.pf; pf[k] = k === 'payouts' ? t.value : +t.value;
+      if (k === 'n') { while (pf.stacks.length < pf.n) pf.stacks.push(10); if (pf.sb >= pf.n) pf.sb = 0; if (pf.bb >= pf.n) pf.bb = 1; }
+      pf.sol = null; pf.err = null; render();
+    }
+    if (t.dataset.pfs !== undefined) { pf.stacks[+t.dataset.pfs] = +String(t.value).replace(',', '.') || 0; pf.sol = null; pf.err = null; render(); }
+    if (t.dataset.bd) { bdIn[t.dataset.bd] = t.value; if (t.dataset.bd === 'range') bdIn.label = ''; render(); }
+    if (t.id === 'anfile' && t.files.length) { const texts = await Promise.all([...t.files].map((f) => f.text())); anText = texts.join('\n\n'); runAnalysis(anText, 'real'); render(); }
   });
   document.addEventListener('input', (e) => {
-    const t = e.target; if (!t.dataset.eq) return;
-    if (t.dataset.eq === 'b') eqIn.board = t.value; else eqIn.p[+t.dataset.eq] = t.value;
+    const t = e.target;
+    if (t.dataset.eq) { if (t.dataset.eq === 'b') eqIn.board = t.value; else eqIn.p[+t.dataset.eq] = t.value; }
+    if (t.id === 'rto') { raiseTo = +t.value; $('#rtv').textContent = bbs(raiseTo) + ' bb'; }
+    if (t.id === 'pfS') $('#pfsv').textContent = t.value + ' bb';
   });
   document.addEventListener('submit', (e) => {
     if (e.target.id !== 'jform') return;
@@ -374,11 +637,10 @@
     const s = { id: 's' + Date.now().toString(36), date: f.get('date'), room: f.get('room'), format: f.get('format'), stake: String(f.get('stake')).trim().toUpperCase().replace(/\s/g, ''), result: num('result'), hands: num('hands') || 0, minutes: num('minutes') || 0, tilt: +f.get('tilt'), notes: String(f.get('notes') || '').slice(0, 200) };
     if (!Number.isFinite(s.result)) { jMsg = 'Résultat illisible : écris par exemple −4,20 ou 12.'; return render(); }
     state.journal.sessions.push(s); Store.save('journal');
-    const bi = buyIn(s), lost = bi ? -s.result / bi : 0;
-    const ms = maxStake(journalStats().bank), bb = bbOf(s.stake);
+    const bi = buyIn(s), lost = bi ? -s.result / bi : 0, ms = maxStake(journalStats().bank), bb = bbOf(s.stake);
     jMsg = lost >= 3 ? `<strong>Stop-loss atteint :</strong> ${fr(lost, 1)} caves perdues. Fin de session, pas de retour aux tables aujourd'hui.`
       : s.tilt >= 2 ? '<strong>Tilt noté.</strong> Pause d\'au moins 30 minutes avant toute nouvelle session, et relis le module Mental.'
-      : bb && ms && bb * 100 > bbOf(ms) * 100 ? `<strong>Attention :</strong> ta bankroll autorise au plus ${ms}. Redescends de limite.`
+      : bb && ms && bb > bbOf(ms) ? `<strong>Attention :</strong> ta bankroll autorise au plus ${ms}. Redescends de limite.`
       : 'Session enregistrée.';
     render();
   });

@@ -178,6 +178,24 @@
     ['Jeu physique', `<p>Plus lent (25 à 35 mains par heure contre 60+ en ligne par table), adversaires souvent plus faibles, pas de HUD : tes notes sont dans ta tête. Les tells existent mais restent peu fiables : le meilleur tell reste la taille des mises et le timing.</p>`],
   ]);
 
+  mod('icm', 'Tapis courts : Nash, ICM, Expresso', 12, 'pushfold', [
+    ['Pourquoi pousser ou se coucher', `<p>Sous 12-15 bb, une relance normale engage déjà un tiers de ton tapis. Tu ne peux plus te coucher ensuite. Mettre tout de suite le tapis maximise ta fold equity et retire à l'adversaire la possibilité de jouer après le flop.</p>`],
+    ['L\'équilibre de Nash', `<p>Le solveur de l'onglet Outils calcule la stratégie où ni la SB (tapis ou couché) ni la BB (payer ou couché) ne peuvent gagner plus en changeant seule. À 10 bb en tête-à-tête, la SB pousse environ 58 % des mains et la BB paie environ 37 %. Plus le tapis est court, plus on pousse large : à 5 bb, plus de 70 %.</p>
+      <p>Retiens le principe plutôt que les tableaux : <strong>celui qui pousse peut être plus large que celui qui paie</strong>, car il gagne aussi quand l'adversaire se couche.</p>`],
+    ['L\'ICM : quand les jetons ne valent pas de l\'argent', `<p>En tournoi avec plusieurs places payées, doubler ton tapis ne double pas tes gains, mais le perdre les annule. Le modèle ICM (Malmuth-Harville) convertit les tapis en espérance en euros. Conséquence : près de la bulle et en table finale, on paie et on pousse moins large que l'équilibre en jetons.</p>
+      <p><strong>Expresso</strong> : le gagnant prend tout. L'ICM y vaut exactement les jetons (le calculateur le montre), donc l'équilibre en jetons s'applique. En Sit&Go avec 2 places payées, l'ICM resserre nettement les calls.</p>`],
+    ['Antes et positions', `<p>Les antes grossissent le pot sans rien changer aux tapis : on pousse plus large. Depuis le bouton à 3 joueurs, deux joueurs peuvent payer derrière toi : pousse plus serré que depuis la SB. Entraîne-toi dans Spots → Tapis ou couché, puis vérifie tes doutes dans Outils → Push/Fold & ICM.</p>`],
+  ]);
+
+  mod('boucle', 'La boucle de progression SIGMA 52', 6, 'situations', [
+    ['Quatre temps', `<ol>
+      <li><strong>Apprendre</strong> : un module, puis son exercice dans Spots.</li>
+      <li><strong>Pratiquer sans risque</strong> : la Table, contre des bots aux profils réels. Le débrief te dit ce qui a coûté de l'argent.</li>
+      <li><strong>Jouer</strong> en room, SIGMA 52 fermé.</li>
+      <li><strong>Analyser</strong> : colle tes historiques dans Analyse. Tu obtiens tes fuites préflop, ta chance aux all-in et le profil de chaque adversaire avec son plan d'exploitation.</li></ol>
+      <p>Les erreurs de Spots reviennent dans les Révisions à intervalles croissants (1, 3, 7, 18 jours…) jusqu'à ce que tu les réussisses.</p>`],
+  ]);
+
   mod('bankroll', 'Bankroll, variance, rake', 10, 'situations', [
     ['Combien de caves', `<table class="t"><thead><tr><th>Format</th><th>Repère prudent</th></tr></thead><tbody>
       <tr><td>Cash 6-max</td><td>40 caves (40 × 10 € pour la NL10)</td></tr>
