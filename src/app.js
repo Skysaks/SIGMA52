@@ -14,7 +14,7 @@
 
   // ---------- Stockage ----------
   const DEF = {
-    progress: { stats: {}, hist: {}, streak: 0, best: 0, read: {}, daily: { date: '', done: 0, ok: 0 }, review: [] },
+    progress: { stats: {}, hist: {}, streak: 0, best: 0, read: {}, quiz: {}, daily: { date: '', done: 0, ok: 0 }, review: [] },
     settings: { bankroll0: 0, biRule: 40 },
     journal: { sessions: [] },
     notes: { opponents: {}, lastImport: null },
@@ -94,7 +94,7 @@
   // ---------- Aujourd'hui ----------
   VIEWS.jour = () => {
     const js = journalStats(), ts = totalStat(), d = state.progress.daily.date === today() ? state.progress.daily : { done: 0, ok: 0 };
-    const nextMod = K.MODULES.find((m) => !state.progress.read[m.id]), read = K.MODULES.filter((m) => state.progress.read[m.id]).length;
+    const nextMod = K.MODULES.find((m) => !((state.progress.quiz || {})[m.id] >= 0.8)), read = K.MODULES.filter((m) => (state.progress.quiz || {})[m.id] >= 0.8).length;
     const ms = maxStake(js.bank), due = dueReviews().length, li = state.notes.lastImport;
     return `<section style="display:grid;gap:8px"><span class="eyebrow">${new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
       <h1>Ta séance d'aujourd'hui</h1><p class="lead">Révisions, 10 spots, un module, une session à la table d'entraînement. Puis la checklist avant de jouer en room.</p></section>
@@ -102,7 +102,7 @@
     <div class="stats">
       <div class="stat hero"><span>Spots réussis</span><b>${ts.n ? pct(ts.ok / ts.n) : '—'}</b><span>${ts.n} réponses · série ${state.progress.streak}</span></div>
       <div class="stat"><span>Révisions dues</span><b>${due}</b><span>${state.progress.review.length} erreurs suivies</span></div>
-      <div class="stat"><span>Cours lu</span><b>${read}/${K.MODULES.length}</b><span>modules</span></div>
+      <div class="stat"><span>Cours maîtrisé</span><b>${read}/${K.MODULES.length}</b><span>modules à 80 % au quiz</span></div>
       <div class="stat"><span>Bankroll</span><b>${state.settings.bankroll0 || js.ss.length ? eur(js.bank) : '—'}</b><span>${js.ss.length ? '30 j : ' + eur(js.last30) : 'à renseigner dans Journal'}</span></div>
     </div>
     <div class="grid3">
@@ -113,8 +113,8 @@
         <div class="meter"><i style="width:${Math.min(100, d.done * 10)}%"></i></div>
         <p class="note">Le mix tire plus souvent tes types de spots les plus faibles.</p>
         <div class="row"><button class="btn primary" data-act="daily">${d.done ? 'Continuer' : 'Commencer'}</button></div></section>
-      <section class="panel"><span class="eyebrow">3 · Cours</span><h2>${nextMod ? esc(nextMod.title) : 'Cours terminé'}</h2>
-        <p class="note">${nextMod ? nextMod.minutes + ' min de lecture, puis l\'exercice lié.' : 'Relis les modules liés à tes spots faibles.'}</p>
+      <section class="panel"><span class="eyebrow">3 · Cours${nextMod ? ' · niveau ' + nextMod.level : ''}</span><h2>${nextMod ? esc(nextMod.title) : 'Cours maîtrisé'}</h2>
+        <p class="note">${nextMod ? nextMod.minutes + ' min, puis le quiz et l\'exercice lié.' : 'Relis les modules liés à tes spots faibles.'}</p>
         <div class="row"><button class="btn" data-act="openmod" data-id="${nextMod ? nextMod.id : K.MODULES[0].id}">${nextMod ? 'Lire' : 'Revoir'}</button></div></section>
     </div>
     <div class="grid2">
@@ -132,18 +132,51 @@
   };
 
   // ---------- Cours ----------
-  let openMod = null;
+  let openMod = null, qAns = {}, showGloss = false;
+  const quizScore = (id) => state.progress.quiz?.[id];
+  const mastered = (m) => (quizScore(m.id) ?? 0) >= 0.8;
+  function quizAnswer(m, qi, i) {
+    if (qAns[qi] !== undefined) return;
+    qAns[qi] = i;
+    const q = m.quiz[qi], ok = q.ok === i, p = state.progress;
+    // Une erreur de quiz rejoint les révisions espacées, comme une erreur de Spots.
+    if (!ok) {
+      const key = 'quiz:' + m.id + ':' + qi, idx = p.review.findIndex((r) => r.key === key);
+      const item = { key, spot: { type: 'situations', title: 'Quiz · ' + m.title, prompt: esc(q.q), opts: q.opts, ok: q.ok, why: q.why, sid: key }, iv: 1, due: addDays(1) };
+      if (idx >= 0) p.review[idx] = item; else p.review.push(item);
+    }
+    if (Object.keys(qAns).length === m.quiz.length) {
+      const sc = m.quiz.filter((qq, k) => qAns[k] === qq.ok).length / m.quiz.length;
+      p.quiz = p.quiz || {}; p.quiz[m.id] = Math.max(p.quiz[m.id] || 0, sc); p.read[m.id] = true;
+    }
+    Store.save('progress'); render();
+  }
   VIEWS.cours = () => {
     if (openMod) {
-      const m = K.MODULES.find((x) => x.id === openMod), i = K.MODULES.indexOf(m), nxt = K.MODULES[i + 1];
-      return `<div class="row"><button class="btn small" data-act="closemod">← Tous les modules</button><span class="eyebrow">Module ${i + 1} sur ${K.MODULES.length} · ${m.minutes} min</span></div>
-      <article class="panel prose"><h1>${esc(m.title)}</h1>${m.sections.map(([h, html]) => `<section><h2>${h}</h2><div class="prose tw">${html}</div></section>`).join('')}</article>
-      <div class="row"><button class="btn primary" data-act="readmod" data-id="${m.id}">${state.progress.read[m.id] ? 'Lu ✓' : 'Marquer comme lu'}</button>
-        <button class="btn" data-act="drill" data-type="${m.drill}">S'entraîner : ${S.TYPES[m.drill]}</button>
-        ${nxt ? `<button class="btn" data-act="openmod" data-id="${nxt.id}">Module suivant →</button>` : ''}</div>`;
+      const m = K.MODULES.find((x) => x.id === openMod), i = K.MODULES.indexOf(m), nxt = K.MODULES[i + 1], L = K.LEVELS[m.level - 1];
+      const done = Object.keys(qAns).length === m.quiz.length, right = m.quiz.filter((q, k) => qAns[k] === q.ok).length;
+      const quiz = m.quiz.map((q, qi) => {
+        const a = qAns[qi];
+        return `<div class="panel" style="gap:10px"><p><strong>${qi + 1}.</strong> ${esc(q.q)}</p><div class="opts">${q.opts.map((o, oi) => `<button class="opt${a !== undefined && oi === q.ok ? ' ok' : ''}${a === oi && oi !== q.ok ? ' ko' : ''}" data-act="qans" data-q="${qi}" data-i="${oi}" ${a !== undefined ? 'disabled' : ''}>${esc(o)}</button>`).join('')}</div>
+          ${a !== undefined ? `<div class="verdict ${a === q.ok ? 'good' : 'bad'}"><b>${a === q.ok ? 'Juste.' : 'Non : ' + esc(q.opts[q.ok]) + '.'}</b><span>${esc(q.why)}</span></div>` : ''}</div>`;
+      }).join('');
+      return `<div class="row"><button class="btn small" data-act="closemod">← Tous les modules</button><span class="eyebrow">Niveau ${m.level} · ${L.title} · module ${i + 1} sur ${K.MODULES.length} · ${m.minutes} min</span></div>
+      <article class="panel prose"><h1>${esc(m.title)}</h1>
+        <div class="warnbox"><strong>À la fin de ce module, tu sauras :</strong><ul>${m.goals.map((g) => `<li>${esc(g)}</li>`).join('')}</ul></div>
+        ${m.sections.map(([h, html]) => `<section><h2>${h}</h2><div class="prose tw">${html}</div></section>`).join('')}
+        <div class="grid2"><section class="panel" style="background:var(--bad-bg);border-color:transparent"><h3>Erreurs fréquentes</h3><ul>${m.mistakes.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></section>
+          <section class="panel" style="background:var(--good-bg);border-color:transparent"><h3>À retenir</h3><ul>${m.keys.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></section></div></article>
+      <section style="display:grid;gap:10px"><div class="row" style="justify-content:space-between"><h2>Quiz du module</h2>${quizScore(m.id) !== undefined ? `<span class="pill ${mastered(m) ? 'good' : ''}">Meilleur score : ${pct(quizScore(m.id))}</span>` : ''}</div>${quiz}
+        ${done ? `<div class="verdict ${right / m.quiz.length >= 0.8 ? 'good' : 'bad'}"><b>${right}/${m.quiz.length} · ${right / m.quiz.length >= 0.8 ? 'Module maîtrisé.' : 'Seuil de maîtrise : 80 %. Relis les sections concernées puis recommence.'}</b>${right < m.quiz.length ? '<span>Tes erreurs reviennent demain dans les Révisions.</span>' : ''}</div><div class="row"><button class="btn" data-act="qreset">Recommencer le quiz</button></div>` : ''}</section>
+      <div class="row"><button class="btn" data-act="drill" data-type="${m.drill}">S'entraîner : ${S.TYPES[m.drill]}</button>
+        ${nxt ? `<button class="btn primary" data-act="openmod" data-id="${nxt.id}">Module suivant →</button>` : ''}</div>`;
     }
-    return head('Cours A-Z', `Dans l'ordre. Chaque module se termine par un exercice dans Spots. ${K.MODULES.reduce((a, m) => a + m.minutes, 0)} minutes de lecture au total.`) +
-      `<div class="modlist">${K.MODULES.map((m, i) => `<button class="mod${state.progress.read[m.id] ? ' done' : ''}" data-act="openmod" data-id="${m.id}"><span class="n">${state.progress.read[m.id] ? '✓' : String(i + 1).padStart(2, '0')}</span><span><h3>${esc(m.title)}</h3><span class="note">${m.sections.map((s) => s[0]).join(' · ')}</span></span><span class="note mono">${m.minutes} min</span></button>`).join('')}</div>`;
+    const total = K.MODULES.length, nM = K.MODULES.filter(mastered).length;
+    return head('Cours', `De débutant à professionnel, en ${K.LEVELS.length} niveaux et ${total} modules. Chaque module : objectifs, cours, erreurs fréquentes, points à retenir, quiz noté et exercice lié. Un module est maîtrisé à 80 % au quiz.`) +
+      `<div class="stats"><div class="stat hero"><span>Modules maîtrisés</span><b>${nM}/${total}</b><span>quiz réussis à 80 % ou plus</span></div>${K.LEVELS.map((L) => { const ms = K.MODULES.filter((m) => m.level === L.n); return `<div class="stat"><span>Niveau ${L.n} · ${L.title}</span><b>${ms.filter(mastered).length}/${ms.length}</b><span>${ms.reduce((a, m) => a + m.minutes, 0)} min</span></div>`; }).join('')}</div>
+      ${K.LEVELS.map((L) => `<section style="display:grid;gap:8px"><div><span class="eyebrow">Niveau ${L.n}</span><h2>${L.title} · ${L.sub}</h2></div><div class="modlist">${K.MODULES.filter((m) => m.level === L.n).map((m) => { const sc = quizScore(m.id), i = K.MODULES.indexOf(m); return `<button class="mod${mastered(m) ? ' done' : ''}" data-act="openmod" data-id="${m.id}"><span class="n">${mastered(m) ? '✓' : String(i + 1).padStart(2, '0')}</span><span><h3>${esc(m.title)}</h3><span class="note">${m.sections.map((x) => x[0]).join(' · ')}</span></span><span class="note mono" style="text-align:right">${m.minutes} min${sc !== undefined ? '<br>quiz ' + pct(sc) : ''}</span></button>`; }).join('')}</div></section>`).join('')}
+      <section class="panel"><div class="row" style="justify-content:space-between"><h2>Lexique</h2><button class="btn small" data-act="gloss">${showGloss ? 'Masquer' : 'Afficher les ' + K.GLOSSARY.length + ' termes'}</button></div>
+        ${showGloss ? `<div class="tw"><table class="t"><tbody>${K.GLOSSARY.map(([w, d]) => `<tr><td style="min-width:120px"><strong>${esc(w)}</strong></td><td>${esc(d)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="note">Les termes des tables et des contenus de poker, en français et en anglais.</p>'}</section>`;
   };
   AFTER.cours = () => {
     const tb0 = $('#rfi-pct'); if (tb0) tb0.innerHTML = C.POS.map((p) => `<tr><td>${C.RFI[p].label}</td><td>${fr(E.rangePct(E.parseRange(C.RFI[p].range)), 0)} %</td></tr>`).join('') + '<tr><td>BB</td><td>Défend selon l\'ouverture adverse</td></tr>';
@@ -539,9 +572,11 @@
     if (a === 'check') { $('#ckDone').hidden = ![...document.querySelectorAll('[data-act=check]')].every((c) => c.checked); return; }
     if (a === 'daily') { daily = true; spotMode = 'mix'; spot = null; return go('spots'); }
     if (a === 'review') { daily = false; spotMode = 'review'; spot = null; return go('spots'); }
-    if (a === 'openmod') { openMod = t.dataset.id; return go('cours'); }
+    if (a === 'openmod') { openMod = t.dataset.id; qAns = {}; return go('cours'); }
     if (a === 'closemod') { openMod = null; return render(); }
-    if (a === 'readmod') { state.progress.read[t.dataset.id] = true; Store.save('progress'); return render(); }
+    if (a === 'qans') { return quizAnswer(K.MODULES.find((m) => m.id === openMod), +t.dataset.q, +t.dataset.i); }
+    if (a === 'qreset') { qAns = {}; return render(); }
+    if (a === 'gloss') { showGloss = !showGloss; return render(); }
     if (a === 'drill') { spotMode = t.dataset.type; daily = false; spot = null; return go('spots'); }
     if (a === 'mode') { spotMode = t.dataset.mode; daily = false; spot = null; return render(); }
     if (a === 'ans') return answer(+t.dataset.i);

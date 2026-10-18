@@ -10,7 +10,7 @@ Labo de poker personnel, utilisé **hors table** : avant et après les sessions,
 | Onglet | Rôle |
 |---|---|
 | Aujourd'hui | Révisions dues, 10 spots du jour, prochain module, maîtrise par type, dernière analyse, checklist anti-tilt |
-| Cours | 14 modules : cadre légal, règles, mains, positions, préflop, maths, postflop, fish, formats, ICM et push/fold, boucle de progression, bankroll, mental, plan |
+| Cours | 35 modules en 4 niveaux (Fondations, Joueur gagnant, Avancé, Professionnel). Chaque module : objectifs, cours, erreurs fréquentes, points à retenir, quiz noté (92 questions au total, maîtrise à 80 %), exercice lié. Les erreurs de quiz rejoignent les révisions espacées. Lexique de 60 termes |
 | Spots | 7 types d'exercices corrigés : ouverture, cotes du pot, tirage au turn (équité exacte contre une range), tapis ou couché (Nash, noté en perte d'EV), outs, meilleure main, 40 situations. Répétition espacée des erreurs |
 | Table | Cash 6-max contre 5 bots aux profils réels (fish passif, maniaque, nit, régulier), moteur de main complet avec pots annexes, débrief d'exploitation, export au format Winamax |
 | Outils | Équité (exacte ou Monte-Carlo, matrice préflop range contre range), Board (répartition d'une range en mains faites et tirages), Push/Fold & ICM (solveur de Nash en jetons ou en ICM), Ranges d'ouverture |
@@ -31,7 +31,8 @@ src/board.js      répartition d'une range sur un board, textures
 src/hh.js         parseur d'historiques, statistiques, fuites, EV des all-in, profils
 src/table.js      table 6-max contre bots profilés, export Winamax, débrief
 src/charts.js     ranges d'ouverture par position
-src/course.js     cours et banque de situations
+src/course.js     noyau du cours, lexique, banque de situations
+src/course_l1-4.js  les 4 niveaux du cours
 src/spots.js      générateur d'exercices
 src/app.js        interface et stockage
 src/template.html styles et squelette
@@ -45,7 +46,7 @@ test/             tests du moteur, du solveur, du board, des spots, de la table 
 ```bash
 node tools/build_matrix.js 50000   # ~4 min sur 2 cœurs, seulement si le moteur change
 ./build.sh                         # écrit sigma52.html
-for t in engine solver board spots table; do node test/$t.test.js; done
+for t in engine solver board spots table course; do node test/$t.test.js; done
 NODE_PATH=$(npm root -g) node test/ui.test.js   # Playwright, 1280 px et 390 px
 ```
 
@@ -56,6 +57,7 @@ NODE_PATH=$(npm root -g) node test/ui.test.js   # Playwright, 1280 px et 390 px
 - Matrice préflop : AA contre KK 81,9 %, AKs contre QQ 46,2 %, 22 contre AKo 52,6 %.
 - Solveur : à 10 bb en tête-à-tête, la SB pousse 58,4 % des mains, valeur publiée de référence. Avec une seule place payée, l'ICM retombe exactement sur l'équilibre en jetons.
 - Parseur : sur des historiques Winamax réels, la somme des gains de tous les joueurs égale moins le rake.
+- Cours : chaque probabilité citée est recalculée par le moteur ; structure, balises et quiz de chaque module vérifiés par test.
 - Table : 1 500 mains simulées sans perte de jetons ; l'historique exporté, relu par l'importeur, redonne les mêmes gains et classe correctement les 5 profils de bots.
 
 ## Limites connues

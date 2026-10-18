@@ -27,7 +27,16 @@ const SHOTS = process.env.SHOTS || '';
     await p.reload(); await p.waitForTimeout(300); await tab('jour'); await p.click('[data-act=review]'); await p.click('[data-act=ans]'); await p.waitForSelector('.verdict'); await over('revision');
     // Cours.
     await tab('cours'); const n = await p.locator('.mod').count();
-    for (let i = 0; i < n; i++) { await p.locator('.mod').nth(i).click(); await over('module ' + i); await p.click('[data-act=readmod]'); await p.click('[data-act=closemod]'); }
+    if (n !== 35) errs.push(name + ' modules ' + n);
+    for (let i = 0; i < n; i++) {
+      await p.locator('.mod').nth(i).click(); await over('module ' + i);
+      const nq = await p.locator('[data-act=qans][data-i="0"]').count();
+      for (let q = 0; q < nq; q++) await p.click(`[data-act=qans][data-q="${q}"][data-i="${(q + i) % 2}"]`);
+      if (!(await p.locator('text=/\\d+\\/\\d+ · /').count())) errs.push(name + ' score de quiz absent module ' + i);
+      if (i === 5) await shot('module-maths');
+      await p.click('[data-act=closemod]');
+    }
+    await p.click('[data-act=gloss]'); await over('lexique'); await shot('cours');
     // Table : 15 mains jouées aux boutons.
     await tab('table'); await shot('table');
     for (let h = 0; h < 15; h++) {
