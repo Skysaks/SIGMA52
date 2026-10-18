@@ -40,44 +40,54 @@
   class Table {
     constructor(opts = {}) {
       this.r = opts.random || Math.random;
-      this.sb = 0.05; this.bb = 0.1; this.handNo = 0;
+      // Options : lineup (profils des bots), stack (tapis de départ), sb/bb, rebuy (recave en cash), levels + handsPerLevel (tournoi).
+      this.levels = opts.levels || null; this.handsPerLevel = opts.handsPerLevel || 6;
+      [this.sb, this.bb] = this.levels ? this.levels[0] : [opts.sb ?? 0.05, opts.bb ?? 0.1];
+      this.rebuy = opts.rebuy !== false; this.startStack = opts.stack ?? 10; this.handNo = 0; this.unit = opts.unit ?? '€';
       const lineup = opts.lineup || ['station', 'reg', 'maniaque', 'station', 'nit'];
       const used = {};
-      this.players = [{ name: 'Toi', hero: true, stack: 10, profile: null }]
-        .concat(lineup.map((p) => { used[p] = (used[p] || 0) + 1; return { name: NAMES[p][(used[p] - 1) % NAMES[p].length], profile: p, stack: 10 }; }));
-      this.button = (this.r() * 6) | 0; this.log = []; this.history = []; this.session = { hands: 0, net: 0 };
+      this.players = [{ name: 'Toi', hero: true, stack: this.startStack, profile: null }]
+        .concat(lineup.map((p) => { used[p] = (used[p] || 0) + 1; return { name: NAMES[p][(used[p] - 1) % NAMES[p].length], profile: p, stack: this.startStack }; }));
+      this.n = this.players.length; this.busted = [];
+      this.button = (this.r() * this.n) | 0; this.log = []; this.history = []; this.session = { hands: 0, net: 0 };
     }
     get pot() { return this.players.reduce((a, p) => a + p.total, 0); }
-    seatOrder(from) { const o = []; for (let k = 1; k <= 6; k++) o.push((from + k) % 6); return o; }
+    // Sièges actifs (non éliminés) dans l'ordre, à partir du siège suivant `from`.
+    seatOrder(from) { const o = []; for (let k = 1; k <= this.n; k++) { const i = (from + k) % this.n; if (!this.players[i].out) o.push(i); } return o; }
+    active() { return this.players.filter((p) => !p.out); }
     newHand() {
       this.handNo++;
-      // Recave à 100 bb sous 40 bb ; au-delà de 250 bb, le joueur quitte la table et un nouveau s'assoit à 100 bb.
-      for (const p of this.players) { if (p.stack < this.bb * 40 || p.stack > this.bb * 250) p.stack = 10; }
-      this.button = (this.button + 1) % 6;
+      if (this.rebuy) {
+        // Recave à 100 bb sous 40 bb ; au-delà de 250 bb, le joueur quitte la table et un nouveau s'assoit à 100 bb.
+        for (const p of this.players) { if (p.stack < this.bb * 40 || p.stack > this.bb * 250) p.stack = this.startStack; }
+      } else if (this.levels) [this.sb, this.bb] = this.levels[Math.min(this.levels.length - 1, Math.floor((this.handNo - 1) / this.handsPerLevel))];
+      this.button = this.seatOrder(this.button)[0];
       const deck = [...Array(52).keys()]; for (let i = 51; i > 0; i--) { const j = (this.r() * (i + 1)) | 0; [deck[i], deck[j]] = [deck[j], deck[i]]; }
       this.deck = deck; this.board = []; this.street = 'pre'; this.done = false; this.notes = []; this.seq = [];
-      this.players.forEach((p) => Object.assign(p, { cards: [deck.pop(), deck.pop()], inHand: true, allin: false, put: 0, total: 0, start: p.stack, acts: [] }));
-      const [sbi, bbi] = this.seatOrder(this.button);
+      this.players.forEach((p) => Object.assign(p, { cards: p.out ? [] : [deck.pop(), deck.pop()], inHand: !p.out, allin: false, put: 0, total: 0, start: p.stack, acts: [] }));
+      const order = this.seatOrder(this.button);
+      // Tête-à-tête : le bouton est la petite blinde.
+      const [sbi, bbi] = order.length === 2 ? [this.button, order[0]] : [order[0], order[1]];
       this.sbi = sbi; this.bbi = bbi;
       this.lines = [`Winamax Poker - CashGame - HandId: #${900000 + this.handNo}-1-${Date.now()} - Holdem no limit (0.05€/0.10€) - ${new Date().toISOString().slice(0, 19).replace('T', ' ').replace(/-/g, '/')} UTC`,
-        `Table: 'SIGMA Entraînement' 6-max (real money) Seat #${this.button + 1} is the button`,
-        ...this.players.map((p, i) => `Seat ${i + 1}: ${p.name} (${p.stack.toFixed(2)}€)`), '*** ANTE/BLINDS ***'];
+        `Table: 'SIGMA Entraînement' ${this.n}-max (real money) Seat #${this.button + 1} is the button`,
+        ...this.players.map((p, i) => (p.out ? null : `Seat ${i + 1}: ${p.name} (${p.stack.toFixed(2)}€)`)).filter(Boolean), '*** ANTE/BLINDS ***'];
       this.post(sbi, this.sb, 'small blind'); this.post(bbi, this.bb, 'big blind');
       this.lines.push(`Dealt to Toi [${this.players[0].cards.map(E.cardStr).join(' ')}]`, '*** PRE-FLOP *** ');
-      this.cur = this.bb; this.minRaise = this.bb; this.raises = 1; this.acted = new Set(); this.toAct = (bbi + 1) % 6; this.lastAggr = bbi;
+      this.cur = this.bb; this.minRaise = this.bb; this.raises = 1; this.acted = new Set(); this.toAct = (bbi + 1) % this.n; this.lastAggr = bbi;
       this.skipToNext(true);
     }
-    post(i, amt, label) { const p = this.players[i]; const a = Math.min(amt, p.stack); p.stack -= a; p.put += a; p.total += a; this.lines.push(`${p.name} posts ${label} ${a.toFixed(2)}€`); }
+    post(i, amt, label) { const p = this.players[i]; const a = Math.min(amt, p.stack); p.stack -= a; p.put += a; p.total += a; if (p.stack <= 1e-9) p.allin = true; this.lines.push(`${p.name} posts ${label} ${a.toFixed(2)}€`); }
     alive() { return this.players.filter((p) => p.inHand); }
-    canAct(i) { const p = this.players[i]; return p.inHand && !p.allin; }
+    canAct(i) { const p = this.players[i]; return p.inHand && !p.allin && p.stack > 1e-9; }
     roundOver() {
       const act = this.players.map((p, i) => i).filter((i) => this.canAct(i));
       if (this.alive().length <= 1) return true;
       return act.every((i) => this.acted.has(i) && this.players[i].put >= this.cur - 1e-9) || act.length === 0 || (act.length === 1 && this.players[act[0]].put >= this.cur - 1e-9 && this.acted.has(act[0]));
     }
     skipToNext(first) {
-      if (!first) this.toAct = (this.toAct + 1) % 6;
-      for (let k = 0; k < 6 && !this.canAct(this.toAct); k++) this.toAct = (this.toAct + 1) % 6;
+      if (!first) this.toAct = (this.toAct + 1) % this.n;
+      for (let k = 0; k < this.n && !this.canAct(this.toAct); k++) this.toAct = (this.toAct + 1) % this.n;
     }
     legal() {
       const p = this.players[this.toAct], toCall = Math.min(this.cur - p.put, p.stack);
@@ -121,7 +131,7 @@
       this.done = true; const alive = this.alive();
       // Pot non suivi : la part de la plus grosse mise que personne n'a égalée revient à son auteur.
       const totals = this.players.map((p) => p.total), sorted = [...new Set(totals)].sort((a, b) => a - b);
-      const win = new Array(6).fill(0);
+      const win = new Array(this.n).fill(0);
       if (alive.length === 1) { const w = this.players.indexOf(alive[0]); win[w] = this.pot; }
       else {
         while (this.board.length < 5) this.board.push(this.deck.pop());
@@ -146,6 +156,13 @@
       this.result = this.players.map((p) => ({ name: p.name, profile: p.profile, cards: p.cards, net: p.stack - p.start, showed: p.inHand && alive.length > 1 }));
       const heroNet = this.players[0].stack - this.players[0].start;
       this.session.hands++; this.session.net += heroNet / this.bb;
+      if (!this.rebuy) {
+        // Tournoi : les joueurs sans jetons sont éliminés ; la partie s'arrête quand il en reste un, ou quand le héros sort.
+        const out = this.players.filter((p) => !p.out && p.stack <= 1e-9);
+        const left = this.active().length - out.length;
+        out.forEach((p) => { p.out = true; this.busted.push({ name: p.name, place: left + 1, hero: !!p.hero }); });
+        if (left <= 1 || this.players[0].out) { this.over = true; this.place = this.players[0].out ? this.busted.find((b) => b.hero).place : 1; }
+      }
       this.history.push(this.lines.join('\n'));
       if (this.history.length > 300) this.history.shift();
       this.notes = coach(this);
@@ -155,6 +172,8 @@
       const i = this.toAct, p = this.players[i], pr = PROFILES[p.profile], L = this.legal(), r = this.r;
       if (this.street === 'pre') {
         const pct = handPct(p.cards), facing = this.raises; // 1 = seulement la BB
+        const S = this.effStack(i) / this.bb;
+        if (S <= 15) return this.shortStackAct(i, pct, S);
         if (facing <= 1) {
           if (pct < pr.pfr) return this.act('raise', this.bb * (p.profile === 'maniaque' ? 3.5 : 2.5) + this.bb * this.limpers());
           if (pct < pr.vpip && (p.profile === 'station' || pct < pr.pfr * 1.3)) return this.act(L.canCheck ? 'check' : 'call');
@@ -185,6 +204,24 @@
       if (sAdj > need * pr.callF || (p.profile === 'station' && s > 0.3 && r() < 0.7)) return this.act('call');
       return this.act('fold');
     }
+    // Tapis effectif d'un joueur : son tapis total face au plus gros tapis adverse encore en jeu.
+    effStack(i) { const me = this.players[i].stack + this.players[i].put; const opp = Math.max(0, ...this.players.filter((p, k) => k !== i && p.inHand).map((p) => p.stack + p.put)); return Math.min(me, opp); }
+    // Seuils tapis/couché d'un bot : équilibre de Nash tête-à-tête, resserré à plus de 2 joueurs, ajusté au profil.
+    pfThresholds(i, S) {
+      const p = this.players[i], sol = nash(Math.max(1, Math.min(25, Math.round(S * 2) / 2))), n = this.active().length;
+      const k = n <= 2 ? 1 : n === 3 ? 0.75 : 0.55;
+      const adj = { station: [0.8, 1.4], maniaque: [1.35, 1.25], nit: [0.6, 0.6], reg: [1, 1] }[p.profile] || [1, 1];
+      return { push: Math.min(1, sol.pushPct * k * adj[0]), call: Math.min(1, sol.callPct * (n <= 2 ? 1 : 0.85) * adj[1]) };
+    }
+    shortStackAct(i, pct, S) {
+      const L = this.legal(), th = this.pfThresholds(i, S);
+      if (this.raises <= 1) {
+        if (pct < th.push) return this.act('raise', L.maxTo);
+        return this.act(L.canCheck ? 'check' : 'fold');
+      }
+      if (pct < th.call) return this.act(L.maxTo > this.cur && pct < th.call * 0.6 ? 'raise' : 'call', L.maxTo);
+      return this.act('fold');
+    }
     limpers() { return this.players.filter((p) => p.inHand && p.total === this.bb && p.acts.some((a) => a.street === 'pre' && a.final === 'call')).length; }
     // Avance jusqu'au tour du héros ou la fin de la main.
     runBots() { let n = 0; while (!this.done && this.toAct !== 0 && n++ < 200) this.botAct(); if (!this.done && !this.canAct(0)) { while (!this.done && n++ < 400) { if (this.toAct === 0) this.act('check'); else this.botAct(); } } }
@@ -205,7 +242,7 @@
     const k0 = t.seq.findIndex((x) => x.i === 0 && x.street === 'pre');
     const firstIn = k0 >= 0 && t.seq.slice(0, k0).every((x) => x.street !== 'pre' || x.final === 'fold' || x.final === 'check');
     const pos = posName(t, 0), chart = root.Charts || require('./charts.js');
-    if (first && firstIn && pos !== 'BB') {
+    if (first && firstIn && chart.RFI[pos]) {
       const inR = E.parseRange(chart.RFI[pos].range).has(hc);
       if (first.final === 'call') out.push({ k: 'bad', t: `Limp avec ${hc} en ${pos} : relance ou couche-toi quand tu entres en premier.` });
       else if (first.final === 'raise' && !inR) out.push({ k: 'warn', t: `Ouverture avec ${hc} en ${pos} : hors de la range standard. Acceptable seulement si des fish sont aux blindes.` });
@@ -233,7 +270,16 @@
     return { advice: out, reveal, net: res[0].net / t.bb };
   }
 
-  function posName(t, i) { return ['BTN', 'SB', 'BB', 'UTG', 'HJ', 'CO'][(i - t.button + 6) % 6]; }
+  // Nom de position selon les sièges actifs : BTN, SB, BB, puis CO, HJ, UTG en remontant depuis le bouton.
+  function posName(t, i) {
+    const act = [t.button, ...t.seatOrder(t.button).filter((k) => k !== t.button)], k = act.indexOf(i), n = act.length;
+    if (k < 0) return '—';
+    if (n === 2) return k === 0 ? 'BTN' : 'BB';
+    if (k <= 2) return ['BTN', 'SB', 'BB'][k];
+    return ['UTG', 'HJ', 'CO'][3 - (n - k)] || 'UTG';
+  }
+  const nashCache = {};
+  const nash = (S) => nashCache[S] || (nashCache[S] = Solver.solveChip(S));
 
   const api = { Table, PROFILES, handPct, strength, preflopPct, posName };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.TableSim = api;

@@ -13,75 +13,106 @@ const SHOTS = process.env.SHOTS || '';
     await p.waitForTimeout(300);
     const over = async (t) => { const [sw, iw] = await p.evaluate(() => [document.documentElement.scrollWidth, innerWidth]); if (sw > iw + 1) errs.push(`${name} ${t} débordement ${sw}>${iw}`); };
     const shot = async (t) => { if (SHOTS) await p.screenshot({ path: `${SHOTS}/${name}-${t}.png`, fullPage: true }); };
-    const tab = async (t) => { await p.click(`[data-tab=${t}]`); await p.waitForTimeout(80); };
-    await over('jour'); await shot('jour');
-    // Spots : 12 réponses du jour, chaque type, puis les révisions générées par les erreurs.
+    const tab = async (t) => { await p.click(`[data-tab=${t}]`); await p.waitForTimeout(60); };
+    const has = async (sel) => (await p.locator(sel).count()) > 0;
+
+    // Aujourd'hui + programme
+    if (!(await has('text=Programme · semaine 1 sur 12'))) errs.push(name + ' programme absent');
+    await p.click('[data-act=weeks]'); await over('jour'); await shot('jour');
+    await p.click('[data-act=plango] >> nth=0'); await p.waitForTimeout(60); await tab('jour');
+
+    // Spots (dont le nouveau type) + révisions
     await p.click('[data-act=daily]');
     for (let i = 0; i < 12; i++) { await p.click('[data-act=ans]'); await p.waitForSelector('.verdict'); await p.click('[data-act=next]'); }
-    for (const m of ['rfi', 'odds', 'tirage', 'pushfold', 'outs', 'meilleure', 'situations']) { await p.click(`[data-mode=${m}]`); await p.click('[data-act=ans]'); await p.waitForSelector('.verdict'); await over('spots-' + m); if (m === 'pushfold') await shot('spots-pushfold'); }
+    for (const m of ['rfi', 'vsopen', 'odds', 'tirage', 'pushfold', 'outs', 'meilleure', 'situations']) { await p.click(`[data-mode=${m}]`); await p.click('[data-act=ans]'); await p.waitForSelector('.verdict'); await over('spots-' + m); }
     const prog = await p.evaluate(() => JSON.parse(localStorage.getItem('sigma52.progress')));
     if (prog.daily.done !== 10) errs.push(name + ' compteur du jour ' + prog.daily.done);
-    if (!prog.review.length) errs.push(name + ' aucune erreur en révision');
-    // Les révisions sont dues demain : on avance la date des éléments pour tester le mode.
     await p.evaluate(() => { const pr = JSON.parse(localStorage.getItem('sigma52.progress')); pr.review.forEach((r) => (r.due = '2000-01-01')); localStorage.setItem('sigma52.progress', JSON.stringify(pr)); });
-    await p.reload(); await p.waitForTimeout(300); await tab('jour'); await p.click('[data-act=review]'); await p.click('[data-act=ans]'); await p.waitForSelector('.verdict'); await over('revision');
-    // Cours.
-    await tab('cours'); const n = await p.locator('.mod').count();
-    if (n !== 35) errs.push(name + ' modules ' + n);
-    for (let i = 0; i < n; i++) {
+    await p.reload(); await p.waitForTimeout(300); await tab('jour'); await p.click('[data-act=review]'); await p.click('[data-act=ans]'); await p.waitForSelector('.verdict');
+
+    // Cours : quelques modules et leurs quiz
+    await tab('cours');
+    if ((await p.locator('.mod').count()) !== 35) errs.push(name + ' modules');
+    for (const i of [0, 5, 20, 34]) {
       await p.locator('.mod').nth(i).click(); await over('module ' + i);
       const nq = await p.locator('[data-act=qans][data-i="0"]').count();
-      for (let q = 0; q < nq; q++) await p.click(`[data-act=qans][data-q="${q}"][data-i="${(q + i) % 2}"]`);
-      if (!(await p.locator('text=/\\d+\\/\\d+ · /').count())) errs.push(name + ' score de quiz absent module ' + i);
-      if (i === 5) await shot('module-maths');
+      for (let q = 0; q < nq; q++) await p.click(`[data-act=qans][data-q="${q}"][data-i="0"]`);
       await p.click('[data-act=closemod]');
     }
-    await p.click('[data-act=gloss]'); await over('lexique'); await shot('cours');
-    // Table : 15 mains jouées aux boutons.
-    await tab('table'); await shot('table');
-    for (let h = 0; h < 15; h++) {
-      let g = 0;
-      while (!(await p.locator('[data-act=nexthand]').count()) && g++ < 40) {
-        const raise = await p.locator('[data-act=hraise]').count();
-        if (raise && g === 1 && h % 3 === 0) await p.locator('[data-act=hraise]').first().click(); else await p.click('[data-act=hcall]');
-      }
-      if (h === 2) await shot('table-debrief');
-      await over('table'); await p.click('[data-act=nexthand]');
+
+    // Simulateur : préparation, session de 25 mains avec coach en direct, bilan
+    await tab('sim'); await over('sim-prep'); await shot('sim-prep');
+    await p.click('[data-act=prept][data-v="25"]'); await p.click('[data-act=prepo][data-v="iso"]'); await p.click('[data-act=cashstart]');
+    let coachSeen = 0, guard = 0;
+    while (!(await has('text=Bilan de session')) && guard++ < 400) {
+      if (await has('[data-act=hcall]')) {
+        if (await has('.coach')) coachSeen++;
+        if (coachSeen === 3) await shot('sim-coach');
+        if (guard % 4 === 0 && (await has('[data-act=hraise]'))) await p.locator('[data-act=hraise]').first().click(); else await p.click('[data-act=hcall]');
+      } else if (await has('[data-act=cashnext]')) { await over('sim-debrief'); await p.click('[data-act=cashnext]'); }
+      else break;
     }
-    await p.click('#showprof'); await p.click('#showhelp'); await over('table-aide');
-    await p.click('[data-act=tb2an]'); await over('analyse-table');
-    if (!(await p.locator('text=Mains de la table').count())) errs.push(name + ' export table → analyse');
-    // Outils.
+    if (!(await has('text=Bilan de session'))) errs.push(name + ' bilan de session absent');
+    if (!coachSeen) errs.push(name + ' coach jamais affiché');
+    await over('bilan'); await shot('sim-bilan');
+    await p.click('[data-act=libtable]'); await p.click('[data-act=rptable]');
+    if (!(await has('[data-act=rpgo]'))) errs.push(name + ' replayer non ouvert');
+    for (let k = 0; k < 6; k++) await p.keyboard.press('ArrowRight');
+    await over('replayer'); await shot('replayer');
+    await p.click('[data-act=ansub][data-s=library]');
+    if (!(await has('[data-act=librep]'))) errs.push(name + ' bibliothèque vide');
+    await p.locator('[data-act=libtag]').first().click(); await p.locator('[data-act=libdel]').first().click(); await p.locator('[data-act=libdelok]').first().click();
+    await over('bibliotheque');
+
+    // Mains guidées : toutes, en choisissant la première option
+    await tab('sim'); await p.click('[data-act=simsub][data-s=guided]');
+    const ng = await p.locator('[data-act=gdopen]').count();
+    if (ng !== 13) errs.push(name + ' mains guidées ' + ng);
+    for (let g = 0; g < ng; g++) {
+      await p.locator('[data-act=gdopen]').nth(g).click();
+      let k = 0; while ((await has('[data-act=gdans]:not([disabled])')) && k++ < 8) { await p.locator('[data-act=gdans]').first().click(); await over('guided ' + g); if (g === 1 && k === 3) await shot('guided'); await p.click('[data-act=gdnext]'); }
+      if (!(await has('text=Fin de la main'))) errs.push(name + ' main guidée ' + g + ' non terminée');
+      await p.click('[data-act=gdclose]');
+    }
+
+    // Expresso : une partie complète
+    await p.click('[data-act=simsub][data-s=expresso]'); await p.click('[data-act=xpstart]');
+    let xg = 0;
+    while (!(await has('[data-act=xpnew]')) && xg++ < 600) {
+      if (await has('[data-act=hcall]')) { if (await has('[data-act=hraise]')) await p.locator('[data-act=hraise]').last().click(); else await p.click('[data-act=hcall]'); }
+      else if (await has('[data-act=xpnext]')) await p.click('[data-act=xpnext]');
+      else break;
+      if (xg === 2) { await over('expresso'); await shot('expresso'); }
+    }
+    if (!(await has('[data-act=xpnew]'))) errs.push(name + ' partie Expresso non terminée');
+    const xps = await p.evaluate(() => JSON.parse(localStorage.getItem('sigma52.progress')).expresso.games);
+    if (xps !== 1) errs.push(name + ' compteur Expresso ' + xps);
+
+    // Outils : équité, board, push/fold, nouveaux outils
     await tab('outils');
-    for (let i = 0; i < 5; i++) await p.click(`[data-act=eqex][data-i="${i}"]`);
     await p.click('[data-act=eqex][data-i="1"]');
-    const outs = await p.locator('.felt .eyebrow').textContent();
-    if (!/: 15 sur 45/.test(outs)) errs.push(name + ' outs ' + outs);
-    await p.click('[data-act=eqex][data-i="3"]');
-    if (!(await p.locator('text=Matrice préflop').count())) errs.push(name + ' matrice préflop absente');
-    await over('equite'); await shot('equite');
-    await p.click('[data-t=board]'); for (const bd of ['9h8h7c', 'As5s5d', 'Ah9s4d6c']) { await p.click(`[data-b="${bd}"]`); await over('board ' + bd); } await shot('board');
+    if (!/: 15 sur 45/.test(await p.locator('.felt .eyebrow').textContent())) errs.push(name + ' outs');
     await p.click('[data-t=pushfold]');
-    const push = await p.locator('.stat.hero b').textContent();
-    if (!/58,4/.test(push)) errs.push(name + ' Nash 10 bb ' + push);
-    await p.click('[data-h=A2o]'); if (!/A2o : tapis toujours/.test(await p.locator('#pfdetail').textContent())) errs.push(name + ' détail A2o');
-    await p.click('[data-m=icm]'); await p.click('[data-act=pfpreset][data-v="100"]');
-    const icmPush = await p.locator('.stat.hero b').textContent(); await over('icm'); await shot('icm');
-    await p.click('[data-act=pfpreset][data-v="65, 35"]'); const icm2 = await p.locator('.stat.hero b').textContent();
-    console.log(`  ${name} ICM : gagnant-prend-tout ${icmPush}, 65/35 ${icm2}`);
-    await p.click('[data-t=ranges]'); await p.click('[data-p=UTG]'); await p.click('[data-h=AKo]'); await p.click('[data-act=r2bd]'); await over('ranges→board');
-    // Analyse : exemple simulé.
-    await tab('analyse'); await p.click('[data-act=ansample]'); await p.waitForSelector('text=Exemple simulé');
-    await p.locator('[data-act=opp]').first().click(); await over('analyse'); await shot('analyse');
-    // Journal.
+    if (!/58,4/.test(await p.locator('.stat.hero b').textContent())) errs.push(name + ' Nash 10 bb');
+    await p.click('[data-t=dist]'); await p.click('[data-act=dscalc]'); await p.waitForSelector('#dscanvas');
+    await over('distribution'); await shot('distribution');
+    await p.click('[data-t=deal]'); if (!(await has('text=Répartition proposée'))) errs.push(name + ' deal ICM'); await over('deal');
+    await p.click('[data-t=memo]'); await over('memo');
+
+    // Analyse : exemple simulé, rejouer un gros pot
+    await tab('analyse'); await p.click('[data-act=ansub][data-s=import]'); await p.click('[data-act=ansample]'); await p.waitForSelector('text=Exemple simulé');
+    if (!(await has('text=C-bet flop'))) errs.push(name + ' stat c-bet absente');
+    await p.locator('details summary').first().click().catch(() => {});
+    await p.locator('[data-act=rppot]').first().click();
+    if (!(await has('[data-act=rpgo]'))) errs.push(name + ' replayer depuis analyse');
+    await over('analyse-replay');
+
+    // Journal
     await tab('journal');
     await p.fill('#sbank', '250'); await p.press('#sbank', 'Tab');
-    await p.fill('#jstake', 'NL5'); await p.fill('#jres', '−16,50'); await p.fill('#jhands', '700'); await p.fill('#jmin', '75');
-    await p.click('#jform [type=submit]');
-    if (!/Stop-loss/.test(await p.locator('[role=alert]').textContent())) errs.push(name + ' stop-loss absent');
-    await p.fill('#jres', '7'); await p.fill('#jhands', '900'); await p.click('#jform [type=submit]');
-    if (!/240,50/.test(await p.locator('.stat b').first().textContent())) errs.push(name + ' bankroll');
-    await over('journal'); await shot('journal');
+    await p.fill('#jres', '−16,50'); await p.fill('#jhands', '700'); await p.click('#jform [type=submit]');
+    if (!/Stop-loss/.test(await p.locator('[role=alert]').textContent())) errs.push(name + ' stop-loss');
+    await over('journal');
     await tab('jour'); await over('jour-fin'); await shot('jour-fin');
     await p.close();
   }

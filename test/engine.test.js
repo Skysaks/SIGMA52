@@ -31,6 +31,8 @@ t('ranges', () => {
   assert.deepStrictEqual([...E.parseRange('KTs+')].sort(), ['KJs', 'KQs', 'KTs']);
   assert.deepStrictEqual([...E.parseRange('76s-54s')].sort(), ['54s', '65s', '76s']);
   assert.strictEqual(E.rangeCombos('AK').length, 16);
+  assert.deepStrictEqual([...E.parseRange('AQs-ATs')].sort(), ['AJs', 'AQs', 'ATs']);
+  assert.deepStrictEqual([...E.parseRange('jj-99, kqo')].sort(), ['99', 'JJ', 'KQo', 'TT']);
   assert.strictEqual(E.rangeCombos('random').length, 1326);
   assert.strictEqual(E.abstractOf(E.card('Kd'), E.card('Ad')), 'AKs');
   assert.strictEqual(E.abstractOf(E.card('Kd'), E.card('Ac')), 'AKo');

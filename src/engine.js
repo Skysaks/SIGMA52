@@ -75,7 +75,7 @@
     for (let tok of (str || '').split(/[\s,]+/).filter(Boolean)) {
       tok = tok.trim();
       if (/^(random|any|100%)$/i.test(tok)) { ALL169.forEach((h) => set.add(h)); continue; }
-      tok = tok[0].toUpperCase() + tok[1].toUpperCase() + tok.slice(2).toLowerCase();
+      tok = tok.replace(/[2-9tjqka]/gi, (c) => c.toUpperCase()).replace(/[SO]/g, (c) => c.toLowerCase());
       const m = tok.match(/^([2-9TJQKA])([2-9TJQKA])([so]?)(\+?)(?:-([2-9TJQKA])([2-9TJQKA])([so]?))?$/);
       if (!m) throw new Error('Range illisible : ' + tok);
       let [, r1, r2, sfx, plus, e1, e2] = m;

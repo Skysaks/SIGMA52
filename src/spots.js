@@ -6,7 +6,7 @@
   const Solver = root.Solver || require('./solver.js');
 
   const TYPES = {
-    rfi: 'Ouverture', odds: 'Cotes du pot', tirage: 'Tirage au turn', pushfold: 'Tapis ou couché', outs: 'Compter les outs', meilleure: 'Meilleure main', situations: 'Situations',
+    rfi: 'Ouverture', vsopen: 'Face à une ouverture', odds: 'Cotes du pot', tirage: 'Tirage au turn', pushfold: 'Tapis ou couché', outs: 'Compter les outs', meilleure: 'Meilleure main', situations: 'Situations',
   };
   const pick = (a, r) => a[(r() * a.length) | 0];
   const pct = (x) => (x * 100).toFixed(1).replace('.', ',') + ' %';
@@ -37,6 +37,31 @@
       cards, opts: [`Ouvrir à ${Charts.RFI[pos].size}`, 'Se coucher'], ok: open ? 0 : 1,
       why: `${h} est ${open ? '' : 'hors de '}la range d'ouverture ${pos} (${E.rangePct(set).toFixed(0)} % des mains). ` +
         (open ? 'Relance, ne limpe jamais en premier.' : 'Trop de joueurs parlent après toi pour cette main, ou elle est dominée trop souvent.'),
+    };
+  }
+
+  // Face à une ouverture : 3-bet, call ou fold selon les charts.
+  function vsopen(r) {
+    const pairs = []; for (const o in Charts.FACING) for (const h in Charts.FACING[o]) pairs.push([o, h]);
+    const [o, h] = pick(pairs, r), f = Charts.FACING[o][h];
+    const zone = E.parseRange(f.threebet + (f.call ? ', ' + f.call : ''));
+    let cards, hand;
+    for (let k = 0; k < 40; k++) {
+      cards = deal(2, r); hand = E.abstractOf(cards[0], cards[1]);
+      if (r() < 0.35) break;
+      const ri = E.RANKS.indexOf(hand[0]), rj = E.RANKS.indexOf(hand[1]);
+      const nb = [[ri, rj - 1], [ri, rj + 1], [ri - 1, rj]].filter(([a, b]) => a >= 0 && b >= 0 && a <= 12 && b <= 12 && a !== b).map(([a, b]) => E.RANKS[Math.max(a, b)] + E.RANKS[Math.min(a, b)] + (hand[2] || ''));
+      if (zone.has(hand) || nb.some((x) => zone.has(x))) break;
+    }
+    const act = Charts.facingAction(o, h, hand), opts = ['3-bet', 'Payer', 'Se coucher'], ok = { '3bet': 0, call: 1, fold: 2 }[act];
+    const ip = !['SB', 'BB'].includes(h);
+    return {
+      type: 'vsopen', title: `Face à une ouverture · ${o} ouvre, tu es ${h}`,
+      prompt: `Un régulier ouvre à 2,5 bb depuis le <strong>${o}</strong>, tout le monde se couche jusqu'à toi. Tu es <strong>${h}</strong> avec <strong>${hand}</strong>.`,
+      cards, opts, ok,
+      why: `Référence ${o} contre ${h} : 3-bet ${E.rangePct(E.parseRange(f.threebet)).toFixed(1).replace('.', ',')} % des mains, call ${f.call ? E.rangePct(E.parseRange(f.call)).toFixed(1).replace('.', ',') : '0'} %. ${hand} : ${act === '3bet' ? '3-bet' : act === 'call' ? 'call' : 'fold'}. ` +
+        (h === 'SB' ? 'En petite blinde, on joue 3-bet ou fold : un call laisse la BB entrer à bas prix et tu joues hors de position.' : h === 'BB' ? 'En grosse blinde, tu as déjà 1 bb dans le pot : la défense est large, surtout contre les ouvertures tardives.' : ip ? 'En position, les mains jouables postflop se paient ; le haut de range et quelques bloqueurs se 3-bettent.' : '') +
+        (o === 'UTG' ? ' Une ouverture UTG est la plus forte : serre-toi.' : ''),
     };
   }
 
@@ -177,7 +202,7 @@
     return { type: 'situations', title: 'Situation · ' + s.cat, prompt: s.q, opts: s.opts, ok: s.ok, why: s.why, sid: s.id };
   }
 
-  const GEN = { rfi, odds, tirage, pushfold, outs: outsSpot, meilleure, situations: situation };
+  const GEN = { rfi, vsopen, odds, tirage, pushfold, outs: outsSpot, meilleure, situations: situation };
   // Mix : favorise les types les moins réussis (stats = { type: { ok, n } }).
   function mix(r, stats = {}) {
     const types = Object.keys(GEN), w = types.map((t) => { const s = stats[t] || { ok: 0, n: 0 }; return 1.5 - (s.ok + 1) / (s.n + 2); });

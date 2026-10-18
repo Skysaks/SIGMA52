@@ -155,6 +155,17 @@ details summary { cursor: pointer; }
   .pokertable { padding: 14px 8px; gap: 6px; border-radius: 40px; } .seat { padding: 6px 4px; } .seat .nm { font-size: 12px; } .cd.sm { width: 26px; height: 36px; font-size: 12px; } .cd.sm i { font-size: 10px; }
   .hbar { grid-template-columns: 100px minmax(0, 1fr) 96px; font-size: 13px; }
 }
+/* Table à 3 joueurs (Expresso), coach, replayer */
+.pokertable.pt3 { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: "s1 s2" "mid mid" "s0 s0"; border-radius: 90px / 70px; }
+.pokertable.pt3 .seat[style*="s0"] { justify-self: center; min-width: 50%; }
+.coach { border-color: var(--gold); }
+.coach h2 { color: var(--accent); }
+.rpseats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
+.rpseat { background: rgba(0,0,0,.28); border-radius: 10px; padding: 8px; display: grid; gap: 4px; justify-items: center; text-align: center; border: 1px solid rgba(255,255,255,.08); min-width: 0; }
+.rpseat.turn { border-color: var(--gold); } .rpseat.out { opacity: .4; }
+.rpseat .nm { font-weight: 600; font-size: 13px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rpseat .stk { font: 600 12px var(--f-mono); } .rpseat .bet { font: 600 12px var(--f-mono); background: var(--gold); color: #2B1608; border-radius: 999px; padding: 2px 8px; }
+.verdict:not(.good):not(.bad) { background: var(--sunk); }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 </style>
 <header class="top"><div class="wrap">
@@ -175,4 +186,8 @@ details summary { cursor: pointer; }
 <script>/*__BOARD__*/</script>
 <script>/*__HH__*/</script>
 <script>/*__TABLE__*/</script>
+<script>/*__COACH__*/</script>
+<script>/*__GUIDED__*/</script>
+<script>/*__PLAN__*/</script>
 <script>/*__APP__*/</script>
+<script>/*__APPSIM__*/</script>

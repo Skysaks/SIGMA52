@@ -128,6 +128,15 @@
     };
   }
 
-  const api = { init, eq, idx, eqVsRange, rangeVsRange, setToFreq, icm, solveOutcomes, chipOutcomes, solveChip, icmOutcomes, get W() { init(); return W; } };
+  // Deal en table finale : ICM contre chip chop. prizes = montants restants par place (€), stacks = jetons.
+  function deal(stacks, prizes) {
+    const total = stacks.reduce((a, b) => a + b, 0), pool = prizes.slice(0, stacks.length).reduce((a, b) => a + b, 0);
+    const minCash = prizes[Math.min(stacks.length, prizes.length) - 1] || 0, rest = pool - minCash * stacks.length;
+    const icmV = icm(stacks, prizes.slice(0, stacks.length));
+    const chip = stacks.map((s) => minCash + rest * s / total);
+    return stacks.map((s, i) => ({ stack: s, share: s / total, icm: icmV[i], chip: chip[i], diff: chip[i] - icmV[i] }));
+  }
+
+  const api = { deal, init, eq, idx, eqVsRange, rangeVsRange, setToFreq, icm, solveOutcomes, chipOutcomes, solveChip, icmOutcomes, get W() { init(); return W; } };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Solver = api;
 })(typeof window !== 'undefined' ? window : globalThis);

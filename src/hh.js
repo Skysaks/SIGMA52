@@ -70,7 +70,7 @@
   // Analyse d'une main : contributions, net par joueur, faits préflop et postflop.
   function analyzeHand(h) {
     const players = h.seats.map((s) => s.name), put = {}, facts = {};
-    players.forEach((p) => { put[p] = 0; facts[p] = { vpip: false, pfr: false, threeOpp: false, three: false, sawFlop: false, folded: false, aggr: 0, calls: 0, sd: false, won: false }; });
+    players.forEach((p) => { put[p] = 0; facts[p] = { vpip: false, pfr: false, threeOpp: false, three: false, sawFlop: false, folded: false, aggr: 0, calls: 0, sd: false, won: false, cbetOpp: false, cbet: false, ftcOpp: false, ftc: false }; });
     let streetPut = {}, cur = 'pre', raises = 0;
     const pos = positions(h);
     let firstIn = null, heroActed = false, voluntary = false;
@@ -93,6 +93,17 @@
       if (a.type === 'calls' || a.type === 'bets') add = a.amt;
       else if (a.type === 'raises') add = (a.to || a.amt) - (streetPut[a.p] || 0);
       put[a.p] += add; streetPut[a.p] = (streetPut[a.p] || 0) + add;
+    }
+    // Continuation bet : le dernier relanceur préflop mise-t-il le flop quand personne n'a misé avant lui ?
+    const preR = h.actions.filter((x) => x.street === 'pre' && x.type === 'raises'), pfrP = preR.length ? preR[preR.length - 1].p : null;
+    if (pfrP && facts[pfrP]) {
+      let betSeen = false, cbetDone = false; const responded = new Set();
+      for (const x of h.actions.filter((y) => y.street === 'flop')) {
+        if (x.p === pfrP && !betSeen && !facts[pfrP].cbetOpp) { facts[pfrP].cbetOpp = true; if (x.type === 'bets') { facts[pfrP].cbet = true; cbetDone = true; } }
+        else if (cbetDone && x.p !== pfrP && !responded.has(x.p) && facts[x.p]) { responded.add(x.p); facts[x.p].ftcOpp = true; if (x.type === 'folds') facts[x.p].ftc = true; }
+        if (x.type === 'bets' || x.type === 'raises') betSeen = true;
+        if (x.p === pfrP && x.type !== 'bets' && x.type !== 'checks') break;
+      }
     }
     const flopSeen = h.board.length >= 3, hadSD = Object.keys(h.shown).length > 0;
     for (const p of players) {
@@ -150,14 +161,15 @@
     const hands = split(text).map(parseHand).filter((h) => h.seats.length >= 2 && h.bb > 0);
     const heroCount = {}; hands.forEach((h) => h.hero && (heroCount[h.hero] = (heroCount[h.hero] || 0) + 1));
     const hero = Object.entries(heroCount).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
-    const opp = {}, me = { hands: 0, net: 0, netBB: 0, vpip: 0, pfr: 0, threeOpp: 0, three: 0, sawFlop: 0, sd: 0, wsd: 0, aggr: 0, calls: 0, byPos: {}, luck: 0, allins: [], rake: 0 };
+    const opp = {}, me = { hands: 0, net: 0, netBB: 0, vpip: 0, pfr: 0, threeOpp: 0, three: 0, sawFlop: 0, sd: 0, wsd: 0, aggr: 0, calls: 0, cbetOpp: 0, cbet: 0, ftcOpp: 0, ftc: 0, byPos: {}, luck: 0, allins: [], rake: 0 };
     const leaks = { tooLoose: [], tooTight: [], limps: [] }, pots = [];
     for (const h of hands) {
       const a = analyzeHand(h);
       for (const [p, f] of Object.entries(a.facts)) {
-        const tgt = p === hero ? me : (opp[p] = opp[p] || { name: p, hands: 0, vpip: 0, pfr: 0, threeOpp: 0, three: 0, sawFlop: 0, sd: 0, wsd: 0, aggr: 0, calls: 0, net: 0 });
+        const tgt = p === hero ? me : (opp[p] = opp[p] || { name: p, hands: 0, vpip: 0, pfr: 0, threeOpp: 0, three: 0, sawFlop: 0, sd: 0, wsd: 0, aggr: 0, calls: 0, cbetOpp: 0, cbet: 0, ftcOpp: 0, ftc: 0, net: 0 });
         tgt.hands++; if (f.vpip) tgt.vpip++; if (f.pfr) tgt.pfr++; if (f.threeOpp) tgt.threeOpp++; if (f.three) tgt.three++;
         if (f.sawFlop) tgt.sawFlop++; if (f.sd) { tgt.sd++; if (f.won) tgt.wsd++; } tgt.aggr += f.aggr; tgt.calls += f.calls;
+        if (f.cbetOpp) tgt.cbetOpp++; if (f.cbet) tgt.cbet++; if (f.ftcOpp) tgt.ftcOpp++; if (f.ftc) tgt.ftc++;
         if (p !== hero) tgt.net += a.net[p] / h.bb;
       }
       if (hero && a.net[hero] !== undefined) {
@@ -181,6 +193,47 @@
     return { hands: hands.length, hero, me, opponents, leaks, pots: pots.slice(0, 10), sites: [...new Set(hands.map((h) => h.site))], from: hands[0]?.date, to: hands[hands.length - 1]?.date };
   }
 
-  const api = { split, parseHand, positions, analyzeHand, allinLuck, analyze, profileOf, EXPLOIT };
+
+  // Replayer : liste des états d'une main, action par action (pot, tapis, board visible, texte), avec équités quand les cartes sont connues.
+  function replay(h) {
+    const stacks = {}, put = {}, known = {};
+    h.seats.forEach((s) => { stacks[s.name] = s.stack; put[s.name] = 0; });
+    if (h.hero && h.heroCards) known[h.hero] = h.heroCards;
+    Object.entries(h.shown).forEach(([p, c]) => (known[p] = c));
+    const N = { pre: 0, flop: 3, turn: 4, river: 5, sd: 5 }, steps = [], folded = new Set();
+    let street = 'pre', streetPut = {};
+    const snap = (text, who) => {
+      const board = h.board.slice(0, N[street]), alive = h.seats.map((s) => s.name).filter((p) => !folded.has(p));
+      let eq = null; const withCards = alive.filter((p) => known[p]);
+      if (withCards.length >= 2 && withCards.length === alive.length && board.length < 5) {
+        const r = E.equity(withCards.map((p) => ({ hand: known[p] })), board, { iterations: 6000 });
+        eq = Object.fromEntries(withCards.map((p, k) => [p, r.equity[k]]));
+      }
+      steps.push({ street, text, who, board, pot: Object.values(put).reduce((a, b) => a + b, 0), stacks: { ...stacks }, alive, eq });
+    };
+    snap('Début de la main', null);
+    for (const a of h.actions) {
+      if (!(a.p in put)) continue;
+      if (a.street !== street) { street = a.street; streetPut = {}; }
+      let add = 0, txt = '';
+      if (a.type === 'post') { add = a.amt; txt = `${a.p} poste ${a.kind === 'sb' ? 'la petite blinde' : a.kind === 'bb' ? 'la grosse blinde' : 'l\'ante'} (${a.amt})`; streetPut[a.p] = (streetPut[a.p] || 0) + (a.kind === 'ante' ? 0 : a.amt); }
+      else if (a.type === 'folds') { folded.add(a.p); txt = `${a.p} se couche`; }
+      else if (a.type === 'checks') txt = `${a.p} checke`;
+      else if (a.type === 'calls') { add = a.amt; txt = `${a.p} suit ${a.amt}`; }
+      else if (a.type === 'bets') { add = a.amt; txt = `${a.p} mise ${a.amt}`; }
+      else if (a.type === 'raises') { const to = a.to || a.amt; add = to - (streetPut[a.p] || 0); txt = `${a.p} relance à ${to}`; }
+      if (a.type !== 'post' && add) streetPut[a.p] = (streetPut[a.p] || 0) + add;
+      if (a.allin) txt += ' (tapis)';
+      put[a.p] += add; stacks[a.p] -= add;
+      snap(txt, a.p);
+    }
+    if (h.board.length > N[street]) { street = 'river'; snap('Board complet', null); }
+    Object.entries(h.returned).forEach(([p, v]) => { put[p] -= v; stacks[p] += v; });
+    Object.entries(h.collected).forEach(([p, v]) => { stacks[p] += v; });
+    street = 'sd'; snap(Object.entries(h.collected).map(([p, v]) => `${p} remporte ${Math.round(v * 100) / 100}`).join(' · ') || 'Fin de la main', null);
+    return { steps, known, seats: h.seats.map((s) => s.name), hero: h.hero };
+  }
+
+  const api = { split, parseHand, positions, analyzeHand, allinLuck, analyze, profileOf, EXPLOIT, replay };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.HH = api;
 })(typeof window !== 'undefined' ? window : globalThis);

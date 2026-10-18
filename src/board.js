@@ -57,6 +57,20 @@
     return tags;
   }
 
-  const api = { MADE, DRAWS, classify, analyze, texture };
+  // Distribution d'équité : équité de chaque combinaison d'une range contre l'autre range, sur un board donné.
+  function equityDistribution(rangeA, rangeB, board, opts = {}) {
+    const R = opts.random || Math.random, it = opts.iterations || 250, maxN = opts.max || 140;
+    const ca = E.rangeCombos(rangeA, board), cb = E.rangeCombos(rangeB, board);
+    const sample = (arr) => { if (arr.length <= maxN) return arr; const out = [], step = arr.length / maxN; for (let k = 0; k < maxN; k++) out.push(arr[Math.floor(k * step)]); return out; };
+    const side = (mine, theirs) => sample(mine).map((c) => {
+      const opp = theirs.filter((x) => x[0] !== c[0] && x[0] !== c[1] && x[1] !== c[0] && x[1] !== c[1]);
+      return opp.length ? E.equity([{ hand: c }, { combos: opp }], board, { iterations: it, random: R }).equity[0] : 0.5;
+    }).sort((x, y) => y - x);
+    const a = side(ca, cb), b = side(cb, ca), avg = (v) => v.reduce((x, y) => x + y, 0) / (v.length || 1);
+    const nuts = (v) => v.filter((x) => x > 0.8).length / (v.length || 1);
+    return { a, b, avgA: avg(a), avgB: avg(b), nutsA: nuts(a), nutsB: nuts(b), nA: ca.length, nB: cb.length };
+  }
+
+  const api = { MADE, DRAWS, classify, analyze, texture, equityDistribution };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Board = api;
 })(typeof window !== 'undefined' ? window : globalThis);
