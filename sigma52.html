@@ -234,6 +234,46 @@ table.combos td, table.combos th { white-space: nowrap; padding: 6px 8px; }
 .st-stage { background: #0B0709; border-radius: 12px; display: grid; place-items: center; padding: 12px; height: min(68vh, 720px); }
 .st-stage canvas { display: block; border-radius: 6px; box-shadow: 0 8px 30px rgba(0,0,0,.45); }
 @media (max-width: 860px) { .studio { grid-template-columns: 1fr; } .st-main { order: -1; } .st-side { position: static; } .st-stage { height: min(62vh, 560px); } }
+
+/* Table live */
+.live { gap: 12px; }
+.lres { border-radius: 14px; padding: 16px 18px; display: grid; gap: 8px; background: var(--sunk); border: 2px solid var(--line); }
+.lres b { font: 800 34px/1.05 var(--f-display); letter-spacing: -.01em; } .lres b small { font: 600 18px var(--f-mono); margin-left: 8px; opacity: .85; }
+.lres.good { background: var(--good-bg); border-color: var(--good); } .lres.good b { color: var(--good); }
+.lres.bad { background: var(--bad-bg); border-color: var(--bad); } .lres.bad b { color: var(--bad); }
+.lres.warn { background: color-mix(in srgb, var(--gold) 14%, var(--surface)); border-color: var(--gold); } .lres.warn b { color: var(--warn); }
+.lres.idle b { font-size: 22px; color: var(--muted); }
+.lres ul { margin: 0; padding-left: 1.1em; display: grid; gap: 3px; font-size: 14px; }
+.leq { position: relative; height: 10px; background: var(--surface); border-radius: 99px; overflow: hidden; } .leq i { position: absolute; inset: 0 auto 0 0; background: var(--accent); border-radius: 99px; } .leq em { position: absolute; top: -2px; bottom: -2px; width: 3px; background: var(--ink); }
+.lslots { display: flex; gap: 18px; flex-wrap: wrap; } .lslots .row { gap: 6px; flex-wrap: nowrap; }
+.lslot { width: 50px; height: 66px; border-radius: 9px; border: 2px dashed var(--line); background: var(--surface); display: grid; place-items: center; cursor: pointer; padding: 0; font-size: 11px; color: var(--muted); }
+.lslot.on { border-color: var(--accent); border-style: solid; } .lslot.full { border-style: solid; border-color: transparent; background: none; }
+.lslot .cd.sm { width: 46px; height: 62px; font-size: 20px; } .lslot .cd.sm i { font-size: 15px; }
+.lpick { display: grid; gap: 8px; }
+.lranks { display: grid; grid-template-columns: repeat(13, minmax(0, 1fr)); gap: 4px; }
+.lrk { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 12px 0; font: 700 17px var(--f-mono); cursor: pointer; }
+.lrk.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.lsuits { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.lsu { border: 1px solid var(--line); background: #FFFDFB; border-radius: 10px; padding: 10px 0; font-size: 30px; line-height: 1; cursor: pointer; }
+.lsu.s { color: var(--s-s); } .lsu.h { color: var(--s-h); } .lsu.d { color: var(--s-d); } .lsu.c { color: var(--s-c); } .lsu:disabled { opacity: .3; cursor: default; }
+.lgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+@media (max-width: 560px) { .lranks { grid-template-columns: repeat(7, minmax(0, 1fr)); } .lres b { font-size: 30px; } .lslots { gap: 10px; } .lslot { width: 42px; height: 56px; } .lslot .cd.sm { width: 40px; height: 54px; font-size: 17px; } }
+.ltimer { text-align: center; justify-items: center; background: radial-gradient(120% 140% at 50% 30%, var(--felt-1), var(--felt-2)); color: var(--on-felt); border: 0; }
+.ltimer .eyebrow { color: #F2C9A0; } .ltimer .note { color: rgba(247,233,236,.75); }
+.lblinds { font: 800 clamp(40px, 9vw, 96px)/1 var(--f-display); } .lblinds small { display: block; font: 600 20px var(--f-mono); margin-top: 6px; opacity: .8; }
+.lclock { font: 600 clamp(64px, 18vw, 180px)/1 var(--f-mono); letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.ltimer:fullscreen { display: grid; place-content: center; gap: 24px; }
+/* Mode discret : seule la décision compte, écran sombre */
+.omh { white-space: nowrap; font-size: 17px; } .omh b { font-weight: 700; } .omh i { font-style: normal; margin-right: 3px; } .su-s { color: var(--ink); } .su-h { color: var(--s-h); } .su-d { color: var(--s-d); } .su-c { color: var(--s-c); }
+input.lin { padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); font-size: 15px; width: 90px; }
+.ltimer .btn { background: rgba(255,255,255,.1); color: var(--on-felt); border-color: rgba(255,255,255,.28); min-width: 48px; }
+.ltimer .btn.primary { background: #F2C9A0; color: #3a0f18; border-color: #F2C9A0; }
+.live.discret .lsu.s { color: #e8e0e2; } .live.discret .lsu.c { color: #7fd3a0; } .live.discret .lsu.d { color: #8fb6ff; }
+body.discret-on header.top, body.discret-on .bottomnav { display: none; }
+body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; }
+.live.discret { background: #050304; border-color: #1a1013; color: #bfb3b6; }
+.live.discret .lres { background: #0d0809; border-color: #2a1a1f; } .live.discret .lres b { font-size: 26px; }
+.live.discret .lrk, .live.discret .lslot { background: #0d0809; border-color: #2a1a1f; color: #bfb3b6; } .live.discret .lsu { background: #1a1013; }
 </style>
 <header class="top"><div class="wrap">
   <div class="bar"><div class="brand"><span class="mark" aria-hidden="true">σ52</span><span><b>SIGMA 52</b><small>labo poker · hors table</small></span></div><span class="offline" id="saveState"></span>
@@ -424,6 +464,86 @@ table.combos td, table.combos th { white-space: nowrap; padding: 6px 8px; }
 
   const api = { RANKS, SUITS, SUIT_SYM, CAT_FR, card, cardStr, parseCards, evaluate, category, categoryName, handName, ALL169, combos, parseRange, rangeCombos, rangePct, inRange, abstractOf, equity, outs, rng };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Engine = api;
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+<script>// Omaha (PLO) : évaluation avec exactement 2 cartes privatives + 3 cartes du board, équité Monte-Carlo ou exacte,
+// description d'une main de départ et taille maximale d'une relance pot-limit.
+(function (root) {
+  const E = root.Engine || require('./engine.js');
+  const P2 = [[0, 1], [0, 2], [0, 3], [1, 2], [1, 3], [2, 3]];
+  const B3 = []; for (let a = 0; a < 5; a++) for (let b = a + 1; b < 5; b++) for (let c = b + 1; c < 5; c++) B3.push([a, b, c]);
+  const five = [0, 0, 0, 0, 0];
+
+  // Meilleure main de 5 cartes : 2 des 4 cartes privatives + 3 des 5 cartes du board (60 combinaisons).
+  function evaluate(hole, board) {
+    let best = -1;
+    const bs = board.length === 5 ? B3 : B3.filter((t) => t.every((i) => i < board.length));
+    for (const [i, j] of P2) {
+      five[0] = hole[i]; five[1] = hole[j];
+      for (const [a, b, c] of bs) { five[2] = board[a]; five[3] = board[b]; five[4] = board[c]; const v = E.evaluate(five); if (v > best) best = v; }
+    }
+    return best;
+  }
+
+  // Équité : hands = tableau de mains de 4 cartes (ou null = main aléatoire), board de 0 à 5 cartes.
+  function equity(hands, board = [], opts = {}) {
+    const n = hands.length, rand = opts.random || Math.random, iters = opts.iterations || 6000;
+    const known = new Set(board); hands.forEach((h) => h && h.forEach((c) => known.add(c)));
+    const deck = []; for (let c = 0; c < 52; c++) if (!known.has(c)) deck.push(c);
+    const eq = new Array(n).fill(0), win = new Array(n).fill(0), tie = new Array(n).fill(0), need = 5 - board.length;
+    const randomSlots = hands.filter((h) => !h).length * 4;
+    // Exact quand il ne reste qu'une ou deux cartes à tirer et que toutes les mains sont connues.
+    const exact = !randomSlots && need <= 2;
+    const vals = new Array(n); let total = 0;
+    const score = (bd, hs) => {
+      let best = -1, cnt = 0;
+      for (let k = 0; k < n; k++) { vals[k] = evaluate(hs[k], bd); if (vals[k] > best) { best = vals[k]; cnt = 1; } else if (vals[k] === best) cnt++; }
+      for (let k = 0; k < n; k++) if (vals[k] === best) { eq[k] += 1 / cnt; if (cnt === 1) win[k]++; else tie[k]++; }
+      total++;
+    };
+    if (exact) {
+      if (need === 0) score(board, hands);
+      else if (need === 1) for (const c of deck) score([...board, c], hands);
+      else for (let a = 0; a < deck.length; a++) for (let b = a + 1; b < deck.length; b++) score([...board, deck[a], deck[b]], hands);
+    } else {
+      const d = deck.slice(), m = need + randomSlots;
+      for (let it = 0; it < iters; it++) {
+        for (let k = 0; k < m; k++) { const j = k + Math.floor(rand() * (d.length - k)); const t = d[k]; d[k] = d[j]; d[j] = t; }
+        let p = 0; const hs = hands.map((h) => h || [d[p++], d[p++], d[p++], d[p++]]);
+        const bd = board.concat(d.slice(p, p + need));
+        score(bd, hs);
+      }
+    }
+    return { equity: eq.map((x) => x / total), win: win.map((x) => x / total), tie: tie.map((x) => x / total), samples: total, exact };
+  }
+
+  // Description d'une main de départ : couleurs, connexion, paires, as assorti.
+  function describe(hole) {
+    const r = hole.map((c) => c >> 2), s = hole.map((c) => c & 3);
+    const bySuit = [0, 0, 0, 0]; s.forEach((x) => bySuit[x]++);
+    const suitedPairs = bySuit.filter((x) => x >= 2).length, maxSuit = Math.max(...bySuit);
+    const cnt = {}; r.forEach((x) => (cnt[x] = (cnt[x] || 0) + 1));
+    const pairs = Object.entries(cnt).filter(([, v]) => v >= 2).map(([k]) => +k), trips = Object.values(cnt).some((v) => v >= 3);
+    const u = [...new Set(r)].sort((a, b) => b - a), span = u[0] - u[u.length - 1];
+    const nutSuit = [0, 1, 2, 3].some((x) => bySuit[x] >= 2 && hole.some((c) => (c & 3) === x && (c >> 2) === 12));
+    const tags = [];
+    if (suitedPairs === 2) tags.push('double assortie'); else if (maxSuit === 2) tags.push('simple assortie'); else if (maxSuit >= 3) tags.push(maxSuit === 4 ? 'quatre de la même couleur (mauvais)' : 'trois de la même couleur (une carte perdue)'); else tags.push('dépareillée (rainbow)');
+    if (nutSuit) tags.push('as assorti (tirage couleur max)');
+    if (trips) tags.push('brelan en main (mauvais : une carte perdue)'); else if (pairs.length === 2) tags.push('deux paires en main'); else if (pairs.length === 1) tags.push('une paire');
+    if (u.length === 4 && span <= 4) tags.push('très connectée (4 cartes dans 5 rangs)'); else if (u.length >= 3 && span <= 5) tags.push('connectée');
+    else if (span >= 9 && !pairs.length) tags.push('cartes éloignées (« danglers »)');
+    return { tags, suitedPairs, maxSuit, pairs, connected: u.length >= 3 && span <= 5, nutSuit };
+  }
+
+  // Pot-limit : relance maximale = pot + mise à payer + (mise à payer), soit « relance du pot ».
+  // Retourne le montant total de la relance (ta mise finale sur cette rue).
+  function potRaise(pot, toCall, alreadyIn = 0) {
+    // pot = tout ce qui est au milieu, mise adverse comprise ; toCall = ce qu'il te manque pour suivre.
+    return alreadyIn + toCall + (pot + toCall);
+  }
+
+  const api = { evaluate, equity, describe, potRaise };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Omaha = api;
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
 <script>// Matrice d'équité préflop 169 x 169, générée par tools/build_matrix.js (50000 tirages par paire, erreur type ≈ 0.22 pt).
@@ -769,7 +889,7 @@ table.combos td, table.combos th { white-space: nowrap; padding: 6px 8px; }
   ].map(([cat, q, opts, ok, why], i) => ({ id: 's' + i, cat, q, opts, ok, why }));
 
   const api = { MODULES: M, SITUATIONS: S, LEVELS, GLOSSARY, mod, extend };
-  if (typeof module !== 'undefined' && module.exports) { module.exports = api; ['l1', 'l2', 'l3', 'l4', 'elite', 'champions', 'live', 'extra'].forEach((n) => require('./course_' + n + '.js')(api)); }
+  if (typeof module !== 'undefined' && module.exports) { module.exports = api; ['l1', 'l2', 'l3', 'l4', 'elite', 'champions', 'live', 'extra', 'ultimate'].forEach((n) => require('./course_' + n + '.js')(api)); }
   else root.Course = api;
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
@@ -2072,6 +2192,9 @@ table.combos td, table.combos th { white-space: nowrap; padding: 6px 8px; }
           <tr><td>GTO moderne</td><td>Peu de failles, check-raises, grosses mises turn</td><td>Jouer sa base solide ; ne pas surpayer ; dans la vraie vie, choisir une autre table</td></tr>
           <tr><td>LAG atypique</td><td>Joue beaucoup, c-bet presque toujours, couche rarement</td><td>Zéro bluff au flop ; check-call ; payer plus large ses overbets</td></tr>
           <tr><td>Pression tête-à-tête</td><td>Relance presque tous ses boutons, 3-bet fréquent</td><td>Défendre large la grosse blinde ; 3-bet valeur et bloqueurs ; garder son calme</td></tr>
+          <tr><td>Parrain agressif</td><td>C-bet presque systématique, grosses mises, semi-bluffs à tapis</td><td>Défendre plus large au flop ; check-raise les boards bas ; respecter ses rares 3-bets</td></tr>
+          <tr><td>Joueur de tournoi méthodique</td><td>Serré, discipliné, joue selon son tapis (M)</td><td>Voler ses blindes ; respecter ses relances ; anticiper son tapis ou couché quand son M est bas</td></tr>
+          <tr><td>Ultra-agressif opaque</td><td>Large, 3-bets, overbets, relances-bluffs, couche rarement</td><td>Payer plus large avec les bons bluff-catchers ; moins de c-bets bluff ; piéger avec les mains fortes</td></tr>
           <tr><td>Joueurs d'action live</td><td>Ouvertures à 4 bb, beaucoup de calls, pots à plusieurs</td><td>Valeur grosse, bluffs rares, isolation en position</td></tr></tbody></table>`],
         ['Contre un adversaire qui s\'adapte', `<p>Certains adversaires mesurent tes tendances. Exemple dans SIGMA 52 : les styles « lecteurs » augmentent leurs bluffs dès que tu couches plus de 45 % du temps face à leurs mises (après une douzaine de mises affrontées). Contre eux :</p>
           <ol><li>Reste proche de ta défense d'équilibre (MDF) tant que tu n'as pas de preuve d'un écart.</li><li>Mélange tes lignes : check-raises, calls lents, mises de tailles variées avec des mains de forces différentes.</li><li>Quand il s'ajuste, ajuste-toi en retour : s'il bluffe plus, paie plus.</li></ol>`],
@@ -2399,6 +2522,156 @@ table.combos td, table.combos th { white-space: nowrap; padding: 6px 8px; }
       ] },
     };
     for (const [id, x] of Object.entries(more)) K.extend(id, x);
+  }
+  if (typeof module !== 'undefined' && module.exports) module.exports = register; else register(root.Course);
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+<script>// Cours — modules ajoutés : tête-à-tête, profondeur de tapis, Omaha pot-limit, décider vite à la table, partie maison.
+(function (root) {
+  function register(K) {
+    K.mod({
+      id: 'hu', level: 3, title: 'Le tête-à-tête : jouer à deux', drill: 'pushfold',
+      goals: ['Ouvrir et défendre aux bonnes fréquences quand il ne reste qu\'un adversaire', 'Comprendre pourquoi les mains moyennes prennent de la valeur', 'Gérer la variance et l\'adaptation constante'],
+      sections: [
+        ['Pourquoi tout change à deux', `<p>À deux joueurs, le bouton est aussi la petite blinde et parle en premier préflop, puis en dernier après le flop. Tu paies une blinde à chaque main : attendre une bonne main coûte 1,5 bb toutes les deux mains. Conséquence : les ranges s'élargissent énormément.</p>
+          <ul><li>Au bouton, un joueur solide ouvre environ <strong>75 à 85 %</strong> des mains à 100 bb (la table de SIGMA 52 utilise 76 %).</li>
+          <li>En grosse blinde, face à une ouverture à 2 à 2,5 bb, tu reçois une cote de 2,3 à 3 contre 1 (25 à 30 % d'équité requise) : tu défends (call ou 3-bet) <strong>la majorité de tes mains</strong>, autour de 60 à 70 % selon la taille.</li>
+          <li>Une paire faible, une hauteur as, une hauteur roi gagnent souvent l'abattage : elles valent beaucoup plus qu'à 6.</li></ul>`],
+        ['Le plan préflop', `<table class="t"><thead><tr><th>Situation</th><th>Défaut solide</th></tr></thead><tbody>
+          <tr><td>Bouton, premier à parler</td><td>Relance 2 à 2,5 bb avec presque tout ; limp seulement si tu as un plan de limp mixte travaillé</td></tr>
+          <tr><td>Grosse blinde face à 2,5 bb</td><td>3-bet valeur (paires moyennes et hautes, as forts) + 3-bet bluff à bloqueurs (A5s, K4s) ; call large ; couche le bas de gamme dépareillé (72o, 83o, 92o…)</td></tr>
+          <tr><td>Bouton face à un 3-bet</td><td>4-bet valeur et quelques bluffs à as ; call en position avec les mains jouables ; couche le reste</td></tr>
+          <tr><td>Sous 15 bb</td><td>Tapis ou couché : l'outil Tapis ou couché et le solveur de Nash donnent la range exacte</td></tr></tbody></table>`],
+        ['Après le flop', `<ul><li>Le relanceur préflop mise souvent, mais petit (25 à 33 % du pot) : à deux, sa range touche le flop aussi peu que celle du défenseur.</li>
+          <li>La grosse blinde doit check-raise une partie de ses mains (deux paires, brelans, tirages forts) : sinon le bouton mise gratuitement.</li>
+          <li>Les paires moyennes jouent pour un pot moyen : à deux, la deuxième paire est souvent la meilleure main, mais pas pour trois mises.</li></ul>`],
+        ['Adaptation et variance', `<p>À deux, tout ce que fait l'adversaire te concerne : chaque déviation est exploitable. Un adversaire qui couche plus de 50 % face aux mises au flop se fait miser avec toute ta range ; un adversaire qui paie tout ne reçoit plus de bluffs. La variance est énorme : prévois plus de caves que pour le 6-max (module Bankroll) et note tes sessions dans le Journal.</p>`],
+      ],
+      mistakes: ['Jouer à deux comme à six : trop serré, les blindes te mangent', 'Payer trop de 3-bets hors de position sans plan', 'Ne jamais check-raise en grosse blinde', 'Garder la même stratégie face à un adversaire qui a clairement changé'],
+      keys: ['Bouton : 75 à 85 % d\'ouvertures', 'Grosse blinde : défendre la majorité des mains', 'Petites c-bets, check-raises fréquents', 'Sous 15 bb : tapis ou couché'],
+      quiz: [
+        ['Tête-à-tête, 100 bb, tu as K7o au bouton. Défaut ?', ['Relancer', 'Coucher', 'Limper systématiquement'], 0, 'K7o est largement dans les 75 à 85 % d\'ouvertures.'],
+        ['En grosse blinde face à 2,5 bb, quelle proportion de mains défends-tu environ ?', ['20 %', 'La majorité (60 à 70 %)', '100 %'], 1, 'La cote de 2,3 à 3 contre 1 et la range large du bouton justifient une défense large.'],
+        ['Après le flop à deux, la deuxième paire est…', ['Souvent la meilleure main, à jouer pour un pot moyen', 'Toujours à coucher', 'Une main pour faire tapis'], 0, 'Les ranges sont larges : une paire vaut beaucoup, mais pas trois mises.'],
+        ['L\'adversaire couche 60 % face aux c-bets. Ajustement ?', ['Miser beaucoup plus souvent', 'Miser moins souvent', 'Ne rien changer'], 0, 'Un bluff à 33 % du pot n\'a besoin que de 25 % de couchers.'],
+      ],
+    });
+
+    K.mod({
+      id: 'profondeur', level: 3, title: 'Adapter son jeu à la profondeur : 40, 100, 200 bb', drill: 'rfi',
+      goals: ['Savoir quelles mains gagnent et perdent de la valeur selon les tapis', 'Planifier une main avec le SPR', 'Éviter les gros pots avec les mains dominées en tapis profonds'],
+      sections: [
+        ['Le principe', `<p>La profondeur (tapis effectif en grosses blindes) décide de ce que tu peux gagner après le flop. Plus les tapis sont profonds, plus les mains qui font <strong>des mains très fortes mais rarement</strong> (petites paires, assorties connectées) gagnent de la valeur grâce aux cotes implicites. Plus ils sont courts, plus les mains qui gagnent <strong>souvent un peu</strong> (hauteur as, paires moyennes, AK, AQ) dominent.</p>`],
+        ['Tableau de bord', `<table class="t"><thead><tr><th></th><th>40 bb</th><th>100 bb</th><th>200 bb</th></tr></thead><tbody>
+          <tr><td>SPR typique d'un pot relancé</td><td>≈ 7, ≈ 1,5 en pot 3-bet</td><td>≈ 18, ≈ 5 en pot 3-bet</td><td>≈ 36, ≈ 10 en pot 3-bet</td></tr>
+          <tr><td>Montent en valeur</td><td>AK, AQ, AJ, KQ, paires moyennes</td><td>Référence</td><td>22 à 99, assorties connectées, Axs</td></tr>
+          <tr><td>Baissent</td><td>Petites paires (pas de cotes pour le set), connecteurs</td><td>—</td><td>AJo, KQo, KJo (dominées dans les gros pots)</td></tr>
+          <tr><td>3-bet</td><td>Souvent 3-bet/tapis</td><td>3-bet/call ou 3-bet/fold</td><td>Plus large en position, plus de 4-bets valeur serrées</td></tr>
+          <tr><td>Une paire</td><td>Souvent assez pour le tapis</td><td>Selon la texture et l'adversaire</td><td>Rarement assez pour 200 bb</td></tr></tbody></table>
+          <p>Les SPR sont des ordres de grandeur pour une ouverture à 2,5 bb payée par une blinde (pot ≈ 5,5 bb) et un 3-bet à 9 bb payé (pot ≈ 19 bb) : SPR = tapis restant ÷ pot.</p>`],
+        ['La règle des petites paires', `<p>Avec une petite paire, tu touches un brelan au flop une fois sur 8,5 environ (11,8 %). Pour qu'un call préflop rapporte grâce au brelan seul, il faut pouvoir gagner environ <strong>15 à 20 fois la mise</strong> payée quand tu touches. À 40 bb, l'adversaire n'a souvent pas assez derrière ; à 200 bb, si.</p>`],
+        ['Tapis profonds : le piège de la domination', `<p>À 200 bb, quand un adversaire prudent met tout son tapis, il a rarement une seule paire. AK sur un board A-8-3 est une excellente main pour deux mises, mauvaise pour quatre. Réserve les tapis aux deux paires et mieux, sauf lecture contraire (joueur qui surestime ses mains).</p>`],
+      ],
+      mistakes: ['Payer des relances avec des petites paires à 40 bb pour « toucher le brelan »', 'Engager 200 bb avec top paire bon kicker contre un joueur serré', 'Jouer 3-bet/call à 40 bb au lieu de 3-bet/tapis', 'Ignorer la profondeur du plus petit tapis de la main (c\'est le tapis effectif qui compte)'],
+      keys: ['Tapis courts : mains à haute carte et tapis préflop', 'Tapis profonds : cotes implicites et prudence avec les mains dominées', 'SPR = plan de la main', 'Toujours raisonner en tapis effectif'],
+      quiz: [
+        ['Tu joues 40 bb. Quelle main perd le plus de valeur par rapport à 100 bb ?', ['AQo', '33', 'KK'], 1, 'Sans cotes implicites, une petite paire ne gagne pas assez quand elle touche.'],
+        ['200 bb, board A-8-3 dépareillé, un joueur serré relance ta mise au turn puis met tapis river. Tu as AK. Défaut ?', ['Payer', 'Coucher le plus souvent', 'Relancer'], 1, 'À 200 bb, un joueur serré qui met tout a rarement une seule paire.'],
+        ['Ce qui détermine la profondeur réelle d\'une main…', ['Le plus gros tapis de la table', 'Le tapis effectif (le plus petit des joueurs impliqués)', 'Ton tapis seul'], 1, 'On ne peut perdre ou gagner que le plus petit des deux tapis.'],
+      ],
+    });
+
+    K.mod({
+      id: 'omaha', level: 3, title: 'Omaha pot-limit (PLO) : les bases', drill: 'outs',
+      goals: ['Connaître les règles qui piègent les débutants', 'Choisir les mains de départ qui jouent bien', 'Calculer une relance pot-limit et lire le board'],
+      sections: [
+        ['Les règles', `<ul><li>Chaque joueur reçoit <strong>4 cartes</strong>. Pour former ta main, tu utilises <strong>exactement 2</strong> cartes de ta main et <strong>exactement 3</strong> du board. Avec un seul cœur en main et quatre cœurs au board, tu n'as <strong>pas</strong> de couleur. Avec AAAK en main, tu ne fais au mieux que la paire d'as plus le board.</li>
+          <li><strong>Pot-limit</strong> : la mise maximale est la taille du pot. Pour relancer au maximum, le croupier compte : tu suis la mise, puis tu relances du montant du pot ainsi obtenu. Pot de 10, mise de 10 face à toi : tu suis 10 (pot 30), tu relances de 30, soit <strong>40 au total</strong>. L'outil Omaha fait le calcul.</li></ul>`],
+        ['Pourquoi les équités sont serrées', `<p>Avec 4 cartes, chaque joueur a 6 combinaisons de deux cartes : les mains se rapprochent. Calculs SIGMA 52 (outil Omaha) :</p>
+          <table class="t"><thead><tr><th>Affrontement préflop</th><th class="n">Équité</th></tr></thead><tbody>
+          <tr><td>As-As-Roi-Roi double assortie contre une main aléatoire</td><td class="n">≈ 71 %</td></tr>
+          <tr><td>As-As-Roi-Roi double assortie contre Valet-10-9-8 double assortie</td><td class="n">≈ 61 %</td></tr>
+          <tr><td>Paire d'as « sèche » (A-A-7-2 dépareillée) contre une main aléatoire</td><td class="n">≈ 61 %</td></tr>
+          <tr><td>A-A-7-2 dépareillée contre Valet-10-9-8 assortie</td><td class="n">≈ 50 %</td></tr></tbody></table>
+          <p>À comparer au hold'em, où AA domine KK à 82 %. Conséquence : en PLO, la main de départ est un avantage modeste ; c'est le jeu après le flop qui fait la différence.</p>`],
+        ['Bonnes mains de départ', `<ul><li><strong>Coordonnées</strong> : les 4 cartes travaillent ensemble (paires hautes, cartes connectées, couleurs). Ex. AAKK, AAJT, KQJT, JT98.</li>
+          <li><strong>Double assortie</strong> &gt; simple assortie &gt; dépareillée. Les couleurs à l'as (« nut flush ») valent bien plus que les petites couleurs, souvent battues par une couleur supérieure.</li>
+          <li>À éviter : trois ou quatre cartes de la même couleur (des outs perdus), brelan en main (une carte inutile), cartes éloignées sans lien (« danglers »), petites paires sans connexion.</li></ul>`],
+        ['Jouer après le flop', `<ul><li><strong>Joue les nuts et les tirages aux nuts</strong>. Une deuxième couleur ou une suite basse perdent souvent de gros pots.</li>
+          <li>Board apparié : un full est probable chez quelqu'un. Board à trois cartes d'une couleur : la couleur max est souvent présente dès qu'il y a plusieurs joueurs.</li>
+          <li>Les tirages ont souvent 13 à 20 outs (« wraps » : 4 cartes qui encadrent le board). Un brelan max au flop peut être à peine favori contre un gros tirage : vérifie dans l'outil Omaha (brelan de rois contre tirage couleur max : ≈ 55 %).</li>
+          <li>Les variances sont plus fortes qu'en hold'em : prévois une bankroll nettement plus large qu'en no-limit.</li></ul>`],
+      ],
+      mistakes: ['Utiliser une seule carte de sa main (ou trois) dans sa combinaison', 'Surestimer AA sèche préflop', 'Payer avec une couleur ou une suite qui ne sont pas les meilleures', 'Jouer trop de mains : quatre cartes donnent l\'impression que tout est jouable'],
+      keys: ['2 cartes de la main + 3 du board, toujours', 'Équités serrées : l\'avantage préflop est faible', 'Mains coordonnées, double assorties, couleurs à l\'as', 'Jouer les nuts et les tirages aux nuts'],
+      quiz: [
+        ['Board : Qh Jh 9h 3h 4s. Tu as Ah Ks 7d 2c. Ta main ?', ['Couleur max', 'Hauteur as, pas de couleur', 'Suite'], 1, 'Il faut deux cœurs en main pour faire couleur en Omaha.'],
+        ['Pot de 10, l\'adversaire mise 10. Relance maximale (total) ?', ['20', '30', '40'], 2, 'Tu suis 10 (pot 30) puis tu relances de 30 : 40 au total.'],
+        ['Quelle main de départ est la plus faible ?', ['KQJT double assortie', 'AAKK double assortie', '7-7-7-2 avec trois piques'], 2, 'Brelan en main et trois cartes de la même couleur : des cartes perdues.'],
+        ['AA sèche contre JT98 assortie avant le flop : équité environ ?', ['80 %', '65 %', '50 %'], 2, 'En PLO, les mains coordonnées rattrapent facilement une paire seule.'],
+      ],
+    });
+
+    K.mod({
+      id: 'eclair', level: 5, title: 'Décider vite à la table : la méthode en dix secondes', drill: 'odds',
+      goals: ['Prendre une décision solide en quelques secondes sans calcul compliqué', 'Mémoriser les chiffres utiles', 'Utiliser l\'outil Table live dans les parties amicales, et savoir où il est interdit'],
+      sections: [
+        ['La séquence', `<ol><li><strong>Préflop</strong> : position + main → ta chart (ouvrir, 3-bet ou coucher). Sous 15 bb : tapis ou couché.</li>
+          <li><strong>Après le flop, avant de miser</strong> : « suis-je devant sa range ? » Si oui, mise pour la valeur ; si non et que tu as un gros tirage, semi-bluff ; sinon check.</li>
+          <li><strong>Face à une mise</strong> : cote = mise ÷ (pot + mise). Compare à ton équité (outs × 2 par carte, × 4 sur deux cartes).</li>
+          <li><strong>À plusieurs</strong> : resserre tout ; un adversaire de plus = moins de bluffs, plus de valeur requise.</li>
+          <li><strong>Type d'adversaire</strong> : contre un joueur qui paie tout, pas de bluff et plus de valeur ; contre un joueur serré, crédite ses grosses mises.</li></ol>`],
+        ['Les chiffres à connaître par cœur', `<table class="t"><thead><tr><th>Mise adverse</th><th class="n">Équité requise</th><th class="n">Outs ≈ sur une carte</th></tr></thead><tbody>
+          <tr><td>1/3 du pot</td><td class="n">20 %</td><td class="n">10</td></tr>
+          <tr><td>1/2 pot</td><td class="n">25 %</td><td class="n">12 à 13</td></tr>
+          <tr><td>2/3 du pot</td><td class="n">28,6 %</td><td class="n">14</td></tr>
+          <tr><td>Pot</td><td class="n">33,3 %</td><td class="n">17</td></tr></tbody></table>
+          <p>Tirage couleur : 9 outs, ≈ 19 % sur une carte, 35 % sur deux. Suite deux bouts : 8 outs, 17 % et 31,5 %. Ventrale : 4 outs, 8,5 % et 16,5 %. Les cotes implicites (ce que tu gagneras en plus quand tu touches) permettent de payer un peu plus que la cote directe, surtout contre un joueur qui paie.</p>`],
+        ['L\'outil Table live', `<p>Dans <em>Jouer › Table live</em> : tu tapes tes deux cartes (rang puis couleur, ou au clavier : <span class="mono">a s k h</span>), puis le board au fil de la main, et l'outil donne une décision avec ton équité contre une range estimée en une à quelques dizaines de millisecondes. Le mode discret assombrit l'écran et n'affiche que la décision. Le minuteur de blindes et la préparation de la partie (structure, jetons, places) sont dans le même onglet.</p>
+          <div class="warnbox"><strong>Où c'est autorisé</strong> : uniquement dans une partie privée, sans argent ou avec l'accord explicite de tous les joueurs. Toute aide en temps réel est <strong>interdite</strong> en ligne, en casino, en club et en tournoi : exclusion, gains confisqués. Annonce l'outil à tes amis avant la partie ; mieux encore, mettez-le à disposition de tous.</div>`],
+        ['S\'en passer progressivement', `<p>Le but est d'automatiser la méthode. Après chaque partie, compare tes décisions instinctives avec celles de l'outil, puis repasse les mains douteuses au Solveur. Quand tu tombes d'accord avec l'outil neuf fois sur dix sans le regarder, joue sans.</p>`],
+      ],
+      mistakes: ['Chercher la décision parfaite et ralentir la partie', 'Payer une mise sur un tirage sans comparer la cote', 'Bluffer à plusieurs adversaires', 'Utiliser une aide en temps réel ailleurs que dans une partie privée consentie'],
+      keys: ['Chart préflop, puis « devant ou derrière sa range ? »', 'Cote = mise ÷ (pot + mise)', 'Outs × 2 par carte, × 4 sur deux cartes', 'Aide en temps réel : parties privées consenties uniquement'],
+      quiz: [
+        ['L\'adversaire mise la moitié du pot. Équité requise ?', ['20 %', '25 %', '33 %'], 1, 'Mise ÷ (pot + mise) = 0,5 ÷ 2 = 25 %.'],
+        ['Tirage couleur au turn, mise du pot. Sans cotes implicites, tu…', ['Paies', 'Couches'], 1, 'Environ 19 % pour 33 % requis.'],
+        ['Tu peux utiliser l\'outil Table live…', ['Dans un tournoi de casino si tu es discret', 'Dans une partie entre amis qui sont d\'accord', 'En ligne sur un deuxième écran'], 1, 'Partout ailleurs, l\'aide en temps réel est interdite.'],
+        ['Trois adversaires dans le coup, tu as un tirage ventral sans rien d\'autre. Défaut ?', ['Semi-bluff', 'Check, et payer seulement si la cote le permet', 'Tapis'], 1, 'Pas de bluff à plusieurs, et 4 outs ne justifient pas d\'investir.'],
+      ],
+    });
+
+    K.mod({
+      id: 'home', level: 5, title: 'La partie maison : organiser et gagner entre amis', drill: 'situations',
+      goals: ['Monter une partie de jetons claire et agréable', 'Choisir une structure et répartir les jetons', 'Battre une table d\'amis sans gâcher l\'ambiance'],
+      sections: [
+        ['Le cadre en France', `<p>Une partie entre amis <strong>sans argent</strong> (jetons sans valeur, lots symboliques) ne pose pas de problème. Dès qu'il y a de l'argent en jeu, la loi encadre strictement les jeux de hasard : l'organisation de jeux d'argent ouverts au public est interdite hors établissements autorisés. Reste dans le cadre privé, sans prélèvement, et en cas de doute, joue pour des jetons ou des points.</p>`],
+        ['Préparer', `<ul><li><strong>Tapis de départ</strong> : 100 à 200 grosses blindes de départ (ex. 10 000 jetons avec blindes 25/50).</li>
+          <li><strong>Jetons</strong> : 3 ou 4 valeurs suffisent ; il faut assez de petites valeurs pour les blindes et la monnaie. L'outil <em>Préparer la partie</em> répartit selon ton stock et signale s'il manque des jetons.</li>
+          <li><strong>Blindes</strong> : niveaux de 15 à 20 minutes ; dans la structure proposée par l'outil, la grosse blinde finale vaut environ un quinzième des jetons en jeu, ce qui termine une partie à 6 en 3 heures environ. Le minuteur plein écran affiche le niveau et sonne au changement.</li>
+          <li><strong>Règles annoncées avant</strong> : relance minimale = la relance précédente ; carte exposée ; « verbal engage » ; qui distribue ; recave ou non.</li></ul>`],
+        ['Gagner contre des amis', `<table class="t"><thead><tr><th>Ce qu'on observe</th><th>Ajustement</th></tr></thead><tbody>
+          <tr><td>Beaucoup de limps et de calls</td><td>Isole en relançant plus gros : 4 bb + 1 par limper, valeur grosse</td></tr>
+          <tr><td>Personne ne se couche</td><td>Zéro bluff, mise trois rues avec tes bonnes mains</td></tr>
+          <tr><td>Un ami très serré</td><td>Vole ses blindes, couche face à ses grosses relances</td></tr>
+          <tr><td>Pots à 4 ou 5 joueurs</td><td>Mains qui font les nuts (assorties à l'as, paires pour le brelan) ; méfiance avec une paire</td></tr>
+          <tr><td>Fin de partie, blindes hautes</td><td>Tapis ou couché sous 15 bb ; le plus gros tapis met la pression</td></tr></tbody></table>`],
+        ['L\'ambiance compte', `<p>Une partie entre amis doit rester un plaisir : explique les règles aux débutants, évite le jeu lent, ne commente pas les erreurs des autres. Si tu utilises l'outil Table live, dis-le et propose-le à tout le monde ; le mode discret limite la gêne à la table.</p>`],
+      ],
+      mistakes: ['Pas assez de petits jetons pour faire la monnaie', 'Blindes trop lentes : la partie dure toute la nuit', 'Bluffer des amis qui paient tout', 'Utiliser un outil d\'aide sans prévenir les autres'],
+      keys: ['Jetons sans valeur : cadre privé', '100 à 200 bb de départ, niveaux de 15 à 20 min', 'Isoler gros, valeur grosse, peu de bluffs', 'Transparence sur les outils'],
+      quiz: [
+        ['Trois amis limpent devant toi au bouton avec AQo. Taille ?', ['2,5 bb', '7 bb (4 + 1 par limper)', 'Limp aussi'], 1, 'Il faut isoler : ils paient presque autant une petite relance.'],
+        ['La table paie tout jusqu\'à la river. Ajustement principal ?', ['Plus de bluffs', 'Plus de valeur, moins de bluffs'], 1, 'On ne bluffe pas un joueur qui ne se couche pas.'],
+        ['Pour une partie d\'environ 3 h à 6 joueurs, la grosse blinde finale vaut environ…', ['Un quinzième des jetons en jeu', 'La moitié des jetons en jeu', 'Le tapis de départ'], 0, 'Assez haute pour forcer la fin, sans transformer tout en loterie trop tôt.'],
+      ],
+    });
+
+    // Styles ajoutés dans l'onglet Champions : quiz complémentaires du module « Affronter les grands styles ».
+    K.extend('styles', { quiz: [
+      ['Un adversaire mise au flop plus de 90 % du temps après avoir relancé. Ajustement ?', ['Défendre plus large et check-raise les boards bas', 'Coucher plus souvent'], 0, 'Sa range de mise est très large : elle contient beaucoup de mains faibles.'],
+      ['Un joueur de tournoi méthodique a un M de 4. Sa stratégie la plus probable ?', ['Petites relances et calls', 'Tapis ou couché'], 1, 'Zone rouge d\'Harrington : tapis ou couché.'],
+    ] });
   }
   if (typeof module !== 'undefined' && module.exports) module.exports = register; else register(root.Course);
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -3027,6 +3300,9 @@ table.combos td, table.combos th { white-space: nowrap; padding: 6px 8px; }
     chidwick: { label: 'Style Chidwick', like: 'reg', vpip: 0.25, pfr: 0.22, cont: 0.62, three: 0.35, callF: 1.0, value: 0.75, bluff: 0.2, raise: 0.82, size: [0.33, 0.75], over: 0.15, xr: 0.16, cbet: 0.62 },
     mizrachi: { label: 'Style Mizrachi', like: 'maniaque', vpip: 0.42, pfr: 0.32, cont: 0.72, three: 0.4, callF: 0.9, value: 0.9, bluff: 0.32, raise: 0.78, size: [0.6, 1.0], over: 0.35, jam: 0.06, disc: 0.08, cbet: 0.8 },
     antonius: { label: 'Style Antonius', like: 'reg', vpip: 0.3, pfr: 0.27, cont: 0.72, three: 0.45, callF: 0.95, value: 0.85, bluff: 0.33, raise: 0.8, size: [0.66, 1.0], over: 0.25, adapt: 1, cbet: 0.78 },
+    brunson: { label: 'Style Brunson', like: 'reg', vpip: 0.3, pfr: 0.24, cont: 0.75, three: 0.3, callF: 0.95, value: 0.85, bluff: 0.3, raise: 0.8, size: [0.75, 1.0], jam: 0.05, cbet: 0.88, disc: 0.1 },
+    harrington: { label: 'Style Harrington', like: 'reg', vpip: 0.19, pfr: 0.16, cont: 0.5, three: 0.3, callF: 1.15, value: 0.8, bluff: 0.12, raise: 0.88, size: [0.5, 0.66], open: 3, cbet: 0.7 },
+    dwan: { label: 'Style Dwan', like: 'maniaque', vpip: 0.38, pfr: 0.3, cont: 0.75, three: 0.42, callF: 0.92, value: 0.88, bluff: 0.36, raise: 0.78, size: [0.66, 1.1], over: 0.35, raiseBluff: 0.1, adapt: 1.2, disc: 0.09, cbet: 0.75 },
     action: { label: 'Joueur d\'action live', like: 'station', vpip: 0.5, pfr: 0.2, cont: 0.85, three: 0.25, callF: 0.75, value: 0.7, bluff: 0.15, raise: 0.85, size: [0.5, 1.0], open: 4, loose: 1, cbet: 0.45 },
     prolive: { label: 'Pro de cash live', like: 'reg', vpip: 0.27, pfr: 0.22, cont: 0.62, three: 0.33, callF: 1.0, value: 0.8, bluff: 0.16, raise: 0.85, size: [0.5, 0.9], open: 3.5, adapt: 0.8, cbet: 0.62 },
   };
@@ -3034,6 +3310,7 @@ table.combos td, table.combos th { white-space: nowrap; padding: 6px 8px; }
   const kindOf = (pr, name) => pr.like || name;
   const NAMES = { station: ['Gégé31', 'Mimi_Lol', 'TontonFlop', 'ChanceuxDu82'], maniaque: ['AllinKevin', 'Turbo_Raz'], nit: ['Roc_Solide', 'PapyNit'], reg: ['GrindZ', 'Reg_6max'],
     ivey: ['Style Ivey'], negreanu: ['Style Negreanu'], hellmuth: ['Style Hellmuth'], chidwick: ['Style Chidwick'], mizrachi: ['Style Mizrachi'], antonius: ['Style Antonius'],
+    brunson: ['Style Brunson'], harrington: ['Style Harrington'], dwan: ['Style Dwan'],
     action: ['Whale_Vegas', 'Straddle_Sam', 'Lucky_Lou'], prolive: ['Pro_Live', 'Reg_Bike'] };
 
   // Rang préflop : percentile combo-pondéré de l'équité contre une main aléatoire (0 = meilleure main).
@@ -3807,13 +4084,13 @@ table.combos td, table.combos th { white-space: nowrap; padding: 6px 8px; }
     { title: 'Postflop', why: 'Textures, continuation bet, plan de main sur trois rues.', tasks: [['mod', 'postflop'], ['mod', 'turnriver'], ['spot', 'tirage', 0.7, 20], ['guided', 'cbetdry'], ['guided', 'thinvalue']] },
     { title: 'Exploiter les fish', why: 'Ton argent vient d\'eux : valeur grosse, zéro bluff, isolation.', tasks: [['mod', 'fish'], ['mod', 'adversaires'], ['guided', 'iso3'], ['guided', 'nobluff'], ['guided', 'maniac'], ['table', 300]] },
     { title: 'Maths avancées et mental', why: 'Combos, cotes implicites, SPR, et la discipline qui protège tout le reste.', tasks: [['mod', 'maths2'], ['mod', 'mental'], ['spot', 'outs', 0.85, 30], ['guided', 'setmine'], ['journal', 3]] },
-    { title: 'Formats et tapis courts', why: 'Le format le plus joué en France : Sit&Go et Expresso.', tasks: [['mod', 'formats'], ['mod', 'icm'], ['mod', 'expresso'], ['spot', 'pushfold', 0.85, 30], ['guided', 'expresso'], ['guided', 'bubble'], ['expresso', 10]] },
+    { title: 'Formats et tapis courts', why: 'Le format le plus joué en France : Sit&Go et Expresso.', tasks: [['mod', 'formats'], ['mod', 'icm'], ['mod', 'expresso'], ['mod', 'hu'], ['spot', 'pushfold', 0.85, 30], ['guided', 'expresso'], ['guided', 'bubble'], ['expresso', 10]] },
     { title: 'Théorie, ranges, tailles', why: 'Penser en ranges et connaître l\'équilibre pour mieux s\'en écarter.', tasks: [['mod', 'theorie'], ['mod', 'ranges'], ['mod', 'sizing'], ['guided', 'semibluff'], ['guided', 'multiway']] },
-    { title: 'Lecture de mains et étude', why: 'Analyser tes propres mains comme un pro.', tasks: [['mod', 'lecture'], ['mod', 'multiway'], ['mod', 'mtt'], ['mod', 'etude'], ['import']] },
+    { title: 'Lecture de mains et étude', why: 'Analyser tes propres mains comme un pro.', tasks: [['mod', 'lecture'], ['mod', 'multiway'], ['mod', 'mtt'], ['mod', 'etude'], ['mod', 'omaha'], ['import']] },
     { title: 'Solveurs et défense minimale', why: 'Comprendre l\'équilibre pour savoir quand et comment s\'en écarter.', tasks: [['mod', 'solveurs'], ['mod', 'mdf'], ['spot', 'mdf', 0.8, 30], ['solver', 3]] },
     { title: 'Bloqueurs et stratégie de flop', why: 'Choisir ses bluffs, sa taille de c-bet et sa défense hors de position.', tasks: [['mod', 'bloqueurs'], ['mod', 'avantage'], ['mod', 'oopplay'], ['spot', 'combos', 0.8, 30], ['solver', 8]] },
-    { title: 'Turn, river, profondeur, exploitation', why: 'Les décisions qui pèsent le plus lourd en bb, et comment exploiter la population.', tasks: [['mod', 'barrels'], ['mod', 'deep'], ['mod', 'exploitpop'], ['mod', 'hud'], ['mod', 'styles'], ['trainer', 30], ['champ', 2]] },
-    { title: 'Tables physiques', why: 'Jouer en casino ou en club sans erreur de procédure, avec une stratégie live.', tasks: [['mod', 'live_debut'], ['mod', 'live_regles'], ['mod', 'live_strat'], ['mod', 'live_tells'], ['mod', 'live_table'], ['mod', 'live_mtt']] },
+    { title: 'Turn, river, profondeur, exploitation', why: 'Les décisions qui pèsent le plus lourd en bb, et comment exploiter la population.', tasks: [['mod', 'barrels'], ['mod', 'deep'], ['mod', 'profondeur'], ['mod', 'exploitpop'], ['mod', 'hud'], ['mod', 'styles'], ['trainer', 30], ['champ', 2]] },
+    { title: 'Tables physiques', why: 'Jouer en casino ou en club sans erreur de procédure, avec une stratégie live.', tasks: [['mod', 'eclair'], ['mod', 'home'], ['mod', 'live_debut'], ['mod', 'live_regles'], ['mod', 'live_strat'], ['mod', 'live_tells'], ['mod', 'live_table'], ['mod', 'live_mtt']] },
     { title: 'Tournois avancés et performance', why: 'Prime de risque ICM, PKO, et le mental qui protège ton winrate.', tasks: [['mod', 'icm2'], ['mod', 'perf'], ['mod', 'champions'], ['spot', 'bounty', 0.8, 20], ['trainer', 60], ['champ', 5], ['journal', 10]] },
     { title: 'Le métier', why: 'Économie du joueur, carrière, fiscalité : décider lucidement.', tasks: [['mod', 'marche'], ['mod', 'economie'], ['mod', 'carriere'], ['mod', 'staking'], ['mod', 'business'], ['mod', 'fiscal'], ['mod', 'integrite'], ['mod', 'longevite'], ['mod', 'progression']] },
   ];
@@ -3913,7 +4190,7 @@ table.combos td, table.combos th { white-space: nowrap; padding: 6px 8px; }
     return `<div class="rgrid" role="group" aria-label="Grille des 169 mains">${cells.join('')}</div>`;
   }
 
-  const TABS = [['jour', 'Aujourd\'hui'], ['cours', 'Cours'], ['spots', 'Spots'], ['sim', 'Simulateur'], ['champions', 'Champions'], ['solveur', 'Solveur'], ['analyse', 'Analyse'], ['outils', 'Outils'], ['journal', 'Journal'], ['studio', 'Studio']];
+  const TABS = [['jour', 'Aujourd\'hui'], ['cours', 'Cours'], ['spots', 'Spots'], ['sim', 'Simulateur'], ['champions', 'Champions'], ['live', 'Table live'], ['solveur', 'Solveur'], ['analyse', 'Analyse'], ['outils', 'Outils'], ['journal', 'Journal'], ['studio', 'Studio']];
   // Espaces : la navigation principale regroupe les onglets ; le dernier onglet visité de chaque espace est mémorisé.
   const ICON = {
     jour: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5V20h-5v-5H9v5H4z"/></svg>',
@@ -3922,7 +4199,7 @@ table.combos td, table.combos th { white-space: nowrap; padding: 6px 8px; }
     etudier: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16M6 16V9M10 16V5M14 16v-6M18 16v-9"/></svg>',
     suivre: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18 9 12l4 3 7-8"/><path d="M15 7h5v5"/></svg>',
   };
-  const GROUPS = [['jour', 'Aujourd\'hui', ['jour']], ['apprendre', 'Apprendre', ['cours', 'spots']], ['jouer', 'Jouer', ['sim', 'champions']], ['etudier', 'Étudier', ['solveur', 'analyse', 'outils']], ['suivre', 'Suivre', ['journal', 'studio']]];
+  const GROUPS = [['jour', 'Aujourd\'hui', ['jour']], ['apprendre', 'Apprendre', ['cours', 'spots']], ['jouer', 'Jouer', ['sim', 'champions', 'live']], ['etudier', 'Étudier', ['solveur', 'analyse', 'outils']], ['suivre', 'Suivre', ['journal', 'studio']]];
   const groupOf = (t) => GROUPS.find((g) => g[2].includes(t)) || GROUPS[0];
   const lastIn = {};
   let tab = (location.hash || '').slice(1);
@@ -5012,6 +5289,10 @@ table.combos td, table.combos th { white-space: nowrap; padding: 6px 8px; }
   }
   function afterHand(g) {
     if (g.kind === 'cash') { state.progress.tableHands = (state.progress.tableHands || 0) + 1; }
+    if (g.kind === 'xp' && g.tb.over && !g.counted && g.fmt && g.fmt !== 'expresso') {
+      g.counted = true; const F = state.progress.formats || (state.progress.formats = {}), e = F[g.fmt] || (F[g.fmt] = { games: 0, places: [] });
+      e.games++; e.places[g.tb.place] = (e.places[g.tb.place] || 0) + 1;
+    }
     if (g.kind === 'xp' && g.tb.over && !g.counted) {
       g.counted = true; const e = state.progress.expresso; e.games = (e.games || 0) + 1; e.places = e.places || [0, 0, 0, 0]; e.places[g.tb.place] = (e.places[g.tb.place] || 0) + 1;
     }
@@ -5134,19 +5415,24 @@ table.combos td, table.combos th { white-space: nowrap; padding: 6px 8px; }
         <div class="row"><button class="btn primary" data-act="xpstart">Lancer une partie</button></div></section>${record}`;
     }
     const t = xp.tb, L = !t.done && t.toAct === 0 && !t.players[0].out ? t.legal() : null, handDec = xp.decisions.filter((d) => d.hand === t.handNo);
-    let out = `<div class="row"><span class="pill acc">Main ${t.handNo} · blindes ${t.sb}/${t.bb}</span><span class="pill">${t.active().length} joueurs</span><button class="btn small" data-act="xpquit" style="margin-left:auto">Abandonner la partie</button></div>${tableHTML(t, { chips: true, showProfiles: true })}`;
+    let out = `<div class="row"><span class="pill acc">Main ${t.handNo} · blindes ${t.sb}/${t.bb}</span><span class="pill">${t.active().length} joueurs</span>${xp.fmt && xp.fmt !== 'expresso' ? `<span class="pill">${esc(xp.name)}</span>` : ''}<button class="btn small" data-act="xpquit" style="margin-left:auto">Abandonner la partie</button></div>${tableHTML(t, { chips: true, showProfiles: true })}`;
     if (L) out += `<section class="panel"><span class="eyebrow">À toi · ${TS.posName(t, 0)} · ${E.abstractOf(t.players[0].cards[0], t.players[0].cards[1])} · ${fr(t.effStack(0) / t.bb, 1)} bb effectifs</span>${actionsHTML(t)}</section>` + (xp.mode === 'live' ? coachHTML(adviceFor(xp), t) : '');
     if (t.done) {
-      out += `<section class="panel"><div class="row" style="justify-content:space-between"><h2>${t.over ? (t.place === 1 ? 'Victoire : tu remportes l\'Expresso' : `Partie terminée : ${t.place}e place`) : 'Fin de la main'}</h2><div class="row"><button class="btn small" data-act="libtable">Sauvegarder la main</button><button class="btn small" data-act="rptable">Rejouer</button>${t.over ? '<button class="btn primary" data-act="xpnew">Nouvelle partie</button>' : '<button class="btn primary" data-act="xpnext">Main suivante <span style="opacity:.7">Entrée</span></button>'}</div></div>
+      out += `<section class="panel"><div class="row" style="justify-content:space-between"><h2>${t.over ? (t.place === 1 ? `Victoire : tu remportes ${xp.name || 'l\'Expresso'}` : `Partie terminée : ${t.place}e place`) : 'Fin de la main'}</h2><div class="row"><button class="btn small" data-act="libtable">Sauvegarder la main</button><button class="btn small" data-act="rptable">Rejouer</button>${t.over ? '<button class="btn primary" data-act="xpnew">Nouvelle partie</button>' : '<button class="btn primary" data-act="xpnext">Main suivante <span style="opacity:.7">Entrée</span></button>'}</div></div>
         ${decisionsHTML(handDec, xp.mode)}${t.over ? `<h3>Ta partie</h3>${catTable(xp.decisions)}` : ''}</section>`;
     }
-    return out + record;
+    return out + (xp.fmt === 'expresso' ? record : '');
   };
   ACT.xpl = (t) => { xprep.lineup = t.dataset.v; render(); };
   ACT.xpm = (t) => { xprep.mode = t.dataset.v; render(); };
-  ACT.xpstart = () => { xp = { kind: 'xp', tb: new TS.Table({ lineup: XP_LINEUPS[xprep.lineup], stack: 500, rebuy: false, levels: XP_LEVELS, handsPerLevel: 6 }), mode: xprep.mode, decisions: [], adv: null }; nextHand(xp); };
+  ACT.xpstart = () => { xp = { kind: 'xp', fmt: 'expresso', name: 'l\'Expresso', tb: new TS.Table({ lineup: XP_LINEUPS[xprep.lineup], stack: 500, rebuy: false, levels: XP_LEVELS, handsPerLevel: 6 }), mode: xprep.mode, decisions: [], adv: null }; nextHand(xp); };
+  // Tournoi lancé depuis Champions › Types de partie : Sit & Go, table finale, Expresso, avec la table choisie.
+  X.startTourney = (o) => {
+    xp = { kind: 'xp', fmt: o.id, name: o.title || 'le tournoi', tb: new TS.Table({ lineup: o.lineup, stack: o.stack, rebuy: false, levels: o.levels, handsPerLevel: o.hpl || 6 }), mode: o.mode || 'live', decisions: [], adv: null };
+    sub = 'expresso'; xp.tb.newHand(); xp.tb.runBots(); if (xp.tb.done) afterHand(xp); X.go('sim');
+  };
   ACT.xpnext = () => { if (xp && !xp.tb.over) { nextHand(xp); while (xp.tb.done && xp.tb.players[0].out === true && !xp.tb.over) nextHand(xp); } };
-  ACT.xpnew = () => { xp = null; render(); };
+  ACT.xpnew = () => { const f = xp?.fmt; xp = null; if (f && f !== 'expresso') X.go('champions'); else render(); };
   ACT.xpquit = () => { xp = null; render(); };
 
   // ---- Mains guidées ----
@@ -5844,7 +6130,7 @@ table.combos td, table.combos th { white-space: nowrap; padding: 6px 8px; }
   const X = window.__S52;
   const { E, C, SV, B, $, esc, fr, pct, render, grid169, cardsHTML, TOOLVIEWS, TOOLS, ACT, ONCHANGE } = X;
   const num = (v) => +String(v).replace(',', '.').replace(/\s/g, '');
-  TOOLS.push(['maths', 'Calculs'], ['bloq', 'Bloqueurs'], ['pko', 'PKO']);
+  TOOLS.push(['maths', 'Calculs'], ['bloq', 'Bloqueurs'], ['pko', 'PKO'], ['omaha', 'Omaha'], ['probas', 'Probabilités'], ['partie', 'Partie maison']);
 
   // ---------------- Calculs ----------------
   const mt = { P: '100', B: '75', gP: '20', gS: '50', gN: '2', sP: '6', sS: '97', iP: '30', iC: '10', iE: '0.2', rPots: '25', rRake: '0.5', rWr: '6' };
@@ -5923,6 +6209,56 @@ table.combos td, table.combos th { white-space: nowrap; padding: 6px 8px; }
         <div class="stat"><span>Équité requise avec prime</span><b>${pct(need, 1)}</b><span>${fr(call, 0)} à payer</span></div><div class="stat"><span>Sans prime</span><b>${pct(needNo, 1)}</b><span>calcul en jetons classique</span></div></div>
         ${err ? `<p class="pill bad">${esc(err)}</p>` : grid}<p class="note">Tu es en grosse blinde et tu couvres le tapis adverse. Calcul en jetons : sur la bulle ou en table finale, ajoute la prime de risque ICM.</p></section>`;
   };
+  // ---------------- Omaha (PLO) ----------------
+  const om = { h: ['AsAhKsKh', 'JdTd9c8c', '', ''], board: '', res: null, pot: '10', call: '0' };
+  ONCHANGE.push((t) => { if (t.dataset.om !== undefined) { const k = t.dataset.om; if (k === 'board' || k === 'pot' || k === 'call') om[k] = t.value; else om.h[+k] = t.value; om.res = null; render(); return true; } });
+  ACT.omrun = () => {
+    try {
+      const hands = om.h.map((x) => x.trim()).filter((x, i) => x || i < 2).map((x) => (x === '' || /^(\?|x|aléatoire|random)$/i.test(x) ? null : E.parseCards(x)));
+      const board = E.parseCards(om.board);
+      if (hands.some((h) => h && h.length !== 4)) throw new Error('Chaque main d\'Omaha fait 4 cartes (ou laisse vide pour une main aléatoire).');
+      if (![0, 3, 4, 5].includes(board.length)) throw new Error('Le board fait 0, 3, 4 ou 5 cartes.');
+      const all = [...board, ...hands.flat().filter((c) => c !== null && c !== undefined)];
+      if (new Set(all).size !== all.length) throw new Error('Une carte apparaît deux fois.');
+      const t0 = performance.now(), r = window.Omaha.equity(hands, board, { iterations: 8000 });
+      om.res = { hands, board, r, ms: Math.round(performance.now() - t0) };
+    } catch (e) { om.res = { err: e.message }; }
+    render();
+  };
+  ACT.omex = (t) => { const ex = { a: ['AsAhKsKh', 'JdTd9c8c', '', '', ''], b: ['AsAd7c2h', 'JhTh9c8c', '', '', ''], c: ['KsKd4c2h', 'AhQh8c3s', '', '', 'Kh7h2s'], d: ['AsKsJhTh', '', '', '', ''] }[t.dataset.v]; om.h = ex.slice(0, 4); om.board = ex[4]; ACT.omrun(); };
+  const omHand = (h) => `<span class="omh mono">${h.map((c) => { const k = E.cardStr(c); return `<b>${k[0] === 'T' ? '10' : k[0]}</b><i class="su-${k[1]}">${E.SUIT_SYM[k[1]]}</i>`; }).join('')}</span>`;
+  TOOLVIEWS.omaha = () => {
+    const O = window.Omaha, r = om.res;
+    let out = '<p class="note">Saisis au moins deux mains (4 cartes chacune, ex. AsAhKsKh) ou laisse un champ vide pour une main aléatoire, puis Calculer.</p>';
+    if (r?.err) out = `<p class="pill bad" style="white-space:normal">${esc(r.err)}</p>`;
+    else if (r) out = `${r.board.length ? `<div class="felt"><div class="row" style="justify-content:center">${cardsHTML(r.board)}</div></div>` : ''}<div class="tw"><table class="t"><thead><tr><th>Main</th><th>Profil</th><th class="n">Équité</th><th class="n">Gagne</th><th class="n">Partage</th></tr></thead><tbody>${r.hands.map((h, i) => `<tr><td>${h ? omHand(h) : '<span class="note">aléatoire</span>'}</td><td class="note">${h ? esc(O.describe(h).tags.join(', ')) : ''}</td><td class="n mono"><b>${pct(r.r.equity[i], 1)}</b></td><td class="n mono">${pct(r.r.win[i], 1)}</td><td class="n mono">${pct(r.r.tie[i], 1)}</td></tr>`).join('')}</tbody></table></div>
+      <p class="note">${r.r.exact ? 'Calcul exact' : `${fr(r.r.samples, 0)} tirages (Monte-Carlo, ± 1 point environ)`} · ${r.ms} ms. Règle d'Omaha : exactement 2 cartes de ta main et 3 du board.</p>`;
+    const potN = num(om.pot), callN = num(om.call), pr = O.potRaise(potN, callN);
+    return `<section class="panel"><h2>Équité Omaha (PLO)</h2>
+      <div class="form">${om.h.map((x, i) => `<label class="f">Main ${i + 1}${i > 1 ? ' (facultatif)' : ''}<input data-om="${i}" value="${esc(x)}" spellcheck="false" placeholder="${i < 2 ? 'vide = aléatoire' : 'vide = absent'}"></label>`).join('')}<label class="f">Board (0, 3, 4 ou 5 cartes)<input data-om="board" value="${esc(om.board)}" spellcheck="false"></label></div>
+      <div class="row"><button class="btn primary" data-act="omrun">Calculer</button><span class="note">Exemples :</span><button class="btn small" data-act="omex" data-v="a">AAKK ds contre JT98 ds</button><button class="btn small" data-act="omex" data-v="b">AA sèche contre JT98</button><button class="btn small" data-act="omex" data-v="c">Brelan contre tirage max</button><button class="btn small" data-act="omex" data-v="d">KQJT contre aléatoire</button></div>
+      ${out}</section>
+      <section class="panel"><h2>Relance maximale (pot-limit)</h2><div class="form"><label class="f">Pot (mises de la rue comprises)<input inputmode="decimal" data-om="pot" value="${esc(om.pot)}"></label><label class="f">À payer<input inputmode="decimal" data-om="call" value="${esc(om.call)}"></label></div>
+      ${isFinite(pr) && potN > 0 ? `<p>${callN > 0 ? `Relance maximale : <strong>${fr(pr, 1)}</strong> au total sur cette rue. Méthode du croupier : tu suis (${fr(callN, 1)}), le pot devient ${fr(potN + callN, 1)}, tu relances de ce montant.` : `Mise maximale : <strong>${fr(pr, 1)}</strong>, la taille du pot.`}</p>` : ''}
+      <p class="note">Module Avancé « Omaha pot-limit : les bases ».</p></section>`;
+  };
+
+  // ---------------- Probabilités de référence ----------------
+  // Valeurs exactes (combinatoire) ou mesurées sur 200 000 tirages par le moteur SIGMA 52 (marquées ≈).
+  const PROBAS = [
+    ['Préflop', [['Recevoir une paire', '5,9 %', '3 ÷ 51'], ['Recevoir une paire donnée (ex. AA)', '0,45 %', '1 fois sur 221'], ['Recevoir deux cartes assorties', '23,5 %', '12 ÷ 51'], ['Recevoir AK (assorti ou non)', '1,2 %', '16 ÷ 1 326'], ['Tu as KK : un adversaire précis a AA', '0,49 %', '6 ÷ 1 225 ; ≈ 3,9 % qu\'un des 8 adversaires l\'ait']]],
+    ['Flop', [['Paire en main → brelan ou mieux au flop', '11,8 %', '1 fois sur 8,5'], ['Deux cartes différentes → au moins une paire avec une des deux', '32,4 %', '1 − C(44,3) ÷ C(50,3)'], ['Mains assorties → couleur faite au flop', '0,84 %', ''], ['Mains assorties → tirage couleur au flop', '10,9 %', ''], ['Mains assorties → couleur à la river', '6,4 %', 'en voyant les 5 cartes']]],
+    ['Tirages (du flop)', [['Tirage couleur, 9 outs', '35,0 %', 'turn + river ; 19,1 % sur une carte'], ['Suite deux bouts, 8 outs', '31,5 %', '17,0 % sur une carte'], ['Ventrale, 4 outs', '16,5 %', '8,5 % sur une carte'], ['Couleur + deux bouts, 15 outs', '54,1 %', '31,9 % sur une carte'], ['Deux overcards, 6 outs', '24,1 %', '12,8 % sur une carte']]],
+    ['Board final (5 cartes)', [['Trois cartes ou plus d\'une même couleur (couleur possible)', '37,1 %', ''], ['Au moins une paire sur le board', '49,3 %', '']]],
+    ['Affrontements préflop (≈)', [['AA contre KK', '82 %', ''], ['KK contre AKo', '70 %', ''], ['QQ contre AKo', '57 %', 'le « coin flip »'], ['22 contre AKo', '53 %', ''], ['AKo contre AQo', '74 %', 'main dominée'], ['AKo contre 72o', '67 %', ''], ['JTs contre AA', '22 %', '']]],
+  ];
+  TOOLVIEWS.probas = () => `<section class="panel"><h2>Probabilités à connaître</h2><p class="note">Le minimum à savoir par cœur pour décider vite. Valeurs exactes, sauf les affrontements (≈, mesurés sur 200 000 tirages).</p>
+    ${PROBAS.map(([h, rows]) => `<h3>${h}</h3><div class="tw"><table class="t"><tbody>${rows.map(([a, b, c]) => `<tr><td>${a}</td><td class="n mono"><b>${b}</b></td><td class="note">${c}</td></tr>`).join('')}</tbody></table></div>`).join('')}
+    <div class="warnbox"><strong>Règle des 2 et 4</strong> : outs × 4 ≈ % de toucher du flop à la river (si tu vois les deux cartes), outs × 2 ≈ % pour une seule carte. Au-delà de 8 outs sur deux cartes, retire (outs − 8) pour corriger : 15 outs → 60 − 7 = 53 %.</div></section>`;
+
+  // ---------------- Partie maison : structure, jetons, places ----------------
+  TOOLVIEWS.partie = () => `<section class="panel"><h2>Organiser une partie entre amis</h2><p>Structure des blindes, répartition des jetons selon ton stock et répartition des places sont dans <strong>Jouer › Table live › Préparer la partie</strong>, avec le minuteur de blindes plein écran.</p><div class="row"><button class="btn primary" data-act="golivprep">Ouvrir la préparation</button></div></section>`;
+  ACT.golivprep = () => { if (X.liveState) X.liveState.sub = 'prep'; X.go('live'); };
 })();
 </script>
 <script>// Spots de l'entraîneur river, générés par tools/build_trainer.js (flop approché -> turn exact -> river). Ne pas éditer à la main.
@@ -6055,6 +6391,13 @@ table.combos td, table.combos th { white-space: nowrap; padding: 6px 8px; }
     chid: { t: 'Card Player, Stephen Chidwick : The Player\'s Choice of Champion (2019)', u: 'https://www.cardplayer.com/?p=1038623' },
     miz: { t: 'PokerNews, la stratégie de Michael Mizrachi (2016)', u: 'https://www.pokernews.com/strategy/michael-mizrachi-poker-strategy-25107.htm' },
     anto: { t: 'Card Player, The Finnish Hihhuli Takes on the World (2006)', u: 'https://www.cardplayer.com/cardplayer-poker-magazines/65637-patrik-antonius-3-2/articles/16176-the-finnish-hihhuli-takes-on-the-world' },
+    brun1: { t: 'Poker1 (Mike Caro), Brunson : the advantages of aggressive play', u: 'https://www.poker1.com/?p=11760' },
+    brun2: { t: 'Poker Academy, Super/System (1979) face à la stratégie moderne', u: 'https://poker.academy/blog/post/doyle-brunsons-super-system-1979-vs-modern-poker-strategy-2025' },
+    harr1: { t: 'PokerListings, le système de zones de Dan Harrington', u: 'https://www.pokerlistings.com/poker-strategies/tournament-nl-holdem/tournament-nolimit-holdem-harringtons-zone-system' },
+    harr2: { t: 'Wikipédia, M-ratio', u: 'https://en.wikipedia.org/wiki/M-ratio' },
+    dwan1: { t: 'Wikipédia, Tom Dwan', u: 'https://en.wikipedia.org/wiki/Tom_Dwan' },
+    dwan2: { t: 'PokerListings, Tom Dwan, Profit Maximization Artist', u: 'https://www.pokerlistings.com/hand-analysis/tom-dwan-profit-maximization-artist' },
+    holz: { t: 'Card Player, interview de Fedor Holz', u: 'https://www.cardplayer.com/?p=1037852' },
     yohW: { t: 'Wikipédia, Johan Guilbert', u: 'https://en.wikipedia.org/wiki/Johan_Guilbert' },
     yohPN: { t: 'PokerNews, fiche Johan Guilbert', u: 'https://www.pokernews.com/poker-players/johan-guilbert/' },
   };
@@ -6102,6 +6445,27 @@ table.combos td, table.combos th { white-space: nowrap; padding: 6px 8px; }
       traits: ['Relance la majorité de ses boutons en tête-à-tête, 3-bets fréquents', 'Mises de 2/3 du pot au pot, overbets', 'Bluffe plus si tu couches trop'],
       adapt: ['Défends ta grosse blinde large (call ou 3-bet) : en tête-à-tête, les ranges sont très larges', 'Ne couche pas plus d\'environ la moitié face à ses mises', '3-bet ses ouvertures larges avec tes mains fortes et quelques bluffs à bloqueurs', 'Reste calme : la variance du tête-à-tête est énorme'],
       stats: { vpip: 41, pfr: 34, three: 19, cbet: 65, ftc: 47 } },
+    { id: 'brunson', profile: 'brunson', name: 'Le parrain agressif', inspired: 'Doyle Brunson', flag: 'États-Unis', level: 'Difficile', format: 'hu6',
+      tagline: 'Il mise presque chaque flop et ramasse une montagne de petits pots.',
+      facts: ['Super/System (1979) : « il faut être agressif pour exceller ». Brunson ramasse « beaucoup de petits pots, des tonnes », ce qui finance les gros pots perdus ; il réserve ses plus grosses mises aux mains très fortes ou aux tirages (semi-bluff à tapis avec une ventrale en exemple).', 'Le livre préconise de miser au flop presque à chaque fois après avoir relancé (environ 90 %). Un solveur moderne le fait autour de 63 % en moyenne, beaucoup moins sur les boards qui favorisent le défenseur.'],
+      sources: ['brun1', 'brun2'],
+      traits: ['C-bet presque systématique (plus de 90 % mesuré)', 'Grosses mises (75 % du pot au pot)', 'Tapis en semi-bluff de temps en temps', 'Peu de 3-bets préflop (fidèle au livre : surtout AA et KK)'],
+      adapt: ['Défends plus large face au c-bet : sa range de mise est très large', 'Check-raise les boards qui favorisent ta range (bas, connectés)', 'Paie plus léger face aux grosses mises au flop, moins à la river', 'Ses 3-bets sont forts : couche tes mains moyennes'],
+      stats: { vpip: 27, pfr: 17, three: 6, cbet: 96, ftc: 32 } },
+    { id: 'harrington', profile: 'harrington', name: 'Le joueur de tournoi méthodique', inspired: 'Dan Harrington', flag: 'États-Unis', level: 'Moyen', format: 'hu6',
+      tagline: 'Serré-agressif, discipliné, et tout son jeu dépend de son tapis (le « M »).',
+      facts: ['Harrington on Hold\'em définit M = tapis ÷ (blindes + antes) et cinq zones : verte (M ≥ 20, tout le jeu est possible), jaune (10 à 20, s\'ouvrir, les petites paires et assorties perdent de la valeur), orange (6 à 10, entrer avec des mains fortes, éviter les calls marginaux), rouge (1 à 5, tapis ou couché), morte (moins de 1).', 'Il recommande d\'adapter son style à la table : jouer serré quand les autres jouent large, et l\'inverse.'],
+      sources: ['harr1', 'harr2'],
+      traits: ['Range serrée (15 % de VPIP), ouvertures à 3 bb', 'Mise de continuation fréquente, tailles moyennes', 'Couche facilement face à la pression (fold to c-bet élevé)'],
+      adapt: ['Vole ses blindes souvent : il défend peu', 'Ses relances et 3-bets sont fortes : respecte-les', 'Bluffe-le aux tours suivants quand il check : il abandonne beaucoup', 'En tournoi, calcule ton propre M : la zone dicte ta stratégie autant que la sienne'],
+      stats: { vpip: 15, pfr: 11, three: 3, cbet: 83, ftc: 54 } },
+    { id: 'dwan', profile: 'dwan', name: 'L\'ultra-agressif opaque', inspired: 'Tom Dwan', flag: 'États-Unis', level: 'Très difficile', format: 'hu6',
+      tagline: 'Grosses mises, gros bluffs, il construit les pots tôt pour finir à tapis.',
+      facts: ['Joueur de cash « durrrr » en ligne à très haute limite (hold\'em et PLO), puis Macau et Manille. Phil Galfond lui prête « le plus de pensées par minute » qu\'il connaisse. Son bluff avec 7-2 à High Stakes Poker (2009) est resté célèbre.', 'PokerListings le décrit « ultra-agressif et opaque » : mises tôt dans la main pour grossir le pot, avec des tapis profonds (300 bb) qui changent les décisions.'],
+      sources: ['dwan1', 'dwan2'],
+      traits: ['Très large et très agressif, 3-bets fréquents', 'Overbets au turn et à la river', 'Relances-bluffs, il bluffe plus si tu couches trop', 'Taux de fold to c-bet très bas : il défend et contre-attaque'],
+      adapt: ['Élargis tes calls avec les bluff-catchers qui bloquent sa valeur', 'Ne bluffe pas en c-bet systématique : il défend', 'Piège avec tes mains fortes : laisse-le miser', 'Variance énorme : joue des tapis plus courts si tu es mal à l\'aise'],
+      stats: { vpip: 34, pfr: 23, three: 12, cbet: 67, ftc: 25 } },
     { id: 'live', profile: null, name: 'La partie live à gros enjeux', inspired: 'type de partie fréquentée par YoH ViraL', flag: 'France', level: 'Moyen', format: 'live',
       tagline: 'Tapis profonds, joueurs d\'action, un pro à la table : la partie des diffusions live.',
       facts: ['Johan Guilbert, alias YoH ViraL, né en 1989 à Sarreguemines : joueur de cash game devenu régulier des high rollers et vlogueur. PokerNews le cite dans des parties diffusées comme Hustler Casino Live et Live at the Bike.', 'Premier bracelet WSOP en 2025 (WSOP Paradise, GGMillion$ Single Day Turbo, 1 534 645 $) ; deuxième de la WSOP Europe Main Event 2021 (près de 800 000 €).', 'Aucune description publique détaillée de son style de jeu n\'a été trouvée : SIGMA 52 reproduit le type de partie, pas son jeu.'],
@@ -6113,6 +6477,21 @@ table.combos td, table.combos th { white-space: nowrap; padding: 6px 8px; }
   // Formats proposés : tête-à-tête contre le style, ou table à six avec lui (+ réguliers et un fish).
   const lineupFor = (st, fmt) => st.id === 'live' ? ['action', 'action', 'prolive', 'station', 'action'] : fmt === 'hu' ? [st.profile] : [st.profile, 'reg', 'station', 'reg', 'nit'];
   const LEGENDS = ['ivey', 'negreanu', 'hellmuth', 'chidwick', 'mizrachi'];
+  const CLASSICS = ['brunson', 'harrington', 'dwan', 'antonius', 'ivey'];
+  // Types de partie : profondeur, structure et composition de table. Les tournois utilisent le moteur Expresso généralisé.
+  const ARCH = { mix: ['station', 'reg', 'maniaque', 'station', 'nit'], fish: ['station', 'action', 'station', 'reg', 'station'], regs: ['reg', 'chidwick', 'reg', 'harrington', 'nit'], agressifs: ['maniaque', 'dwan', 'mizrachi', 'reg', 'brunson'], legendes: ['ivey', 'negreanu', 'hellmuth', 'chidwick', 'mizrachi'], classiques: ['brunson', 'harrington', 'dwan', 'antonius', 'ivey'] };
+  const ARCH_LABEL = { mix: 'Table mixte (2 fish, régulier, maniaque, nit)', fish: 'Table de fish', regs: 'Table de réguliers', agressifs: 'Table agressive', legendes: 'Légendes', classiques: 'Classiques (Brunson, Harrington, Dwan…)' };
+  const lv = (a) => a.map((x) => [x / 2, x]);
+  const FORMATS = [
+    { id: 'cash100', kind: 'cash', name: 'Cash 100 bb', stackBB: 100, desc: 'La référence du cash en ligne à 6 joueurs.', keys: ['Ouvertures selon les charts, 3-bet polarisé en position', 'SPR moyen : top paire bon kicker se joue souvent pour un pot moyen'], mods: ['positions', 'postflop'] },
+    { id: 'short', kind: 'cash', name: 'Cash court 40 bb', stackBB: 40, desc: 'Tapis courts : moins de jeu postflop, plus de tapis préflop.', keys: ['Préfère les mains à haute carte (AQ, KQ, paires moyennes) aux connecteurs : moins de cotes implicites', '3-bet souvent tapis (3-bet/shove) au lieu de 3-bet/call', 'SPR bas : top paire = tapis la plupart du temps'], mods: ['preflop2', 'sizing'] },
+    { id: 'deep', kind: 'cash', name: 'Cash profond 200 bb', stackBB: 200, desc: 'Tapis profonds : cotes implicites, jeu à plusieurs rues, gros pots.', keys: ['Les assorties connectées et petites paires gagnent en valeur (cotes implicites)', 'Méfie-toi des mains dominées (AJ, KQ) dans les gros pots', 'Une paire seule ne suffit pas pour mettre 200 bb'], mods: ['deep', 'barrels'] },
+    { id: 'home', kind: 'cash', name: 'Partie maison', stackBB: 100, lineup: ['action', 'station', 'action', 'station', 'reg'], desc: 'Entre amis : ouvertures grosses, beaucoup de calls, pots à plusieurs.', keys: ['Isole les joueurs faibles en position, relance plus gros (4 bb + 1 par limper)', 'Peu de bluffs : on paie trop souvent', 'Valeur grosse et sur trois rues avec les mains fortes'], mods: ['home', 'live_strat'] },
+    { id: 'hu', kind: 'cash', name: 'Tête-à-tête 100 bb', stackBB: 100, lineup: ['reg'], desc: 'Un seul adversaire : ranges très larges, agressivité maximale.', keys: ['Ouvre 75 à 85 % des mains au bouton', 'Défends ta grosse blinde très large', 'Paires faibles et hauteur as valent beaucoup plus qu\'à 6'], mods: ['hu'] },
+    { id: 'sng6', kind: 'mtt', name: 'Sit & Go 6 joueurs', players: 6, stack: 1500, levels: lv([20, 30, 40, 60, 80, 100, 150, 200, 300, 400, 600, 800, 1000]), hpl: 8, desc: '1 500 jetons, blindes toutes les 8 mains, éliminations jusqu\'au dernier.', keys: ['Début : serré, les blindes ne valent rien', 'Milieu (M 6 à 10) : vole les blindes, tapis ou couché sous 15 bb', 'Bulle et fin : pression sur les tapis moyens, l\'ICM punit les calls larges'], mods: ['icm', 'icm2'] },
+    { id: 'ft', kind: 'mtt', name: 'Table finale', players: 6, stack: 2500, start: 4, levels: lv([100, 150, 200, 300, 400, 500, 600, 800, 1000, 1200, 1600, 2000]), hpl: 6, desc: '6 joueurs, environ 25 bb, blindes rapides : chaque place compte.', keys: ['Les petits tapis subissent l\'ICM : ne paie pas un tapis avec une main moyenne', 'Le gros tapis met la pression aux tapis moyens', 'Repère qui joue pour monter de place et qui joue pour gagner'], mods: ['icm2', 'perf'] },
+    { id: 'expresso', kind: 'mtt', name: 'Expresso 3 joueurs', players: 3, stack: 500, levels: lv([20, 30, 40, 60, 80, 100, 120, 160, 200, 300, 400]), hpl: 6, desc: '500 jetons, hyper-turbo, le gagnant prend tout.', keys: ['Tapis ou couché très tôt', 'Tête-à-tête final : ouvre presque tout au bouton'], mods: ['expresso'] },
+  ];
 
   // Classement fourni par l'utilisateur (gains bruts en tournois live, Hendon Mob, relevé du 19/10/2026). Gains bruts : buy-ins non déduits.
   const MONEY = [
@@ -6128,8 +6507,9 @@ table.combos td, table.combos th { white-space: nowrap; padding: 6px 8px; }
     ['Elton Tsang', 'Hong Kong', 31479299], ['Nick Schulman', 'États-Unis', 31472564], ['Michael Mizrachi', 'États-Unis', 30699393], ['Jean-Noel Thorel', 'France', 30558278],
   ];
   const STYLE_OF = { 'Stephen Chidwick': 'chidwick', 'Daniel Negreanu': 'negreanu', 'Phil Ivey': 'ivey', 'Patrik Antonius': 'antonius', 'Phil Hellmuth Jr': 'hellmuth', 'Michael Mizrachi': 'mizrachi' };
+  const NOTES = { 'Fedor Holz': 'Interview Card Player : gère moins de 2 % de sa bankroll par tournoi, préfère les tournois au cash (« pas assez patient »), apprend en groupe avec des amis. Pas de description publique de son style de jeu : pas de bot.' };
 
-  const api = { SRC, STYLES, MONEY, STYLE_OF, LEGENDS, lineupFor };
+  const api = { NOTES, SRC, STYLES, MONEY, STYLE_OF, LEGENDS, CLASSICS, ARCH, ARCH_LABEL, FORMATS, lineupFor };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Champions = api;
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
@@ -6144,10 +6524,10 @@ table.combos td, table.combos th { white-space: nowrap; padding: 6px 8px; }
   const srcLinks = (st) => st.sources.map((k) => `<a href="${CH.SRC[k].u}" target="_blank" rel="noopener">${esc(CH.SRC[k].t)}</a>`).join(' · ');
 
   const DISCLAIMER = 'Styles d\'entraînement construits par SIGMA 52 à partir de descriptions publiques (livres, cours, interviews). Ce ne sont ni les joueurs eux-mêmes, ni leur stratégie réelle : ce sont des adversaires-types pour apprendre à t\'adapter.';
-  const SUBS = [['styles', 'Adversaires'], ['mystery', 'Défi mystère'], ['money', 'Classement des gains']];
+  const SUBS = [['styles', 'Adversaires'], ['formats', 'Types de partie'], ['mystery', 'Défi mystère'], ['money', 'Classement des gains']];
   VIEWS.champions = () => head('Champions', 'Affronte les grands styles de jeu et apprends à t\'y adapter. ' + DISCLAIMER) +
     `<div class="subtabs" role="tablist">${SUBS.map(([k, l]) => `<button class="chip" aria-pressed="${ch.sub === k}" data-act="chsub" data-s="${k}">${l}</button>`).join('')}</div>` +
-    (ch.sub === 'styles' ? stylesHTML() : ch.sub === 'mystery' ? mysteryHTML() : moneyHTML());
+    (ch.sub === 'styles' ? stylesHTML() : ch.sub === 'formats' ? formatsHTML() : ch.sub === 'mystery' ? mysteryHTML() : moneyHTML());
   ACT.chsub = (t) => { ch.sub = t.dataset.s; render(); };
 
   function card(st) {
@@ -6187,6 +6567,34 @@ table.combos td, table.combos th { white-space: nowrap; padding: 6px 8px; }
     const st = styleOf(ch.sel); if (!st) return;
     const lineup = ch.fmt === 'legends' ? CH.LEGENDS.slice() : CH.lineupFor(st, ch.fmt === 'six' ? 'six' : 'hu');
     X.startCash({ lineup, stackBB: st.format === 'live' ? 200 : 100, mode: ch.mode, target: ch.target, objectives: [], champ: { id: st.id, profile: st.profile, legends: ch.fmt === 'legends' } });
+  };
+
+  // ---- Types de partie : profondeur, structure, composition de la table ----
+  const fm = { id: 'cash100', arch: 'mix', mode: 'exam', target: 50 };
+  const K = window.Course;
+  function formatsHTML() {
+    const F = CH.FORMATS.find((f) => f.id === fm.id) || CH.FORMATS[0], fixed = !!F.lineup, rec = state.progress.formats?.[F.id];
+    const modBtn = (id) => { const m = K.MODULES.find((x) => x.id === id); return m ? `<button class="btn small" data-act="openmod" data-id="${id}">Module : ${esc(m.title)}</button>` : ''; };
+    const arch = F.kind === 'mtt' ? CH.ARCH[fm.arch].slice(0, F.players - 1) : F.lineup || CH.ARCH[fm.arch];
+    return `<div class="champs">${CH.FORMATS.map((f) => `<button class="champ${f.id === F.id ? ' on' : ''}" data-act="fmsel" data-id="${f.id}"><span class="eyebrow">${f.kind === 'mtt' ? 'Tournoi' : 'Cash'}</span><h3>${esc(f.name)}</h3><span>${esc(f.desc)}</span></button>`).join('')}</div>
+      <section class="panel brief"><span class="eyebrow">${F.kind === 'mtt' ? `Tournoi · ${F.players} joueurs · ${fr(F.stack, 0)} jetons` : `Cash · ${F.stackBB} bb · recave automatique`}</span><h2>${esc(F.name)}</h2><p>${esc(F.desc)}</p>
+      <div class="warnbox"><strong>Ce qui change</strong><ul>${F.keys.map((k) => `<li>${esc(k)}</li>`).join('')}</ul></div>
+      ${fixed ? `<p class="note">Table imposée : ${arch.map((p) => esc(window.TableSim.PROFILES[p].label)).join(', ')}.</p>` : `<div class="row"><span class="note">Table :</span>${Object.keys(CH.ARCH).map((k) => `<button class="chip" aria-pressed="${fm.arch === k}" data-act="fmarch" data-v="${k}">${esc(CH.ARCH_LABEL[k])}</button>`).join('')}</div><p class="note">Adversaires : ${arch.map((p) => esc(window.TableSim.PROFILES[p].label)).join(', ')}.</p>`}
+      ${F.kind === 'cash' ? `<div class="row"><span class="note">Durée :</span>${[25, 50, 100].map((n) => `<button class="chip" aria-pressed="${fm.target === n}" data-act="fmtarget" data-v="${n}">${n} mains</button>`).join('')}</div>` : ''}
+      <div class="row"><span class="note">Coach :</span>${[['exam', 'Examen (après la main)'], ['live', 'En direct'], ['free', 'Sans aide']].map(([k, l]) => `<button class="chip" aria-pressed="${fm.mode === k}" data-act="fmmode" data-v="${k}">${l}</button>`).join('')}</div>
+      ${rec ? `<p class="note mono">Parties : ${rec.games} · victoires : ${rec.places[1] || 0}</p>` : ''}
+      <div class="row"><button class="btn primary" data-act="fmplay">Jouer</button>${F.mods.map(modBtn).join('')}</div></section>`;
+  }
+  ACT.fmsel = (t) => { fm.id = t.dataset.id; render(); };
+  ACT.fmarch = (t) => { fm.arch = t.dataset.v; render(); };
+  ACT.fmtarget = (t) => { fm.target = +t.dataset.v; render(); };
+  ACT.fmmode = (t) => { fm.mode = t.dataset.v; render(); };
+  ACT.fmplay = () => {
+    const F = CH.FORMATS.find((f) => f.id === fm.id);
+    if (F.kind === 'mtt') {
+      const lineup = CH.ARCH[fm.arch].slice(0, F.players - 1);
+      X.startTourney({ id: F.id, title: F.id === 'ft' ? 'la table finale' : F.id === 'expresso' ? 'l\'Expresso' : 'le Sit & Go', lineup, stack: F.stack, levels: F.levels.slice(F.start || 0), hpl: F.hpl, mode: fm.mode });
+    } else X.startCash({ lineup: F.lineup || CH.ARCH[fm.arch], stackBB: F.stackBB, mode: fm.mode, target: fm.target, objectives: [] });
   };
 
   // ---- Défi mystère : identifier le style à partir de ce qu'on observe ----
@@ -6257,6 +6665,389 @@ table.combos td, table.combos th { white-space: nowrap; padding: 6px 8px; }
     const g = X.getCash(); if (!g?.champ?.hidden || ch.guess !== null) return;
     ch.guess = t.dataset.id; const m = prog().mystery; m.n++; if (ch.guess === g.champ.id) m.ok++; Store.save('progress'); render();
   };
+})();
+</script>
+<script>// Moteur de la Table live (parties amicales, joueurs informés) : une décision en moins d'une seconde à partir de ta main,
+// du board, de ta position, du nombre et du type d'adversaires, du pot et de la mise à payer.
+// Préflop : charts et équité de la matrice préflop contre la range estimée. Après le flop : Monte-Carlo contre la range estimée,
+// filtrée par l'action de l'adversaire sur la rue. C'est une estimation rapide, pas un solve.
+(function (root) {
+  const E = root.Engine || require('./engine.js');
+  const C = root.Charts || require('./charts.js');
+  const SV = root.Solver || require('./solver.js');
+  const TS = root.TableSim || require('./table.js');
+  const B = root.Board || require('./board.js');
+
+  // Types d'adversaires : part des mains avec lesquelles il relance / paie avant le flop, et ce qu'il garde face à une mise.
+  const TYPES = {
+    serre: { label: 'Serré', raise: 0.07, call: 0.16, keep: 'strong' },
+    normal: { label: 'Normal', raise: 0.16, call: 0.3, keep: 'pair' },
+    large: { label: 'Large', raise: 0.28, call: 0.45, keep: 'pair' },
+    fish: { label: 'Fish (paie tout)', raise: 0.1, call: 0.6, keep: 'any' },
+    maniaque: { label: 'Maniaque', raise: 0.45, call: 0.65, keep: 'wide' },
+  };
+  const POSITIONS = ['UTG', 'MP', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
+  const chartPos = (p) => (p === 'MP' ? 'UTG' : p);
+  const fmt = (x, d = 1) => (Math.round(x * 10 ** d) / 10 ** d).toLocaleString('fr-FR');
+  const pctS = (x) => Math.round(x * 100) + ' %';
+
+  let PCT = null;
+  const pctOf = (h) => { PCT = PCT || TS.preflopPct(); return PCT[E.ALL169.indexOf(h)]; };
+  function topSet(x) { PCT = PCT || TS.preflopPct(); return new Set(E.ALL169.filter((h, i) => PCT[i] < x)); }
+  const freqOf = (set) => E.ALL169.map((h) => (set.has(h) ? 1 : 0));
+
+  // Range d'un adversaire après le préflop selon son action ('raise' | 'call' | 'limp').
+  function preRange(type, act) {
+    const T = TYPES[type] || TYPES.normal;
+    if (act === 'raise') return topSet(T.raise);
+    if (act === 'limp') { const all = topSet(Math.min(0.85, T.call + 0.15)), strong = topSet(Math.min(0.06, T.raise)); return new Set([...all].filter((h) => !strong.has(h))); }
+    return topSet(T.call);
+  }
+  // Filtre postflop : ce qu'il garde quand il mise ou relance sur cette rue.
+  function keepOnBet(type, combos, board, raised) {
+    const T = TYPES[type] || TYPES.normal;
+    return combos.filter((c) => {
+      const k = B.classify(c, board), pair = k.made <= 11, strongMade = k.made <= 9, draw = k.draws.length > 0 && k.draws[0] !== 3;
+      if (T.keep === 'wide') return raised ? pair || draw || k.made <= 11 : true;
+      if (T.keep === 'any') return raised ? k.made <= 10 : pair || draw || k.draws.includes(3);
+      if (T.keep === 'strong') return raised ? k.made <= 7 : strongMade || (draw && k.draws[0] === 0);
+      return raised ? k.made <= 8 || (draw && k.draws[0] <= 1) : pair || draw;
+    });
+  }
+  const outsOf = (k) => { const d = k.draws; if (d.includes(0) && d.includes(1)) return 15; if (d.includes(0) && d.includes(2)) return 12; if (d.includes(0)) return 9; if (d.includes(1)) return 8; if (d.includes(2)) return 4; if (d.includes(3)) return 6; return 0; };
+
+  // ---------------- Préflop ----------------
+  function preflop(o) {
+    const [c1, c2] = o.hero, h = E.abstractOf(c1, c2), pct = pctOf(h), hi = E.ALL169.indexOf(h), pos = o.pos, T = TYPES[o.type] || TYPES.normal;
+    const ip = ['CO', 'BTN'].includes(pos), blind = pos === 'SB' || pos === 'BB', stack = o.stackBB || 100, lines = [];
+    const res = (action, size, tone, extra = {}) => ({ street: 'pre', hand: h, action, size, tone, lines, ...extra });
+    // Tapis court : tapis ou couché.
+    if (stack <= 15 && (o.pre === 'open' || o.pre === 'raise')) {
+      const sol = SV.solveChip(Math.max(1, Math.min(25, Math.round(stack * 2) / 2)));
+      if (o.pre === 'open') {
+        const left = { UTG: 6, MP: 5, HJ: 4, CO: 3, BTN: 2, SB: 1, BB: 0 }[pos] ?? 3, k = left <= 1 ? 1 : left === 2 ? 0.75 : left === 3 ? 0.6 : 0.45;
+        const push = pct < sol.pushPct * k;
+        lines.push(`${fmt(stack)} bb : jeu tapis ou couché. Référence : environ ${pctS(sol.pushPct * k)} des mains depuis ta position.`);
+        return res(push ? 'TAPIS' : pos === 'BB' ? 'CHECK' : 'COUCHE', push ? 'tout' : '', push ? 'good' : 'bad');
+      }
+      const shover = topSet(Math.min(0.9, sol.pushPct * (o.type === 'serre' ? 0.6 : o.type === 'maniaque' ? 1.4 : 1))), eq = SV.eqVsRange(hi, freqOf(shover));
+      const need = (stack - (pos === 'BB' ? 1 : pos === 'SB' ? 0.5 : 0)) / (2 * stack + (pos === 'BB' || pos === 'SB' ? 0.5 : 1.5));
+      lines.push(`Contre un tapis ${T.label.toLowerCase()} : ton équité ${pctS(eq)}, il en faut ${pctS(need)}.`);
+      return res(eq >= need ? 'SUIS' : 'COUCHE', '', eq >= need ? 'good' : 'bad', { eq, need });
+    }
+    if (o.pre === 'open') {
+      if (pos === 'BB') { lines.push('Tout le monde s\'est couché : tu remportes les blindes.'); return res('CHECK', '', 'good'); }
+      const R = E.parseRange(C.RFI[chartPos(pos)].range), inR = R.has(h);
+      const size = pos === 'SB' ? 3 : 2.5 + (o.live ? 0.5 : 0);
+      lines.push(`${h} ${inR ? 'est dans' : 'est hors de'} la range d'ouverture ${pos} (${Math.round(E.rangePct(R))} % des mains).`);
+      if (inR) lines.push('Relance, ne limpe pas : tu prends l\'initiative.');
+      return res(inR ? 'RELANCE' : 'COUCHE', inR ? fmt(size) + ' BB' : '', inR ? 'good' : 'bad');
+    }
+    if (o.pre === 'limp') {
+      const k = Math.max(1, o.limpers || 1), thr = blind ? 0.12 : (o.type === 'fish' ? 0.3 : 0.2) + (ip ? 0.04 : 0);
+      const size = 4 + k + (o.type === 'fish' ? 1 : 0);
+      if (pct < thr) { lines.push(`${k} limper${k > 1 ? 's' : ''} : ${h} est assez fort pour isoler. Relance à ${size} BB (4 + 1 par limper${o.type === 'fish' ? ' + 1 contre un fish' : ''}).`); return res('RELANCE', size + ' BB', 'good'); }
+      const spec = h[0] === h[1] || (h[2] === 's' && (Math.abs(E.RANKS.indexOf(h[0]) - E.RANKS.indexOf(h[1])) <= 2 || h[0] === 'A'));
+      if (pos === 'BB') { lines.push('Grosse blinde : check gratuit, ne gonfle pas le pot avec une main moyenne.'); return res('CHECK', '', 'warn'); }
+      if (spec && k >= 1 && pct < 0.5 && stack >= 60) { lines.push(`${h} joue bien à plusieurs avec des tapis profonds (brelan, couleur, suite) : suis pour 1 BB.`); return res('SUIS', '1 BB', 'warn'); }
+      lines.push(`${h} ne vaut ni une isolation ni un limp derrière.`); return res('COUCHE', '', 'bad');
+    }
+    // Face à une relance (avec ou sans callers) ou à un 3-bet.
+    const R = Math.max(2, o.raiseBB || 3), callers = o.pre === 'raisecall' ? Math.max(1, o.callers || 1) : 0;
+    const posted = pos === 'BB' ? 1 : pos === 'SB' ? 0.5 : 0, heroOpen = o.pre === 'threebet' ? Math.min(R - 0.5, o.openBB || 3) : 0;
+    const toCall = o.pre === 'threebet' ? R - heroOpen : R - posted;
+    const pot = o.pre === 'threebet' ? 1.5 + heroOpen + R - (pos === 'BB' || pos === 'SB' ? posted : 0) : 1.5 + R * (1 + callers);
+    const vr = o.pre === 'threebet' ? topSet(Math.max(0.03, T.raise * 0.4)) : topSet(T.raise);
+    const eq = SV.eqVsRange(hi, freqOf(vr)), real = ip ? 0.95 : blind ? 0.82 : 0.88, need = toCall / (pot + toCall);
+    const multi = callers > 0 ? 0.92 : 1;
+    if (o.pre === 'threebet') {
+      const four = E.parseRange(o.type === 'serre' ? 'KK+' : o.type === 'maniaque' ? 'TT+, AQ+' : 'QQ+, AK').has(h);
+      if (four) { lines.push(`Contre un 3-bet ${T.label.toLowerCase()}, ${h} est assez fort pour 4-bet (≈ 2,3 × sa relance) ou tapis si les tapis sont courts.`); return res('RELANCE', fmt(R * 2.3) + ' BB', 'good', { eq, need }); }
+      const ok = eq * real >= need && (h[0] === h[1] || h[2] === 's' || pct < 0.06);
+      lines.push(`Ton équité contre sa range de 3-bet : ${pctS(eq)} (réalisée ≈ ${pctS(eq * real)}), il en faut ${pctS(need)}.`);
+      return res(ok ? 'SUIS' : 'COUCHE', ok ? fmt(toCall) + ' BB' : '', ok ? 'warn' : 'bad', { eq, need });
+    }
+    const valueT = callers ? 0.6 : 0.58;
+    if (eq >= valueT || E.parseRange('QQ+, AK').has(h)) {
+      const size = (ip ? 3 : 4) * R + R * callers;
+      lines.push(`Ton équité contre sa range (${T.label.toLowerCase()}) : ${pctS(eq)}. ${callers ? 'Squeeze' : '3-bet'} pour la valeur à ${fmt(size)} BB.`);
+      return res('RELANCE', fmt(size) + ' BB', 'good', { eq, need });
+    }
+    const implied = stack / R >= 20 && (h[0] === h[1] || h[2] === 's') ? 0.06 : 0;
+    const go = eq * real * multi + implied >= need;
+    lines.push(`Ton équité contre sa range : ${pctS(eq)}${implied ? ' + cotes implicites (tapis profonds, main qui peut toucher fort)' : ''} ; il en faut ${pctS(need)}${ip ? ', tu es en position' : blind ? ', hors de position' : ''}.`);
+    if (o.type === 'fish' && go) lines.push('Contre un fish, prévois de miser gros pour la valeur quand tu touches.');
+    return res(go ? 'SUIS' : 'COUCHE', go ? fmt(toCall) + ' BB' : '', go ? 'warn' : 'bad', { eq, need });
+  }
+
+  // ---------------- Après le flop ----------------
+  function postflop(o) {
+    const hero = o.hero, board = o.board, T = TYPES[o.type] || TYPES.normal, n = Math.max(1, Math.min(5, o.nOpp || 1)), lines = [];
+    const k = B.classify(hero, board), cat = B.MADE[k.made] + (k.draws.length ? ' + ' + k.draws.map((d) => B.DRAWS[d].toLowerCase()).join(', ') : '');
+    const pot = Math.max(0.01, +o.pot || 0), toCall = Math.max(0, +o.toCall || 0), stack = +o.stack || 0;
+    const dead = [...hero, ...board];
+    let villain = E.rangeCombos(preRange(o.type, o.vpre || 'call'), dead);
+    if (toCall > 0) { const kept = keepOnBet(o.type, villain, board, !!o.raised); if (kept.length >= 3) villain = kept; }
+    if (!villain.length) villain = E.rangeCombos('random', dead);
+    const players = [{ hand: hero }, ...Array.from({ length: n }, () => ({ combos: villain }))];
+    const r = E.equity(players, board, { iterations: o.iterations || (n === 1 ? 2500 : 1500), random: o.random });
+    const eq = r.equity[0], need = toCall > 0 ? toCall / (pot + toCall) : 0, spr = stack && pot ? stack / pot : null;
+    const outs = outsOf(k), toCome = 5 - board.length;
+    const res = (action, size, tone) => ({ street: ['', '', '', 'flop', 'turn', 'river'][board.length], hand: E.abstractOf(hero[0], hero[1]), cat, action, size, tone, eq, need, outs, spr, lines });
+    lines.push(`${cat}. Équité contre ${n > 1 ? n + ' adversaires' : 'sa range'} (${T.label.toLowerCase()}) : ${pctS(eq)}.`);
+    if (outs && toCome) lines.push(`${outs} outs : ≈ ${pctS(Math.min(1, outs * (toCome === 2 ? 4 : 2) / 100))} de toucher ${toCome === 2 ? 'd\'ici la river' : 'à la prochaine carte'} (règle des 2 et 4).`);
+    if (toCall <= 0) {
+      const real = +o.pot > 0, bet = (f) => (real ? fmt(pot * f, 0) + ' (' + Math.round(f * 100) + ' % du pot)' : Math.round(f * 100) + ' % du pot');
+      if (eq >= 1 / (n + 1) + (n === 1 ? 0.08 : 0.17)) {
+        const f = o.type === 'fish' ? 0.75 : n > 1 ? 0.66 : 0.6;
+        lines.push(k.made === 12 ? 'Rien encore, mais tu es devant sa range et il rate souvent ce board : mise, tu gardes des cartes pour t\'améliorer.' : o.type === 'fish' ? 'Il paie trop : mise gros pour la valeur.' : 'Tu es devant sa range : mise pour la valeur.');
+        if (spr !== null && spr <= 2 && eq > 0.65) { lines.push(`SPR ${fmt(spr)} : prépare-toi à mettre le tapis.`); }
+        return res('MISE', bet(f), 'good');
+      }
+      if (outs >= 8 && n === 1 && toCome > 0 && !['fish'].includes(o.type)) { lines.push('Gros tirage : un semi-bluff gagne s\'il se couche ou si tu touches.'); return res('MISE', bet(0.5), 'warn'); }
+      if (o.type === 'serre' && n === 1 && eq < 0.35 && board.length === 3) { lines.push('Un joueur serré rate souvent le flop : petite mise pour prendre le pot.'); return res('MISE', bet(0.33), 'warn'); }
+      lines.push(n > 1 ? 'À plusieurs, pas de bluff : check.' : o.type === 'fish' ? 'Pas de bluff contre un fish : check.' : 'Main moyenne ou faible : check, contrôle le pot.');
+      return res('CHECK', '', 'warn');
+    }
+    lines.push(`À payer ${fmt(toCall, 0)} pour un pot de ${fmt(pot + toCall, 0)} : il te faut ${pctS(need)} d'équité.`);
+    if (eq >= Math.max(n === 1 ? 0.68 : n === 2 ? 0.55 : 0.48, need + 0.12)) {
+      const to = toCall + (pot + toCall) * 0.8;
+      if (spr !== null && stack <= (pot + toCall) * 1.2) return res('TAPIS', 'tout', 'good');
+      lines.push('Tu es nettement devant : relance pour la valeur.');
+      return res('RELANCE', '≈ ' + fmt(to, 0), 'good');
+    }
+    const implied = outs >= 8 && toCome > 0 && stack > pot * 2 && o.type !== 'serre' ? 0.04 : 0;
+    if (eq + implied >= need) { if (implied && eq < need) lines.push('Juste en dessous de la cote, mais les tapis profonds paient ton tirage : suis.'); return res('SUIS', fmt(toCall, 0), eq >= need + 0.1 ? 'good' : 'warn'); }
+    if (o.type === 'serre' || o.raised) lines.push('Sa mise est forte chez ce profil : couche sans regret.');
+    return res('COUCHE', '', 'bad');
+  }
+
+  function decide(o) {
+    if (!o.hero || o.hero.length !== 2 || o.hero[0] === o.hero[1]) return null;
+    if (!o.board || o.board.length === 0) return preflop(o);
+    if (o.board.length < 3) return null;
+    return postflop(o);
+  }
+
+  // Structure de tournoi maison : grosses blindes tirées d'une suite classique (100, 150, 200, 300, 400, 500, 600, 800, 1 000…),
+  // de 1 % du tapis de départ jusqu'à environ un quinzième des jetons en jeu ; ante de grosse blinde à partir du niveau 4.
+  function structure({ stack = 10000, players = 6, hours = 3, levelMin = 15, smallChip = 25 } = {}) {
+    const nLevels = Math.max(6, Math.round((hours * 60) / levelMin) + 2);
+    const base = [1, 1.5, 2, 3, 4, 5, 6, 8], seq = [];
+    for (let e = -1; e < 9; e++) for (const b of base) { const v = b * Math.pow(10, e) * 100; if (v >= smallChip * 2 && v % smallChip === 0) seq.push(v); }
+    const startBB = Math.max(smallChip * 2, Math.round(stack / 100 / smallChip) * smallChip), target = (stack * players) / 15;
+    let i0 = seq.findIndex((v) => v >= startBB); if (i0 < 0) i0 = 0;
+    let i1 = seq.findIndex((v) => v >= target); if (i1 < 0) i1 = seq.length - 1;
+    const idx = Array.from({ length: nLevels }, (_, k) => Math.round(i0 + ((i1 - i0) * k) / (nLevels - 1)));
+    const out = []; let prev = 0;
+    for (const j of idx) { const bb = Math.max(seq[j], prev ? seq[Math.min(seq.length - 1, seq.indexOf(prev) + 1)] : 0); prev = bb; out.push({ n: out.length + 1, sb: Math.max(smallChip, Math.round(bb / 2 / smallChip) * smallChip), bb, ante: out.length >= 3 ? bb : 0, min: levelMin }); }
+    return out;
+  }
+  // Jetons par joueur à partir des valeurs disponibles : environ 10 % du tapis en petite valeur, 30 % en deuxième, le reste en grosses.
+  function chips({ stack = 10000, players = 6, denoms = [25, 100, 500, 1000], counts = [] } = {}) {
+    const has = (x) => x !== undefined && x !== null && x !== '';
+    const pairs = denoms.map((v, i) => [+v, counts[i]]).filter(([v]) => v > 0).sort((a, b) => a[0] - b[0]);
+    const d = pairs.map((x) => x[0]), avail = pairs.map((x) => x[1]), cap = avail.map((x) => (has(x) ? Math.floor(+x / players) : Infinity));
+    const shares = d.length === 1 ? [1] : d.length === 2 ? [0.3, 0.7] : d.length === 3 ? [0.1, 0.3, 0.6] : [0.06, 0.24, 0.3, 0.4].concat(Array(Math.max(0, d.length - 4)).fill(0)).slice(0, d.length);
+    let left = stack; const per = d.map(() => 0);
+    // 1) petites valeurs d'abord (pour rendre la monnaie), dans la limite du stock
+    for (let i = 0; i < d.length - 1; i++) {
+      let n = Math.max(i === 0 ? 8 : 4, Math.round((stack * shares[i]) / d[i]));
+      n = Math.max(0, Math.min(n, cap[i], Math.floor(left / d[i]))); per[i] = n; left -= n * d[i];
+    }
+    // 2) le reste en partant des grosses valeurs, toujours dans la limite du stock
+    for (let i = d.length - 1; i >= 0 && left > 0; i--) { const add = Math.max(0, Math.min(Math.floor(left / d[i]), cap[i] - per[i])); per[i] += add; left -= add * d[i]; }
+    const short = left >= d[0] || (d.length && left > 0 && per.every((x, i) => x >= cap[i]));
+    return { rows: d.map((v, i) => ({ value: v, count: per[i], total: v * per[i], need: per[i] * players, have: has(avail[i]) ? +avail[i] : null })), rest: left, short, stockTotal: avail.every(has) ? d.reduce((a, v, i) => a + v * +avail[i], 0) : null };
+  }
+  // Répartition des places (points, lots) selon le nombre de joueurs.
+  function payouts(n) {
+    if (n <= 3) return [100];
+    if (n <= 5) return [70, 30];
+    if (n <= 9) return [50, 30, 20];
+    if (n <= 15) return [45, 27, 18, 10];
+    return [40, 25, 16, 11, 8];
+  }
+
+  const api = { TYPES, POSITIONS, decide, preflop, postflop, preRange, structure, chips, payouts };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Live = api;
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+<script>// Onglet Table live : pour les parties amicales où tous les joueurs sont d'accord (jetons, sans argent).
+// Décision éclair (main, board, situation -> action), mode discret, minuteur de blindes, préparation de la partie.
+(function () {
+  const X = window.__S52, L = window.Live;
+  const { E, $, esc, fr, pct, render, head, VIEWS, ACT, ONCHANGE, ONKEY, cardHTML } = X;
+  const ls = { get: (k, d) => { try { const v = localStorage.getItem('sigma52.live.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } }, set: (k, v) => { try { localStorage.setItem('sigma52.live.' + k, JSON.stringify(v)); } catch (e) { /* stockage indisponible */ } } };
+  const lv = {
+    sub: 'decision', consent: ls.get('consent', false), discret: false,
+    cards: [null, null, null, null, null, null, null], slot: 0, rank: null,
+    pos: 'BTN', nOpp: 1, type: 'normal', pre: 'open', limpers: 1, raiseBB: 3, callers: 1, vpre: 'call', raised: false,
+    bb: ls.get('bb', 100), pot: '', toCall: '', stack: '', res: null, ms: 0,
+    st: ls.get('st', { stack: 10000, players: 6, hours: 3, levelMin: 15, smallChip: 25 }), levels: null,
+    ch: ls.get('ch', { stack: 10000, players: 6, denoms: [25, 100, 500, 1000, '', ''], counts: ['', '', '', '', '', ''] }), places: 6,
+    timer: { i: 0, left: null, running: false, last: 0 }, wake: null,
+  };
+  lv.levels = L.structure(lv.st);
+  const POS = L.POSITIONS, RK = 'AKQJT98765432'.split(''), SU = [['s', '♠'], ['h', '♥'], ['d', '♦'], ['c', '♣']];
+  const hero = () => lv.cards.slice(0, 2).filter((c) => c !== null);
+  const boardRaw = () => lv.cards.slice(2).filter((c) => c !== null);
+  const num = (v) => +String(v).replace(',', '.').replace(/\s/g, '') || 0;
+
+  function compute() {
+    const h = hero(); lv.res = null;
+    if (h.length !== 2) return;
+    const b = boardRaw(); if (b.length && b.length < 3) return;
+    const t0 = performance.now();
+    try {
+      lv.res = L.decide({ hero: h, board: b, pos: lv.pos, nOpp: lv.nOpp, type: lv.type, pre: lv.pre, limpers: lv.limpers, raiseBB: lv.raiseBB, callers: lv.callers,
+        stackBB: lv.stack ? num(lv.stack) / Math.max(1, num(lv.bb)) : 100, live: true, pot: num(lv.pot), toCall: num(lv.toCall), stack: num(lv.stack), vpre: lv.vpre, raised: lv.raised });
+    } catch (e) { lv.res = { action: '?', tone: 'warn', lines: [e.message] }; }
+    lv.ms = performance.now() - t0;
+  }
+
+  // ---------------- Vue ----------------
+  const SUBS = [['decision', 'Décision éclair'], ['timer', 'Minuteur de blindes'], ['prep', 'Préparer la partie']];
+  VIEWS.live = () => {
+    if (!lv.consent) return head('Table live', 'Pour tes parties amicales.') + `<section class="panel"><h2>Avant d'utiliser la Table live</h2>
+      <p>Cet outil aide à décider pendant une <strong>partie amicale où tous les joueurs savent qu'il est utilisé et sont d'accord</strong> (jetons, sans argent, ou outil partagé par toute la table).</p>
+      <p>Il est <strong>interdit</strong> au casino, en club et en ligne : c'est de l'aide en temps réel, sanctionnée par exclusion, fermeture de compte et confiscation des gains.</p>
+      <div class="row"><button class="btn primary" data-act="lvok">Partie amicale, tout le monde est d'accord</button></div></section>`;
+    return (lv.discret ? '' : head('Table live', 'Parties amicales, joueurs d\'accord. Une décision en quelques touches, un minuteur de blindes et de quoi préparer la partie.') +
+      `<div class="subtabs" role="tablist">${SUBS.map(([k, l]) => `<button class="chip" aria-pressed="${lv.sub === k}" data-act="lvsub" data-s="${k}">${l}</button>`).join('')}</div>`) +
+      (lv.sub === 'decision' ? decisionHTML() : lv.sub === 'timer' ? timerHTML() : prepHTML());
+  };
+  ACT.lvok = () => { lv.consent = true; ls.set('consent', true); render(); };
+  ACT.lvsub = (t) => { lv.sub = t.dataset.s; render(); };
+
+  function slotHTML(i, label) {
+    const c = lv.cards[i];
+    return `<button class="lslot${lv.slot === i ? ' on' : ''}${c !== null ? ' full' : ''}" data-act="lvslot" data-i="${i}" aria-label="${label}${c !== null ? ' : ' + E.cardStr(c) : ''}">${c !== null ? cardHTML(c, true) : `<span>${label}</span>`}</button>`;
+  }
+  function resultHTML() {
+    const r = lv.res;
+    if (!r) {
+      const hn = hero().length, bn = boardRaw().length;
+      return `<div class="lres idle"><b>${hn < 2 ? 'Entre ta main' : bn && bn < 3 ? 'Complète le flop' : '…'}</b><span>${hn < 2 ? 'Touche une valeur puis une couleur, deux fois.' : 'Trois cartes de flop, puis turn et river.'}</span></div>`;
+    }
+    const bar = r.eq !== undefined ? `<div class="leq"><i style="width:${Math.round(r.eq * 100)}%"></i>${r.need ? `<em style="left:${Math.round(r.need * 100)}%"></em>` : ''}</div><span class="note mono">Équité ${pct(r.eq, 0)}${r.need ? ` · requise ${pct(r.need, 0)}` : ''}${r.spr ? ` · SPR ${fr(r.spr, 1)}` : ''}</span>` : '';
+    return `<div class="lres ${r.tone}" role="status" aria-live="polite"><b>${esc(r.action)}${r.size ? ` <small>${esc(r.size)}</small>` : ''}</b>${bar}
+      ${lv.discret ? '' : `<ul>${r.lines.slice(0, 4).map((l) => `<li>${esc(l)}</li>`).join('')}</ul>`}<span class="note">${r.hand || ''}${r.cat ? ' · ' + esc(r.cat) : ''} · ${fr(lv.ms, 0)} ms</span></div>`;
+  }
+  function pickerHTML() {
+    const used = new Set(lv.cards.filter((c) => c !== null));
+    const ranks = RK.map((r) => `<button class="lrk${lv.rank === r ? ' on' : ''}" data-act="lvrank" data-r="${r}">${r === 'T' ? '10' : r}</button>`).join('');
+    const suits = SU.map(([s, sym]) => { const c = lv.rank ? E.card(lv.rank + s) : null, dis = c !== null && used.has(c); return `<button class="lsu ${s}" data-act="lvsuit" data-s="${s}" ${!lv.rank || dis ? 'disabled' : ''}>${sym}</button>`; }).join('');
+    return `<div class="lpick"><div class="lranks">${ranks}</div><div class="lsuits">${suits}</div></div>`;
+  }
+  const chips = (key, opts, act = 'lvset') => opts.map(([v, l]) => `<button class="chip" aria-pressed="${String(lv[key]) === String(v)}" data-act="${act}" data-k="${key}" data-v="${v}">${l}</button>`).join('');
+  function decisionHTML() {
+    compute();
+    const post = boardRaw().length >= 3;
+    const situation = post ? `
+      <div class="lgrid"><label class="f">Pot (jetons)<input inputmode="decimal" data-lv="pot" value="${esc(lv.pot)}" placeholder="0"></label>
+        <label class="f">À payer<input inputmode="decimal" data-lv="toCall" value="${esc(lv.toCall)}" placeholder="0 = personne n'a misé"></label>
+        <label class="f">Ton tapis<input inputmode="decimal" data-lv="stack" value="${esc(lv.stack)}" placeholder="facultatif"></label></div>
+      <div class="row"><span class="note">Mise adverse :</span>${[0, 0.33, 0.5, 0.66, 1].map((f) => `<button class="chip" data-act="lvbet" data-f="${f}">${f ? (f === 1 ? 'pot' : Math.round(f * 100) + ' %') : 'aucune'}</button>`).join('')}</div>
+      <div class="row"><span class="note">Avant le flop, il a :</span>${chips('vpre', [['call', 'payé'], ['raise', 'relancé'], ['limp', 'limpé']])}<label class="check"><input type="checkbox" data-act="lvraised" ${lv.raised ? 'checked' : ''}><span>Sa mise est une relance</span></label></div>`
+      : `<div class="row"><span class="note">Ta position :</span>${chips('pos', POS.map((p) => [p, p]))}</div>
+      <div class="row"><span class="note">Avant toi :</span>${chips('pre', [['open', 'personne'], ['limp', 'limp(s)'], ['raise', 'une relance'], ['raisecall', 'relance + call'], ['threebet', '3-bet sur ma relance']])}</div>
+      ${lv.pre === 'limp' ? `<div class="row"><span class="note">Limpers :</span>${chips('limpers', [[1, '1'], [2, '2'], [3, '3+']])}</div>` : ''}
+      ${['raise', 'raisecall', 'threebet'].includes(lv.pre) ? `<div class="row"><span class="note">Relance à :</span>${chips('raiseBB', (lv.pre === 'threebet' ? [[8, '8 BB'], [10, '10 BB'], [12, '12 BB'], [15, '15 BB']] : [[2.5, '2,5 BB'], [3, '3 BB'], [4, '4 BB'], [5, '5 BB'], [7, '7 BB']]))}</div>` : ''}
+      ${lv.pre === 'raisecall' ? `<div class="row"><span class="note">Callers :</span>${chips('callers', [[1, '1'], [2, '2'], [3, '3+']])}</div>` : ''}
+      <div class="lgrid"><label class="f">Ton tapis (jetons)<input inputmode="decimal" data-lv="stack" value="${esc(lv.stack)}" placeholder="facultatif"></label><label class="f">Grosse blinde (jetons)<input inputmode="decimal" data-lv="bb" value="${esc(lv.bb)}"></label></div>`;
+    const common = `<div class="row"><span class="note">Adversaires dans le coup :</span>${chips('nOpp', [[1, '1'], [2, '2'], [3, '3'], [4, '4+']])}</div>
+      <div class="row"><span class="note">Type :</span>${chips('type', Object.entries(L.TYPES).map(([k, t]) => [k, t.label]))}</div>`;
+    return `<section class="panel live${lv.discret ? ' discret' : ''}">
+      ${resultHTML()}
+      <div class="lslots"><div><span class="note">Ta main</span><div class="row">${slotHTML(0, 'Main')}${slotHTML(1, 'Main')}</div></div>
+        <div><span class="note">Board</span><div class="row">${slotHTML(2, 'Flop')}${slotHTML(3, 'Flop')}${slotHTML(4, 'Flop')}${slotHTML(5, 'Turn')}${slotHTML(6, 'River')}</div></div></div>
+      ${pickerHTML()}
+      ${lv.discret ? '' : situation + common}
+      <div class="row"><button class="btn primary" data-act="lvnew">Nouvelle main</button><button class="btn" data-act="lvnext">Main suivante (position +1)</button>
+        <button class="btn" data-act="lvdiscret">${lv.discret ? 'Quitter le mode discret' : 'Mode discret'}</button>${'wakeLock' in navigator ? `<button class="btn" data-act="lvwake">${lv.wake ? 'Écran : reste allumé' : 'Garder l\'écran allumé'}</button>` : ''}</div>
+      ${lv.discret ? '<p class="note">Mode discret : écran sombre, gros boutons, seule la décision s\'affiche. Les réglages de situation restent ceux choisis avant.</p>' : '<p class="note">Estimation rapide : charts et matrice préflop, puis équité contre une range estimée selon le type d\'adversaire et son action. Pour l\'étude détaillée, utilise le Solveur après la partie.</p>'}
+    </section>`;
+  }
+  // ---------------- Actions décision ----------------
+  const nextEmpty = () => { const i = lv.cards.findIndex((c) => c === null); return i < 0 ? 6 : i; };
+  ACT.lvslot = (t) => { const i = +t.dataset.i; if (lv.cards[i] !== null) { lv.cards[i] = null; } lv.slot = i; lv.rank = null; render(); };
+  ACT.lvrank = (t) => { lv.rank = t.dataset.r; render(); };
+  ACT.lvsuit = (t) => {
+    if (!lv.rank) return; const c = E.card(lv.rank + t.dataset.s); if (lv.cards.includes(c)) return;
+    lv.cards[lv.slot] = c; lv.rank = null; lv.slot = nextEmpty(); render();
+  };
+  ACT.lvset = (t) => { const k = t.dataset.k, v = t.dataset.v; lv[k] = isNaN(+v) ? v : +v; render(); };
+  ACT.lvbet = (t) => { if (!num(lv.pot)) lv.pot = '100'; lv.toCall = String(Math.round(num(lv.pot) * +t.dataset.f)); render(); };
+  ACT.lvraised = (t) => { lv.raised = t.checked; render(); };
+  ACT.lvnew = () => { lv.cards = lv.cards.map(() => null); lv.slot = 0; lv.rank = null; lv.pot = ''; lv.toCall = ''; lv.pre = 'open'; lv.raised = false; render(); };
+  ACT.lvnext = () => { const i = POS.indexOf(lv.pos); lv.pos = POS[(i - 1 + POS.length) % POS.length]; ACT.lvnew(); };
+  ACT.lvdiscret = () => { lv.discret = !lv.discret; document.body.classList.toggle('discret-on', lv.discret); render(); };
+  ACT.lvwake = async () => { try { if (lv.wake) { await lv.wake.release(); lv.wake = null; } else { lv.wake = await navigator.wakeLock.request('screen'); lv.wake.addEventListener?.('release', () => { lv.wake = null; }); } } catch (e) { lv.wake = null; } render(); };
+  ONCHANGE.push((t) => { if (t.dataset.lv) { lv[t.dataset.lv] = t.value; if (t.dataset.lv === 'bb') ls.set('bb', t.value); render(); return true; } });
+  // Clavier : saisie « Ah », « Kd »… ; Entrée = nouvelle main ; Retour arrière = efface la dernière carte.
+  ONKEY.push((e, tab) => {
+    if (tab !== 'live' || lv.sub !== 'decision' || !lv.consent) return;
+    const k = e.key;
+    if (/^[2-9tjqka]$/i.test(k)) { lv.rank = k.toUpperCase(); render(); return true; }
+    if (/^[shdc]$/i.test(k) && lv.rank) { ACT.lvsuit({ dataset: { s: k.toLowerCase() } }); return true; }
+    if (k === 'Backspace') { const last = lv.cards.map((c, i) => [c, i]).filter(([c]) => c !== null).pop(); if (last) { lv.cards[last[1]] = null; lv.slot = last[1]; render(); } return true; }
+    if (k === 'Enter') { ACT.lvnew(); return true; }
+  });
+
+  // ---------------- Minuteur de blindes ----------------
+  const mmss = (s) => `${Math.floor(Math.max(0, s) / 60)}:${String(Math.floor(Math.max(0, s) % 60)).padStart(2, '0')}`;
+  function lvl(i) { return lv.levels[Math.min(i, lv.levels.length - 1)]; }
+  function timerHTML() {
+    const T = lv.timer, c = lvl(T.i), n = lvl(T.i + 1); if (T.left === null) T.left = c.min * 60;
+    return `<section class="panel ltimer" id="ltimer"><span class="eyebrow">Niveau ${c.n} sur ${lv.levels.length}</span>
+      <div class="lblinds">${fr(c.sb, 0)} / ${fr(c.bb, 0)}${c.ante ? `<small>ante ${fr(c.ante, 0)}</small>` : ''}</div>
+      <div class="lclock" id="lclock">${mmss(T.left)}</div>
+      <p class="note">Ensuite : ${fr(n.sb, 0)} / ${fr(n.bb, 0)}${n.ante ? ` · ante ${fr(n.ante, 0)}` : ''}</p>
+      <div class="row" style="justify-content:center"><button class="btn" data-act="lvtprev" aria-label="Niveau précédent">⏮</button><button class="btn primary" data-act="lvtgo">${T.running ? 'Pause' : 'Démarrer'}</button><button class="btn" data-act="lvtnext" aria-label="Niveau suivant">⏭</button><button class="btn" data-act="lvtplus">+1 min</button><button class="btn" data-act="lvtfull">Plein écran</button></div>
+      <p class="note">Bip au changement de niveau. Structure modifiable dans « Préparer la partie ».</p></section>`;
+  }
+  function beep() { try { const A = window.AudioContext || window.webkitAudioContext, a = new A(), o = a.createOscillator(), g = a.createGain(); o.frequency.value = 880; o.connect(g); g.connect(a.destination); g.gain.setValueAtTime(0.2, a.currentTime); g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + 0.8); o.start(); o.stop(a.currentTime + 0.8); } catch (e) { /* son indisponible */ } }
+  setInterval(() => {
+    const T = lv.timer; if (!T.running) return;
+    const now = performance.now(), dt = (now - T.last) / 1000; T.last = now; T.left -= dt;
+    if (T.left <= 0) { if (T.i < lv.levels.length - 1) { T.i++; T.left = lvl(T.i).min * 60; } else { T.left = 0; T.running = false; } beep(); if (X.getTab() === 'live' && lv.sub === 'timer') render(); return; }
+    const el = document.getElementById('lclock'); if (el) el.textContent = mmss(T.left);
+  }, 250);
+  ACT.lvtgo = () => { const T = lv.timer; T.running = !T.running; T.last = performance.now(); render(); };
+  ACT.lvtnext = () => { const T = lv.timer; T.i = Math.min(lv.levels.length - 1, T.i + 1); T.left = lvl(T.i).min * 60; render(); };
+  ACT.lvtprev = () => { const T = lv.timer; T.i = Math.max(0, T.i - 1); T.left = lvl(T.i).min * 60; render(); };
+  ACT.lvtplus = () => { lv.timer.left += 60; render(); };
+  ACT.lvtfull = () => { const el = document.getElementById('ltimer'); try { (el.requestFullscreen || el.webkitRequestFullscreen)?.call(el); } catch (e) { /* plein écran refusé */ } };
+
+  // ---------------- Préparer la partie ----------------
+  function prepHTML() {
+    const s = lv.st, c = lv.ch;
+    const res = L.chips({ stack: +c.stack, players: +c.players, denoms: c.denoms.map((x) => +x).filter((x, i) => x > 0 || false), counts: c.counts.filter((_, i) => +c.denoms[i] > 0) });
+    const pay = L.payouts(+lv.places);
+    return `<section class="panel"><h2>Structure du tournoi maison</h2>
+      <div class="lgrid"><label class="f">Tapis de départ<input data-lst="stack" value="${esc(s.stack)}" inputmode="numeric"></label><label class="f">Joueurs<input data-lst="players" value="${esc(s.players)}" inputmode="numeric"></label>
+        <label class="f">Durée visée (heures)<input data-lst="hours" value="${esc(s.hours)}" inputmode="decimal"></label><label class="f">Minutes par niveau<input data-lst="levelMin" value="${esc(s.levelMin)}" inputmode="numeric"></label><label class="f">Plus petit jeton<input data-lst="smallChip" value="${esc(s.smallChip)}" inputmode="numeric"></label></div>
+      <div class="tw"><table class="t"><thead><tr><th>Niveau</th><th class="n">Petite</th><th class="n">Grosse</th><th class="n">Ante (BB)</th><th class="n">Minutes</th></tr></thead><tbody>${lv.levels.map((l) => `<tr><td>${l.n}</td><td class="n">${fr(l.sb, 0)}</td><td class="n">${fr(l.bb, 0)}</td><td class="n">${l.ante ? fr(l.ante, 0) : '–'}</td><td class="n">${l.min}</td></tr>`).join('')}</tbody></table></div>
+      <p class="note">Départ à 100 grosses blindes, fin vers un quinzième des jetons en jeu par grosse blinde. Ante de grosse blinde à partir du niveau 4 : un seul joueur la paie pour toute la table.</p>
+      <div class="row"><button class="btn primary" data-act="lvuse">Utiliser au minuteur</button></div></section>
+      <section class="panel"><h2>Jetons par joueur</h2>
+      <div class="lgrid"><label class="f">Tapis de départ<input data-lch="stack" value="${esc(c.stack)}" inputmode="numeric"></label><label class="f">Joueurs<input data-lch="players" value="${esc(c.players)}" inputmode="numeric"></label></div>
+      <div class="tw"><table class="t"><thead><tr><th>Valeur</th><th>Stock (facultatif)</th></tr></thead><tbody>${c.denoms.map((d, i) => `<tr><td><input class="mono lin" data-lchd="${i}" value="${esc(d)}" inputmode="numeric" aria-label="Valeur ${i + 1}"></td><td><input class="mono lin" data-lchc="${i}" value="${esc(c.counts[i])}" inputmode="numeric" aria-label="Stock ${i + 1}"></td></tr>`).join('')}</tbody></table></div>
+      <div class="tw"><table class="t"><thead><tr><th class="n">Valeur</th><th class="n">Par joueur</th><th class="n">Montant</th><th class="n">Total nécessaire</th></tr></thead><tbody>${res.rows.map((r) => `<tr><td class="n">${fr(r.value, 0)}</td><td class="n">${r.count}</td><td class="n">${fr(r.total, 0)}</td><td class="n">${r.need}${r.have !== null && r.need > r.have ? ` <span class="pill bad">stock ${r.have}</span>` : ''}</td></tr>`).join('')}</tbody></table></div>
+      ${res.short ? `<p class="note"><b>Stock insuffisant</b> : il manque ${fr(res.rest, 0)} par joueur${res.stockTotal ? ` (stock total ${fr(res.stockTotal, 0)} pour ${fr(+c.stack * +c.players, 0)} nécessaires)` : ''}. Baisse le tapis de départ ou le nombre de joueurs.</p>` : res.rest ? `<p class="note">Reste ${fr(res.rest, 0)} non distribuable avec ces valeurs.</p>` : ''}</section>
+      <section class="panel"><h2>Places (points ou lots)</h2><div class="row"><label class="f">Joueurs<input data-lv="places" value="${esc(lv.places)}" inputmode="numeric"></label></div>
+      <p>${pay.map((p, i) => `<strong>${i + 1}<sup>${i ? 'e' : 'er'}</sup></strong> ${p} %`).join(' · ')}</p>
+      <p class="note">Pour un accord en fin de partie selon les tapis, utilise l'outil Deal ICM.</p></section>`;
+  }
+  ONCHANGE.push((t) => {
+    if (t.dataset.lst) { lv.st[t.dataset.lst] = +t.value || lv.st[t.dataset.lst]; ls.set('st', lv.st); lv.levels = L.structure(lv.st); render(); return true; }
+    if (t.dataset.lch) { lv.ch[t.dataset.lch] = +t.value || lv.ch[t.dataset.lch]; ls.set('ch', lv.ch); render(); return true; }
+    if (t.dataset.lchd !== undefined) { lv.ch.denoms[+t.dataset.lchd] = t.value; ls.set('ch', lv.ch); render(); return true; }
+    if (t.dataset.lchc !== undefined) { lv.ch.counts[+t.dataset.lchc] = t.value; ls.set('ch', lv.ch); render(); return true; }
+  });
+  ACT.lvuse = () => { lv.timer = { i: 0, left: lv.levels[0].min * 60, running: false, last: 0 }; lv.sub = 'timer'; render(); };
+  X.liveState = lv;
 })();
 </script>
 <script>// Studio : crée des visuels et des vidéos courtes à partir de tes contenus SIGMA 52 (main jouée, quiz, leçon, solveur,
@@ -6626,7 +7417,7 @@ table.combos td, table.combos th { white-space: nowrap; padding: 6px 8px; }
   // ---------------- Recherche globale ----------------
   function entries() {
     const out = [];
-    const tabDesc = { jour: 'Programme, révisions, spots du jour', cours: '53 modules, 6 niveaux', spots: 'Exercices corrigés', sim: 'Table avec coach, mains guidées, Expresso', champions: 'Styles inspirés de joueurs connus', solveur: 'Équilibre postflop, entraîneur river', analyse: 'Historiques, replayer, bibliothèque', outils: 'Équité, board, push/fold, calculs', journal: 'Sessions, bankroll, variance', studio: 'Images et vidéos à partir de tes mains' };
+    const tabDesc = { jour: 'Programme, révisions, spots du jour', cours: '60 modules, 6 niveaux', spots: 'Exercices corrigés', sim: 'Table avec coach, mains guidées, Expresso', champions: 'Styles inspirés de joueurs connus', live: 'Décision éclair, minuteur de blindes (parties amicales)', solveur: 'Équilibre postflop, entraîneur river', analyse: 'Historiques, replayer, bibliothèque', outils: 'Équité, board, push/fold, calculs', journal: 'Sessions, bankroll, variance', studio: 'Images et vidéos à partir de tes mains' };
     X.TABS.forEach(([k, l]) => out.push({ kind: 'Onglet', title: l, desc: tabDesc[k] || '', run: () => X.go(k) }));
     K.MODULES.forEach((m) => out.push({ kind: 'Module', title: m.title, desc: `Niveau ${m.level} · ${K.LEVELS[m.level - 1].title} · ${m.minutes} min`, extra: m.sections.map((s) => s[0]).join(' '), run: () => { X.setOpenMod(m.id); X.go('cours'); } }));
     Object.entries(S.TYPES).forEach(([k, l]) => out.push({ kind: 'Exercice', title: l, desc: 'Spots corrigés', run: () => { X.setSpotMode(k); X.go('spots'); } }));

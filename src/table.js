@@ -17,6 +17,9 @@
     chidwick: { label: 'Style Chidwick', like: 'reg', vpip: 0.25, pfr: 0.22, cont: 0.62, three: 0.35, callF: 1.0, value: 0.75, bluff: 0.2, raise: 0.82, size: [0.33, 0.75], over: 0.15, xr: 0.16, cbet: 0.62 },
     mizrachi: { label: 'Style Mizrachi', like: 'maniaque', vpip: 0.42, pfr: 0.32, cont: 0.72, three: 0.4, callF: 0.9, value: 0.9, bluff: 0.32, raise: 0.78, size: [0.6, 1.0], over: 0.35, jam: 0.06, disc: 0.08, cbet: 0.8 },
     antonius: { label: 'Style Antonius', like: 'reg', vpip: 0.3, pfr: 0.27, cont: 0.72, three: 0.45, callF: 0.95, value: 0.85, bluff: 0.33, raise: 0.8, size: [0.66, 1.0], over: 0.25, adapt: 1, cbet: 0.78 },
+    brunson: { label: 'Style Brunson', like: 'reg', vpip: 0.3, pfr: 0.24, cont: 0.75, three: 0.3, callF: 0.95, value: 0.85, bluff: 0.3, raise: 0.8, size: [0.75, 1.0], jam: 0.05, cbet: 0.88, disc: 0.1 },
+    harrington: { label: 'Style Harrington', like: 'reg', vpip: 0.19, pfr: 0.16, cont: 0.5, three: 0.3, callF: 1.15, value: 0.8, bluff: 0.12, raise: 0.88, size: [0.5, 0.66], open: 3, cbet: 0.7 },
+    dwan: { label: 'Style Dwan', like: 'maniaque', vpip: 0.38, pfr: 0.3, cont: 0.75, three: 0.42, callF: 0.92, value: 0.88, bluff: 0.36, raise: 0.78, size: [0.66, 1.1], over: 0.35, raiseBluff: 0.1, adapt: 1.2, disc: 0.09, cbet: 0.75 },
     action: { label: 'Joueur d\'action live', like: 'station', vpip: 0.5, pfr: 0.2, cont: 0.85, three: 0.25, callF: 0.75, value: 0.7, bluff: 0.15, raise: 0.85, size: [0.5, 1.0], open: 4, loose: 1, cbet: 0.45 },
     prolive: { label: 'Pro de cash live', like: 'reg', vpip: 0.27, pfr: 0.22, cont: 0.62, three: 0.33, callF: 1.0, value: 0.8, bluff: 0.16, raise: 0.85, size: [0.5, 0.9], open: 3.5, adapt: 0.8, cbet: 0.62 },
   };
@@ -24,6 +27,7 @@
   const kindOf = (pr, name) => pr.like || name;
   const NAMES = { station: ['Gégé31', 'Mimi_Lol', 'TontonFlop', 'ChanceuxDu82'], maniaque: ['AllinKevin', 'Turbo_Raz'], nit: ['Roc_Solide', 'PapyNit'], reg: ['GrindZ', 'Reg_6max'],
     ivey: ['Style Ivey'], negreanu: ['Style Negreanu'], hellmuth: ['Style Hellmuth'], chidwick: ['Style Chidwick'], mizrachi: ['Style Mizrachi'], antonius: ['Style Antonius'],
+    brunson: ['Style Brunson'], harrington: ['Style Harrington'], dwan: ['Style Dwan'],
     action: ['Whale_Vegas', 'Straddle_Sam', 'Lucky_Lou'], prolive: ['Pro_Live', 'Reg_Bike'] };
 
   // Rang préflop : percentile combo-pondéré de l'équité contre une main aléatoire (0 = meilleure main).

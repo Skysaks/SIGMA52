@@ -72,6 +72,10 @@
   }
   function afterHand(g) {
     if (g.kind === 'cash') { state.progress.tableHands = (state.progress.tableHands || 0) + 1; }
+    if (g.kind === 'xp' && g.tb.over && !g.counted && g.fmt && g.fmt !== 'expresso') {
+      g.counted = true; const F = state.progress.formats || (state.progress.formats = {}), e = F[g.fmt] || (F[g.fmt] = { games: 0, places: [] });
+      e.games++; e.places[g.tb.place] = (e.places[g.tb.place] || 0) + 1;
+    }
     if (g.kind === 'xp' && g.tb.over && !g.counted) {
       g.counted = true; const e = state.progress.expresso; e.games = (e.games || 0) + 1; e.places = e.places || [0, 0, 0, 0]; e.places[g.tb.place] = (e.places[g.tb.place] || 0) + 1;
     }
@@ -194,19 +198,24 @@
         <div class="row"><button class="btn primary" data-act="xpstart">Lancer une partie</button></div></section>${record}`;
     }
     const t = xp.tb, L = !t.done && t.toAct === 0 && !t.players[0].out ? t.legal() : null, handDec = xp.decisions.filter((d) => d.hand === t.handNo);
-    let out = `<div class="row"><span class="pill acc">Main ${t.handNo} · blindes ${t.sb}/${t.bb}</span><span class="pill">${t.active().length} joueurs</span><button class="btn small" data-act="xpquit" style="margin-left:auto">Abandonner la partie</button></div>${tableHTML(t, { chips: true, showProfiles: true })}`;
+    let out = `<div class="row"><span class="pill acc">Main ${t.handNo} · blindes ${t.sb}/${t.bb}</span><span class="pill">${t.active().length} joueurs</span>${xp.fmt && xp.fmt !== 'expresso' ? `<span class="pill">${esc(xp.name)}</span>` : ''}<button class="btn small" data-act="xpquit" style="margin-left:auto">Abandonner la partie</button></div>${tableHTML(t, { chips: true, showProfiles: true })}`;
     if (L) out += `<section class="panel"><span class="eyebrow">À toi · ${TS.posName(t, 0)} · ${E.abstractOf(t.players[0].cards[0], t.players[0].cards[1])} · ${fr(t.effStack(0) / t.bb, 1)} bb effectifs</span>${actionsHTML(t)}</section>` + (xp.mode === 'live' ? coachHTML(adviceFor(xp), t) : '');
     if (t.done) {
-      out += `<section class="panel"><div class="row" style="justify-content:space-between"><h2>${t.over ? (t.place === 1 ? 'Victoire : tu remportes l\'Expresso' : `Partie terminée : ${t.place}e place`) : 'Fin de la main'}</h2><div class="row"><button class="btn small" data-act="libtable">Sauvegarder la main</button><button class="btn small" data-act="rptable">Rejouer</button>${t.over ? '<button class="btn primary" data-act="xpnew">Nouvelle partie</button>' : '<button class="btn primary" data-act="xpnext">Main suivante <span style="opacity:.7">Entrée</span></button>'}</div></div>
+      out += `<section class="panel"><div class="row" style="justify-content:space-between"><h2>${t.over ? (t.place === 1 ? `Victoire : tu remportes ${xp.name || 'l\'Expresso'}` : `Partie terminée : ${t.place}e place`) : 'Fin de la main'}</h2><div class="row"><button class="btn small" data-act="libtable">Sauvegarder la main</button><button class="btn small" data-act="rptable">Rejouer</button>${t.over ? '<button class="btn primary" data-act="xpnew">Nouvelle partie</button>' : '<button class="btn primary" data-act="xpnext">Main suivante <span style="opacity:.7">Entrée</span></button>'}</div></div>
         ${decisionsHTML(handDec, xp.mode)}${t.over ? `<h3>Ta partie</h3>${catTable(xp.decisions)}` : ''}</section>`;
     }
-    return out + record;
+    return out + (xp.fmt === 'expresso' ? record : '');
   };
   ACT.xpl = (t) => { xprep.lineup = t.dataset.v; render(); };
   ACT.xpm = (t) => { xprep.mode = t.dataset.v; render(); };
-  ACT.xpstart = () => { xp = { kind: 'xp', tb: new TS.Table({ lineup: XP_LINEUPS[xprep.lineup], stack: 500, rebuy: false, levels: XP_LEVELS, handsPerLevel: 6 }), mode: xprep.mode, decisions: [], adv: null }; nextHand(xp); };
+  ACT.xpstart = () => { xp = { kind: 'xp', fmt: 'expresso', name: 'l\'Expresso', tb: new TS.Table({ lineup: XP_LINEUPS[xprep.lineup], stack: 500, rebuy: false, levels: XP_LEVELS, handsPerLevel: 6 }), mode: xprep.mode, decisions: [], adv: null }; nextHand(xp); };
+  // Tournoi lancé depuis Champions › Types de partie : Sit & Go, table finale, Expresso, avec la table choisie.
+  X.startTourney = (o) => {
+    xp = { kind: 'xp', fmt: o.id, name: o.title || 'le tournoi', tb: new TS.Table({ lineup: o.lineup, stack: o.stack, rebuy: false, levels: o.levels, handsPerLevel: o.hpl || 6 }), mode: o.mode || 'live', decisions: [], adv: null };
+    sub = 'expresso'; xp.tb.newHand(); xp.tb.runBots(); if (xp.tb.done) afterHand(xp); X.go('sim');
+  };
   ACT.xpnext = () => { if (xp && !xp.tb.over) { nextHand(xp); while (xp.tb.done && xp.tb.players[0].out === true && !xp.tb.over) nextHand(xp); } };
-  ACT.xpnew = () => { xp = null; render(); };
+  ACT.xpnew = () => { const f = xp?.fmt; xp = null; if (f && f !== 'expresso') X.go('champions'); else render(); };
   ACT.xpquit = () => { xp = null; render(); };
 
   // ---- Mains guidées ----

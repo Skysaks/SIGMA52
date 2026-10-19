@@ -32,9 +32,9 @@ const SHOTS = process.env.SHOTS || '';
 
     // Cours : quelques modules et leurs quiz
     await tab('cours');
-    if ((await p.locator('.mod').count()) !== 55) errs.push(name + ' modules ' + (await p.locator('.mod').count()));
-    for (let i = 0; i < 55; i++) { await p.locator('.mod').nth(i).click(); await over('module ' + i); await p.click('[data-act=closemod]'); }
-    for (const i of [0, 5, 20, 30, 38, 54]) {
+    if ((await p.locator('.mod').count()) !== 60) errs.push(name + ' modules ' + (await p.locator('.mod').count()));
+    for (let i = 0; i < 60; i++) { await p.locator('.mod').nth(i).click(); await over('module ' + i); await p.click('[data-act=closemod]'); }
+    for (const i of [0, 5, 20, 30, 38, 59]) {
       await p.locator('.mod').nth(i).click(); await over('module ' + i);
       const nq = await p.locator('[data-act=qans][data-i="0"]').count();
       for (let q = 0; q < nq; q++) await p.click(`[data-act=qans][data-q="${q}"][data-i="0"]`);
@@ -133,6 +133,24 @@ const SHOTS = process.env.SHOTS || '';
     if (!(await has('[data-act=chguess]'))) errs.push(name + ' défi mystère sans choix final');
     else { await p.locator('[data-act=chguess]').first().click(); if (!(await has('text=C\'était'))) errs.push(name + ' défi mystère sans révélation'); }
     await tab('champions'); await p.click('[data-act=chsub][data-s=money]'); if ((await p.locator('[data-act=chgo]').count()) !== 6) errs.push(name + ' classement : liens de style'); await over('classement');
+    // Champions : nouveaux styles et types de partie (cash court, Sit & Go)
+    await tab('champions'); await p.click('[data-act=chsub][data-s=styles]'); await p.click('[data-act=chsel][data-id=dwan]'); await over('champion-dwan');
+    await p.click('[data-act=chsub][data-s=formats]'); for (const f of ['short', 'deep', 'home', 'hu', 'sng6', 'ft', 'expresso', 'cash100']) { await p.click(`[data-act=fmsel][data-id=${f}]`); await over('format-' + f); }
+    await p.click('[data-act=fmsel][data-id=short]'); await p.click('[data-act=fmarch][data-v=classiques]'); await p.click('[data-act=fmplay]'); await p.waitForTimeout(80);
+    if ((await p.evaluate(() => window.__S52.getTab())) !== 'sim') errs.push(name + ' format cash non lancé');
+    await tab('champions'); await p.click('[data-act=fmsel][data-id=sng6]'); await p.click('[data-act=fmmode][data-v=free]'); await p.click('[data-act=fmplay]'); await p.waitForTimeout(80);
+    if (!(await has('text=le Sit & Go'))) errs.push(name + ' Sit & Go non lancé');
+    cg = 0; while (!(await has('[data-act=xpnew]')) && cg++ < 400) { if (await has('[data-act=hcall]')) await p.click('[data-act=hcall]'); else if (await has('[data-act=xpnext]')) await p.click('[data-act=xpnext]'); else break; }
+    if (!(await has('[data-act=xpnew]'))) errs.push(name + ' Sit & Go sans fin'); await over('sng-fin'); await shot('sng');
+    // Table live : consentement, saisie, mode discret, minuteur, préparation
+    await tab('live'); if (await has('[data-act=lvok]')) await p.click('[data-act=lvok]');
+    for (const k of ['a', 's', 'k', 'h']) await p.keyboard.press(k);
+    if (!/RELANCE/.test(await p.locator('.lres b').first().innerText())) errs.push(name + ' live : AKo ne relance pas');
+    for (const k of ['t', 'h', '7', 'h', '2', 'c']) await p.keyboard.press(k);
+    await p.click('[data-act=lvbet][data-f="0.5"]').catch(() => {}); await over('live'); await shot('live');
+    await p.click('[data-act=lvdiscret]'); if (!(await p.evaluate(() => document.body.classList.contains('discret-on')))) errs.push(name + ' mode discret'); await over('live-discret'); await shot('live-discret'); await p.click('[data-act=lvdiscret]');
+    await p.click('[data-act=lvsub][data-s=timer]'); await p.click('[data-act=lvtgo]'); await p.waitForTimeout(1100); await p.click('[data-act=lvtgo]'); await over('live-timer'); await shot('live-timer');
+    await p.click('[data-act=lvsub][data-s=prep]'); await over('live-prep'); await shot('live-prep');
     // Recherche globale et thème
     await p.keyboard.press('Control+k'); await p.keyboard.type('défense minimale'); await p.waitForTimeout(80); await p.keyboard.press('Enter'); await p.waitForTimeout(100);
     if ((await p.evaluate(() => window.__S52.getTab())) !== 'cours') errs.push(name + ' recherche globale');
@@ -164,6 +182,9 @@ const SHOTS = process.env.SHOTS || '';
     await p.click('[data-t=maths]'); if (!(await has('text=Équité requise pour payer'))) errs.push(name + ' outil calculs'); await over('maths');
     await p.click('[data-t=bloq]'); if (!(await has('text=Combos adverses'))) errs.push(name + ' outil bloqueurs'); await over('bloq');
     await p.click('[data-t=pko]'); if (!(await has('text=Range de call avec la prime'))) errs.push(name + ' outil PKO'); await over('pko'); await shot('pko');
+    await p.click('[data-t=omaha]'); await p.click('[data-act=omex][data-v=a]'); if (!(await has('text=double assortie'))) errs.push(name + ' outil Omaha'); await over('omaha'); await shot('omaha');
+    await p.click('[data-t=probas]'); if (!(await has('text=Règle des 2 et 4'))) errs.push(name + ' outil probabilités'); await over('probas');
+    await p.click('[data-t=partie]'); await over('partie');
 
     // Analyse : exemple simulé, rejouer un gros pot
     await tab('analyse'); await p.click('[data-act=ansub][data-s=import]'); await p.click('[data-act=ansample]'); await p.waitForSelector('text=Exemple simulé');

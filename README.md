@@ -10,13 +10,14 @@ Labo de poker personnel, utilisé **hors table** : avant et après les sessions,
 | Onglet | Rôle |
 |---|---|
 | Aujourd'hui | Programme de 17 semaines (tâches cochées automatiquement depuis la progression, bouton « Y aller »), révisions dues, 10 spots du jour, prochain module, maîtrise par type, dernière analyse, checklist anti-tilt |
-| Cours | 55 modules en 6 niveaux : Fondations, Joueur gagnant, Avancé, **Élite** (champions : ce qu'ils enseignent, affronter les grands styles ; solveurs, MDF, bloqueurs, avantage de range, jeu hors de position, turn/river avancés, profondeurs, exploitation de population, statistiques, ICM/PKO, performance), **Tables physiques** (accès aux salles en France, règles TDA, stratégie live, tells, gestion de table, tournois live), Professionnel. 214 questions de quiz (maîtrise à 80 %), exercice lié par module, lexique de 60 termes |
+| Cours | 60 modules en 6 niveaux : Fondations, Joueur gagnant, Avancé (dont tête-à-tête, profondeur 40/100/200 bb, **Omaha pot-limit**), **Élite** (champions : ce qu'ils enseignent, affronter les grands styles ; solveurs, MDF, bloqueurs, avantage de range, jeu hors de position, turn/river avancés, profondeurs, exploitation de population, statistiques, ICM/PKO, performance), **Tables physiques** (accès aux salles en France, règles TDA, stratégie live, tells, gestion de table, tournois live, **décider vite à la table**, **partie maison**), Professionnel. 234 questions de quiz (maîtrise à 80 %), exercice lié par module, lexique de 60 termes |
 | Spots | 11 types d'exercices corrigés : ouverture, face à une ouverture (3-bet / call / fold), MDF et ratios, combos et bloqueurs, primes PKO, cotes du pot, tirage au turn (équité exacte contre une range), tapis ou couché (Nash, noté en perte d'EV), outs, meilleure main, 40 situations. Répétition espacée des erreurs |
 | Simulateur | **Table cash + coach** : préparation (type de table, 25/50/100 mains ou illimité, objectif de session, modules à relire), coach en direct, en examen ou absent ; le coach estime la range de chaque adversaire, donne équité, cote requise et raison ; chaque décision est notée, bilan de session par catégorie (ouverture, isolation, défense, cotes, valeur, bluff, tapis/couché). **Mains guidées** : 13 scénarios pas à pas (isolation, nit à la river, set-mining, squeeze, 3-bet, semi-bluff, multiway, valeur fine, Expresso, bulle ICM…) corrigés par l'équité réelle ou le solveur. **Expresso** : Sit&Go 3 joueurs, 500 jetons, blindes croissantes, push/fold sous 15 bb |
-| Champions | Sept adversaires-types inspirés de descriptions publiques (Ivey, Negreanu, Hellmuth, Chidwick, Mizrachi, Antonius, partie live à gros enjeux) : briefing sourcé, tête-à-tête, table à 6 ou table des légendes, rapport d'adaptation (stats observées ± intervalle, comparées au style réel), défi mystère (identifier un style caché), classement des gains bruts fourni (Hendon Mob, 40 premiers) |
+| Champions | Dix adversaires-types inspirés de descriptions publiques (Ivey, Negreanu, Hellmuth, Chidwick, Mizrachi, Antonius, Brunson, Harrington, Dwan, partie live à gros enjeux) : briefing sourcé, tête-à-tête, table à 6 ou table des légendes, rapport d'adaptation (stats observées ± intervalle, comparées au style réel), défi mystère (identifier un style caché), classement des gains bruts fourni (Hendon Mob, 40 premiers). **Types de partie** : cash 100 bb, cash court 40 bb, cash profond 200 bb, partie maison, tête-à-tête, Sit & Go 6 joueurs, table finale, Expresso, avec 6 compositions de table (mixte, fish, réguliers, agressive, légendes, classiques) |
+| Table live | **Pour les parties amicales consenties uniquement.** Décision éclair (2 cartes + board au clavier ou au toucher, situation en un geste : position, action avant toi, nombre et type d'adversaires, pot et mise) : préflop par charts, push/fold de Nash sous 15 bb et matrice d'équité ; postflop par équité contre une range estimée, outs, cote, 1 à 30 ms. Mode discret (écran noir, décision seule), écran maintenu allumé, minuteur de blindes plein écran avec bip, structure de tournoi maison, jetons par joueur selon le stock, répartition des places |
 | Studio | Visuels et vidéos (Short 9:16, portrait 4:5, post 1:1, YouTube 16:9) à partir d'une main jouée (adversaires anonymisés), d'un quiz, d'une leçon, du solveur, d'un champion ou du bilan ; ambiances, accroche, signature, légende avec hashtags, message de prévention ; export PNG et vidéo |
 | Solveur | **Solveur postflop** (Discounted CFR, deux joueurs) : river et turn exacts, flop approché par échantillon de tirages ; 16 scénarios préflop (pots simples et 3-bet), peintre de range pondérée, tailles configurables, estimation de l'arbre, exploitabilité, grille 13 × 13 par action, EV et équité par combo, « Ta main » (EV et perte de chaque action), rapport par catégorie, re-résolution exacte d'un turn ou d'une river à partir des ranges du solve précédent, import d'une main du replayer avec ses tailles réelles. **Entraîneur** : décisions river tirées de mains complètes, notées en perte d'EV |
-| Outils | Équité, Board, Push/Fold & ICM, Ranges, **Calculs** (MDF, alpha, taille géométrique, SPR, cotes implicites, coût du rake), **Bloqueurs** (combos retirés par tes cartes), **PKO** (valeur d'une prime, range de call avec et sans prime), **Distribution** (courbe d'équité combo par combo de deux ranges sur un board : avantage de range et de nuts), **Deal ICM** (répartition d'un accord en table finale, ICM contre jetons), **Mémo** (fiche de préparation à relire avant la session, pas pendant) |
+| Outils | Équité, Board, Push/Fold & ICM, Ranges, **Calculs** (MDF, alpha, taille géométrique, SPR, cotes implicites, coût du rake), **Bloqueurs** (combos retirés par tes cartes), **PKO** (valeur d'une prime, range de call avec et sans prime), **Distribution** (courbe d'équité combo par combo de deux ranges sur un board : avantage de range et de nuts), **Deal ICM** (répartition d'un accord en table finale, ICM contre jetons), **Mémo** (fiche de préparation à relire avant la session, pas pendant), **Omaha** (équité PLO 2 à 4 mains, profil de main, relance pot-limit), **Probabilités** (les chiffres à connaître), **Partie maison** |
 | Analyse | Import d'historiques Winamax ou PokerStars : bb/100, EV des all-in, VPIP/PFR/3-bet/WTSD, résultat par position, fuites préflop, profil et plan d'exploitation par adversaire, plus gros pots, fiches cumulées, c-bet flop et fold to c-bet (toi et adversaires). **Replayer** pas à pas avec équité à chaque étape (flèches du clavier). **Bibliothèque** de 120 mains avec étiquettes et notes |
 | Journal | Sessions, bankroll, winrate avec intervalle de confiance, stop-loss, limite autorisée, simulateur de variance et risque de ruine |
 
@@ -24,7 +25,7 @@ Navigation par espaces (Aujourd'hui, Apprendre, Jouer, Étudier, Suivre) avec ba
 
 ## Règle de fair-play
 
-Les rooms sanctionnent l'aide en temps réel (RTA) : fermeture du compte, solde confisqué. SIGMA 52 ne lit aucune table et se ferme avant chaque session. L'aide n'existe que dans la table d'entraînement, qui est un simulateur. L'analyse ne porte que sur les mains jouées par l'utilisateur.
+Les rooms sanctionnent l'aide en temps réel (RTA) : fermeture du compte, solde confisqué. SIGMA 52 ne lit aucune table et se ferme avant chaque session. L'aide n'existe que dans la table d'entraînement, qui est un simulateur, et dans la Table live, réservée aux parties privées sans argent ou avec l'accord de tous les joueurs (consentement demandé à l'ouverture). Toute aide en temps réel reste interdite en ligne, en casino, en club et en tournoi. L'analyse ne porte que sur les mains jouées par l'utilisateur.
 
 ## Structure
 
@@ -49,7 +50,9 @@ src/app.js        interface et stockage
 src/app_sim.js    simulateur, replayer, bibliothèque, nouveaux outils, programme
 src/champions.js  styles d'entraînement (sources), classement fourni ; src/app_champions.js onglet Champions
 src/app_studio.js Studio de contenus ; src/app_ui.js recherche globale, thème, raccourcis
-src/app_solver.js onglet Solveur ; src/app_trainer.js entraîneur ; src/app_tools.js outils Calculs, Bloqueurs, PKO
+src/app_solver.js onglet Solveur ; src/app_trainer.js entraîneur ; src/app_tools.js outils Calculs, Bloqueurs, PKO, Omaha, Probabilités
+src/live.js       moteur de la Table live (décision, structure, jetons, places) ; src/app_live.js onglet Table live
+src/omaha.js      évaluateur et équité Omaha ; src/course_ultimate.js modules tête-à-tête, profondeur, Omaha, décision rapide, partie maison
 src/template.html styles et squelette
 tools/            génération de la matrice préflop
 founder/          étude des outils concurrents
@@ -62,7 +65,7 @@ test/             tests du moteur, du solveur, du board, des spots, de la table 
 node tools/build_matrix.js 50000   # ~4 min sur 2 cœurs, seulement si le moteur change
 ./build.sh                         # écrit sigma52.html
 node tools/build_trainer.js 30      # ~30 min, régénère les spots de l'entraîneur
-for t in engine solver postflop board spots table course guided hh coach; do   # coach : ~4 min
+for t in engine solver postflop board spots table course guided hh live omaha coach; do   # coach : ~4 min
   node test/$t.test.js; done
 NODE_PATH=$(npm root -g) node test/ui.test.js   # Playwright, 1280 px et 390 px
 ```
@@ -81,8 +84,14 @@ NODE_PATH=$(npm root -g) node test/ui.test.js   # Playwright, 1280 px et 390 px
 - Expresso : 3 000 parties sans blocage (régression du joueur à tapis sur une blinde).
 - Table : 1 500 mains simulées sans perte de jetons ; l'historique exporté, relu par l'importeur, redonne les mêmes gains et classe correctement les 5 profils de bots.
 
+- Table live : AA relance partout, 72o se couche UTG, K9o se couche UTG et ouvre au bouton, AK 3-bette face à une relance, brelan mise, rien face à une mise pot à la river se couche ; décision en moins de 100 ms ; jetons répartis sans dépasser le stock, manque signalé.
+- Omaha : un seul cœur en main ne fait jamais couleur ; équités exactes à la turn (somme = 100 %) ; AAKK double assortie ≈ 71 % contre une main aléatoire, ≈ 61 % contre JT98 double assortie.
+- Styles Brunson, Harrington, Dwan mesurés sur 2 000 mains (c-bet 96 %, VPIP 15 %, fold to c-bet 25 % respectivement).
+
 ## Limites connues
 
+- Table live : estimation rapide (range adverse supposée selon le type choisi, pas de lecture de tailles fines, deux joueurs au plus pour la logique de relance) ; elle aide à décider vite, elle ne remplace pas l'étude au Solveur.
+- Omaha : outil d'équité et cours de base ; pas de solveur ni de table simulée en PLO.
 - Ranges préflop (ouverture, défense, call de 3-bet) : point de départ standard, pas une sortie de solveur.
 - Styles Champions : paramètres choisis par SIGMA 52 à partir de descriptions publiques (livres, cours, interviews), pas la stratégie réelle des joueurs ; aucun style n'est créé pour un joueur sans description publique. Le coach estime ces styles par le profil le plus proche (conseils plus approximatifs).
 - Repères préflop en tête-à-tête (ouverture ~76 %, défense ~68 %) : approximatifs.

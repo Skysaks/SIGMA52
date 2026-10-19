@@ -9,10 +9,10 @@
   const srcLinks = (st) => st.sources.map((k) => `<a href="${CH.SRC[k].u}" target="_blank" rel="noopener">${esc(CH.SRC[k].t)}</a>`).join(' · ');
 
   const DISCLAIMER = 'Styles d\'entraînement construits par SIGMA 52 à partir de descriptions publiques (livres, cours, interviews). Ce ne sont ni les joueurs eux-mêmes, ni leur stratégie réelle : ce sont des adversaires-types pour apprendre à t\'adapter.';
-  const SUBS = [['styles', 'Adversaires'], ['mystery', 'Défi mystère'], ['money', 'Classement des gains']];
+  const SUBS = [['styles', 'Adversaires'], ['formats', 'Types de partie'], ['mystery', 'Défi mystère'], ['money', 'Classement des gains']];
   VIEWS.champions = () => head('Champions', 'Affronte les grands styles de jeu et apprends à t\'y adapter. ' + DISCLAIMER) +
     `<div class="subtabs" role="tablist">${SUBS.map(([k, l]) => `<button class="chip" aria-pressed="${ch.sub === k}" data-act="chsub" data-s="${k}">${l}</button>`).join('')}</div>` +
-    (ch.sub === 'styles' ? stylesHTML() : ch.sub === 'mystery' ? mysteryHTML() : moneyHTML());
+    (ch.sub === 'styles' ? stylesHTML() : ch.sub === 'formats' ? formatsHTML() : ch.sub === 'mystery' ? mysteryHTML() : moneyHTML());
   ACT.chsub = (t) => { ch.sub = t.dataset.s; render(); };
 
   function card(st) {
@@ -52,6 +52,34 @@
     const st = styleOf(ch.sel); if (!st) return;
     const lineup = ch.fmt === 'legends' ? CH.LEGENDS.slice() : CH.lineupFor(st, ch.fmt === 'six' ? 'six' : 'hu');
     X.startCash({ lineup, stackBB: st.format === 'live' ? 200 : 100, mode: ch.mode, target: ch.target, objectives: [], champ: { id: st.id, profile: st.profile, legends: ch.fmt === 'legends' } });
+  };
+
+  // ---- Types de partie : profondeur, structure, composition de la table ----
+  const fm = { id: 'cash100', arch: 'mix', mode: 'exam', target: 50 };
+  const K = window.Course;
+  function formatsHTML() {
+    const F = CH.FORMATS.find((f) => f.id === fm.id) || CH.FORMATS[0], fixed = !!F.lineup, rec = state.progress.formats?.[F.id];
+    const modBtn = (id) => { const m = K.MODULES.find((x) => x.id === id); return m ? `<button class="btn small" data-act="openmod" data-id="${id}">Module : ${esc(m.title)}</button>` : ''; };
+    const arch = F.kind === 'mtt' ? CH.ARCH[fm.arch].slice(0, F.players - 1) : F.lineup || CH.ARCH[fm.arch];
+    return `<div class="champs">${CH.FORMATS.map((f) => `<button class="champ${f.id === F.id ? ' on' : ''}" data-act="fmsel" data-id="${f.id}"><span class="eyebrow">${f.kind === 'mtt' ? 'Tournoi' : 'Cash'}</span><h3>${esc(f.name)}</h3><span>${esc(f.desc)}</span></button>`).join('')}</div>
+      <section class="panel brief"><span class="eyebrow">${F.kind === 'mtt' ? `Tournoi · ${F.players} joueurs · ${fr(F.stack, 0)} jetons` : `Cash · ${F.stackBB} bb · recave automatique`}</span><h2>${esc(F.name)}</h2><p>${esc(F.desc)}</p>
+      <div class="warnbox"><strong>Ce qui change</strong><ul>${F.keys.map((k) => `<li>${esc(k)}</li>`).join('')}</ul></div>
+      ${fixed ? `<p class="note">Table imposée : ${arch.map((p) => esc(window.TableSim.PROFILES[p].label)).join(', ')}.</p>` : `<div class="row"><span class="note">Table :</span>${Object.keys(CH.ARCH).map((k) => `<button class="chip" aria-pressed="${fm.arch === k}" data-act="fmarch" data-v="${k}">${esc(CH.ARCH_LABEL[k])}</button>`).join('')}</div><p class="note">Adversaires : ${arch.map((p) => esc(window.TableSim.PROFILES[p].label)).join(', ')}.</p>`}
+      ${F.kind === 'cash' ? `<div class="row"><span class="note">Durée :</span>${[25, 50, 100].map((n) => `<button class="chip" aria-pressed="${fm.target === n}" data-act="fmtarget" data-v="${n}">${n} mains</button>`).join('')}</div>` : ''}
+      <div class="row"><span class="note">Coach :</span>${[['exam', 'Examen (après la main)'], ['live', 'En direct'], ['free', 'Sans aide']].map(([k, l]) => `<button class="chip" aria-pressed="${fm.mode === k}" data-act="fmmode" data-v="${k}">${l}</button>`).join('')}</div>
+      ${rec ? `<p class="note mono">Parties : ${rec.games} · victoires : ${rec.places[1] || 0}</p>` : ''}
+      <div class="row"><button class="btn primary" data-act="fmplay">Jouer</button>${F.mods.map(modBtn).join('')}</div></section>`;
+  }
+  ACT.fmsel = (t) => { fm.id = t.dataset.id; render(); };
+  ACT.fmarch = (t) => { fm.arch = t.dataset.v; render(); };
+  ACT.fmtarget = (t) => { fm.target = +t.dataset.v; render(); };
+  ACT.fmmode = (t) => { fm.mode = t.dataset.v; render(); };
+  ACT.fmplay = () => {
+    const F = CH.FORMATS.find((f) => f.id === fm.id);
+    if (F.kind === 'mtt') {
+      const lineup = CH.ARCH[fm.arch].slice(0, F.players - 1);
+      X.startTourney({ id: F.id, title: F.id === 'ft' ? 'la table finale' : F.id === 'expresso' ? 'l\'Expresso' : 'le Sit & Go', lineup, stack: F.stack, levels: F.levels.slice(F.start || 0), hpl: F.hpl, mode: fm.mode });
+    } else X.startCash({ lineup: F.lineup || CH.ARCH[fm.arch], stackBB: F.stackBB, mode: fm.mode, target: fm.target, objectives: [] });
   };
 
   // ---- Défi mystère : identifier le style à partir de ce qu'on observe ----

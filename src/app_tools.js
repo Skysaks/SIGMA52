@@ -4,7 +4,7 @@
   const X = window.__S52;
   const { E, C, SV, B, $, esc, fr, pct, render, grid169, cardsHTML, TOOLVIEWS, TOOLS, ACT, ONCHANGE } = X;
   const num = (v) => +String(v).replace(',', '.').replace(/\s/g, '');
-  TOOLS.push(['maths', 'Calculs'], ['bloq', 'Bloqueurs'], ['pko', 'PKO']);
+  TOOLS.push(['maths', 'Calculs'], ['bloq', 'Bloqueurs'], ['pko', 'PKO'], ['omaha', 'Omaha'], ['probas', 'Probabilités'], ['partie', 'Partie maison']);
 
   // ---------------- Calculs ----------------
   const mt = { P: '100', B: '75', gP: '20', gS: '50', gN: '2', sP: '6', sS: '97', iP: '30', iC: '10', iE: '0.2', rPots: '25', rRake: '0.5', rWr: '6' };
@@ -83,4 +83,54 @@
         <div class="stat"><span>Équité requise avec prime</span><b>${pct(need, 1)}</b><span>${fr(call, 0)} à payer</span></div><div class="stat"><span>Sans prime</span><b>${pct(needNo, 1)}</b><span>calcul en jetons classique</span></div></div>
         ${err ? `<p class="pill bad">${esc(err)}</p>` : grid}<p class="note">Tu es en grosse blinde et tu couvres le tapis adverse. Calcul en jetons : sur la bulle ou en table finale, ajoute la prime de risque ICM.</p></section>`;
   };
+  // ---------------- Omaha (PLO) ----------------
+  const om = { h: ['AsAhKsKh', 'JdTd9c8c', '', ''], board: '', res: null, pot: '10', call: '0' };
+  ONCHANGE.push((t) => { if (t.dataset.om !== undefined) { const k = t.dataset.om; if (k === 'board' || k === 'pot' || k === 'call') om[k] = t.value; else om.h[+k] = t.value; om.res = null; render(); return true; } });
+  ACT.omrun = () => {
+    try {
+      const hands = om.h.map((x) => x.trim()).filter((x, i) => x || i < 2).map((x) => (x === '' || /^(\?|x|aléatoire|random)$/i.test(x) ? null : E.parseCards(x)));
+      const board = E.parseCards(om.board);
+      if (hands.some((h) => h && h.length !== 4)) throw new Error('Chaque main d\'Omaha fait 4 cartes (ou laisse vide pour une main aléatoire).');
+      if (![0, 3, 4, 5].includes(board.length)) throw new Error('Le board fait 0, 3, 4 ou 5 cartes.');
+      const all = [...board, ...hands.flat().filter((c) => c !== null && c !== undefined)];
+      if (new Set(all).size !== all.length) throw new Error('Une carte apparaît deux fois.');
+      const t0 = performance.now(), r = window.Omaha.equity(hands, board, { iterations: 8000 });
+      om.res = { hands, board, r, ms: Math.round(performance.now() - t0) };
+    } catch (e) { om.res = { err: e.message }; }
+    render();
+  };
+  ACT.omex = (t) => { const ex = { a: ['AsAhKsKh', 'JdTd9c8c', '', '', ''], b: ['AsAd7c2h', 'JhTh9c8c', '', '', ''], c: ['KsKd4c2h', 'AhQh8c3s', '', '', 'Kh7h2s'], d: ['AsKsJhTh', '', '', '', ''] }[t.dataset.v]; om.h = ex.slice(0, 4); om.board = ex[4]; ACT.omrun(); };
+  const omHand = (h) => `<span class="omh mono">${h.map((c) => { const k = E.cardStr(c); return `<b>${k[0] === 'T' ? '10' : k[0]}</b><i class="su-${k[1]}">${E.SUIT_SYM[k[1]]}</i>`; }).join('')}</span>`;
+  TOOLVIEWS.omaha = () => {
+    const O = window.Omaha, r = om.res;
+    let out = '<p class="note">Saisis au moins deux mains (4 cartes chacune, ex. AsAhKsKh) ou laisse un champ vide pour une main aléatoire, puis Calculer.</p>';
+    if (r?.err) out = `<p class="pill bad" style="white-space:normal">${esc(r.err)}</p>`;
+    else if (r) out = `${r.board.length ? `<div class="felt"><div class="row" style="justify-content:center">${cardsHTML(r.board)}</div></div>` : ''}<div class="tw"><table class="t"><thead><tr><th>Main</th><th>Profil</th><th class="n">Équité</th><th class="n">Gagne</th><th class="n">Partage</th></tr></thead><tbody>${r.hands.map((h, i) => `<tr><td>${h ? omHand(h) : '<span class="note">aléatoire</span>'}</td><td class="note">${h ? esc(O.describe(h).tags.join(', ')) : ''}</td><td class="n mono"><b>${pct(r.r.equity[i], 1)}</b></td><td class="n mono">${pct(r.r.win[i], 1)}</td><td class="n mono">${pct(r.r.tie[i], 1)}</td></tr>`).join('')}</tbody></table></div>
+      <p class="note">${r.r.exact ? 'Calcul exact' : `${fr(r.r.samples, 0)} tirages (Monte-Carlo, ± 1 point environ)`} · ${r.ms} ms. Règle d'Omaha : exactement 2 cartes de ta main et 3 du board.</p>`;
+    const potN = num(om.pot), callN = num(om.call), pr = O.potRaise(potN, callN);
+    return `<section class="panel"><h2>Équité Omaha (PLO)</h2>
+      <div class="form">${om.h.map((x, i) => `<label class="f">Main ${i + 1}${i > 1 ? ' (facultatif)' : ''}<input data-om="${i}" value="${esc(x)}" spellcheck="false" placeholder="${i < 2 ? 'vide = aléatoire' : 'vide = absent'}"></label>`).join('')}<label class="f">Board (0, 3, 4 ou 5 cartes)<input data-om="board" value="${esc(om.board)}" spellcheck="false"></label></div>
+      <div class="row"><button class="btn primary" data-act="omrun">Calculer</button><span class="note">Exemples :</span><button class="btn small" data-act="omex" data-v="a">AAKK ds contre JT98 ds</button><button class="btn small" data-act="omex" data-v="b">AA sèche contre JT98</button><button class="btn small" data-act="omex" data-v="c">Brelan contre tirage max</button><button class="btn small" data-act="omex" data-v="d">KQJT contre aléatoire</button></div>
+      ${out}</section>
+      <section class="panel"><h2>Relance maximale (pot-limit)</h2><div class="form"><label class="f">Pot (mises de la rue comprises)<input inputmode="decimal" data-om="pot" value="${esc(om.pot)}"></label><label class="f">À payer<input inputmode="decimal" data-om="call" value="${esc(om.call)}"></label></div>
+      ${isFinite(pr) && potN > 0 ? `<p>${callN > 0 ? `Relance maximale : <strong>${fr(pr, 1)}</strong> au total sur cette rue. Méthode du croupier : tu suis (${fr(callN, 1)}), le pot devient ${fr(potN + callN, 1)}, tu relances de ce montant.` : `Mise maximale : <strong>${fr(pr, 1)}</strong>, la taille du pot.`}</p>` : ''}
+      <p class="note">Module Avancé « Omaha pot-limit : les bases ».</p></section>`;
+  };
+
+  // ---------------- Probabilités de référence ----------------
+  // Valeurs exactes (combinatoire) ou mesurées sur 200 000 tirages par le moteur SIGMA 52 (marquées ≈).
+  const PROBAS = [
+    ['Préflop', [['Recevoir une paire', '5,9 %', '3 ÷ 51'], ['Recevoir une paire donnée (ex. AA)', '0,45 %', '1 fois sur 221'], ['Recevoir deux cartes assorties', '23,5 %', '12 ÷ 51'], ['Recevoir AK (assorti ou non)', '1,2 %', '16 ÷ 1 326'], ['Tu as KK : un adversaire précis a AA', '0,49 %', '6 ÷ 1 225 ; ≈ 3,9 % qu\'un des 8 adversaires l\'ait']]],
+    ['Flop', [['Paire en main → brelan ou mieux au flop', '11,8 %', '1 fois sur 8,5'], ['Deux cartes différentes → au moins une paire avec une des deux', '32,4 %', '1 − C(44,3) ÷ C(50,3)'], ['Mains assorties → couleur faite au flop', '0,84 %', ''], ['Mains assorties → tirage couleur au flop', '10,9 %', ''], ['Mains assorties → couleur à la river', '6,4 %', 'en voyant les 5 cartes']]],
+    ['Tirages (du flop)', [['Tirage couleur, 9 outs', '35,0 %', 'turn + river ; 19,1 % sur une carte'], ['Suite deux bouts, 8 outs', '31,5 %', '17,0 % sur une carte'], ['Ventrale, 4 outs', '16,5 %', '8,5 % sur une carte'], ['Couleur + deux bouts, 15 outs', '54,1 %', '31,9 % sur une carte'], ['Deux overcards, 6 outs', '24,1 %', '12,8 % sur une carte']]],
+    ['Board final (5 cartes)', [['Trois cartes ou plus d\'une même couleur (couleur possible)', '37,1 %', ''], ['Au moins une paire sur le board', '49,3 %', '']]],
+    ['Affrontements préflop (≈)', [['AA contre KK', '82 %', ''], ['KK contre AKo', '70 %', ''], ['QQ contre AKo', '57 %', 'le « coin flip »'], ['22 contre AKo', '53 %', ''], ['AKo contre AQo', '74 %', 'main dominée'], ['AKo contre 72o', '67 %', ''], ['JTs contre AA', '22 %', '']]],
+  ];
+  TOOLVIEWS.probas = () => `<section class="panel"><h2>Probabilités à connaître</h2><p class="note">Le minimum à savoir par cœur pour décider vite. Valeurs exactes, sauf les affrontements (≈, mesurés sur 200 000 tirages).</p>
+    ${PROBAS.map(([h, rows]) => `<h3>${h}</h3><div class="tw"><table class="t"><tbody>${rows.map(([a, b, c]) => `<tr><td>${a}</td><td class="n mono"><b>${b}</b></td><td class="note">${c}</td></tr>`).join('')}</tbody></table></div>`).join('')}
+    <div class="warnbox"><strong>Règle des 2 et 4</strong> : outs × 4 ≈ % de toucher du flop à la river (si tu vois les deux cartes), outs × 2 ≈ % pour une seule carte. Au-delà de 8 outs sur deux cartes, retire (outs − 8) pour corriger : 15 outs → 60 − 7 = 53 %.</div></section>`;
+
+  // ---------------- Partie maison : structure, jetons, places ----------------
+  TOOLVIEWS.partie = () => `<section class="panel"><h2>Organiser une partie entre amis</h2><p>Structure des blindes, répartition des jetons selon ton stock et répartition des places sont dans <strong>Jouer › Table live › Préparer la partie</strong>, avec le minuteur de blindes plein écran.</p><div class="row"><button class="btn primary" data-act="golivprep">Ouvrir la préparation</button></div></section>`;
+  ACT.golivprep = () => { if (X.liveState) X.liveState.sub = 'prep'; X.go('live'); };
 })();

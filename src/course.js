@@ -135,6 +135,6 @@
   ].map(([cat, q, opts, ok, why], i) => ({ id: 's' + i, cat, q, opts, ok, why }));
 
   const api = { MODULES: M, SITUATIONS: S, LEVELS, GLOSSARY, mod, extend };
-  if (typeof module !== 'undefined' && module.exports) { module.exports = api; ['l1', 'l2', 'l3', 'l4', 'elite', 'champions', 'live', 'extra'].forEach((n) => require('./course_' + n + '.js')(api)); }
+  if (typeof module !== 'undefined' && module.exports) { module.exports = api; ['l1', 'l2', 'l3', 'l4', 'elite', 'champions', 'live', 'extra', 'ultimate'].forEach((n) => require('./course_' + n + '.js')(api)); }
   else root.Course = api;
 })(typeof window !== 'undefined' ? window : globalThis);
