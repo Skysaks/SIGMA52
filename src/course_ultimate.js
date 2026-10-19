@@ -139,6 +139,14 @@
       ],
     });
 
+    K.extend('eclair', { sections: [['Comment la Table live raisonne', `<ol><li><strong>Sa range de départ</strong> vient de son action avant le flop (ouverture, call, 3-bet) et de son type, à partir des charts.</li>
+      <li><strong>Chaque action la met à jour</strong> : un modèle appris sur des centaines de milliers de mains simulées donne, pour chaque type, la probabilité de checker, miser petit, moyen ou gros, payer ou relancer avec chaque catégorie de main. Une relance rend sa range bien plus forte ; un check répété la rend plus faible.</li>
+      <li><strong>Ton équité</strong> est calculée main par main contre cette range (exacte au turn et à la river).</li>
+      <li><strong>Chaque option est chiffrée</strong> : EV de check, des mises de 33 % à l'overbet, du call, de la relance et du tapis, avec la part de sa range qui se couche. La meilleure est affichée ; si deux options sont proches, l'outil le dit.</li></ol>
+      <p>C'est un modèle d'exploitation sur la rue en cours, pas un solveur : il ne planifie pas les rues suivantes. Pour l'étude, envoie le spot au Solveur depuis la Table live.</p>`]], quiz: [
+      ['L\'adversaire relance ta mise au flop. Que fait la Table live de sa range ?', ['Elle la renforce : moins de mains faibles, plus de brelans et de deux paires', 'Elle ne change rien'], 0, 'Chaque action pèse sur la probabilité de chaque catégorie de main.'],
+    ] });
+
     // Styles ajoutés dans l'onglet Champions : quiz complémentaires du module « Affronter les grands styles ».
     K.extend('styles', { quiz: [
       ['Un adversaire mise au flop plus de 90 % du temps après avoir relancé. Ajustement ?', ['Défendre plus large et check-raise les boards bas', 'Coucher plus souvent'], 0, 'Sa range de mise est très large : elle contient beaucoup de mains faibles.'],

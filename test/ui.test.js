@@ -117,6 +117,8 @@ const SHOTS = process.env.SHOTS || '';
     const trn = await p.evaluate(() => JSON.parse(localStorage.getItem('sigma52.progress')).trainer.n);
     if (trn !== 1) errs.push(name + ' compteur entraîneur ' + trn);
     await p.click('[data-act=svsub][data-s=help]'); await over('solveur-aide');
+    await p.click('[data-act=svsub][data-s=agg]'); if (!(await has('text=Rapport agrégé'))) errs.push(name + ' rapport agrégé'); await p.click('[data-act=aggroup][data-v=suits]'); await over('agg'); await shot('agg');
+    await p.locator('[data-act=agload]').first().click(); if (!(await has('[data-act=svgo]'))) errs.push(name + ' agrégé : chargement du flop');
 
     // Champions : briefing, session de 25 mains en tête-à-tête, rapport ; défi mystère ; classement
     await tab('champions'); await p.click('[data-act=chsel][data-id=ivey]'); await p.waitForSelector('.brief');
@@ -151,6 +153,20 @@ const SHOTS = process.env.SHOTS || '';
     await p.click('[data-act=lvdiscret]'); if (!(await p.evaluate(() => document.body.classList.contains('discret-on')))) errs.push(name + ' mode discret'); await over('live-discret'); await shot('live-discret'); await p.click('[data-act=lvdiscret]');
     await p.click('[data-act=lvsub][data-s=timer]'); await p.click('[data-act=lvtgo]'); await p.waitForTimeout(1100); await p.click('[data-act=lvtgo]'); await over('live-timer'); await shot('live-timer');
     await p.click('[data-act=lvsub][data-s=prep]'); await over('live-prep'); await shot('live-prep');
+    // Table live v2 : réglages, grille 52 cartes, range, joueurs, soirée, entraînement, Omaha, envoi au solveur
+    await p.click('[data-act=lvsub][data-s=decision]'); await p.click('[data-act=lvcfgopen]'); await p.click('[data-act=lvcfg][data-k=input][data-v=grid]'); await p.click('[data-act=lvcfg][data-k=players][data-v="9"]');
+    await p.click('[data-act=lvnew]'); for (const c of [48, 45, 35, 23, 2]) await p.click(`[data-act=lvpick][data-c="${c}"]`);
+    if (!(await has('.lopt'))) errs.push(name + ' live v2 : options EV absentes'); await p.click('[data-act=lvrange]'); if (!(await has('.lrange .rgrid'))) errs.push(name + ' live v2 : range absente');
+    await over('live-v2'); await shot('live-v2');
+    await p.click('[data-act=lvsolve]'); await p.waitForTimeout(80); if ((await p.evaluate(() => window.__S52.getTab())) !== 'solveur') errs.push(name + ' live v2 : envoi au solveur');
+    await tab('live'); await p.click('[data-act=lvnew]');
+    await p.click('[data-act=lvsub][data-s=table]'); await p.click('[data-act=lpadd]'); await p.click('[data-act=lpadd]'); await p.click('[data-act=lpv][data-i="0"]'); await p.click('[data-act=lpr][data-i="0"]'); await over('live-joueurs'); await shot('live-joueurs');
+    await p.click('[data-act=lvsub][data-s=soiree]'); if (!(await has('text=Décisions notées'))) errs.push(name + ' live v2 : soirée'); await over('live-soiree');
+    await p.click('[data-act=lvsub][data-s=drill]'); await p.click('[data-act=lvdstart]'); await p.click('[data-act=lvdans][data-i="0"]'); if (!(await has('.verdict'))) errs.push(name + ' live v2 : entraînement'); await over('live-drill'); await shot('live-drill');
+    await p.click('[data-act=lvsub][data-s=decision]'); await p.click('[data-act=lvcfgopen]').catch(() => {}); if (!(await has('[data-act=lvcfg][data-k=game][data-v=plo]'))) await p.click('[data-act=lvcfgopen]');
+    await p.click('[data-act=lvcfg][data-k=game][data-v=plo]'); for (const c of [51, 47, 50, 46]) await p.click(`[data-act=lvpick][data-c="${c}"]`);
+    if (!/RELANCE|SUIS|COUCHE/.test(await p.locator('.lres b').first().innerText())) errs.push(name + ' live v2 : Omaha'); await over('live-plo');
+    await p.click('[data-act=lvcfg][data-k=game][data-v=nlh]'); await p.click('[data-act=lvcfg][data-k=input][data-v=rs]');
     // Recherche globale et thème
     await p.keyboard.press('Control+k'); await p.keyboard.type('défense minimale'); await p.waitForTimeout(80); await p.keyboard.press('Enter'); await p.waitForTimeout(100);
     if ((await p.evaluate(() => window.__S52.getTab())) !== 'cours') errs.push(name + ' recherche globale');

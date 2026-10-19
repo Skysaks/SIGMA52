@@ -57,3 +57,17 @@ C'est la cible de SIGMA 52.
 ## Menace
 
 Rien à craindre commercialement : l'outil est personnel. Le risque est ailleurs. Si l'adversaire en face utilise GTO Wizard, il aura une stratégie d'équilibre solide. SIGMA 52 ne remplace pas un solveur postflop complet. Contre des réguliers, il faudra un jour passer par ce type d'outil (Starter à 49 $/mois).
+
+## Version 8 bis : fonctions reprises des outils du marché (octobre 2026)
+
+Étude des fonctions publiques (pages produit, guides, fiches d'applications), sans décompilation ni copie de données : les licences de ces outils l'interdisent et ce n'est pas nécessaire.
+
+| Fonction observée | Outil | Ce que SIGMA 52 en fait |
+|---|---|---|
+| Rapports agrégés : un spot préflop résolu sur un échantillon de flops, moyenne pondérée, regroupement par texture (hauteur, couleurs, paires, connexion) | GTO Wizard | Solveur › Rapport agrégé : BTN contre BB, échantillon stratifié de 91 flops résolus par le solveur SIGMA 52, groupes par texture, « avec quoi il mise » par catégorie de main, réponse de BB, chargement d'un flop dans le solveur |
+| Répartition d'une range sur un board, probabilités d'adversaire, équité contre une range | Flopzilla | Table live : sa range estimée en grille 13 × 13 et « ce qu'il a » par catégorie, avec ton équité contre chacune |
+| Prise de notes rapide sur les adversaires, suivi de session, export | GrindStack, Poler | Table live › Joueurs (VPIP, PFR, type automatique, notes) et › Soirée (journal des décisions, export CSV, renvoi au solveur) |
+| Entraînement préflop chronométré | Applications de type Preflop Trainer | Table live › Entraînement : spots tirés au hasard, 8 secondes, corrigés par le moteur, meilleure série |
+| Push/fold et ICM | ICMIZER | Table live en mode tournoi : équité requise pour payer un tapis selon l'ICM des tapis saisis |
+
+Sources : [Poker Academy, guide des rapports agrégés](https://poker.academy/blog/post/aggregated-reports-guide) · [PokerNews, rapports agrégés personnalisables de GTO Wizard (2025)](https://www.pokernews.com/news/2025/06/gto-wizard-customizable-aggregated-reports-48758.htm) · [The Poker Bank, utiliser Flopzilla](https://thepokerbank.com/videos/splitsuit/using-flopzilla) · [GrindStack, App Store](https://apps.apple.com/qa/app/grindstack-live-poker-notes/id6744820078) · [Poler, App Store](https://apps.apple.com/us/app/poler-poker-bankroll-tracker/id828305743)

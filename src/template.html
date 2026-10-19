@@ -269,6 +269,30 @@ input.lin { padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px;
 .ltimer .btn { background: rgba(255,255,255,.1); color: var(--on-felt); border-color: rgba(255,255,255,.28); min-width: 48px; }
 .ltimer .btn.primary { background: #F2C9A0; color: #3a0f18; border-color: #F2C9A0; }
 .live.discret .lsu.s { color: #e8e0e2; } .live.discret .lsu.c { color: #7fd3a0; } .live.discret .lsu.d { color: #8fb6ff; }
+
+.aggbar { display: flex; width: 160px; height: 12px; border-radius: 4px; overflow: hidden; background: var(--sunk); } .aggbar i { display: block; height: 100%; } .aggbar .a0 { background: #6B8E5A; } .aggbar .a1 { background: #D08A4A; } .aggbar .a2 { background: #A3283A; } .aggbar .a3 { background: #5C1424; }
+.lopts { display: flex; flex-wrap: wrap; gap: 6px; }
+.lopt { display: grid; gap: 1px; padding: 6px 9px; border-radius: 9px; border: 1px solid var(--line); background: var(--surface); min-width: 86px; font-size: 13px; }
+.lopt b { font: 600 13px var(--f-body); color: var(--ink); } .lopt i { font: 600 14px var(--f-mono); font-style: normal; } .lopt small { color: var(--muted); font-size: 11px; }
+.lopt.best { border-color: currentColor; box-shadow: inset 0 0 0 1px currentColor; }
+.lrange { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.lrange .rgrid .rc { font-size: 9px; padding: 3px 0; border-radius: 3px; text-align: center; background: var(--sunk); color: var(--muted); }
+.lrange .rgrid .rc.on { color: var(--ink); }
+@media (max-width: 720px) { .lrange { grid-template-columns: 1fr; } }
+.lg52 { display: grid; grid-template-columns: repeat(13, minmax(0, 1fr)); gap: 3px; }
+.lg52c { border: 1px solid var(--line); background: #FFFDFB; border-radius: 6px; padding: 6px 0 4px; font: 700 15px var(--f-mono); line-height: 1; cursor: pointer; display: grid; gap: 1px; justify-items: center; }
+.lg52c i { font-style: normal; font-size: 13px; } .lg52c.s { color: var(--s-s); } .lg52c.h { color: var(--s-h); } .lg52c.d { color: var(--s-d); } .lg52c.c { color: var(--s-c); }
+.lg52c:disabled { opacity: .18; cursor: default; }
+@media (max-width: 560px) { .lg52 { gap: 2px; } .lg52c { font-size: 12px; padding: 7px 0 4px; border-radius: 4px; } .lg52c i { font-size: 11px; } }
+.live.discret .lg52c { background: #1a1013; border-color: #2a1a1f; } .live.discret .lg52c.s { color: #e8e0e2; } .live.discret .lg52c.c { color: #7fd3a0; } .live.discret .lg52c.d { color: #8fb6ff; }
+.live.discret .lopt { background: #0d0809; border-color: #2a1a1f; }
+.lcfg { display: grid; gap: 8px; padding: 12px; border: 1px dashed var(--line); border-radius: 12px; }
+.lcfgsum { justify-content: space-between; }
+.lplayers { display: grid; gap: 10px; }
+.lpc { border: 1px solid var(--line); border-radius: 12px; padding: 10px; display: grid; gap: 8px; } .lpc.off { opacity: .5; }
+.lpc1, .lpc2 { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; } .lpc .lname { width: 130px; font-weight: 600; } .lpc input.lin { width: 100px; } .lpc .lnote { flex: 1 1 220px; width: auto; }
+.lpc select { padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); max-width: 100%; }
+.ldopts .btn { min-width: 110px; padding: 12px 16px; font-weight: 700; }
 body.discret-on header.top, body.discret-on .bottomnav { display: none; }
 body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; }
 .live.discret { background: #050304; border-color: #1a1013; color: #bfb3b6; }
@@ -309,12 +333,15 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
 <script>/*__APP__*/</script>
 <script>/*__POSTFLOP__*/</script>
 <script>/*__APPSIM__*/</script>
+<script>/*__AGGDATA__*/</script>
 <script>/*__APPSOLVER__*/</script>
 <script>/*__APPTOOLS__*/</script>
 <script>/*__TRSPOTS__*/</script>
 <script>/*__APPTRAIN__*/</script>
 <script>/*__CHAMPIONS__*/</script>
 <script>/*__APPCHAMP__*/</script>
+<script>/*__LIVEMODEL__*/</script>
+<script>/*__LIVEMULTI__*/</script>
 <script>/*__LIVE__*/</script>
 <script>/*__APPLIVE__*/</script>
 <script>/*__APPSTUDIO__*/</script>

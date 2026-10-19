@@ -56,4 +56,40 @@ t('jetons : stock insuffisant signalé', () => {
   assert.ok(!ok.short); assert.strictEqual(ok.rest, 0);
 });
 t('places', () => { [2, 5, 8, 12, 30].forEach((k) => assert.strictEqual(L.payouts(k).reduce((a, b) => a + b, 0), 100)); });
+t('v2 : positions de 2 à 10 joueurs', () => { for (let n = 2; n <= 10; n++) { const P = L.positions(n); assert.strictEqual(P.length, n); assert.strictEqual(P[P.length - 1], 'BB'); } });
+t('v2 : UTG à 9 joueurs plus serré qu\'UTG à 6', () => {
+  assert.strictEqual(D({ hero: c('2h2d'), board: [], players: 6, pos: 'UTG' }).action, 'RELANCE');
+  assert.strictEqual(D({ hero: c('2h2d'), board: [], players: 9, pos: 'UTG' }).action, 'COUCHE');
+});
+t('v2 : équité multiway précalculée (AA contre 4 mains aléatoires ≈ 56 %)', () => {
+  const M = require('../src/live_multi.js'), E2 = require('../src/engine.js'), i = (E2.ALL169.indexOf('AA') * M.KS.length + M.KS.indexOf(4)) * M.XS.length + M.XS.indexOf(1);
+  assert.ok(Math.abs(M.data[i] / 1000 - 0.56) < 0.02, M.data[i]);
+});
+t('v2 : modèle appris chargé et range mise à jour par les actions (une relance renforce sa range)', () => {
+  const base = { hero: c('KsQd'), board: c('Kh8c3d'), pot: 10, toCall: 6, stack: 90, type: 'normal' };
+  const bet = D(base), raise = D({ ...base, raised: true, toCall: 18 });
+  assert.ok(raise.eq < bet.eq - 0.1, bet.eq + ' / ' + raise.eq);
+});
+t('v2 : options chiffrées, la décision est la meilleure EV', () => {
+  const r = D({ hero: c('AsKd'), board: c('Kh7c2d'), pot: 10, stack: 90 });
+  assert.ok(r.options.length >= 4); assert.strictEqual(r.options[0].act, r.action);
+  r.options.forEach((o, i) => i && assert.ok(o.ev <= r.options[0].ev + 1e-9));
+});
+t('v2 : river, nuts face à une mise → relance ou tapis ; bluff impossible contre un fish', () => {
+  assert.ok(['RELANCE', 'TAPIS'].includes(D({ hero: c('AhJh'), board: c('Kh9h4d2s7h'), pot: 20, toCall: 20, stack: 80 }).action));
+  const r = D({ hero: c('4s3s'), board: c('AhKd9c8h2d'), pot: 20, stack: 90, type: 'serre', history: [{ street: 'flop', a: 'check' }, { street: 'turn', a: 'check' }] });
+  assert.ok(['CHECK', 'MISE'].includes(r.action));
+});
+t('v2 : Omaha et bomb pot', () => {
+  const p = D({ game: 'plo', hero: c('AsAhKsKh'), board: [], pos: 'CO', pre: 'open' }); assert.strictEqual(p.action, 'RELANCE');
+  const q = D({ game: 'plo', hero: c('7c2d5h9s'), board: [], pos: 'UTG', players: 9, pre: 'open' }); assert.strictEqual(q.action, 'COUCHE');
+  assert.strictEqual(D({ game: 'bomb', hero: c('AhKh'), board: [] }).action, 'ATTENDS');
+  assert.ok(D({ game: 'bomb', hero: c('AhKh'), board: c('Kd7c2h'), pot: 30 }).eq > 0.3);
+});
+t('v2 : ICM, payer un tapis demande plus d\'équité près de la bulle', () => {
+  const chip = D({ hero: c('AsJd'), board: [], pos: 'BB', pre: 'raise', stackBB: 10, raiseBB: 10, type: 'normal' });
+  const icm = D({ hero: c('AsJd'), board: [], pos: 'BB', pre: 'raise', stackBB: 10, raiseBB: 10, type: 'normal', icm: { stacks: [1000, 1000, 3000, 300], payouts: [50, 30, 20], villain: 2 } });
+  assert.ok(icm.need > chip.need + 0.03, chip.need + ' / ' + icm.need);
+});
+t('v2 : vitesse, flop tête-à-tête < 150 ms', () => { const t0 = Date.now(); for (let i = 0; i < 10; i++) D({ hero: c('AhQh'), board: c('Jh8c3h'), pot: 12, toCall: 6 }); assert.ok((Date.now() - t0) / 10 < 150); });
 console.log(n + ' tests live ok');

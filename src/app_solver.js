@@ -143,10 +143,10 @@
   };
 
   // ---------------- Vue ----------------
-  const SUBS = [['solve', 'Résoudre un spot'], ['train', 'Entraîneur'], ['help', 'Mode d\'emploi']];
+  const SUBS = [['solve', 'Résoudre un spot'], ['agg', 'Rapport agrégé'], ['train', 'Entraîneur'], ['help', 'Mode d\'emploi']];
   VIEWS.solveur = () => head('Solveur', 'Calcule l\'équilibre (GTO) d\'un spot à deux joueurs après le flop : quelle action, à quelle fréquence, avec quelle main. Outil d\'étude hors table : l\'utiliser pendant une main en cours est de l\'aide en temps réel, interdite par toutes les rooms.') +
     `<div class="subtabs" role="tablist">${SUBS.map(([k, l]) => `<button class="chip" aria-pressed="${sv.sub === k}" data-act="svsub" data-s="${k}">${l}</button>`).join('')}</div>` +
-    (sv.sub === 'solve' ? solveHTML() : sv.sub === 'train' ? X.trainerHTML() : helpHTML());
+    (sv.sub === 'solve' ? solveHTML() : sv.sub === 'agg' ? aggHTML() : sv.sub === 'train' ? X.trainerHTML() : helpHTML());
   ACT.svsub = (t) => { sv.sub = t.dataset.s; render(); };
 
   function rangeStat(txt) {
@@ -481,7 +481,49 @@
       <ol><li>Dans Analyse › Replayer, place-toi sur ta décision et clique « Retravailler au solveur ».</li><li>Vérifie les ranges préflop proposées, puis résous.</li><li>Le solveur s'ouvre au nœud de ta décision. Lis « Ta main » : fréquences, EV de chaque action, perte en % du pot.</li><li>Ne retiens pas « le solveur mise 62 % » : retiens <em>pourquoi</em>. Regarde quelles catégories misent, quelles mains servent de bluffs, quels bloqueurs elles ont.</li><li>Note la leçon dans ta bibliothèque (étiquette « à revoir »).</li></ol></section>`;
   }
 
+
+  // ---------------- Rapport agrégé (précalculé par tools/build_aggregate.js) ----------------
+  const ag = { group: 'high', sort: 'w' };
+  function aggHTML() {
+    const D = window.AggregateData;
+    if (!D || !D.flops.length) return '<section class="panel"><p>Rapport agrégé indisponible.</p></section>';
+    const F = D.flops, nA = F[0].act.length;
+    const avg = (L, fn) => { const tw = L.reduce((a, f) => a + f.w, 0); return L.reduce((a, f) => a + f.w * fn(f), 0) / (tw || 1); };
+    const freqRow = (L) => F[0].act.map((_, a) => avg(L, (f) => f.f[a]));
+    const key = { high: (f) => f.t.high, suits: (f) => f.t.suits, paired: (f) => f.t.paired, conn: (f) => f.t.conn }[ag.group];
+    const groups = {}; F.forEach((f) => (groups[key(f)] = groups[key(f)] || []).push(f));
+    const order = { high: ['A', 'K', 'Q', 'J', 'T', '9-'], suits: ['arc-en-ciel', 'deux couleurs', 'monochrome'], paired: ['non pairé', 'pairé', 'brelan'], conn: ['sec', 'connecté'] }[ag.group];
+    const labels = F[0].act.map((l) => l.replace(/Miser [\d,]+ \((\d+) %\)/, 'Mise $1 %'));
+    const bar = (fr0) => `<span class="aggbar">${fr0.map((x, a) => `<i class="a${a}" style="width:${(x * 100).toFixed(1)}%" title="${labels[a]} ${pct(x, 0)}"></i>`).join('')}</span>`;
+    const tot = freqRow(F), cov = (L) => L.reduce((a, f) => a + f.w, 0) / F.reduce((a, f) => a + f.w, 0);
+    const grow = (name, L) => { const fr0 = freqRow(L), bet = 1 - fr0[0], d = bet - (1 - tot[0]); return `<tr><td>${esc(name)}</td><td class="n mono">${pct(cov(L), 0)}</td><td>${bar(fr0)}</td>${fr0.map((x) => `<td class="n mono">${pct(x, 0)}</td>`).join('')}<td class="n mono">${d >= 0 ? '+' : '−'}${Math.abs(d * 100).toFixed(0)}</td><td class="n mono">${pct(avg(L, (f) => f.eq), 0)}</td></tr>`; };
+    const catRows = D.cats.map((c, i) => `<tr><td>${esc(c)}</td><td class="n mono">${pct(avg(F, (f) => f.cat[i][0]), 0)}</td><td class="n mono">${pct(avg(F.filter((f) => f.cat[i][1] !== null), (f) => f.cat[i][1]), 0)}</td></tr>`).join('');
+    const bbAct = F[0].bb.act.map((l) => l.replace(/\s*(à\s*)?[\d,]+.*$/, '')), bbRow = bbAct.map((_, a) => avg(F, (f) => f.bb.f[a] ?? 0));
+    const list = F.slice().sort((a, b) => (ag.sort === 'bet' ? (1 - b.f[0]) - (1 - a.f[0]) : ag.sort === 'eq' ? b.eq - a.eq : b.w - a.w)).map((f) => `<tr><td><button class="btn small mono" data-act="agload" data-b="${f.b}">${f.b.replace(/(..)/g, '$1 ').trim()}</button></td><td class="note">${esc([f.t.suits, f.t.paired, f.t.conn].join(', '))}</td><td>${bar(f.f)}</td>${f.f.map((x) => `<td class="n mono">${pct(x, 0)}</td>`).join('')}<td class="n mono">${pct(f.eq, 0)}</td></tr>`).join('');
+    return `<section class="panel"><span class="eyebrow">${esc(D.spot)} · ${F.length} flops résolus sur ${D.total} distincts · pondérés par fréquence</span><h2>Rapport agrégé : que fait le bouton quand la grosse blinde check ?</h2>
+      <p class="note">Chaque flop d'un échantillon stratifié (hauteur, couleurs, paires) a été résolu par le solveur SIGMA 52 (tailles 33 % et 75 % au flop, turn et river simplifiés à 75 %, précision ≈ 1 % du pot). La moyenne pondère chaque flop par le nombre de flops réels qu'il représente.</p>
+      <div class="stats"><div class="stat hero"><span>Mise du bouton (moyenne)</span><b>${pct(1 - tot[0], 0)}</b><span>${labels.slice(1).map((l, a) => `${l.toLowerCase()} ${pct(tot[a + 1], 0)}`).join(' · ')}</span></div>
+        <div class="stat"><span>Équité du bouton</span><b>${pct(avg(F, (f) => f.eq), 0)}</b><span>contre la range de défense de BB</span></div>
+        <div class="stat"><span>BB face à 33 %</span><b>${pct(bbRow[0], 0)}</b><span>${bbAct.map((l, a) => `${l.toLowerCase()} ${pct(bbRow[a], 0)}`).join(' · ')}</span></div></div>
+      <div class="row"><span class="note">Grouper par :</span>${[['high', 'Hauteur'], ['suits', 'Couleurs'], ['paired', 'Paires'], ['conn', 'Connexion']].map(([k, l]) => `<button class="chip" aria-pressed="${ag.group === k}" data-act="aggroup" data-v="${k}">${l}</button>`).join('')}</div>
+      <div class="tw"><table class="t"><thead><tr><th>Groupe</th><th class="n">Part</th><th>Stratégie</th>${labels.map((l) => `<th class="n">${esc(l)}</th>`).join('')}<th class="n">Mise vs moy. (pts)</th><th class="n">Équité</th></tr></thead><tbody>${grow('Tous les flops', F)}${order.filter((g) => groups[g]).map((g) => grow(g, groups[g])).join('')}</tbody></table></div>
+      <h3>Avec quoi il mise</h3><div class="tw"><table class="t"><thead><tr><th>Catégorie de main du bouton</th><th class="n">Part de sa range</th><th class="n">Fréquence de mise</th></tr></thead><tbody>${catRows}</tbody></table></div>
+      <h3>Flop par flop</h3><div class="row"><span class="note">Trier par :</span>${[['w', 'Poids'], ['bet', 'Fréquence de mise'], ['eq', 'Équité']].map(([k, l]) => `<button class="chip" aria-pressed="${ag.sort === k}" data-act="agsort" data-v="${k}">${l}</button>`).join('')}</div>
+      <div class="tw"><table class="t"><thead><tr><th>Flop</th><th>Texture</th><th>Stratégie</th>${labels.map((l) => `<th class="n">${esc(l)}</th>`).join('')}<th class="n">Équité</th></tr></thead><tbody>${list}</tbody></table></div>
+      <p class="note">Touche un flop pour le charger dans « Résoudre un spot » et voir la stratégie main par main. Limites : deux tailles au flop, turn et river simplifiés, échantillon de flops ; les tendances par texture sont robustes, une fréquence isolée l'est moins.</p></section>`;
+  }
+  ACT.aggroup = (t) => { ag.group = t.dataset.v; render(); };
+  ACT.agsort = (t) => { ag.sort = t.dataset.v; render(); };
+  ACT.agload = (t) => { sv.sub = 'solve'; sv.board = t.dataset.b; sv.preset = 'std'; sv.include = null; sv.extraSizes = null; applyScenario('srp-BTN-BB'); sv.game = null; sv.info = null; sv.path = []; sv.err = ''; sv.note = 'Flop du rapport agrégé : lance la résolution pour le détail main par main.'; render(); };
   X.solverState = sv;
   X.solverStart = start;
+  // Spot envoyé par un autre onglet (Table live) : ranges, board, pot, tapis, main du héros.
+  X.solverLoad = (o) => {
+    const bl = E.parseCards(o.board).length;
+    sv.sub = 'solve'; sv.scen = 'custom'; sv.names = o.names.slice(); sv.r = o.ranges.slice(); sv.board = o.board; sv.pot = o.pot; sv.stack = o.stack; sv.include = null;
+    sv.agg = 1; sv.preset = 'fast'; sv.sizes = presetSizes('fast', 1, bl); sv.sizesCustom = false; sv.maxRaises = 1; sv.extraSizes = null;
+    sv.hero = o.hero || ''; sv.heroCombo = parseHero(); sv.note = o.note || ''; sv.game = null; sv.info = null; sv.path = []; sv.err = ''; sv.setupOpen = true;
+    go('solveur');
+  };
   X.trainerHTML = X.trainerHTML || (() => '<section class="panel"><p>Entraîneur en préparation.</p></section>');
 })();
