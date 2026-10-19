@@ -84,7 +84,7 @@ NODE_PATH=$(npm root -g) node test/ui.test.js   # Playwright, 1280 px et 390 px
 - Parseur : sur des historiques Winamax réels, la somme des gains de tous les joueurs égale moins le rake.
 - Cours : chaque probabilité citée est recalculée par le moteur ; structure, balises et quiz de chaque module vérifiés par test.
 - Solveur postflop : jeu polarisé à solution connue (mise pot : 1/3 de bluffs, défense 50 % ; demi-pot : 1/4 de bluffs, défense 2/3) retrouvé à ±2 points ; somme des EV des deux ranges = pot à chaque nœud ; équité identique à l'énumération exacte du moteur ; exploitabilité < 0,5 % du pot sur une river réelle BTN contre BB.
-- Coach : ranges estimées calibrées à 99 % sur les vraies mains des bots ; un joueur qui suit le coach gagne ~189 bb/100 contre ~50 pour un bot régulier, mêmes cartes, même table ; en Expresso, 41 à 44 % de premières places selon les tirages, contre 40 % pour un bot régulier (250 parties) : avantage faible, dans la marge d'erreur.
+- Coach : ranges estimées calibrées à 99 % sur les vraies mains des bots ; un joueur qui suit le coach gagne ~189 bb/100 contre ~50 pour un bot régulier, mêmes cartes, même table ; en Expresso, 41 à 47 % de premières places selon les tirages, contre 40 % pour un bot régulier (250 parties) : avantage faible, dans la marge d'erreur.
 - Mains guidées : la meilleure option de chaque étape « cotes » correspond bien à équité ≥ cote requise ; les étapes Nash et ICM sont relues dans le solveur.
 - Expresso : 3 000 parties sans blocage (régression du joueur à tapis sur une blinde).
 - Table : 1 500 mains simulées sans perte de jetons ; l'historique exporté, relu par l'importeur, redonne les mêmes gains et classe correctement les 5 profils de bots.
