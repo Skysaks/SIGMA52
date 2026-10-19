@@ -91,6 +91,7 @@ NODE_PATH=$(npm root -g) node test/ui.test.js   # Playwright, 1280 px et 390 px
 
 - Table live : AA relance partout, 72o se couche UTG, K9o se couche UTG et ouvre au bouton, AK 3-bette face à une relance, brelan mise, rien face à une mise pot à la river se couche ; décision en moins de 100 ms ; jetons répartis sans dépasser le stock, manque signalé.
 - Table live v2 : le moteur joue la place du héros contre les bots (4 000 mains par table, mêmes cartes) et gagne nettement plus qu'un bot régulier : table mixte +375 contre +97 bb/100, table de fish +400 contre +126, table de réguliers +106 contre −26, table agressive +173 contre +49. Les bots sont des caricatures exploitables : ces écarts mesurent la cohérence du moteur, pas un winrate réel. Une relance adverse fait baisser l'équité estimée (range renforcée) ; la meilleure option est toujours celle de plus forte EV estimée ; 21 tests.
+- Rapport agrégé : 91 flops résolus (55 min de calcul), exploitabilité de 0,8 à 1,4 % du pot ; le bouton mise 47 % des flops en moyenne quand BB check, davantage sur les boards pairés (56 %), moins sur les monochromes (41 %).
 - Évaluateur réécrit sans allocation : identique à l'ancien sur 3 millions de mains tirées au hasard, environ deux fois plus rapide.
 - Omaha : un seul cœur en main ne fait jamais couleur ; équités exactes à la turn (somme = 100 %) ; AAKK double assortie ≈ 71 % contre une main aléatoire, ≈ 61 % contre JT98 double assortie.
 - Styles Brunson, Harrington, Dwan mesurés sur 2 000 mains (c-bet 96 %, VPIP 15 %, fold to c-bet 25 % respectivement).
