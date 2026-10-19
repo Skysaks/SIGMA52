@@ -1,5 +1,5 @@
 // Vues ajoutées à SIGMA 52 : Simulateur (table avec coach, préparation et bilan, mains guidées, Expresso),
-// Analyse (replayer, bibliothèque), Outils (distribution d'équité, deal ICM, mémo), Programme de 12 semaines.
+// Analyse (replayer, bibliothèque), Outils (distribution d'équité, deal ICM, mémo), Programme de progression.
 (function () {
   const X = window.__S52, Co = window.Coach, G = window.Guided, P = window.Plan;
   const { E, C, K, S, SV, B, HH, TS, $, esc, fr, sgn, pct, today, state, Store, render, go, head, cardHTML, backHTML, cardsHTML, VIEWS, TOOLVIEWS, TOOLS, ACT, ONCHANGE, ONINPUT, ONKEY, LINEUPS } = X;
@@ -252,6 +252,7 @@
 
   // ================= Analyse : replayer et bibliothèque =================
   let anSub = 'import', rp = null; // rp = { raw, h, steps, k }
+  X.getReplay = () => rp;
   const baseAnalyse = VIEWS.analyse;
   VIEWS.analyse = () => {
     const tabs = `<div class="subtabs" role="tablist">${[['import', 'Import et statistiques'], ['replay', 'Replayer'], ['library', `Bibliothèque (${state.library.hands.length})`]].map(([k, l]) => `<button class="chip" aria-pressed="${anSub === k}" data-act="ansub" data-s="${k}">${l}</button>`).join('')}</div>`;
@@ -272,7 +273,7 @@
       return `<div class="rpseat${folded ? ' out' : ''}${st.who === name ? ' turn' : ''}"><span class="nm">${esc(name)}${name === rp.hero && !/^toi$/i.test(name) ? ' (toi)' : ''}</span>
         <div class="cards">${cards ? cards.map((c) => cardHTML(c, true)).join('') : backHTML(true) + backHTML(true)}</div><span class="stk">${fr(st.stacks[name] / bb, 1)} bb</span>${eq !== undefined ? `<span class="bet">${pct(eq, 0)}</span>` : ''}</div>`;
     }).join('');
-    return `<section class="panel"><div class="row" style="justify-content:space-between"><span class="eyebrow">Main ${esc(h.id)} · ${esc(h.site)} · blindes ${h.sb}/${h.bb}</span><div class="row"><button class="btn small" data-act="librp">Sauvegarder</button><button class="btn small" data-act="rpclose">Autre main</button></div></div>
+    return `<section class="panel"><div class="row" style="justify-content:space-between"><span class="eyebrow">Main ${esc(h.id)} · ${esc(h.site)} · blindes ${h.sb}/${h.bb}</span><div class="row"><button class="btn small" data-act="rp2solver" title="Ouvre le solveur au moment de la décision affichée">Retravailler au solveur</button><button class="btn small" data-act="librp">Sauvegarder</button><button class="btn small" data-act="rpclose">Autre main</button></div></div>
       <div class="felt"><div class="rpseats">${seats}</div><div class="row" style="justify-content:center;gap:16px">${st.board.length ? cardsHTML(st.board) : '<span style="opacity:.7">Préflop</span>'}<span class="pot" style="font:700 14px var(--f-display)">Pot ${fr(st.pot / bb, 1)} bb</span></div></div>
       <p style="font-size:17px"><strong>${rp.k + 1}/${rp.steps.length}</strong> · ${esc(st.text)}</p>
       <div class="row"><button class="btn" data-act="rpgo" data-k="0">⏮ Début</button><button class="btn" data-act="rpgo" data-k="${rp.k - 1}" ${rp.k ? '' : 'disabled'}>◀ Précédent</button><button class="btn primary" data-act="rpgo" data-k="${rp.k + 1}" ${rp.k < rp.steps.length - 1 ? '' : 'disabled'}>Suivant ▶</button><button class="btn" data-act="rpgo" data-k="${rp.steps.length - 1}">Fin ⏭</button><span class="note">Flèches ← → du clavier</span></div>
@@ -375,16 +376,16 @@
       <section class="panel"><h2>Plans d'exploitation</h2><div class="tw"><table class="t"><tbody>${['station', 'maniaque', 'nit', 'reg'].map((k) => `<tr><td style="min-width:130px"><strong>${{ station: 'Fish passif', maniaque: 'Maniaque', nit: 'Nit', reg: 'Régulier' }[k]}</strong></td><td>${HH.EXPLOIT[k].map(esc).join(' ')}</td></tr>`).join('')}</tbody></table></div></section>`;
   };
 
-  // ================= Aujourd'hui : programme de 12 semaines =================
+  // ================= Aujourd'hui : programme de progression =================
   let showWeeks = false;
   const baseJour = VIEWS.jour;
   VIEWS.jour = () => {
     const weeks = P.weekStatus(state, K, S), curW = weeks.find((w) => !w.done) || weeks[weeks.length - 1];
     const taskBtn = (task) => `<div class="check" style="align-items:center"><span class="pill ${task.done ? 'good' : ''}" style="min-width:26px;text-align:center">${task.done ? '✓' : pct(task.progress)}</span><span style="flex:1">${esc(task.label)}</span>${task.done || !task.go ? '' : `<button class="btn small" data-act="plango" data-g="${esc(JSON.stringify(task.go))}">Y aller</button>`}</div>`;
-    const panel = `<section class="panel"><div class="row" style="justify-content:space-between"><span class="eyebrow">Programme · semaine ${curW.n} sur 12</span><span class="note mono">${weeks.filter((w) => w.done).length}/12 semaines validées</span></div>
+    const panel = `<section class="panel"><div class="row" style="justify-content:space-between"><span class="eyebrow">Programme · semaine ${curW.n} sur ${weeks.length}</span><span class="note mono">${weeks.filter((w) => w.done).length}/${weeks.length} semaines validées</span></div>
       <h2>${esc(curW.title)}</h2><p class="note">${esc(curW.why)}</p><div class="meter"><i style="width:${curW.progress * 100}%"></i></div>
       <div style="display:grid;gap:8px">${curW.tasks.map(taskBtn).join('')}</div>
-      <div class="row"><button class="btn small" data-act="weeks">${showWeeks ? 'Masquer le programme' : 'Voir les 12 semaines'}</button></div>
+      <div class="row"><button class="btn small" data-act="weeks">${showWeeks ? 'Masquer le programme' : `Voir les ${weeks.length} semaines`}</button></div>
       ${showWeeks ? `<div class="tw"><table class="t"><tbody>${weeks.map((w) => `<tr><td class="mono">S${w.n}</td><td>${esc(w.title)}</td><td class="n">${w.done ? '<span class="pill good">validée</span>' : pct(w.progress)}</td></tr>`).join('')}</tbody></table></div>` : ''}</section>`;
     return baseJour().replace('<div class="grid3">', panel + '<div class="grid3">');
   };
@@ -396,7 +397,7 @@
     else if (k === 'guided') { gd = { id: v, k: 0, ans: {}, info: {} }; sub = 'guided'; go('sim'); }
     else if (k === 'sim') { sub = v; go('sim'); }
     else if (k === 'tab') go(v);
+    else if (k === 'trainer') { X.solverState.sub = 'train'; go('solveur'); }
   };
 
-  X.start();
-})();
+  })();

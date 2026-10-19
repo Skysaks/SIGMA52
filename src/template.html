@@ -167,6 +167,28 @@ details summary { cursor: pointer; }
 .rpseat .stk { font: 600 12px var(--f-mono); } .rpseat .bet { font: 600 12px var(--f-mono); background: var(--gold); color: #2B1608; border-radius: 999px; padding: 2px 8px; }
 .verdict:not(.good):not(.bad) { background: var(--sunk); }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* Solveur : couleurs d'actions (couché bleu ardoise, check/call vert, mises du rose au bordeaux, tapis presque noir). */
+:root { --act-f: #5B7EA6; --act-x: #3C9A63; --act-b1: #D9768E; --act-b2: #B23656; --act-b3: #851A33; --act-a: #3A0814; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --act-f: #6F93BD; --act-x: #47B176; --act-b1: #8E3550; --act-b2: #C24464; --act-b3: #EA6E8D; --act-a: #FFC2D0; } }
+:root[data-theme="dark"] { --act-f: #6F93BD; --act-x: #47B176; --act-b1: #8E3550; --act-b2: #C24464; --act-b3: #EA6E8D; --act-a: #FFC2D0; }
+.pbar { height: 8px; border-radius: 99px; background: var(--sunk); overflow: hidden; } .pbar i { display: block; height: 100%; background: var(--accent); transition: width .3s; }
+.sbar { display: flex; height: 14px; border-radius: 6px; overflow: hidden; background: var(--sunk); } .sbar.small { height: 10px; } .sbar i { display: block; height: 100%; }
+.crumbs { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; } .crumbs .chip { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; }
+.crumbs .cd.sm, .actrow .cd.sm, .combos .cd.sm, .cardpick .cd.sm, .note .cd.sm, .panel p .cd.sm { width: 24px; height: 32px; font-size: 12px; display: inline-grid; vertical-align: middle; } .crumbs .cd.sm i, .combos .cd.sm i, .cardpick .cd.sm i, .note .cd.sm i, .panel p .cd.sm i { font-size: 9px; }
+.cards.mini { display: inline-flex; gap: 2px; }
+.svgrid .rgrid { max-width: 560px; }
+.rc.sv { color: #fff; text-shadow: 0 1px 1px rgba(0,0,0,.45); } .rc.sv.lt { color: var(--ink); text-shadow: none; } .rc.sv.off { background: transparent; color: var(--line); text-shadow: none; cursor: default; border: 1px dashed var(--line); }
+.rc.sv.sel { outline: 2px solid var(--ink); outline-offset: 1px; }
+.actb { display: inline-flex; align-items: center; gap: 8px; } .actb .sw, .legend i, .mini-sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; }
+.mini-sw { width: 8px; height: 8px; margin-right: 4px; vertical-align: middle; }
+.bestev { color: var(--good) !important; font-weight: 600; }
+.cards.picks { gap: 4px; } .cardpick { border: 0; padding: 0; background: none; cursor: pointer; border-radius: 6px; } .cardpick:hover .cd { outline: 2px solid var(--accent); }
+table.sizes input { width: 100%; min-width: 70px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); color: var(--ink); }
+.svs .stat { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.18); color: var(--on-felt); } .svs .stat span { color: var(--on-felt); opacity: .8; } .svs .stat.hero { background: rgba(255,255,255,.18); border-color: #F2C9A0; }
+details.panel > summary { cursor: pointer; } details.panel[open] > summary { margin-bottom: 4px; }
+.painter { display: grid; gap: 10px; }
+table.combos td, table.combos th { white-space: nowrap; padding: 6px 8px; }
 </style>
 <header class="top"><div class="wrap">
   <div class="bar"><div class="brand"><span class="mark" aria-hidden="true">σ52</span><span><b>SIGMA 52</b><small>labo poker · hors table</small></span></div><span class="offline" id="saveState"></span></div>
@@ -182,6 +204,9 @@ details summary { cursor: pointer; }
 <script>/*__COURSE2__*/</script>
 <script>/*__COURSE3__*/</script>
 <script>/*__COURSE4__*/</script>
+<script>/*__COURSEE__*/</script>
+<script>/*__COURSEL__*/</script>
+<script>/*__COURSEX__*/</script>
 <script>/*__SPOTS__*/</script>
 <script>/*__BOARD__*/</script>
 <script>/*__HH__*/</script>
@@ -190,4 +215,10 @@ details summary { cursor: pointer; }
 <script>/*__GUIDED__*/</script>
 <script>/*__PLAN__*/</script>
 <script>/*__APP__*/</script>
+<script>/*__POSTFLOP__*/</script>
 <script>/*__APPSIM__*/</script>
+<script>/*__APPSOLVER__*/</script>
+<script>/*__APPTOOLS__*/</script>
+<script>/*__TRSPOTS__*/</script>
+<script>/*__APPTRAIN__*/</script>
+<script>window.__S52.start();</script>

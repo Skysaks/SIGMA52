@@ -1,12 +1,13 @@
-// Programme de 12 semaines : de débutant à joueur complet. Chaque tâche se coche toute seule à partir de ta progression.
+// Programme de 17 semaines : de débutant à joueur complet, jusqu'aux techniques Élite, au live et au métier. Chaque tâche se coche toute seule à partir de ta progression.
 // Types de tâches : mod (module maîtrisé au quiz), spot (maîtrise sur les 30 dernières réponses), guided (main guidée réussie),
-// table (mains jouées au simulateur), expresso (parties jouées), journal (sessions saisies), bankroll (bankroll renseignée), import (historique analysé).
+// table (mains jouées au simulateur), expresso (parties jouées), journal (sessions saisies), bankroll (bankroll renseignée), import (historique analysé),
+// solver (spots résolus au solveur), trainer (décisions river notées par l'entraîneur solveur).
 (function (root) {
   const W = [
     { title: 'Le cadre et les règles', why: 'Jouer légalement, sans erreur de règle ni de lecture de main.', tasks: [['mod', 'cadre'], ['mod', 'regles'], ['mod', 'mains'], ['spot', 'meilleure', 0.8, 20], ['bankroll']] },
     { title: 'Positions et ouvertures', why: 'La première source de gains : ouvrir les bonnes mains aux bonnes positions.', tasks: [['mod', 'positions'], ['mod', 'preflop'], ['spot', 'rfi', 0.85, 30], ['table', 50]] },
     { title: 'Les maths de base', why: 'Payer ou se coucher selon les cotes, plus jamais au feeling.', tasks: [['mod', 'maths'], ['spot', 'odds', 0.85, 30], ['spot', 'outs', 0.7, 20], ['guided', 'nitriver']] },
-    { title: 'Bankroll et jeu en ligne', why: 'Protéger ton capital et installer une routine.', tasks: [['mod', 'bankroll'], ['mod', 'online'], ['mod', 'live'], ['table', 150], ['journal', 1]] },
+    { title: 'Bankroll et jeu en ligne', why: 'Protéger ton capital et installer une routine.', tasks: [['mod', 'bankroll'], ['mod', 'online'], ['mod', 'online2'], ['mod', 'live'], ['table', 150], ['journal', 1]] },
     { title: 'Préflop complet', why: '3-bet, défense des blindes, squeeze : la moitié des erreurs des micro-limites.', tasks: [['mod', 'preflop2'], ['spot', 'vsopen', 0.8, 30], ['guided', 'squeeze'], ['guided', 'vsthreebet']] },
     { title: 'Postflop', why: 'Textures, continuation bet, plan de main sur trois rues.', tasks: [['mod', 'postflop'], ['mod', 'turnriver'], ['spot', 'tirage', 0.7, 20], ['guided', 'cbetdry'], ['guided', 'thinvalue']] },
     { title: 'Exploiter les fish', why: 'Ton argent vient d\'eux : valeur grosse, zéro bluff, isolation.', tasks: [['mod', 'fish'], ['mod', 'adversaires'], ['guided', 'iso3'], ['guided', 'nobluff'], ['guided', 'maniac'], ['table', 300]] },
@@ -14,6 +15,11 @@
     { title: 'Formats et tapis courts', why: 'Le format le plus joué en France : Sit&Go et Expresso.', tasks: [['mod', 'formats'], ['mod', 'icm'], ['mod', 'expresso'], ['spot', 'pushfold', 0.85, 30], ['guided', 'expresso'], ['guided', 'bubble'], ['expresso', 10]] },
     { title: 'Théorie, ranges, tailles', why: 'Penser en ranges et connaître l\'équilibre pour mieux s\'en écarter.', tasks: [['mod', 'theorie'], ['mod', 'ranges'], ['mod', 'sizing'], ['guided', 'semibluff'], ['guided', 'multiway']] },
     { title: 'Lecture de mains et étude', why: 'Analyser tes propres mains comme un pro.', tasks: [['mod', 'lecture'], ['mod', 'multiway'], ['mod', 'mtt'], ['mod', 'etude'], ['import']] },
+    { title: 'Solveurs et défense minimale', why: 'Comprendre l\'équilibre pour savoir quand et comment s\'en écarter.', tasks: [['mod', 'solveurs'], ['mod', 'mdf'], ['spot', 'mdf', 0.8, 30], ['solver', 3]] },
+    { title: 'Bloqueurs et stratégie de flop', why: 'Choisir ses bluffs, sa taille de c-bet et sa défense hors de position.', tasks: [['mod', 'bloqueurs'], ['mod', 'avantage'], ['mod', 'oopplay'], ['spot', 'combos', 0.8, 30], ['solver', 8]] },
+    { title: 'Turn, river, profondeur, exploitation', why: 'Les décisions qui pèsent le plus lourd en bb, et comment exploiter la population.', tasks: [['mod', 'barrels'], ['mod', 'deep'], ['mod', 'exploitpop'], ['mod', 'hud'], ['trainer', 30]] },
+    { title: 'Tables physiques', why: 'Jouer en casino ou en club sans erreur de procédure, avec une stratégie live.', tasks: [['mod', 'live_debut'], ['mod', 'live_regles'], ['mod', 'live_strat'], ['mod', 'live_tells'], ['mod', 'live_table'], ['mod', 'live_mtt']] },
+    { title: 'Tournois avancés et performance', why: 'Prime de risque ICM, PKO, et le mental qui protège ton winrate.', tasks: [['mod', 'icm2'], ['mod', 'perf'], ['spot', 'bounty', 0.8, 20], ['trainer', 60], ['journal', 10]] },
     { title: 'Le métier', why: 'Économie du joueur, carrière, fiscalité : décider lucidement.', tasks: [['mod', 'marche'], ['mod', 'economie'], ['mod', 'carriere'], ['mod', 'staking'], ['mod', 'business'], ['mod', 'fiscal'], ['mod', 'integrite'], ['mod', 'longevite'], ['mod', 'progression']] },
   ];
 
@@ -27,6 +33,8 @@
     if (kind === 'expresso') { const n = p.expresso?.games || 0; return { done: n >= a, label: `${a} parties d'Expresso simulées`, progress: Math.min(1, n / a), go: ['sim', 'expresso'] }; }
     if (kind === 'journal') { const n = st.journal.sessions.length; return { done: n >= a, label: `${a} session${a > 1 ? 's' : ''} réelle${a > 1 ? 's' : ''} saisie${a > 1 ? 's' : ''} dans le Journal`, progress: Math.min(1, n / a), go: ['tab', 'journal'] }; }
     if (kind === 'bankroll') { const ok = +st.settings.bankroll0 > 0; return { done: ok, label: 'Bankroll de départ renseignée dans le Journal', progress: ok ? 1 : 0, go: ['tab', 'journal'] }; }
+    if (kind === 'solver') { const n = p.solves || 0; return { done: n >= a, label: `${a} spots résolus et étudiés au solveur (cumul)`, progress: Math.min(1, n / a), go: ['tab', 'solveur'] }; }
+    if (kind === 'trainer') { const n = p.trainer?.n || 0; return { done: n >= a, label: `${a} décisions river notées par l'entraîneur solveur (cumul)`, progress: Math.min(1, n / a), go: ['trainer', 1] }; }
     if (kind === 'import') { const ok = !!st.notes.lastImport; return { done: ok, label: 'Tes historiques analysés au moins une fois', progress: ok ? 1 : 0, go: ['tab', 'analyse'] }; }
     return { done: false, label: kind, progress: 0, go: null };
   }

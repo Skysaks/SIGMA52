@@ -2,7 +2,7 @@
 (function (root) {
   function register(K) {
     K.mod({
-      id: 'marche', level: 4, title: 'Le marché français du poker', minutes: 12, drill: 'situations',
+      id: 'marche', level: 6, title: 'Le marché français du poker', minutes: 12, drill: 'situations',
       goals: ['Connaître la taille et la structure du marché', 'Comprendre d\'où viennent les joueurs récréatifs', 'En tirer un choix de format et de room'],
       sections: [
         ['Les chiffres 2025 (ANJ)', `<table class="t"><thead><tr><th>Indicateur</th><th>2025</th><th>Évolution</th></tr></thead><tbody>
@@ -30,7 +30,7 @@
     });
 
     K.mod({
-      id: 'economie', level: 4, title: 'Économie du joueur : taux horaire, rake, volume', minutes: 14, drill: 'situations',
+      id: 'economie', level: 6, title: 'Économie du joueur : taux horaire, rake, volume', minutes: 14, drill: 'situations',
       goals: ['Calculer un taux horaire réaliste', 'Mesurer le poids du rake et de la fidélité', 'Comprendre pourquoi la limite compte plus que le winrate'],
       sections: [
         ['Du winrate au taux horaire', `<p class="formula">Taux horaire = winrate (bb/100) × mains par heure ÷ 100 × valeur de la bb</p>
@@ -53,7 +53,7 @@
     });
 
     K.mod({
-      id: 'carriere', level: 4, title: 'Devenir pro : prérequis et plan', minutes: 14, drill: 'situations',
+      id: 'carriere', level: 6, title: 'Devenir pro : prérequis et plan', minutes: 14, drill: 'situations',
       goals: ['Savoir quels critères chiffrés justifient de passer pro', 'Dimensionner bankroll et fonds de vie', 'Choisir entre pro, semi-pro et loisir sérieux'],
       sections: [
         ['Les critères avant de franchir le pas', `<ol>
@@ -75,7 +75,7 @@
     });
 
     K.mod({
-      id: 'staking', level: 4, title: 'Staking, backing, markup, makeup', minutes: 12, drill: 'situations',
+      id: 'staking', level: 6, title: 'Staking, backing, markup, makeup', minutes: 12, drill: 'situations',
       goals: ['Comprendre un contrat de staking', 'Calculer si un markup est rentable', 'Éviter les pièges du makeup'],
       sections: [
         ['Le principe', `<p>Un <strong>backer</strong> finance tout ou partie des buy-ins d'un joueur contre une part des gains. Le joueur apporte son talent et son temps, le backer le capital et le risque de perte. Les accords vont d'un tournoi isolé à des centaines sur une année.</p>`],
@@ -93,7 +93,7 @@
     });
 
     K.mod({
-      id: 'business', level: 4, title: 'Revenus annexes : coaching, contenu, sponsoring', minutes: 11, drill: 'situations',
+      id: 'business', level: 6, title: 'Revenus annexes : coaching, contenu, sponsoring', minutes: 11, drill: 'situations',
       goals: ['Évaluer les activités qui complètent les gains de jeu', 'Connaître les règles françaises sur la promotion des jeux d\'argent'],
       sections: [
         ['Coaching', `<p>Vendre ce que tu sais à des joueurs de limites inférieures. Prérequis : des résultats vérifiables et une méthode. Un coaching sérieux se vend sur la progression mesurable de l'élève (taux de réussite, fuites corrigées), pas sur une promesse de gains.</p>`],
@@ -110,7 +110,7 @@
     });
 
     K.mod({
-      id: 'fiscal', level: 4, title: 'Fiscalité et statut du pro en France', minutes: 10, drill: 'situations',
+      id: 'fiscal', level: 6, title: 'Fiscalité et statut du pro en France', minutes: 10, drill: 'situations',
       goals: ['Savoir quand les gains deviennent imposables', 'Connaître le régime BNC et ses seuils', 'Organiser sa comptabilité dès le départ'],
       sections: [
         ['Le principe', `<p>Les gains d'un joueur occasionnel ne sont pas imposables. Depuis la décision du Conseil d'État de 2018, les gains tirés de la pratique <strong>habituelle</strong> d'un jeu opposant des joueurs, où le savoir-faire maîtrise l'aléa et qui rapporte des revenus significatifs, sont imposables en <strong>bénéfices non commerciaux (BNC)</strong>, même si tu exerces une autre activité. Des cours administratives ont déjà requalifié des joueurs réguliers en ligne.</p>`],
@@ -129,7 +129,7 @@
     });
 
     K.mod({
-      id: 'integrite', level: 4, title: 'Intégrité : triche, détection, protection', minutes: 9, drill: 'situations',
+      id: 'integrite', level: 6, title: 'Intégrité : triche, détection, protection', minutes: 9, drill: 'situations',
       goals: ['Reconnaître les formes de triche', 'Savoir comment les rooms détectent', 'Protéger son compte et sa réputation'],
       sections: [
         ['Les formes de triche', `<ul><li><strong>RTA</strong> : solveur ou IA consultés pendant la main.</li><li><strong>Collusion</strong> : partage d'informations entre joueurs d'une même table.</li><li><strong>Chip dumping</strong> : perdre volontairement des jetons à un complice.</li><li><strong>Bots</strong> et <strong>multi-comptes</strong>.</li></ul>`],
@@ -144,7 +144,7 @@
     });
 
     K.mod({
-      id: 'longevite', level: 4, title: 'Durer : santé, routine, sortie', minutes: 9, drill: 'situations',
+      id: 'longevite', level: 6, title: 'Durer : santé, routine, sortie', minutes: 9, drill: 'situations',
       goals: ['Construire une routine soutenable', 'Repérer les signaux d\'un jeu qui devient problématique', 'Préparer l\'après'],
       sections: [
         ['La routine soutenable', `<p>Horaires fixes, sommeil régulier, activité physique, pauses programmées, jours sans jeu. Le poker est un sport de décisions : la fatigue et l'isolement coûtent des bb/100 bien avant d'être ressentis.</p>`],
@@ -160,7 +160,7 @@
     });
 
     K.mod({
-      id: 'progression', level: 4, title: 'Plan de progression : de débutant à pro', minutes: 8, drill: 'situations',
+      id: 'progression', level: 6, title: 'Plan de progression : de débutant à pro', minutes: 8, drill: 'situations',
       goals: ['Suivre des étapes mesurables', 'Savoir à quel moment passer à l\'étape suivante'],
       sections: [
         ['Les étapes', `<table class="t"><thead><tr><th>Étape</th><th>Contenu</th><th>Critère de passage</th></tr></thead><tbody>

@@ -17,14 +17,14 @@ const SHOTS = process.env.SHOTS || '';
     const has = async (sel) => (await p.locator(sel).count()) > 0;
 
     // Aujourd'hui + programme
-    if (!(await has('text=Programme · semaine 1 sur 12'))) errs.push(name + ' programme absent');
+    if (!(await has('text=Programme · semaine 1 sur 17'))) errs.push(name + ' programme absent');
     await p.click('[data-act=weeks]'); await over('jour'); await shot('jour');
     await p.click('[data-act=plango] >> nth=0'); await p.waitForTimeout(60); await tab('jour');
 
     // Spots (dont le nouveau type) + révisions
     await p.click('[data-act=daily]');
     for (let i = 0; i < 12; i++) { await p.click('[data-act=ans]'); await p.waitForSelector('.verdict'); await p.click('[data-act=next]'); }
-    for (const m of ['rfi', 'vsopen', 'odds', 'tirage', 'pushfold', 'outs', 'meilleure', 'situations']) { await p.click(`[data-mode=${m}]`); await p.click('[data-act=ans]'); await p.waitForSelector('.verdict'); await over('spots-' + m); }
+    for (const m of ['rfi', 'vsopen', 'odds', 'tirage', 'pushfold', 'outs', 'meilleure', 'situations', 'mdf', 'combos', 'bounty']) { await p.click(`[data-mode=${m}]`); await p.click('[data-act=ans]'); await p.waitForSelector('.verdict'); await over('spots-' + m); }
     const prog = await p.evaluate(() => JSON.parse(localStorage.getItem('sigma52.progress')));
     if (prog.daily.done !== 10) errs.push(name + ' compteur du jour ' + prog.daily.done);
     await p.evaluate(() => { const pr = JSON.parse(localStorage.getItem('sigma52.progress')); pr.review.forEach((r) => (r.due = '2000-01-01')); localStorage.setItem('sigma52.progress', JSON.stringify(pr)); });
@@ -32,8 +32,9 @@ const SHOTS = process.env.SHOTS || '';
 
     // Cours : quelques modules et leurs quiz
     await tab('cours');
-    if ((await p.locator('.mod').count()) !== 35) errs.push(name + ' modules');
-    for (const i of [0, 5, 20, 34]) {
+    if ((await p.locator('.mod').count()) !== 53) errs.push(name + ' modules ' + (await p.locator('.mod').count()));
+    for (let i = 0; i < 53; i++) { await p.locator('.mod').nth(i).click(); await over('module ' + i); await p.click('[data-act=closemod]'); }
+    for (const i of [0, 5, 20, 30, 38, 52]) {
       await p.locator('.mod').nth(i).click(); await over('module ' + i);
       const nq = await p.locator('[data-act=qans][data-i="0"]').count();
       for (let q = 0; q < nq; q++) await p.click(`[data-act=qans][data-q="${q}"][data-i="0"]`);
@@ -88,6 +89,35 @@ const SHOTS = process.env.SHOTS || '';
     const xps = await p.evaluate(() => JSON.parse(localStorage.getItem('sigma52.progress')).expresso.games);
     if (xps !== 1) errs.push(name + ' compteur Expresso ' + xps);
 
+    // Solveur : river exacte, navigation, ta main ; turn puis re-résolution exacte d'une river
+    await tab('solveur');
+    await p.fill('[data-svf=board]', 'Ks7d2c9h4s'); await p.press('[data-svf=board]', 'Tab'); await p.waitForTimeout(100);
+    await p.fill('[data-svf=hero]', 'AhKc'); await p.press('[data-svf=hero]', 'Tab');
+    await over('solveur-prep'); await shot('solveur-prep');
+    await p.click('[data-act=svgo]'); await p.waitForSelector('[data-act=svact]', { timeout: 60000 });
+    if (!(await has('text=Ta main'))) errs.push(name + ' solveur : ta main absente');
+    await p.locator('[data-act=svact]').first().click(); await p.waitForSelector('[data-act=svact]');
+    await p.locator('.rc.sv:not(.off)').first().click(); await p.waitForSelector('table.combos');
+    await over('solveur-river'); await shot('solveur-river');
+    await p.click('[data-act=svpath][data-k="0"]');
+    await p.locator('details.panel summary').first().click();
+    await p.fill('[data-svf=board]', 'Ks7d2c9h'); await p.press('[data-svf=board]', 'Tab'); await p.waitForTimeout(100);
+    await p.click('[data-act=svpreset][data-v=fast]'); await p.click('[data-act=svgo]'); await p.waitForSelector('[data-act=svact]', { timeout: 120000 });
+    await p.locator('[data-act=svact]').first().click(); await p.waitForSelector('[data-act=svact]');
+    await p.locator('[data-act=svact]').first().click(); await p.waitForSelector('[data-act=svcard]');
+    await over('solveur-cartes'); await p.locator('[data-act=svcard]').first().click(); await p.waitForSelector('[data-act=svresolve]');
+    await p.click('[data-act=svresolve]'); await p.waitForSelector('[data-act=svact]', { timeout: 60000 });
+    if (!(await has('text=Ranges reprises du solve précédent'))) errs.push(name + ' re-résolution sans note');
+    await over('solveur-resolve');
+    // Entraîneur
+    await p.click('[data-act=svsub][data-s=train]'); await p.click('[data-act=trnew]'); await p.waitForSelector('[data-act=trans]', { timeout: 60000 });
+    await p.locator('[data-act=trans]').first().click(); await p.waitForSelector('.verdict');
+    await over('entraineur'); await shot('entraineur');
+    await p.click('[data-act=tropen]'); await p.waitForSelector('[data-act=svact],[data-act=svcard]');
+    const trn = await p.evaluate(() => JSON.parse(localStorage.getItem('sigma52.progress')).trainer.n);
+    if (trn !== 1) errs.push(name + ' compteur entraîneur ' + trn);
+    await p.click('[data-act=svsub][data-s=help]'); await over('solveur-aide');
+
     // Outils : équité, board, push/fold, nouveaux outils
     await tab('outils');
     await p.click('[data-act=eqex][data-i="1"]');
@@ -98,6 +128,9 @@ const SHOTS = process.env.SHOTS || '';
     await over('distribution'); await shot('distribution');
     await p.click('[data-t=deal]'); if (!(await has('text=Répartition proposée'))) errs.push(name + ' deal ICM'); await over('deal');
     await p.click('[data-t=memo]'); await over('memo');
+    await p.click('[data-t=maths]'); if (!(await has('text=Équité requise pour payer'))) errs.push(name + ' outil calculs'); await over('maths');
+    await p.click('[data-t=bloq]'); if (!(await has('text=Combos adverses'))) errs.push(name + ' outil bloqueurs'); await over('bloq');
+    await p.click('[data-t=pko]'); if (!(await has('text=Range de call avec la prime'))) errs.push(name + ' outil PKO'); await over('pko'); await shot('pko');
 
     // Analyse : exemple simulé, rejouer un gros pot
     await tab('analyse'); await p.click('[data-act=ansub][data-s=import]'); await p.click('[data-act=ansample]'); await p.waitForSelector('text=Exemple simulé');
@@ -106,6 +139,10 @@ const SHOTS = process.env.SHOTS || '';
     await p.locator('[data-act=rppot]').first().click();
     if (!(await has('[data-act=rpgo]'))) errs.push(name + ' replayer depuis analyse');
     await over('analyse-replay');
+    for (let k = 0; k < 12; k++) await p.keyboard.press('ArrowRight');
+    await p.click('[data-act=rp2solver]'); await p.waitForTimeout(150);
+    if (!(await has('text=Main importée')) && !(await has('text=deux joueurs'))) errs.push(name + ' import replayer vers solveur');
+    await over('replay-solveur'); await shot('replay-solveur');
 
     // Journal
     await tab('journal');

@@ -7,6 +7,7 @@
 
   const TYPES = {
     rfi: 'Ouverture', vsopen: 'Face à une ouverture', odds: 'Cotes du pot', tirage: 'Tirage au turn', pushfold: 'Tapis ou couché', outs: 'Compter les outs', meilleure: 'Meilleure main', situations: 'Situations',
+    mdf: 'MDF et ratios', combos: 'Combos et bloqueurs', bounty: 'Primes PKO',
   };
   const pick = (a, r) => a[(r() * a.length) | 0];
   const pct = (x) => (x * 100).toFixed(1).replace('.', ',') + ' %';
@@ -202,7 +203,77 @@
     return { type: 'situations', title: 'Situation · ' + s.cat, prompt: s.q, opts: s.opts, ok: s.ok, why: s.why, sid: s.id };
   }
 
-  const GEN = { rfi, vsopen, odds, tirage, pushfold, outs: outsSpot, meilleure, situations: situation };
+
+  // MDF, équité requise, part de bluffs : formules du module Élite « Défense minimale ».
+  const fmtp = (x) => (Math.round(x * 1000) / 10).toString().replace('.', ',') + ' %';
+  // Trois options triées dont la bonne réponse occupe une position tirée au hasard. Distracteurs : erreurs de formule
+  // typiques (bad) en priorité, complétées par des valeurs voisines. gap = écart minimal, step = pas des valeurs voisines.
+  function place(r, good, bad, gap, step, min = 0, max = Infinity) {
+    const R = gap >= 1 ? Math.round : (x) => x;
+    const k = (r() * 3) | 0, lo = [], hi = [];
+    const ok = (x, arr) => x >= min && x <= max && Math.abs(x - good) >= gap && arr.every((y) => Math.abs(y - x) >= gap);
+    for (const b of bad.slice().sort(() => r() - 0.5)) { if (b < good && lo.length < k && ok(b, lo)) lo.push(b); else if (b > good && hi.length < 2 - k && ok(b, hi)) hi.push(b); }
+    for (let i = 1; lo.length < k && i < 40; i++) { const x = R(good - step * (i + r())); if (ok(x, lo)) lo.push(x); }
+    for (let i = 1; hi.length < 3 - lo.length - 1 && i < 60; i++) { const x = R(good + step * (i + r())); if (ok(x, hi)) hi.push(x); } // borne basse atteinte : on complète vers le haut
+    const vals = [...lo, good, ...hi].sort((a, b) => a - b);
+    return { vals, ok: vals.indexOf(good) };
+  }
+  const threeOpts = (r, good, bad) => { const p = place(r, good, bad, 0.02, 0.06, 0.01, 0.99); return { opts: p.vals.map(fmtp), ok: p.ok }; };
+  function mdf(r) {
+    const P = pick([20, 30, 40, 50, 60, 80, 100, 120, 150, 200], r), f = pick([0.25, 0.33, 0.5, 0.66, 0.75, 1, 1.5, 2], r), B = Math.round(P * f);
+    const alpha = B / (P + B), md = P / (P + B), need = B / (P + 2 * B), kind = pick(['need', 'mdf', 'bluff', 'ratio'], r);
+    const head = `River. Pot de <strong>${P} bb</strong>, mise de <strong>${B} bb</strong> (${Math.round(B / P * 100)} % du pot).`;
+    if (kind === 'ratio') {
+      const v = pick([6, 8, 9, 10, 12, 14, 15, 18, 20], r), bl = Math.round(v * need / (1 - need));
+      const pl = place(r, bl, [Math.round(v * alpha / (1 - alpha)), Math.round(v / 2), v], 1, 1, 0);
+      return { type: 'mdf', title: 'Construire une range de mise river', prompt: `${head} Tu as <strong>${v} combos de valeur</strong> dans ta range de mise. Combien de bluffs pour être équilibré ?`, opts: pl.vals.map((x) => String(Math.round(x))), ok: pl.ok,
+        why: `Part de bluffs à l'équilibre = B ÷ (P + 2B) = ${B} ÷ ${P + 2 * B} = ${fmtp(need)}. Bluffs = valeur × part ÷ (1 − part) = ${v} × ${fmtp(need)} ÷ ${fmtp(1 - need)} ≈ ${bl}.` };
+    }
+    const lowWrong = B / (2 * (P + B)); // erreur fréquente : diviser la mise par le pot total puis par deux
+    const q = { need: ['Équité requise pour payer ?', need, r() < 0.5 ? [alpha, lowWrong] : [alpha, B / (P + 3 * B)], `B ÷ (P + 2B) = ${B} ÷ ${P + 2 * B} = ${fmtp(need)}.`],
+      mdf: ['Défense minimale (MDF) de ta range ?', md, [alpha, 1 - need], `P ÷ (P + B) = ${P} ÷ ${P + B} = ${fmtp(md)}.`],
+      bluff: ['Part de bluffs d\'une range de mise équilibrée ?', need, r() < 0.5 ? [alpha, lowWrong] : [alpha, B / (P + 3 * B)], `À la river, la part de bluffs équilibrée égale l'équité requise du défenseur : B ÷ (P + 2B) = ${fmtp(need)}.`] }[kind];
+    const o = threeOpts(r, q[1], q[2]);
+    return { type: 'mdf', title: 'MDF et cotes', prompt: `${head} ${q[0]}`, opts: o.opts, ok: o.ok, why: q[3] };
+  }
+
+  // Combos et bloqueurs : compter les combinaisons d'une main en tenant compte du board et de tes cartes.
+  function combos(r) {
+    for (let k = 0; k < 60; k++) {
+      const board = deal(3, r), hero = deal(2, r, board), dead = [...board, ...hero];
+      const pool = [...board, ...hero].map((c) => c >> 2);
+      const a = pick(pool, r), b = r() < 0.35 ? a : pick([...pool, (r() * 13) | 0], r);
+      const hi = Math.max(a, b), lo = Math.min(a, b);
+      const suited = hi !== lo && r() < 0.25;
+      const h = E.RANKS[hi] + E.RANKS[lo] + (hi === lo ? '' : suited ? 's' : '');
+      const all = hi === lo ? E.combos(h) : suited ? E.combos(h) : E.combos(h + 's').concat(E.combos(h + 'o'));
+      const n = all.filter(([x, y]) => !dead.includes(x) && !dead.includes(y)).length;
+      const nb = all.filter(([x, y]) => !board.includes(x) && !board.includes(y)).length;
+      const full = all.length;
+      if (n === nb && n === full) continue; // aucun effet de carte : peu instructif
+      const pl = place(r, n, [nb, full], 1, 1, 0), cand = pl.vals.map((x) => Math.round(x));
+      const label = hi === lo ? `de paire de ${E.RANKS[hi].replace('T', '10')} (${h})` : `de ${h}${suited ? '' : ' (assorties et dépareillées)'}`;
+      return { type: 'combos', title: 'Compter les combos', prompt: `Board <strong>${board.map(E.cardStr).join(' ')}</strong>. Tu tiens <strong>${hero.map(E.cardStr).join(' ')}</strong>. Combien de combos ${label} ton adversaire peut-il avoir ?`,
+        cards: hero, board, opts: cand.map(String), ok: pl.ok,
+        why: `${full} combos au départ, ${nb} après les cartes du board, ${n} après tes propres cartes. ${hi === lo ? 'Paire : cartes restantes du rang, prises deux à deux (4 → 6, 3 → 3, 2 → 1).' : suited ? 'Assortie : une combinaison par couleur où les deux cartes sont encore disponibles.' : 'Non appariée : cartes restantes du premier rang × cartes restantes du second.'}` };
+    }
+    return mdf(r);
+  }
+
+  // PKO : prime ajoutée au pot pour un call à tapis contre un joueur couvert.
+  function bounty(r) {
+    const S0 = 10000, bb = pick([100, 200, 300, 400], r), shove = bb * pick([6, 8, 10, 12, 15], r);
+    const stage = pick([[0.25, 'début de tournoi'], [0.3, 'milieu de tournoi'], [0.4, 'fin de tournoi']], r);
+    const mult = pick([1, 1, 1.5, 2], r), prime = Math.round(S0 * stage[0] * mult / 50) * 50;
+    const dead = Math.round(bb * 1.5 + bb), call = shove - bb, need = call / (call + shove + dead + prime), needNo = call / (call + shove + dead);
+    const o = threeOpts(r, need, [needNo, call / (call + shove + dead + 2 * prime)]);
+    return { type: 'bounty', title: 'PKO : la prime dans les cotes',
+      prompt: `PKO, tapis de départ ${S0.toLocaleString('fr-FR')}, ${stage[1]}. Blindes ${bb / 2}/${bb} avec ante de grosse blinde (${bb}). Le bouton pousse <strong>${shove.toLocaleString('fr-FR')}</strong> ; tu es BB et tu le couvres. Sa prime encaissable vaut environ <strong>${prime.toLocaleString('fr-FR')} jetons</strong>${mult > 1 ? ' (sa prime a grossi)' : ''}. Équité requise pour payer ?`,
+      opts: o.opts, ok: o.ok,
+      why: `Ne compte que la part encaissée de la prime, pas la prime entière. À payer : ${call.toLocaleString('fr-FR')}. À gagner : son tapis ${shove.toLocaleString('fr-FR')} + blindes et ante ${dead.toLocaleString('fr-FR')} + prime ${prime.toLocaleString('fr-FR')}. Équité requise = ${call.toLocaleString('fr-FR')} ÷ ${(call + shove + dead + prime).toLocaleString('fr-FR')} = ${fmtp(need)} (sans la prime : ${fmtp(needNo)}).` };
+  }
+
+  const GEN = { rfi, vsopen, odds, tirage, pushfold, outs: outsSpot, meilleure, situations: situation, mdf, combos, bounty };
   // Mix : favorise les types les moins réussis (stats = { type: { ok, n } }).
   function mix(r, stats = {}) {
     const types = Object.keys(GEN), w = types.map((t) => { const s = stats[t] || { ok: 0, n: 0 }; return 1.5 - (s.ok + 1) / (s.n + 2); });

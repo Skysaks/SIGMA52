@@ -1,17 +1,29 @@
 // Cours A-Z. Chaque module : id, titre, durée de lecture estimée, sections HTML, exercice lié.
 (function (root) {
-  // Le cours est réparti en 4 niveaux (fichiers course_l1.js à course_l4.js).
+  // Le cours est réparti en 6 niveaux : course_l1.js à course_l3.js (niveaux 1 à 3), course_elite.js (4), course_live.js (5),
+  // course_l4.js (6, le métier), plus course_extra.js (module en ligne avancé et compléments des modules courts).
   // Module : { id, level, title, minutes, drill, goals[], sections[[titre, html]], mistakes[], keys[], quiz[[question, options, index juste, explication]] }
   const LEVELS = [
     { n: 1, title: 'Fondations', sub: 'Jouer sans erreurs grossières' },
     { n: 2, title: 'Joueur gagnant', sub: 'Battre les micro-limites' },
     { n: 3, title: 'Avancé', sub: 'Théorie, ranges, tournois' },
-    { n: 4, title: 'Professionnel', sub: 'Le métier et le marché' },
+    { n: 4, title: 'Élite', sub: 'Les techniques de haut niveau' },
+    { n: 5, title: 'Tables physiques', sub: 'Casinos, clubs et festivals' },
+    { n: 6, title: 'Professionnel', sub: 'Le métier et le marché' },
   ];
   const M = [];
   // Durée calculée : lecture à 180 mots par minute + 40 secondes par question de quiz.
   const words = (m) => m.sections.map((s) => s[1]).concat(m.goals, m.mistakes, m.keys).join(' ').replace(/<[^>]+>/g, ' ').split(/\s+/).filter(Boolean).length;
-  const mod = (m) => { m.quiz = (m.quiz || []).map(([q, opts, ok, why]) => ({ q, opts, ok, why })); m.minutes = Math.max(3, Math.round(words(m) / 180 + m.quiz.length * 0.7)); M.push(m); };
+  const minutes = (m) => Math.max(3, Math.round(words(m) / 180 + m.quiz.length * 0.7));
+  const qz = (l) => (l || []).map(([q, opts, ok, why]) => ({ q, opts, ok, why }));
+  // Insertion triée par niveau (ordre de lecture), stable à l'intérieur d'un niveau.
+  const mod = (m) => { m.quiz = qz(m.quiz); m.minutes = minutes(m); let i = M.length; while (i > 0 && M[i - 1].level > m.level) i--; M.splice(i, 0, m); };
+  // Complète un module existant (sections, quiz, erreurs, points clés).
+  const extend = (id, x) => {
+    const m = M.find((y) => y.id === id); if (!m) throw new Error('Module inconnu : ' + id);
+    if (x.sections) m.sections.push(...x.sections); if (x.mistakes) m.mistakes.push(...x.mistakes); if (x.keys) m.keys.push(...x.keys);
+    if (x.quiz) m.quiz.push(...qz(x.quiz)); m.minutes = minutes(m);
+  };
 
   // Lexique : les termes que tu entendras aux tables et dans les contenus, en français et en anglais.
   const GLOSSARY = [
@@ -122,7 +134,7 @@
     ['Légal', 'Utiliser le HUD intégré de Winamax pendant le jeu. C\'est…', ['Autorisé', 'Interdit'], 0, 'Le HUD intégré est fourni par la room. Les HUD dynamiques de logiciels tiers, eux, sont interdits chez Winamax.'],
   ].map(([cat, q, opts, ok, why], i) => ({ id: 's' + i, cat, q, opts, ok, why }));
 
-  const api = { MODULES: M, SITUATIONS: S, LEVELS, GLOSSARY, mod };
-  if (typeof module !== 'undefined' && module.exports) { module.exports = api; [1, 2, 3, 4].forEach((n) => require('./course_l' + n + '.js')(api)); }
+  const api = { MODULES: M, SITUATIONS: S, LEVELS, GLOSSARY, mod, extend };
+  if (typeof module !== 'undefined' && module.exports) { module.exports = api; ['l1', 'l2', 'l3', 'l4', 'elite', 'live', 'extra'].forEach((n) => require('./course_' + n + '.js')(api)); }
   else root.Course = api;
 })(typeof window !== 'undefined' ? window : globalThis);
