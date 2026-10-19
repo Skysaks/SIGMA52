@@ -6,14 +6,14 @@ const SHOTS = process.env.SHOTS || '';
   const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' }).catch(() => chromium.launch());
   const errs = [];
   for (const [name, vp, scheme] of [['desk', { width: 1280, height: 900 }, 'light'], ['mob', { width: 390, height: 844 }, 'dark']]) {
-    const p = await b.newPage({ viewport: vp, colorScheme: scheme });
+    const p = await b.newPage({ viewport: vp, colorScheme: scheme, acceptDownloads: true });
     p.on('pageerror', (e) => errs.push(name + ' ' + e.message));
     p.on('console', (m) => m.type() === 'error' && !/fonts\.g|ERR_TUNNEL|ERR_PROXY/.test(m.text()) && errs.push(name + ' console ' + m.text()));
     await p.goto('file://' + path.resolve(__dirname, '../sigma52.html'));
     await p.waitForTimeout(300);
     const over = async (t) => { const [sw, iw] = await p.evaluate(() => [document.documentElement.scrollWidth, innerWidth]); if (sw > iw + 1) errs.push(`${name} ${t} débordement ${sw}>${iw}`); };
     const shot = async (t) => { if (SHOTS) await p.screenshot({ path: `${SHOTS}/${name}-${t}.png`, fullPage: true }); };
-    const tab = async (t) => { await p.click(`[data-tab=${t}]`); await p.waitForTimeout(60); };
+    const tab = async (t) => { await p.evaluate((x) => window.__S52.go(x), t); await p.waitForTimeout(60); };
     const has = async (sel) => (await p.locator(sel).count()) > 0;
 
     // Aujourd'hui + programme
@@ -32,9 +32,9 @@ const SHOTS = process.env.SHOTS || '';
 
     // Cours : quelques modules et leurs quiz
     await tab('cours');
-    if ((await p.locator('.mod').count()) !== 53) errs.push(name + ' modules ' + (await p.locator('.mod').count()));
-    for (let i = 0; i < 53; i++) { await p.locator('.mod').nth(i).click(); await over('module ' + i); await p.click('[data-act=closemod]'); }
-    for (const i of [0, 5, 20, 30, 38, 52]) {
+    if ((await p.locator('.mod').count()) !== 55) errs.push(name + ' modules ' + (await p.locator('.mod').count()));
+    for (let i = 0; i < 55; i++) { await p.locator('.mod').nth(i).click(); await over('module ' + i); await p.click('[data-act=closemod]'); }
+    for (const i of [0, 5, 20, 30, 38, 54]) {
       await p.locator('.mod').nth(i).click(); await over('module ' + i);
       const nq = await p.locator('[data-act=qans][data-i="0"]').count();
       for (let q = 0; q < nq; q++) await p.click(`[data-act=qans][data-q="${q}"][data-i="0"]`);
@@ -117,6 +117,39 @@ const SHOTS = process.env.SHOTS || '';
     const trn = await p.evaluate(() => JSON.parse(localStorage.getItem('sigma52.progress')).trainer.n);
     if (trn !== 1) errs.push(name + ' compteur entraîneur ' + trn);
     await p.click('[data-act=svsub][data-s=help]'); await over('solveur-aide');
+
+    // Champions : briefing, session de 25 mains en tête-à-tête, rapport ; défi mystère ; classement
+    await tab('champions'); await p.click('[data-act=chsel][data-id=ivey]'); await p.waitForSelector('.brief');
+    await over('champions'); await shot('champions');
+    await p.click('[data-act=chtarget][data-v="25"]'); await p.click('[data-act=chplay]');
+    let cg = 0;
+    while (!(await has('text=Rapport d\'adaptation')) && cg++ < 300) {
+      if (await has('[data-act=hcall]')) await p.click('[data-act=hcall]'); else if (await has('[data-act=cashnext]')) await p.click('[data-act=cashnext]'); else break;
+    }
+    if (!(await has('text=Rapport d\'adaptation'))) errs.push(name + ' rapport champion absent');
+    await over('champion-rapport');
+    await tab('champions'); await p.click('[data-act=chsub][data-s=mystery]'); await p.click('[data-act=chmyst]');
+    cg = 0; while (!(await has('[data-act=chguess]')) && cg++ < 400) { if (await has('[data-act=hcall]')) await p.click('[data-act=hcall]'); else if (await has('[data-act=cashnext]')) await p.click('[data-act=cashnext]'); else break; }
+    if (!(await has('[data-act=chguess]'))) errs.push(name + ' défi mystère sans choix final');
+    else { await p.locator('[data-act=chguess]').first().click(); if (!(await has('text=C\'était'))) errs.push(name + ' défi mystère sans révélation'); }
+    await tab('champions'); await p.click('[data-act=chsub][data-s=money]'); if ((await p.locator('[data-act=chgo]').count()) !== 6) errs.push(name + ' classement : liens de style'); await over('classement');
+    // Recherche globale et thème
+    await p.keyboard.press('Control+k'); await p.keyboard.type('défense minimale'); await p.waitForTimeout(80); await p.keyboard.press('Enter'); await p.waitForTimeout(100);
+    if ((await p.evaluate(() => window.__S52.getTab())) !== 'cours') errs.push(name + ' recherche globale');
+    await p.click('[data-act=theme]'); await p.click('[data-act=theme]'); await p.click('[data-act=theme]');
+    await p.keyboard.press('?'); if (!(await has('text=Raccourcis clavier'))) errs.push(name + ' aide clavier'); await p.keyboard.press('Escape');
+    // Navigation par espaces (barre du bas sur mobile)
+    await p.locator('[data-group=etudier]:visible').first().click(); await p.waitForTimeout(60);
+    if (!['solveur', 'analyse', 'outils'].includes(await p.evaluate(() => window.__S52.getTab()))) errs.push(name + ' navigation par espace');
+    // Studio : tous les modèles, formats, export image et vidéo
+    await tab('studio');
+    for (const tpl of ['main', 'quiz', 'lecon', 'solveur', 'champion', 'bilan']) { await p.click(`[data-act=sttpl][data-v=${tpl}]`); await p.waitForTimeout(120); await over('studio-' + tpl); }
+    for (const f of ['post', 'portrait', 'yt', 'short']) { await p.click(`[data-act=stfmt][data-v=${f}]`); await p.waitForTimeout(80); await over('studio-' + f); }
+    await p.click('[data-act=sttpl][data-v=quiz]'); await shot('studio');
+    const [dl] = await Promise.all([p.waitForEvent('download', { timeout: 5000 }).catch(() => null), p.click('[data-act=stpng]')]);
+    if (!dl) errs.push(name + ' studio : pas d\'image téléchargée');
+    const [dv] = await Promise.all([p.waitForEvent('download', { timeout: 20000 }).catch(() => null), p.click('[data-act=stvid]')]);
+    if (!dv) errs.push(name + ' studio : pas de vidéo');
 
     // Outils : équité, board, push/fold, nouveaux outils
     await tab('outils');

@@ -34,6 +34,14 @@
   }
 
   // Range estimée d'un adversaire, en combinaisons, compte tenu des cartes connues du héros.
+  // Repères tête-à-tête à 100 bb (approximatifs) : le bouton ouvre très large, la grosse blinde défend large.
+  const HU = {
+    open: '22+, A2+, K2+, Q2+, J2s+, J4o+, T2s+, T6o+, 93s+, 96o+, 84s+, 86o+, 73s+, 75o+, 63s+, 65o, 52s+, 54o, 42s+, 32s',
+    three: '99+, ATs+, KJs+, A5s-A3s, AJo+, KQo, K7s, Q8s, J8s, T8s, 97s, 86s',
+    call: '22-88, A2s-A9s, K2s-KTs, Q2s-QJs, J2s-JTs, T4s-T9s, 94s-98s, 84s-87s, 74s-76s, 63s-65s, 52s-54s, 42s-43s, 32s, A2o-ATo, K2o-KJo, Q5o-QJo, J7o-JTo, T7o-T9o, 97o-98o, 86o-87o, 76o, 65o',
+  };
+  // Profil de base d'un joueur (les styles « champions » sont estimés comme leur profil le plus proche).
+  const K = (p) => (TS.kindOf ? TS.kindOf(TS.PROFILES[p.profile], p.profile) : p.profile);
   function villainRange(t, vi) {
     const p = t.players[vi], pr = TS.PROFILES[p.profile];
     const dead = [...t.players[0].cards, ...t.board];
@@ -41,7 +49,7 @@
     for (const s of t.seq) {
       if (s.street !== 'pre') break;
       if (s.i === vi) {
-        const [a, b] = preflopInterval(pr, p.profile, s.final, level, false);
+        const [a, b] = preflopInterval(pr, K(p), s.final, level, false);
         if (s.final !== 'fold') { lo = Math.max(lo, Math.min(a, b)); hi = Math.min(hi, Math.max(a, b)); }
       }
       if (s.final === 'raise') level++;
@@ -56,8 +64,8 @@
       const bd = t.board.slice(0, STREET_N[street]), last = acts[acts.length - 1].final;
       const keep = (c) => {
         const k = B.classify(c, bd), pair = k.made <= 11, draw = k.draws.length > 0;
-        if (last === 'raise') return p.profile === 'maniaque' ? true : p.profile === 'station' ? k.made <= 10 : pair || draw;
-        if (last === 'call') return p.profile === 'station' ? pair || draw || (c[0] >> 2) >= 11 || (c[1] >> 2) >= 11 : p.profile === 'maniaque' ? true : pair || draw;
+        if (last === 'raise') return K(p) === 'maniaque' ? true : K(p) === 'station' ? k.made <= 10 : pair || draw;
+        if (last === 'call') return K(p) === 'station' ? pair || draw || (c[0] >> 2) >= 11 || (c[1] >> 2) >= 11 : K(p) === 'maniaque' ? true : pair || draw;
         return true;
       };
       const f = combos.filter(keep);
@@ -78,7 +86,7 @@
   function advise(t, opts = {}) {
     const hero = t.players[0], L = t.legal(), pos = TS.posName(t, 0), hand = E.abstractOf(hero.cards[0], hero.cards[1]);
     const villains = t.players.map((p, i) => i).filter((i) => i > 0 && t.players[i].inHand);
-    const ranges = villains.map((vi) => ({ vi, name: t.players[vi].name, profile: t.players[vi].profile, ...villainRange(t, vi) }));
+    const ranges = villains.map((vi) => ({ vi, name: t.players[vi].name, profile: K(t.players[vi]), real: t.players[vi].profile, ...villainRange(t, vi) }));
     const stationIn = ranges.some((r) => r.profile === 'station');
     const why = [], cats = [];
     let rec = L.canCheck ? 'check' : 'fold', to = 0, eq = null;
@@ -88,17 +96,18 @@
     const limpers = preSeq.filter((s) => s.final === 'call').length;
     const heroActedPre = preSeq.some((s) => s.i === 0);
 
+    const hu = t.active().length === 2;
     if (t.street === 'pre') {
       if (raisesBefore === 0 && limpers === 0 && !heroActedPre && pos !== 'BB') {
         cats.push('rfi');
-        const inR = E.parseRange(C.RFI[pos].range).has(hand);
-        rec = inR ? 'raise' : 'fold'; to = t.bb * (pos === 'SB' ? 3 : 2.5);
-        why.push(`Premier à entrer en ${pos} : ${hand} est ${inR ? 'dans' : 'hors de'} la range d'ouverture (${E.rangePct(E.parseRange(C.RFI[pos].range)).toFixed(0)} % des mains).`);
+        const R = hu ? HU.open : C.RFI[pos].range, inR = E.parseRange(R).has(hand);
+        rec = inR ? 'raise' : 'fold'; to = t.bb * (hu ? 2.5 : pos === 'SB' ? 3 : 2.5);
+        why.push(hu ? `Tête-à-tête au bouton : ${hand} est ${inR ? 'dans' : 'hors de'} la range d'ouverture de référence (${E.rangePct(E.parseRange(R)).toFixed(0)} % des mains) : on relance très large à deux.` : `Premier à entrer en ${pos} : ${hand} est ${inR ? 'dans' : 'hors de'} la range d'ouverture (${E.rangePct(E.parseRange(R)).toFixed(0)} % des mains).`);
         if (!inR && ranges.some((r) => (r.vi === t.sbi || r.vi === t.bbi) && r.profile === 'station') && pctOf(hand) < 0.6) why.push('Une calling station est aux blindes : élargir légèrement est défendable, mais la référence reste le fold.');
       } else if (raisesBefore === 0 && limpers > 0) {
         cats.push('iso');
         const lim = preSeq.filter((s) => s.final === 'call').map((s) => t.players[s.i]);
-        const vsFish = lim.some((p) => p.profile === 'station');
+        const vsFish = lim.some((p) => K(p) === 'station');
         const thr = pos === 'BB' ? 0.12 : vsFish ? 0.3 : 0.2, good = pctOf(hand) < thr;
         rec = good ? 'raise' : L.canCheck ? 'check' : 'fold'; to = t.bb * (3.5 + limpers + (vsFish ? 1 : 0));
         why.push(`${limpers} limper${limpers > 1 ? 's' : ''} devant toi${vsFish ? ', dont un fish passif' : ''}. ${good ? `${hand} est assez fort pour isoler : relance à ${(to / t.bb).toFixed(1).replace('.', ',')} bb (3,5 bb + 1 par limper${vsFish ? ' + 1 contre un fish' : ''}).` : `${hand} est trop faible pour isoler${L.canCheck ? ' : check gratuit' : ' : fold'}.`}`);
@@ -107,10 +116,11 @@
         cats.push('pfdef');
         const openIdx = preSeq.find((s) => s.final === 'raise').i, opener = t.players[openIdx], oPos = TS.posName(t, openIdx);
         const callers = preSeq.filter((s, k) => s.final === 'call' && k > preSeq.findIndex((x) => x.final === 'raise')).length;
-        let act = callers === 0 ? C.facingAction(oPos, pos, hand) : null;
+        let act = callers === 0 ? (hu && pos === 'BB' ? (inRange(HU.three, hand) ? '3bet' : inRange(HU.call, hand) ? 'call' : 'fold') : C.facingAction(oPos, pos, hand)) : null;
+        if (hu && pos === 'BB' && callers === 0) why.push('Tête-à-tête en grosse blinde : la défense est très large (référence approximative à 100 bb).');
         if (!act) act = inRange('QQ+, AK', hand) ? '3bet' : inRange('JJ-22, AQs-ATs, KQs, QJs, JTs, T9s, 98s', hand) && (pos === 'BTN' || pos === 'BB' || pos === 'CO') ? 'call' : 'fold';
-        if (opener.profile === 'station' && act === '3bet' && !inRange('TT+, AQ+, KQs', hand)) { act = pos === 'SB' ? 'fold' : 'call'; why.push(`Contre ${opener.name}, fish passif, pas de 3-bet bluff : il paie. ${hand} devient un ${act === 'call' ? 'call' : 'fold'}.`); }
-        if (opener.profile === 'station' && act === 'fold' && inRange('99+, AJ+, KQ', hand)) { act = '3bet'; why.push(`Contre un fish qui ouvre large et paie, ${hand} se 3-bette pour la valeur.`); }
+        if (K(opener) === 'station' && act === '3bet' && !inRange('TT+, AQ+, KQs', hand)) { act = pos === 'SB' ? 'fold' : 'call'; why.push(`Contre ${opener.name}, fish passif, pas de 3-bet bluff : il paie. ${hand} devient un ${act === 'call' ? 'call' : 'fold'}.`); }
+        if (K(opener) === 'station' && act === 'fold' && inRange('99+, AJ+, KQ', hand)) { act = '3bet'; why.push(`Contre un fish qui ouvre large et paie, ${hand} se 3-bette pour la valeur.`); }
         rec = act === '3bet' ? 'raise' : act === 'call' ? 'call' : (L.canCheck ? 'check' : 'fold');
         const ip = !['SB', 'BB'].includes(pos);
         to = t.cur * (ip ? 3 : 4) + t.cur * callers;
@@ -119,13 +129,13 @@
         cats.push('pfdef');
         const lastR = [...preSeq].reverse().find((s) => s.final === 'raise'), agg = t.players[lastR.i];
         const four = raisesBefore >= 3;
-        const valueR = agg.profile === 'maniaque' ? (four ? 'JJ+, AQ+' : 'TT+, AQ+') : four ? 'QQ+, AK' : 'QQ+, AK';
-        const callR = four ? '' : agg.profile === 'nit' ? 'JJ-TT, AQs' : 'JJ-88, AQs, AJs, KQs, JTs, T9s';
+        const valueR = K(agg) === 'maniaque' ? (four ? 'JJ+, AQ+' : 'TT+, AQ+') : four ? 'QQ+, AK' : 'QQ+, AK';
+        const callR = four ? '' : K(agg) === 'nit' ? 'JJ-TT, AQs' : 'JJ-88, AQs, AJs, KQs, JTs, T9s';
         if (inRange(valueR, hand)) { rec = 'raise'; to = four ? L.maxTo : t.cur * 2.3; }
         else if (callR && inRange(callR, hand)) rec = 'call';
         else rec = 'fold';
         why.push(`${agg.name} (${TS.PROFILES[agg.profile].label}) a ${four ? '4-betté' : 'sur-relancé'}. ${rec === 'raise' ? `${hand} est assez fort pour ${four ? 'aller à tapis' : '4-better (≈ 2,3 × la relance)'}.` : rec === 'call' ? `${hand} se paie, de préférence en position.` : `${hand} ne tient pas face à cette range.`}`);
-        if (agg.profile === 'nit') why.push('Un nit ne sur-relance qu\'avec le haut de sa range : resserre-toi.');
+        if (K(agg) === 'nit') why.push('Un nit ne sur-relance qu\'avec le haut de sa range : resserre-toi.');
       }
       // Équité préflop contre les ranges estimées (indicative).
       if (ranges.length) eq = E.equity([{ hand: hero.cards }, ...ranges.map((r) => ({ combos: r.combos }))], [], { iterations: opts.iterations || 2500 }).equity[0];
@@ -142,8 +152,8 @@
         if (eq > (multi ? 0.75 : 0.7)) { rec = 'raise'; to = t.cur + Math.max(t.minRaise, L.pot * 0.8); why.push(`Il te faut ${fmtP(need)} pour suivre et tu en as ${fmtP(eq)} : relance pour la valeur.`); }
         else if (eq + implied >= need) { rec = 'call'; why.push(`Cotes : ${fmtP(need)} requis, ${fmtP(eq)} d'équité${implied ? ' plus des gains implicites contre un fish qui paiera ton tirage' : ''} : call rentable.`); }
         else { rec = 'fold'; why.push(`Cotes : ${fmtP(need)} requis, seulement ${fmtP(eq)} d'équité : le call perd de l'argent.`); }
-        if (bp && ['station', 'nit'].includes(bp.profile) && (river || t.street === 'turn')) why.push(`${bp.name} (${TS.PROFILES[bp.profile].label}) mise ou relance tard : chez ce profil, c'est presque toujours de la valeur. Sa range a été resserrée en conséquence.`);
-        if (bp && bp.profile === 'maniaque') why.push(`${bp.name} est un maniaque : sa range de mise contient beaucoup de bluffs, d'où une équité plus haute qu'on ne le croit.`);
+        if (bp && ['station', 'nit'].includes(K(bp)) && (river || t.street === 'turn')) why.push(`${bp.name} (${TS.PROFILES[bp.profile].label}) mise ou relance tard : chez ce profil, c'est presque toujours de la valeur. Sa range a été resserrée en conséquence.`);
+        if (bp && K(bp) === 'maniaque') why.push(`${bp.name} est un maniaque : sa range de mise contient beaucoup de bluffs, d'où une équité plus haute qu'on ne le croit.`);
       } else {
         const valueThr = river ? 0.62 : multi ? 0.65 : 0.6;
         if (eq > valueThr) {
@@ -155,11 +165,11 @@
           why.push('Une calling station est dans le coup : un bluff n\'a presque aucune chance de la faire coucher. Check.');
         } else if (!multi && eq < 0.4 && t.street === 'flop' && ranges.every((r) => ['nit', 'reg'].includes(r.profile)) && t.seq.some((s) => s.street === 'pre' && s.i === 0 && s.final === 'raise')) {
           cats.push('bluff'); rec = 'raise'; to = Math.max(L.minTo, L.pot * 0.33);
-          why.push(`Tu as l'initiative contre un ${TS.PROFILES[ranges[0].profile].label.toLowerCase()} qui rate souvent le flop : petit continuation bet (≈ 33 % du pot).`);
+          why.push(`Tu as l'initiative contre un ${TS.PROFILES[ranges[0].real].label.toLowerCase()} qui rate souvent le flop : petit continuation bet (≈ 33 % du pot).`);
         } else { rec = 'check'; why.push('Main moyenne ou faible sans bonne raison de miser : check.'); }
       }
     }
-    return { pos, hand, rec, to, eq, need, toCall: L.toCall, pot: L.pot, cats, why, ranges: ranges.map((r) => ({ name: r.name, profile: r.profile, label: TS.PROFILES[r.profile].label, n: r.combos.length, pct: r.pct, desc: describeRange(r) })) };
+    return { pos, hand, rec, to, eq, need, toCall: L.toCall, pot: L.pot, cats, why, ranges: ranges.map((r) => ({ name: r.name, profile: r.profile, label: TS.PROFILES[r.real].label, n: r.combos.length, pct: r.pct, desc: describeRange(r) })) };
   }
 
 
@@ -201,8 +211,8 @@
         eq = SV.eqVsRange(hi, freqBelow(th.push)); rec = eq >= need ? 'call' : 'fold';
         why.push(`${t.players[pk].name} (${TS.PROFILES[t.players[pk].profile].label}) pousse environ ${fmtP(th.push)} des mains à cette profondeur. Ton équité contre cette range : ${fmtP(eq)} ; il t'en faut ${fmtP(need)}.`);
       }
-      if (t.players[pk].profile === 'maniaque') why.push('Un maniaque pousse plus large que l\'équilibre : paie un peu plus large.');
-      if (t.players[pk].profile === 'nit') why.push('Un nit pousse plus serré que l\'équilibre : paie plus serré.');
+      if (K(t.players[pk]) === 'maniaque') why.push('Un maniaque pousse plus large que l\'équilibre : paie un peu plus large.');
+      if (K(t.players[pk]) === 'nit') why.push('Un nit pousse plus serré que l\'équilibre : paie plus serré.');
     }
     why.push('Expresso : le gagnant prend tout, donc les jetons valent leur poids en argent ; l\'équilibre en jetons s\'applique.');
     return { pos, hand, rec, to: L.maxTo, eq, need, ev, toCall: L.toCall, pot: L.pot, cats: ['pushfold'], why, ranges: [] };

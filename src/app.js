@@ -70,13 +70,29 @@
     return `<div class="rgrid" role="group" aria-label="Grille des 169 mains">${cells.join('')}</div>`;
   }
 
-  const TABS = [['jour', 'Aujourd\'hui'], ['cours', 'Cours'], ['spots', 'Spots'], ['sim', 'Simulateur'], ['solveur', 'Solveur'], ['outils', 'Outils'], ['analyse', 'Analyse'], ['journal', 'Journal']];
+  const TABS = [['jour', 'Aujourd\'hui'], ['cours', 'Cours'], ['spots', 'Spots'], ['sim', 'Simulateur'], ['champions', 'Champions'], ['solveur', 'Solveur'], ['analyse', 'Analyse'], ['outils', 'Outils'], ['journal', 'Journal'], ['studio', 'Studio']];
+  // Espaces : la navigation principale regroupe les onglets ; le dernier onglet visité de chaque espace est mémorisé.
+  const ICON = {
+    jour: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5V20h-5v-5H9v5H4z"/></svg>',
+    apprendre: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5C6.5 4.5 9.5 4.5 12 6c2.5-1.5 5.5-1.5 8-.5V19c-2.5-1-5.5-1-8 .5-2.5-1.5-5.5-1.5-8-.5z"/><path d="M12 6v13.5"/></svg>',
+    jouer: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="11" height="15" rx="2"/><path d="M9 8.5c1.5 1.3 2 2.2 2 3s-.9 1.6-2 1.6-2-.8-2-1.6.5-1.7 2-3zM17 7l3 .8-3.5 12.6-4-.9"/></svg>',
+    etudier: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16M6 16V9M10 16V5M14 16v-6M18 16v-9"/></svg>',
+    suivre: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18 9 12l4 3 7-8"/><path d="M15 7h5v5"/></svg>',
+  };
+  const GROUPS = [['jour', 'Aujourd\'hui', ['jour']], ['apprendre', 'Apprendre', ['cours', 'spots']], ['jouer', 'Jouer', ['sim', 'champions']], ['etudier', 'Étudier', ['solveur', 'analyse', 'outils']], ['suivre', 'Suivre', ['journal', 'studio']]];
+  const groupOf = (t) => GROUPS.find((g) => g[2].includes(t)) || GROUPS[0];
+  const lastIn = {};
   let tab = (location.hash || '').slice(1);
   if (!TABS.some(([k]) => k === tab)) tab = 'jour';
   function go(t) { tab = t; try { history.replaceState(null, '', '#' + t); } catch (e) { /* ignoré */ } render(); window.scrollTo(0, 0); }
   function renderTabs() {
-    const due = dueReviews().length;
-    $('#tabs').innerHTML = TABS.map(([k, l]) => `<button class="tab" role="tab" aria-selected="${k === tab}" data-tab="${k}">${l}${k === 'spots' && due ? `<span class="badge">${due}</span>` : ''}</button>`).join('');
+    const due = dueReviews().length, g = groupOf(tab), badge = (n) => (n ? `<span class="badge">${n}</span>` : '');
+    lastIn[g[0]] = tab;
+    $('#tabs').innerHTML = GROUPS.map(([k, l]) => `<button class="tab" role="tab" aria-selected="${k === g[0]}" data-group="${k}">${l}${k === 'apprendre' ? badge(due) : ''}</button>`).join('');
+    const sub = $('#subnav');
+    if (sub) { sub.innerHTML = g[2].length > 1 ? g[2].map((t) => `<button class="sub" aria-current="${t === tab ? 'page' : 'false'}" data-tab="${t}">${TABS.find((x) => x[0] === t)[1]}${t === 'spots' ? badge(due) : ''}</button>`).join('') : ''; sub.hidden = g[2].length <= 1; }
+    const bn = $('#bottomnav');
+    if (bn) bn.innerHTML = GROUPS.map(([k, l]) => `<button data-group="${k}" aria-current="${k === g[0] ? 'page' : 'false'}">${ICON[k]}<span>${l}</span>${k === 'apprendre' && due ? '<i class="dot"></i>' : ''}</button>`).join('');
   }
   const VIEWS = {}, AFTER = {};
   function render() { renderTabs(); $('#view').innerHTML = VIEWS[tab](); AFTER[tab]?.(); }
@@ -518,7 +534,8 @@
     for (const f of ONKEY) if (f(e, tab) === true) return;
   });
   document.addEventListener('click', async (e) => {
-    const t = e.target.closest('[data-tab],[data-act]'); if (!t || t.disabled) return;
+    const t = e.target.closest('[data-tab],[data-act],[data-group]'); if (!t || t.disabled) return;
+    if (t.dataset.group) { const g = GROUPS.find((x) => x[0] === t.dataset.group); return go(lastIn[g[0]] || g[2][0]); }
     if (t.dataset.tab) return go(t.dataset.tab);
     const a = t.dataset.act;
     if (ACT[a]) return ACT[a](t, e);
@@ -627,7 +644,7 @@
   window.__S52 = {
     E, C, K, S, SV, B, HH, TS, $, esc, fr, eur, sgn, pct, today, addDays, rand, state, Store, render, go, head, heat, grid169,
     cardHTML, backHTML, cardsHTML, mastery, drawLines, getAnRes: () => anRes, VIEWS, AFTER, TOOLVIEWS, TOOLS, ACT, ONCHANGE, ONINPUT, ONKEY, LINEUPS, runAnalysis,
-    getTab: () => tab, setTool: (k) => { tool = k; }, setOpenMod: (id) => { openMod = id; qAns = {}; }, setSpotMode: (m) => { spotMode = m; daily = false; spot = null; },
+    getTab: () => tab, TABS, GROUPS, groupOf, setTool: (k) => { tool = k; }, setOpenMod: (id) => { openMod = id; qAns = {}; }, setSpotMode: (m) => { spotMode = m; daily = false; spot = null; },
     start() { render(); Store.init().then(render); },
   };
 })();

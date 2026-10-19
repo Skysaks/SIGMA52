@@ -118,15 +118,15 @@
     const handDec = cash.decisions.filter((d) => d.hand === t.handNo);
     let out = `<div class="row"><span class="pill acc">${cash.target ? `Main ${Math.min(t.session.hands + (t.done ? 0 : 1), cash.target)}/${cash.target}` : `Main ${t.session.hands + (t.done ? 0 : 1)}`}</span><span class="pill">${{ live: 'Coach en direct', exam: 'Mode examen', free: 'Sans aide' }[cash.mode]}</span>
       <label class="check"><input type="checkbox" id="showprof" data-act="showprof" ${showProfiles ? 'checked' : ''}><span class="note">Profils visibles</span></label><button class="btn small" data-act="cashstop" style="margin-left:auto">Terminer la session</button></div>
-      ${tableHTML(t, { showProfiles })}`;
+      ${cash.champ && X.champBanner ? X.champBanner(cash) : ''}${tableHTML(t, { showProfiles: showProfiles && !cash.champ?.hidden })}`;
     if (L) out += `<section class="panel"><span class="eyebrow">À toi · ${TS.posName(t, 0)} · ${E.abstractOf(t.players[0].cards[0], t.players[0].cards[1])}</span>${actionsHTML(t)}</section>` + (cash.mode === 'live' ? coachHTML(adviceFor(cash), t) : '');
     if (t.done && t.notes) {
       const n = t.notes, finished = sessionDone();
       out += `<section class="panel"><div class="row" style="justify-content:space-between"><h2>Débrief : ${n.net >= 0 ? '+' : '−'}${fr(Math.abs(n.net), 1)} bb</h2><div class="row"><button class="btn small" data-act="libtable">Sauvegarder la main</button><button class="btn small" data-act="rptable">Rejouer</button>${finished ? '' : '<button class="btn primary" data-act="cashnext">Main suivante <span style="opacity:.7">Entrée</span></button>'}</div></div>
         ${decisionsHTML(handDec, cash.mode)}
         <div class="advice">${n.advice.map((a) => `<div class="${a.k}">${esc(a.t)}</div>`).join('')}</div>
-        ${n.reveal.length ? `<div class="tw"><table class="t"><thead><tr><th>Joueur</th><th>Profil</th><th>Cartes</th><th class="n">Résultat</th></tr></thead><tbody>${n.reveal.map((r) => `<tr><td>${esc(r.name)}</td><td>${TS.PROFILES[r.profile].label}</td><td>${cardsHTML(r.cards, true)}</td><td class="n">${sgn(r.net / t.bb)} bb</td></tr>`).join('')}</tbody></table></div>` : ''}</section>`;
-      if (finished) out += bilanHTML(cash);
+        ${n.reveal.length ? `<div class="tw"><table class="t"><thead><tr><th>Joueur</th><th>Profil</th><th>Cartes</th><th class="n">Résultat</th></tr></thead><tbody>${n.reveal.map((r) => `<tr><td>${esc(r.name)}</td><td>${cash && cash.champ?.hidden && r.profile === cash.champ.profile ? '?' : TS.PROFILES[r.profile].label}</td><td>${cardsHTML(r.cards, true)}</td><td class="n">${sgn(r.net / t.bb)} bb</td></tr>`).join('')}</tbody></table></div>` : ''}</section>`;
+      if (finished) out += (cash.champ && X.champReport ? X.champReport(cash) : '') + bilanHTML(cash);
     }
     out += `<div class="stats"><div class="stat hero"><span>Session</span><b>${sgn(t.session.net, 1)} bb</b><span>${t.session.hands} mains</span></div>
       <div class="stat"><span>Décisions justes</span><b>${cash.decisions.length ? pct(cash.decisions.filter((d) => d.ok).length / cash.decisions.length) : '—'}</b><span>${cash.decisions.length} décisions notées</span></div>
@@ -161,6 +161,14 @@
     nextHand(cash);
   };
   ACT.cashnext = () => { if (!sessionDone()) nextHand(cash); };
+  // Session lancée depuis l'onglet Champions : adversaires, profondeur et mode imposés.
+  X.startCash = (o) => {
+    const tb = new TS.Table({ lineup: o.lineup, stack: o.stackBB ? o.stackBB * 0.1 : undefined });
+    if (o.champ?.hidden) tb.players.forEach((p, i) => { if (i > 0 && p.profile === o.champ.profile) p.name = 'Mystère'; });
+    cash = { kind: 'cash', tb, mode: o.mode || 'exam', target: o.target ?? 50, objectives: new Set(o.objectives || []), decisions: [], adv: null, champ: o.champ || null };
+    sub = 'table'; tb.newHand(); tb.runBots(); if (tb.done) afterHand(cash); X.go('sim');
+  };
+  X.getCash = () => cash;
   ACT.cashstop = () => { if (cash) cash.target = cash.tb.done ? cash.tb.session.hands : Math.max(1, cash.tb.session.hands); if (cash && !cash.tb.done) { cash = null; } render(); };
   ACT.cashnew = () => { cash = null; render(); };
   ACT.showprof = (t) => { showProfiles = t.checked; render(); };

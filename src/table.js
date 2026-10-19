@@ -9,8 +9,22 @@
     maniaque: { label: 'Maniaque', vpip: 0.55, pfr: 0.4, cont: 0.6, three: 0.5, callF: 0.75, value: 0.9, bluff: 0.4, raise: 0.72, size: [0.8, 1.2] },
     nit: { label: 'Nit', vpip: 0.13, pfr: 0.11, cont: 0.45, three: 0.25, callF: 1.35, value: 0.7, bluff: 0.02, raise: 0.9, size: [0.5, 0.66] },
     reg: { label: 'Régulier', vpip: 0.25, pfr: 0.22, cont: 0.6, three: 0.3, callF: 1.0, value: 0.75, bluff: 0.18, raise: 0.85, size: [0.5, 0.75] },
+    // Styles d'entraînement inspirés de descriptions publiques de joueurs connus (voir champions.js) : paramètres choisis par SIGMA 52,
+    // pas la stratégie réelle des joueurs. like = profil de base utilisé par le coach pour estimer les ranges.
+    ivey: { label: 'Style Ivey', like: 'reg', vpip: 0.31, pfr: 0.26, cont: 0.72, three: 0.45, callF: 0.95, value: 0.85, bluff: 0.3, raise: 0.8, size: [0.6, 1.0], over: 0.25, raiseBluff: 0.07, adapt: 1, disc: 0.11, cbet: 0.72 },
+    negreanu: { label: 'Style Negreanu', like: 'reg', vpip: 0.33, pfr: 0.24, cont: 0.82, three: 0.25, callF: 1.05, value: 0.78, bluff: 0.22, raise: 0.88, size: [0.25, 0.4], sizeLate: [0.4, 0.6], open: 2.2, flat: 1.45, bigFold: 0.08, adapt: 0.5, cbet: 0.8 },
+    hellmuth: { label: 'Style Hellmuth', like: 'reg', vpip: 0.23, pfr: 0.18, cont: 0.6, three: 0.3, callF: 1.12, value: 0.82, bluff: 0.12, raise: 0.88, size: [0.5, 0.75], adapt: 1.4, cbet: 0.55 },
+    chidwick: { label: 'Style Chidwick', like: 'reg', vpip: 0.25, pfr: 0.22, cont: 0.62, three: 0.35, callF: 1.0, value: 0.75, bluff: 0.2, raise: 0.82, size: [0.33, 0.75], over: 0.15, xr: 0.16, cbet: 0.62 },
+    mizrachi: { label: 'Style Mizrachi', like: 'maniaque', vpip: 0.42, pfr: 0.32, cont: 0.72, three: 0.4, callF: 0.9, value: 0.9, bluff: 0.32, raise: 0.78, size: [0.6, 1.0], over: 0.35, jam: 0.06, disc: 0.08, cbet: 0.8 },
+    antonius: { label: 'Style Antonius', like: 'reg', vpip: 0.3, pfr: 0.27, cont: 0.72, three: 0.45, callF: 0.95, value: 0.85, bluff: 0.33, raise: 0.8, size: [0.66, 1.0], over: 0.25, adapt: 1, cbet: 0.78 },
+    action: { label: 'Joueur d\'action live', like: 'station', vpip: 0.5, pfr: 0.2, cont: 0.85, three: 0.25, callF: 0.75, value: 0.7, bluff: 0.15, raise: 0.85, size: [0.5, 1.0], open: 4, loose: 1, cbet: 0.45 },
+    prolive: { label: 'Pro de cash live', like: 'reg', vpip: 0.27, pfr: 0.22, cont: 0.62, three: 0.33, callF: 1.0, value: 0.8, bluff: 0.16, raise: 0.85, size: [0.5, 0.9], open: 3.5, adapt: 0.8, cbet: 0.62 },
   };
-  const NAMES = { station: ['Gégé31', 'Mimi_Lol', 'TontonFlop', 'ChanceuxDu82'], maniaque: ['AllinKevin', 'Turbo_Raz'], nit: ['Roc_Solide', 'PapyNit'], reg: ['GrindZ', 'Reg_6max'] };
+  // Paramètres hérités des quatre profils d'origine (comportement inchangé pour eux).
+  const kindOf = (pr, name) => pr.like || name;
+  const NAMES = { station: ['Gégé31', 'Mimi_Lol', 'TontonFlop', 'ChanceuxDu82'], maniaque: ['AllinKevin', 'Turbo_Raz'], nit: ['Roc_Solide', 'PapyNit'], reg: ['GrindZ', 'Reg_6max'],
+    ivey: ['Style Ivey'], negreanu: ['Style Negreanu'], hellmuth: ['Style Hellmuth'], chidwick: ['Style Chidwick'], mizrachi: ['Style Mizrachi'], antonius: ['Style Antonius'],
+    action: ['Whale_Vegas', 'Straddle_Sam', 'Lucky_Lou'], prolive: ['Pro_Live', 'Reg_Bike'] };
 
   // Rang préflop : percentile combo-pondéré de l'équité contre une main aléatoire (0 = meilleure main).
   let PCT = null;
@@ -49,6 +63,8 @@
       this.players = [{ name: 'Toi', hero: true, stack: this.startStack, profile: null }]
         .concat(lineup.map((p) => { used[p] = (used[p] || 0) + 1; return { name: NAMES[p][(used[p] - 1) % NAMES[p].length], profile: p, stack: this.startStack }; }));
       this.n = this.players.length; this.busted = [];
+      // Ce que les bots « lecteurs » observent de toi : mises adverses affrontées après le flop et couchers.
+      this.heroObs = { faced: 0, folds: 0, calls: 0, hands: 0, vpip: 0 };
       this.button = (this.r() * this.n) | 0; this.log = []; this.history = []; this.session = { hands: 0, net: 0 };
     }
     get pot() { return this.players.reduce((a, p) => a + p.total, 0); }
@@ -59,7 +75,7 @@
       this.handNo++;
       if (this.rebuy) {
         // Recave à 100 bb sous 40 bb ; au-delà de 250 bb, le joueur quitte la table et un nouveau s'assoit à 100 bb.
-        for (const p of this.players) { if (p.stack < this.bb * 40 || p.stack > this.bb * 250) p.stack = this.startStack; }
+        for (const p of this.players) { if (p.stack < this.startStack * 0.4 || p.stack > this.startStack * 2.5) p.stack = this.startStack; }
       } else if (this.levels) [this.sb, this.bb] = this.levels[Math.min(this.levels.length - 1, Math.floor((this.handNo - 1) / this.handsPerLevel))];
       this.button = this.seatOrder(this.button)[0];
       const deck = [...Array(52).keys()]; for (let i = 51; i > 0; i--) { const j = (this.r() * (i + 1)) | 0; [deck[i], deck[j]] = [deck[j], deck[i]]; }
@@ -98,6 +114,8 @@
       const i = this.toAct, p = this.players[i], L = this.legal(), pot0 = this.pot;
       if (type === 'raise' && L.maxTo <= this.cur + 1e-9) type = 'call'; // tapis insuffisant pour relancer : c'est un call
       const rec = { street: this.street, type, toCall: L.toCall, pot: pot0 };
+      if (i === 0 && this.street !== 'pre' && L.toCall > 1e-9) { this.heroObs.faced++; if (type === 'fold') this.heroObs.folds++; else if (type === 'call') this.heroObs.calls++; }
+      if (i === 0 && this.street === 'pre' && (type === 'call' || type === 'raise') && !p.acts.some((a) => a.street === 'pre' && (a.final === 'call' || a.final === 'raise'))) this.heroObs.vpip++;
       if (type === 'fold') { if (L.canCheck) type = 'check'; else { p.inHand = false; this.lines.push(`${p.name} folds`); } }
       if (type === 'check') this.lines.push(`${p.name} checks`);
       if (type === 'call') { const a = L.toCall; p.stack -= a; p.put += a; p.total += a; if (p.stack <= 1e-9) p.allin = true; this.lines.push(`${p.name} calls ${a.toFixed(2)}€${p.allin ? ' and is all-in' : ''}`); }
@@ -155,7 +173,7 @@
       this.lines.push('*** SUMMARY ***', `Total pot ${this.pot.toFixed(2)}€ | No rake`, `Board: [${this.board.map(E.cardStr).join(' ')}]`);
       this.result = this.players.map((p) => ({ name: p.name, profile: p.profile, cards: p.cards, net: p.stack - p.start, showed: p.inHand && alive.length > 1 }));
       const heroNet = this.players[0].stack - this.players[0].start;
-      this.session.hands++; this.session.net += heroNet / this.bb;
+      this.session.hands++; this.session.net += heroNet / this.bb; this.heroObs.hands++;
       if (!this.rebuy) {
         // Tournoi : les joueurs sans jetons sont éliminés ; la partie s'arrête quand il en reste un, ou quand le héros sort.
         const out = this.players.filter((p) => !p.out && p.stack <= 1e-9);
@@ -167,16 +185,25 @@
       if (this.history.length > 300) this.history.shift();
       this.notes = coach(this);
     }
-    // Décision d'un bot.
+    // Décision d'un bot. Les quatre profils d'origine gardent exactement leur logique ; les styles ajoutent des paramètres
+    // (taille d'ouverture, overbets, check-raises, lecture de tes tendances).
+    // Facteur de lecture : les styles « lecteurs » bluffent plus si tu couches trop face aux mises, moins si tu paies trop.
+    readFactor(pr) {
+      const o = this.heroObs; if (!pr.adapt || o.faced < 12) return 1;
+      const f = o.folds / o.faced, k = Math.max(0.4, Math.min(2.2, f / 0.45));
+      return 1 + (k - 1) * Math.min(1, pr.adapt);
+    }
     botAct() {
-      const i = this.toAct, p = this.players[i], pr = PROFILES[p.profile], L = this.legal(), r = this.r;
+      const i = this.toAct, p = this.players[i], pr = PROFILES[p.profile], L = this.legal(), r = this.r, kind = kindOf(pr, p.profile);
       if (this.street === 'pre') {
-        const pct = handPct(p.cards), facing = this.raises; // 1 = seulement la BB
+        // Les styles élargissent leurs ranges à court effectif (3 joueurs et moins) ; les profils d'origine restent inchangés.
+        const wid = pr.like ? ({ 2: 2.3, 3: 1.5, 4: 1.2 }[this.active().length] || 1) : 1;
+        const pct = handPct(p.cards) / wid, facing = this.raises; // 1 = seulement la BB
         const S = this.effStack(i) / this.bb;
         if (S <= 15) return this.shortStackAct(i, pct, S);
         if (facing <= 1) {
-          if (pct < pr.pfr) return this.act('raise', this.bb * (p.profile === 'maniaque' ? 3.5 : 2.5) + this.bb * this.limpers());
-          if (pct < pr.vpip && (p.profile === 'station' || pct < pr.pfr * 1.3)) return this.act(L.canCheck ? 'check' : 'call');
+          if (pct < pr.pfr) return this.act('raise', this.bb * (pr.open ?? (kind === 'maniaque' ? 3.5 : 2.5)) + this.bb * this.limpers());
+          if (pct < pr.vpip && (kind === 'station' || pr.loose || pct < pr.pfr * (pr.flat ?? 1.3))) return this.act(L.canCheck ? 'check' : 'call');
           return this.act(L.canCheck ? 'check' : 'fold');
         }
         if (facing === 2) {
@@ -184,24 +211,34 @@
           if (pct < pr.vpip * pr.cont || (L.toCall <= this.bb && pct < pr.vpip)) return this.act('call');
           return this.act('fold');
         }
-        if (pct < (p.profile === 'maniaque' ? 0.07 : 0.025)) return this.act('raise', L.maxTo);
-        if (pct < pr.vpip * pr.cont * 0.35 || (p.profile === 'station' && pct < 0.12)) return this.act('call');
+        if (pct < (pr.jam ?? (kind === 'maniaque' ? 0.07 : 0.025))) return this.act('raise', L.maxTo);
+        if (pct < pr.vpip * pr.cont * 0.35 || (kind === 'station' && pct < 0.12)) return this.act('call');
         return this.act('fold');
       }
       const s = strength(p.cards, this.board, this.alive().length - 1, r);
-      const size = () => L.pot * (pr.size[0] + r() * (pr.size[1] - pr.size[0]));
+      const late = this.street !== 'flop', rf = this.readFactor(pr);
+      const band = late && pr.sizeLate ? pr.sizeLate : pr.size;
+      const size = () => L.pot * (band[0] + r() * (band[1] - band[0]));
+      const over = () => L.pot * (1.2 + r() * 0.5);
       if (L.canCheck) {
-        if (s > 0.62 && r() < pr.value) return this.act('raise', size());
-        if (s < 0.35 && r() < pr.bluff) return this.act('raise', size());
+        if (s > 0.62 && r() < pr.value) return this.act('raise', pr.over && late && s > 0.78 && r() < pr.over ? over() : size());
+        if (s < 0.35 && r() < Math.min(0.9, pr.bluff * rf)) return this.act('raise', pr.over && late && r() < pr.over ? over() : size());
+        // Continuation bet des styles : le relanceur préflop mise souvent le flop, quelle que soit sa main.
+        if (pr.cbet && this.street === 'flop' && this.seq.filter((x) => x.street === 'pre' && x.final === 'raise').pop()?.i === i && r() < pr.cbet * Math.min(1.3, rf)) return this.act('raise', size());
         return this.act('check');
       }
       // Face à une mise, l'équité contre des mains au hasard surestime la main : on la décote selon l'agressivité déjà vue.
       const bets = this.seq.filter((x) => x.street === this.street && x.final === 'raise').length;
-      const sAdj = p.profile === 'station' ? s : s - (p.profile === 'maniaque' ? 0.05 : 0.13) * bets - (this.street === 'river' ? 0.05 : 0);
+      const disc = pr.disc ?? (kind === 'maniaque' ? 0.05 : 0.13);
+      const big = L.toCall > 0.75 * (L.pot - L.toCall) ? (pr.bigFold || 0) : 0;
+      const sAdj = kind === 'station' && !pr.like ? s : s - disc * bets - (this.street === 'river' ? 0.05 : 0) - big;
       const need = L.toCall / (L.pot + L.toCall);
       if (sAdj > pr.raise && r() < 0.6) return this.act('raise', this.cur + Math.max(this.minRaise, L.pot * 0.8));
-      if (p.profile === 'maniaque' && s < 0.3 && r() < 0.12) return this.act('raise', this.cur * 2.5);
-      if (sAdj > need * pr.callF || (p.profile === 'station' && s > 0.3 && r() < 0.7)) return this.act('call');
+      // Check-raise sur flop (style GTO moderne) : petite relance avec des mains fortes ou des tirages.
+      if (pr.xr && this.street === 'flop' && bets === 1 && (s > 0.55 || s < 0.32) && r() < pr.xr) return this.act('raise', this.cur * 3);
+      if ((kind === 'maniaque' && !pr.like) && s < 0.3 && r() < 0.12) return this.act('raise', this.cur * 2.5);
+      if (pr.raiseBluff && s < 0.3 && r() < pr.raiseBluff * rf) return this.act('raise', this.cur * 2.6);
+      if (sAdj > need * pr.callF || ((kind === 'station' && !pr.like) && s > 0.3 && r() < 0.7) || (pr.loose && s > 0.33 && r() < 0.45)) return this.act('call');
       return this.act('fold');
     }
     // Tapis effectif d'un joueur : son tapis total face au plus gros tapis adverse encore en jeu.
@@ -210,7 +247,7 @@
     pfThresholds(i, S) {
       const p = this.players[i], sol = nash(Math.max(1, Math.min(25, Math.round(S * 2) / 2))), n = this.active().length;
       const k = n <= 2 ? 1 : n === 3 ? 0.75 : 0.55;
-      const adj = { station: [0.8, 1.4], maniaque: [1.35, 1.25], nit: [0.6, 0.6], reg: [1, 1] }[p.profile] || [1, 1];
+      const pr = PROFILES[p.profile], adj = { station: [0.8, 1.4], maniaque: [1.35, 1.25], nit: [0.6, 0.6], reg: [1, 1] }[kindOf(pr, p.profile)] || [1, 1];
       return { push: Math.min(1, sol.pushPct * k * adj[0]), call: Math.min(1, sol.callPct * (n <= 2 ? 1 : 0.85) * adj[1]) };
     }
     shortStackAct(i, pct, S) {
@@ -281,6 +318,6 @@
   const nashCache = {};
   const nash = (S) => nashCache[S] || (nashCache[S] = Solver.solveChip(S));
 
-  const api = { Table, PROFILES, handPct, strength, preflopPct, posName };
+  const api = { Table, PROFILES, NAMES, kindOf, handPct, strength, preflopPct, posName };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.TableSim = api;
 })(typeof window !== 'undefined' ? window : globalThis);

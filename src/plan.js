@@ -17,9 +17,9 @@
     { title: 'Lecture de mains et étude', why: 'Analyser tes propres mains comme un pro.', tasks: [['mod', 'lecture'], ['mod', 'multiway'], ['mod', 'mtt'], ['mod', 'etude'], ['import']] },
     { title: 'Solveurs et défense minimale', why: 'Comprendre l\'équilibre pour savoir quand et comment s\'en écarter.', tasks: [['mod', 'solveurs'], ['mod', 'mdf'], ['spot', 'mdf', 0.8, 30], ['solver', 3]] },
     { title: 'Bloqueurs et stratégie de flop', why: 'Choisir ses bluffs, sa taille de c-bet et sa défense hors de position.', tasks: [['mod', 'bloqueurs'], ['mod', 'avantage'], ['mod', 'oopplay'], ['spot', 'combos', 0.8, 30], ['solver', 8]] },
-    { title: 'Turn, river, profondeur, exploitation', why: 'Les décisions qui pèsent le plus lourd en bb, et comment exploiter la population.', tasks: [['mod', 'barrels'], ['mod', 'deep'], ['mod', 'exploitpop'], ['mod', 'hud'], ['trainer', 30]] },
+    { title: 'Turn, river, profondeur, exploitation', why: 'Les décisions qui pèsent le plus lourd en bb, et comment exploiter la population.', tasks: [['mod', 'barrels'], ['mod', 'deep'], ['mod', 'exploitpop'], ['mod', 'hud'], ['mod', 'styles'], ['trainer', 30], ['champ', 2]] },
     { title: 'Tables physiques', why: 'Jouer en casino ou en club sans erreur de procédure, avec une stratégie live.', tasks: [['mod', 'live_debut'], ['mod', 'live_regles'], ['mod', 'live_strat'], ['mod', 'live_tells'], ['mod', 'live_table'], ['mod', 'live_mtt']] },
-    { title: 'Tournois avancés et performance', why: 'Prime de risque ICM, PKO, et le mental qui protège ton winrate.', tasks: [['mod', 'icm2'], ['mod', 'perf'], ['spot', 'bounty', 0.8, 20], ['trainer', 60], ['journal', 10]] },
+    { title: 'Tournois avancés et performance', why: 'Prime de risque ICM, PKO, et le mental qui protège ton winrate.', tasks: [['mod', 'icm2'], ['mod', 'perf'], ['mod', 'champions'], ['spot', 'bounty', 0.8, 20], ['trainer', 60], ['champ', 5], ['journal', 10]] },
     { title: 'Le métier', why: 'Économie du joueur, carrière, fiscalité : décider lucidement.', tasks: [['mod', 'marche'], ['mod', 'economie'], ['mod', 'carriere'], ['mod', 'staking'], ['mod', 'business'], ['mod', 'fiscal'], ['mod', 'integrite'], ['mod', 'longevite'], ['mod', 'progression']] },
   ];
 
@@ -35,6 +35,7 @@
     if (kind === 'bankroll') { const ok = +st.settings.bankroll0 > 0; return { done: ok, label: 'Bankroll de départ renseignée dans le Journal', progress: ok ? 1 : 0, go: ['tab', 'journal'] }; }
     if (kind === 'solver') { const n = p.solves || 0; return { done: n >= a, label: `${a} spots résolus et étudiés au solveur (cumul)`, progress: Math.min(1, n / a), go: ['tab', 'solveur'] }; }
     if (kind === 'trainer') { const n = p.trainer?.n || 0; return { done: n >= a, label: `${a} décisions river notées par l'entraîneur solveur (cumul)`, progress: Math.min(1, n / a), go: ['trainer', 1] }; }
+    if (kind === 'champ') { const n = Object.values(p.champs?.by || {}).reduce((x, y) => x + y.sessions, 0); return { done: n >= a, label: `${a} sessions complètes contre les styles Champions`, progress: Math.min(1, n / a), go: ['tab', 'champions'] }; }
     if (kind === 'import') { const ok = !!st.notes.lastImport; return { done: ok, label: 'Tes historiques analysés au moins une fois', progress: ok ? 1 : 0, go: ['tab', 'analyse'] }; }
     return { done: false, label: kind, progress: 0, go: null };
   }

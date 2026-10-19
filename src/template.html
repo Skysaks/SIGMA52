@@ -189,12 +189,61 @@ table.sizes input { width: 100%; min-width: 70px; padding: 6px 8px; border: 1px 
 details.panel > summary { cursor: pointer; } details.panel[open] > summary { margin-bottom: 4px; }
 .painter { display: grid; gap: 10px; }
 table.combos td, table.combos th { white-space: nowrap; padding: 6px 8px; }
+
+/* Navigation par espaces, recherche, thème, barre du bas (mobile) */
+.hbtns { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.offline { margin-left: 0; }
+.hbtn { display: inline-flex; align-items: center; gap: 8px; border: 1px solid rgba(255,255,255,.22); background: rgba(255,255,255,.08); color: #F7E9EC; border-radius: 9px; padding: 6px 10px; cursor: pointer; font-size: 13px; }
+.hbtn:hover { background: rgba(255,255,255,.16); } .hbtn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; }
+.hbtn kbd { font: 600 10px var(--f-mono); opacity: .7; border: 1px solid rgba(255,255,255,.3); border-radius: 5px; padding: 1px 5px; }
+.subnav { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 8px 0 10px; border-top: 1px solid rgba(255,255,255,.1); }
+.subnav::-webkit-scrollbar { display: none; }
+.subnav .sub { border: 1px solid rgba(255,255,255,.2); background: transparent; color: rgba(247,233,236,.85); border-radius: 999px; padding: 5px 13px; font-size: 14px; cursor: pointer; white-space: nowrap; }
+.subnav .sub[aria-current="page"] { background: #F7E9EC; color: var(--wine-deep); border-color: #F7E9EC; font-weight: 600; }
+.subnav .badge { font: 600 10px/1 var(--f-mono); background: var(--gold); color: #2B1608; border-radius: 999px; padding: 3px 6px; margin-left: 6px; }
+.bottomnav { display: none; }
+@media (max-width: 720px) {
+  nav.tabs { display: none; } .hbtn.search span, .hbtn.search kbd { display: none; } .brand small { display: none; } .offline { display: none; }
+  .bottomnav { display: grid; grid-template-columns: repeat(5, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; background: var(--surface); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom, 0px); box-shadow: 0 -4px 18px rgba(0,0,0,.08); }
+  .bottomnav button { border: 0; background: none; display: grid; justify-items: center; gap: 2px; padding: 8px 2px 7px; font-size: 11px; color: var(--muted); cursor: pointer; position: relative; }
+  .bottomnav svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; }
+  .bottomnav button[aria-current="page"] { color: var(--accent); font-weight: 600; }
+  .bottomnav .dot { position: absolute; top: 6px; right: calc(50% - 16px); width: 8px; height: 8px; border-radius: 50%; background: var(--gold); }
+  main { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+}
+.cmdk { position: fixed; inset: 0; z-index: 30; background: rgba(15, 5, 9, .55); display: grid; align-items: start; justify-items: center; padding: 10vh 16px 16px; }
+.cmdk .box { width: min(640px, 100%); background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,.35); overflow: hidden; display: grid; max-height: 75vh; grid-template-rows: auto 1fr auto; }
+.cmdk input { border: 0; border-bottom: 1px solid var(--line); padding: 16px 18px; font-size: 17px; background: transparent; outline: none; width: 100%; }
+.cmdk ul { list-style: none; margin: 0; padding: 6px; overflow-y: auto; }
+.cmdk li button { width: 100%; text-align: left; border: 0; background: none; padding: 9px 12px; border-radius: 9px; display: grid; grid-template-columns: 90px 1fr; gap: 10px; cursor: pointer; align-items: baseline; }
+.cmdk li button[aria-selected="true"], .cmdk li button:hover { background: var(--accent-bg); }
+.cmdk li .k { font: 600 10px var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.cmdk li .d { display: block; font-size: 13px; color: var(--muted); }
+.cmdk .foot { padding: 8px 14px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); display: flex; gap: 14px; flex-wrap: wrap; }
+/* Champions */
+.champs { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.champ { text-align: left; border: 1px solid var(--line); background: var(--surface); border-radius: var(--r); padding: 16px; display: grid; gap: 6px; cursor: pointer; align-content: start; position: relative; overflow: hidden; }
+.champ::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 4px; background: linear-gradient(90deg, var(--wine), var(--gold)); }
+.champ.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-bg); }
+.champ h3 { font: 700 17px/1.2 var(--f-display); }
+.brief ul { margin: 6px 0 0; padding-left: 1.2em; display: grid; gap: 4px; }
+
+/* Studio */
+.studio { display: grid; grid-template-columns: minmax(260px, 340px) minmax(0, 1fr); gap: 16px; align-items: start; }
+.st-side { position: sticky; top: 150px; }
+.st-stage { background: #0B0709; border-radius: 12px; display: grid; place-items: center; padding: 12px; height: min(68vh, 720px); }
+.st-stage canvas { display: block; border-radius: 6px; box-shadow: 0 8px 30px rgba(0,0,0,.45); }
+@media (max-width: 860px) { .studio { grid-template-columns: 1fr; } .st-main { order: -1; } .st-side { position: static; } .st-stage { height: min(62vh, 560px); } }
 </style>
 <header class="top"><div class="wrap">
-  <div class="bar"><div class="brand"><span class="mark" aria-hidden="true">σ52</span><span><b>SIGMA 52</b><small>labo poker · hors table</small></span></div><span class="offline" id="saveState"></span></div>
+  <div class="bar"><div class="brand"><span class="mark" aria-hidden="true">σ52</span><span><b>SIGMA 52</b><small>labo poker · hors table</small></span></div><span class="offline" id="saveState"></span>
+    <div class="hbtns"><button class="hbtn search" data-act="cmdk" aria-label="Rechercher (Ctrl+K)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg><span>Rechercher</span><kbd>Ctrl K</kbd></button><button class="hbtn" data-act="theme" id="themeBtn" aria-label="Thème"></button></div></div>
   <nav class="tabs" role="tablist" id="tabs"></nav>
+  <nav class="subnav" id="subnav" aria-label="Sections" hidden></nav>
 </div></header>
 <main class="wrap" id="view" aria-live="polite"></main>
+<nav class="bottomnav" id="bottomnav" aria-label="Espaces"></nav>
+<div class="cmdk" id="cmdk" hidden></div>
 <script>/*__ENGINE__*/</script>
 <script>/*__MATRIX__*/</script>
 <script>/*__SOLVER__*/</script>
@@ -205,6 +254,7 @@ table.combos td, table.combos th { white-space: nowrap; padding: 6px 8px; }
 <script>/*__COURSE3__*/</script>
 <script>/*__COURSE4__*/</script>
 <script>/*__COURSEE__*/</script>
+<script>/*__COURSEC__*/</script>
 <script>/*__COURSEL__*/</script>
 <script>/*__COURSEX__*/</script>
 <script>/*__SPOTS__*/</script>
@@ -221,4 +271,8 @@ table.combos td, table.combos th { white-space: nowrap; padding: 6px 8px; }
 <script>/*__APPTOOLS__*/</script>
 <script>/*__TRSPOTS__*/</script>
 <script>/*__APPTRAIN__*/</script>
+<script>/*__CHAMPIONS__*/</script>
+<script>/*__APPCHAMP__*/</script>
+<script>/*__APPSTUDIO__*/</script>
+<script>/*__APPUI__*/</script>
 <script>window.__S52.start();</script>
