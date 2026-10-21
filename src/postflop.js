@@ -79,6 +79,9 @@
     if (board.length < 3 || board.length > 5) throw new Error('Board de 3 à 5 cartes');
     if (new Set(board).size !== board.length) throw new Error('Carte du board en double');
     const P0 = +cfg.pot, S = +cfg.stack;
+    // Rake : part du pot final, plafonnée (cfg.rake = { pct: 0.05, cap: 3 } en jetons) ; prélevé sur le pot gagné.
+    const RK = cfg.rake && +cfg.rake.pct > 0 ? { pct: +cfg.rake.pct, cap: +cfg.rake.cap > 0 ? +cfg.rake.cap : Infinity } : null;
+    const rakeOf = (C) => (RK ? Math.min(RK.cap, RK.pct * (P0 + C[0] + C[1])) : 0);
     if (!(P0 > 0)) throw new Error('Pot invalide');
     if (!(S >= 0)) throw new Error('Tapis invalide');
     const thr = cfg.allinThreshold ?? 0.67;          // une mise qui engage ≥ 67 % du tapis restant devient un tapis
@@ -211,7 +214,7 @@
       return out;
     }
     function foldVal(node, p, ro) {
-      const out = compat(p, ro, get(p)), v = node.winner === p ? P0 + node.C[1 - p] : -node.C[p];
+      const out = compat(p, ro, get(p)), v = node.winner === p ? P0 + node.C[1 - p] - rakeOf(node.C) : -node.C[p];
       for (let i = 0; i < N[p]; i++) out[i] *= v;
       return out;
     }
@@ -234,7 +237,7 @@
       }
     }
     function showVal(node, p, ro) {
-      const out = compat(p, ro, get(p)), win = get(p), lose = get(p), c = node.C[p], vw = P0 + c, vl = -c, vt = P0 / 2;
+      const rk = rakeOf(node.C), out = compat(p, ro, get(p)), win = get(p), lose = get(p), c = node.C[p], vw = P0 + c - rk, vl = -c, vt = (P0 - rk) / 2;
       showMass(node, p, ro, win, lose);
       for (let i = 0; i < N[p]; i++) out[i] = vw * win[i] + vl * lose[i] + vt * (out[i] - win[i] - lose[i]);
       rel(p, win); rel(p, lose);

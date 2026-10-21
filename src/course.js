@@ -134,7 +134,14 @@
     ['Légal', 'Utiliser le HUD intégré de Winamax pendant le jeu. C\'est…', ['Autorisé', 'Interdit'], 0, 'Le HUD intégré est fourni par la room. Les HUD dynamiques de logiciels tiers, eux, sont interdits chez Winamax.'],
   ].map(([cat, q, opts, ok, why], i) => ({ id: 's' + i, cat, q, opts, ok, why }));
 
-  const api = { MODULES: M, SITUATIONS: S, LEVELS, GLOSSARY, mod, extend };
-  if (typeof module !== 'undefined' && module.exports) { module.exports = api; ['l1', 'l2', 'l3', 'l4', 'elite', 'champions', 'live', 'extra', 'ultimate', 'paths'].forEach((n) => require('./course_' + n + '.js')(api)); }
+  // Temps d'apprentissage réel d'un module (en minutes) : lecture et quiz, exercices corrigés, entraînement ciblé
+  // (30 spots), révisions espacées (5 rappels), pratique (simulateur ou mise en situation).
+  function learn(m) {
+    const exo = (m.sections.map((x) => x[1]).join(' ').match(/class="exo"/g) || []).length;
+    const r = { read: m.minutes, exercises: exo * 3, drill: m.drill ? 22 : 0, review: 15, practice: m.level <= 4 ? 30 : 15 };
+    r.total = r.read + r.exercises + r.drill + r.review + r.practice; r.exo = exo; return r;
+  }
+  const api = { MODULES: M, SITUATIONS: S, LEVELS, GLOSSARY, mod, extend, learn };
+  if (typeof module !== 'undefined' && module.exports) { module.exports = api; ['l1', 'l2', 'l3', 'l4', 'elite', 'champions', 'live', 'extra', 'ultimate', 'paths', 'deep'].forEach((n) => require('./course_' + n + '.js')(api)); }
   else root.Course = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -34,9 +34,12 @@
   const HIST = { x: ['Check, check', [{ a: 'check' }]], b: ['Il mise, je paie', [{ a: 'bet', size: 0.6 }]], c: ['Je mise, il paie', [{ a: 'call', size: 0.6 }]], xc: ['Il check, je mise, il paie', [{ a: 'check' }, { a: 'call', size: 0.6 }]], r: ['Il relance, je paie', [{ a: 'raise', size: 0.6 }]] };
   function history() {
     const b = boardRaw().length, out = [];
-    for (const st of ['flop', 'turn']) { if ((st === 'flop' && b >= 4) || (st === 'turn' && b >= 5)) { const h = HIST[lv.hist[st]]; if (h) h[1].forEach((x) => out.push({ street: st, ...x })); } }
+    const SZ = { s: 0.33, m: 0.6, b: 1.0 };
+    for (const st of ['flop', 'turn']) { if ((st === 'flop' && b >= 4) || (st === 'turn' && b >= 5)) { const h = HIST[lv.hist[st]], z = SZ[(lv.histSize || {})[st] || 'm']; if (h) h[1].forEach((x) => out.push({ street: st, ...x, ...(x.size !== undefined ? { size: z } : {}) })); } }
     return out;
   }
+  // Agressivité observée de l'adversaire choisi (au moins 10 actions après le flop)
+  function villainAF() { const p = lv.villain !== null ? lv.players[lv.villain] : null; if (!p || (p.agg || 0) + (p.cal || 0) < 10) return 0; return (p.agg || 0) / Math.max(1, p.cal || 0); }
   function icmInput() {
     if (!lv.cfg.icm) return null;
     const me = num(lv.stack), others = lv.players.filter((p) => p.on !== false && num(p.stack) > 0).map((p) => num(p.stack));
@@ -53,7 +56,7 @@
       const bb = bbNow();
       lv.res = L.decide({ game: lv.cfg.game, hero: h, board: b, players: lv.cfg.players, pos: lv.pos, nOpp: lv.nOpp, type: lv.type, pre: lv.pre, limpers: lv.limpers, raiseBB: lv.raiseBB, callers: lv.callers,
         straddle: lv.cfg.straddle, ante: lv.cfg.ante, stackBB: lv.stack ? num(lv.stack) / Math.max(1e-9, bb) : 100, live: true, pot: num(lv.pot), toCall: num(lv.toCall), stack: num(lv.stack),
-        vpre: lv.vpre, raised: lv.raised, ip: lv.ip === null ? undefined : lv.ip, history: history(), icm: icmInput() });
+        vpre: lv.vpre, raised: lv.raised, ip: lv.ip === null ? undefined : lv.ip, history: history(), icm: icmInput(), openPos: lv.openPos || undefined, af: villainAF() });
     } catch (e) { lv.res = { action: '?', tone: 'warn', lines: [e.message] }; }
     lv.ms = performance.now() - t0;
     if (lv.res && lv.cfg.vibrate && navigator.vibrate && lv.res.action !== lv.lastVib) { lv.lastVib = lv.res.action; navigator.vibrate({ COUCHE: [400], CHECK: [80], SUIS: [80], MISE: [80, 120, 80], RELANCE: [80, 120, 80], TAPIS: [80, 100, 80, 100, 80] }[lv.res.action] || 0); }
@@ -129,7 +132,7 @@
     compute();
     const b = boardRaw().length, post = b >= 3, plo = ['plo', 'plo5', 'plo8'].includes(lv.cfg.game), bomb = lv.cfg.game === 'bomb', st = STREET(b);
     const toCallTxt = num(lv.toCall) > 0;
-    const pastRows = ['flop', 'turn'].filter((s) => (s === 'flop' && b >= 4) || (s === 'turn' && b >= 5)).map((s) => `<div class="row"><span class="note">${s === 'flop' ? 'Au flop' : 'Au turn'} :</span>${Object.entries(HIST).map(([k, [l]]) => `<button class="chip" aria-pressed="${lv.hist[s] === k}" data-act="lvhist" data-s="${s}" data-v="${k}">${l}</button>`).join('')}</div>`).join('');
+    const pastRows = ['flop', 'turn'].filter((s) => (s === 'flop' && b >= 4) || (s === 'turn' && b >= 5)).map((s) => `<div class="row"><span class="note">${s === 'flop' ? 'Au flop' : 'Au turn'} :</span>${Object.entries(HIST).map(([k, [l]]) => `<button class="chip" aria-pressed="${lv.hist[s] === k}" data-act="lvhist" data-s="${s}" data-v="${k}">${l}</button>`).join('')}${lv.hist[s] && lv.hist[s] !== 'x' ? `<span class="note">taille :</span>${[['s', '≈ 1/3'], ['m', '≈ 2/3'], ['b', 'pot ou plus']].map(([z, l]) => `<button class="chip" aria-pressed="${((lv.histSize || {})[s] || 'm') === z}" data-act="lvhsz" data-s="${s}" data-v="${z}">${l}</button>`).join('')}` : ''}</div>`).join('');
     const situation = post ? `
       <div class="lgrid"><label class="f">Pot avant sa mise<input inputmode="decimal" data-lv="pot" value="${esc(lv.pot)}" placeholder="facultatif"></label>
         <label class="f">Sa mise (à payer)<input inputmode="decimal" data-lv="toCall" value="${esc(lv.toCall)}" placeholder="0 = pas de mise"></label>
@@ -143,6 +146,7 @@
       <div class="row"><span class="note">Avant toi :</span>${chips('pre', [['open', 'personne'], ['limp', 'limp(s)'], ['raise', 'une relance'], ['raisecall', 'relance + call'], ['threebet', '3-bet sur ma relance']])}</div>
       ${lv.pre === 'limp' ? `<div class="row"><span class="note">Limpers :</span>${chips('limpers', [[1, '1'], [2, '2'], [3, '3+']])}</div>` : ''}
       ${['raise', 'raisecall', 'threebet'].includes(lv.pre) ? `<div class="row"><span class="note">Relance à :</span>${chips('raiseBB', (lv.pre === 'threebet' ? [[8, '8 BB'], [10, '10 BB'], [12, '12 BB'], [15, '15 BB']] : [[2.5, '2,5 BB'], [3, '3 BB'], [4, '4 BB'], [5, '5 BB'], [7, '7 BB'], [10, '10 BB']]))}</div>` : ''}
+      ${['raise', 'raisecall'].includes(lv.pre) ? `<div class="row"><span class="note">Relance de :</span>${[['', 'position inconnue'], ...POSL().slice(0, Math.max(0, POSL().indexOf(lv.pos))).filter((x) => x !== 'BB').map((x) => [x, x])].map(([v, l]) => `<button class="chip" aria-pressed="${(lv.openPos || '') === v}" data-act="lvset" data-k="openPos" data-v="${v}">${l}</button>`).join('')}</div>` : ''}
       ${lv.pre === 'raisecall' ? `<div class="row"><span class="note">Callers :</span>${chips('callers', [[1, '1'], [2, '2'], [3, '3+']])}</div>` : ''}
       <div class="lgrid"><label class="f">Ton tapis (jetons)<input inputmode="decimal" data-lv="stack" value="${esc(lv.stack)}" placeholder="facultatif"></label></div>`;
     const common = `${villainChips()}<div class="row"><span class="note">Adversaires dans le coup :</span>${chips('nOpp', [[1, '1'], [2, '2'], [3, '3'], [4, '4'], [5, '5+']])}</div>
@@ -174,6 +178,7 @@
   ACT.lvcfgopen = () => { lv.showCfg = !lv.showCfg; render(); };
   ACT.lvbet = (t) => { const f = +t.dataset.f; if (!f) { lv.toCall = ''; lv.raised = false; } else { if (!num(lv.pot)) lv.pot = '100'; lv.toCall = String(Math.round(num(lv.pot) * f)); } render(); };
   ACT.lvraised = (t) => { lv.raised = t.checked; render(); };
+  ACT.lvhsz = (t) => { lv.histSize = lv.histSize || {}; lv.histSize[t.dataset.s] = t.dataset.v; render(); };
   ACT.lvhist = (t) => { lv.hist[t.dataset.s] = lv.hist[t.dataset.s] === t.dataset.v ? '' : t.dataset.v; render(); };
   ACT.lvip = (t) => { lv.ip = t.dataset.v === '' ? null : t.dataset.v === '1'; render(); };
   ACT.lvrange = () => { lv.showRange = !lv.showRange; render(); };
@@ -184,7 +189,7 @@
     if (lv.log.length > 400) lv.log.length = 400; ls.set('log', lv.log);
   }
   ACT.lvnew = () => { logHand(); lv.players.forEach((p) => { if (p.on !== false) p.hands = (p.hands || 0) + 1; }); if (lv.players.length) ls.set('players', lv.players);
-    lv.cards = Array(10).fill(null); lv.slot = 0; lv.rank = null; lv.pot = ''; lv.toCall = ''; lv.pre = 'open'; lv.raised = false; lv.hist = { flop: '', turn: '' }; lv.ip = null; lv.showRange = false; lv.lastVib = null; render(); };
+    lv.cards = Array(10).fill(null); lv.slot = 0; lv.rank = null; lv.pot = ''; lv.toCall = ''; lv.pre = 'open'; lv.raised = false; lv.hist = { flop: '', turn: '' }; lv.histSize = {}; lv.openPos = ''; lv.ip = null; lv.showRange = false; lv.lastVib = null; render(); };
   ACT.lvnext = () => { const P = POSL(), i = P.indexOf(lv.pos); lv.pos = P[(i + 1) % P.length]; ACT.lvnew(); };
   ACT.lvdiscret = () => { lv.discret = !lv.discret; document.body.classList.toggle('discret-on', lv.discret); render(); };
   ACT.lvwake = async () => { try { if (lv.wake) { await lv.wake.release(); lv.wake = null; } else { lv.wake = await navigator.wakeLock.request('screen'); lv.wake.addEventListener?.('release', () => { lv.wake = null; }); } } catch (e) { lv.wake = null; } render(); };
@@ -228,13 +233,13 @@
     const rows = lv.players.map((p, i) => {
       const n = p.hands || 0;
       return `<div class="lpc${p.on === false ? ' off' : ''}"><div class="lpc1"><input class="lin lname" data-lpn="${i}" value="${esc(p.name)}" aria-label="Nom"><input class="lin" data-lps="${i}" value="${esc(p.stack || '')}" inputmode="numeric" placeholder="tapis" aria-label="Tapis">
-        <span class="mono note">${n} mains · VPIP ${n ? pct((p.vpip || 0) / n, 0) : '–'} · PFR ${n ? pct((p.pfr || 0) / n, 0) : '–'}</span>
+        <span class="mono note">${n} mains · VPIP ${n ? pct((p.vpip || 0) / n, 0) : '–'} · PFR ${n ? pct((p.pfr || 0) / n, 0) : '–'} · AF ${(p.agg || 0) + (p.cal || 0) >= 10 ? fr((p.agg || 0) / Math.max(1, p.cal || 0), 1) : '–'}</span>
         <select data-lpt="${i}" aria-label="Type"><option value="">Auto : ${esc(L.TYPES[typeOf({ ...p, force: '' })].label)}${n < 8 ? ' (peu de mains)' : ''}</option>${Object.entries(L.TYPES).map(([k, x]) => `<option value="${k}"${p.force === k ? ' selected' : ''}>${esc(x.label)}</option>`).join('')}</select></div>
-        <div class="lpc2"><button class="btn small" data-act="lpv" data-i="${i}" title="Il est entré dans le pot (paie ou relance)">Joue</button><button class="btn small" data-act="lpr" data-i="${i}" title="Il a relancé préflop">Relance</button><button class="btn small" data-act="lpon" data-i="${i}">${p.on === false ? 'Revient' : 'Absent'}</button><button class="btn small" data-act="lpdel" data-i="${i}" aria-label="Supprimer">✕</button>
+        <div class="lpc2"><button class="btn small" data-act="lpv" data-i="${i}" title="Il est entré dans le pot (paie ou relance)">Joue</button><button class="btn small" data-act="lpr" data-i="${i}" title="Il a relancé préflop">Relance</button><button class="btn small" data-act="lpa" data-i="${i}" title="Après le flop : il mise ou relance">Mise</button><button class="btn small" data-act="lpc" data-i="${i}" title="Après le flop : il suit une mise">Suit</button><button class="btn small" data-act="lpon" data-i="${i}">${p.on === false ? 'Revient' : 'Absent'}</button><button class="btn small" data-act="lpdel" data-i="${i}" aria-label="Supprimer">✕</button>
         <input class="lin lnote" data-lpo="${i}" value="${esc(p.note || '')}" placeholder="Notes : tells, mains montrées, tendances" aria-label="Notes sur ${esc(p.name)}"></div></div>`;
     }).join('');
     return `<section class="panel"><h2>Joueurs de la table</h2>
-      <p class="note">Pendant la partie : touche « Joue » quand un joueur entre dans le pot et « Relance » quand il relance avant le flop (une fois par main). « Nouvelle main » compte une main pour chaque joueur présent. Le type se déduit après 8 mains : VPIP (entrées dans le pot) et PFR (relances).</p>
+      <p class="note">Pendant la partie : touche « Joue » quand un joueur entre dans le pot et « Relance » quand il relance avant le flop (une fois par main). « Nouvelle main » compte une main pour chaque joueur présent. Le type se déduit après 8 mains : VPIP (entrées dans le pot) et PFR (relances). Après le flop, « Mise » et « Suit » mesurent son agressivité (AF) : dès 10 actions, la Table live adapte sa range à ce joueur précis quand tu le choisis comme adversaire.</p>
       ${lv.players.length ? `<div class="lplayers">${rows}</div>` : '<p>Aucun joueur pour l\'instant.</p>'}
       <div class="row"><button class="btn primary" data-act="lpadd">Ajouter un joueur</button>${lv.players.length ? '<button class="btn" data-act="lpreset">Remettre les stats à zéro</button>' : ''}</div>
       <p class="note">Repères : VPIP 15 à 20 % = serré ; 25 à 30 % = normal ; plus de 40 % avec peu de relances = fish ; plus de 40 % avec beaucoup de relances = maniaque. Les tapis servent au mode tournoi ICM.</p></section>`;
@@ -242,10 +247,12 @@
   const savePl = () => ls.set('players', lv.players);
   ACT.lpadd = () => { lv.players.push({ name: 'Joueur ' + (lv.players.length + 1), stack: '', hands: 0, vpip: 0, pfr: 0, note: '', force: '' }); savePl(); render(); };
   ACT.lpv = (t) => { const p = lv.players[+t.dataset.i]; p.vpip = (p.vpip || 0) + 1; if ((p.hands || 0) < p.vpip) p.hands = p.vpip; savePl(); render(); };
+  ACT.lpa = (t) => { const p = lv.players[+t.dataset.i]; p.agg = (p.agg || 0) + 1; savePl(); render(); };
+  ACT.lpc = (t) => { const p = lv.players[+t.dataset.i]; p.cal = (p.cal || 0) + 1; savePl(); render(); };
   ACT.lpr = (t) => { const p = lv.players[+t.dataset.i]; p.pfr = (p.pfr || 0) + 1; if ((p.vpip || 0) < p.pfr) p.vpip = p.pfr; if ((p.hands || 0) < p.vpip) p.hands = p.vpip; savePl(); render(); };
   ACT.lpon = (t) => { const p = lv.players[+t.dataset.i]; p.on = p.on === false; savePl(); render(); };
   ACT.lpdel = (t) => { lv.players.splice(+t.dataset.i, 1); lv.villain = null; savePl(); render(); };
-  ACT.lpreset = () => { lv.players.forEach((p) => { p.hands = 0; p.vpip = 0; p.pfr = 0; }); savePl(); render(); };
+  ACT.lpreset = () => { lv.players.forEach((p) => { p.hands = 0; p.vpip = 0; p.pfr = 0; p.agg = 0; p.cal = 0; }); savePl(); render(); };
   ONCHANGE.push((t) => {
     const d = t.dataset;
     if (d.lpn !== undefined) { lv.players[+d.lpn].name = t.value || 'Joueur'; savePl(); render(); return true; }

@@ -20,6 +20,7 @@
     brunson: { label: 'Style Brunson', like: 'reg', vpip: 0.3, pfr: 0.24, cont: 0.75, three: 0.3, callF: 0.95, value: 0.85, bluff: 0.3, raise: 0.8, size: [0.75, 1.0], jam: 0.05, cbet: 0.88, disc: 0.1 },
     harrington: { label: 'Style Harrington', like: 'reg', vpip: 0.19, pfr: 0.16, cont: 0.5, three: 0.3, callF: 1.15, value: 0.8, bluff: 0.12, raise: 0.88, size: [0.5, 0.66], open: 3, cbet: 0.7 },
     dwan: { label: 'Style Dwan', like: 'maniaque', vpip: 0.38, pfr: 0.3, cont: 0.75, three: 0.42, callF: 0.92, value: 0.88, bluff: 0.36, raise: 0.78, size: [0.66, 1.1], over: 0.35, raiseBluff: 0.1, adapt: 1.2, disc: 0.09, cbet: 0.75 },
+    sigma: { label: 'Moteur SIGMA', like: 'reg', external: true, vpip: 0.25, pfr: 0.22, cont: 0.6, three: 0.3, callF: 1.0, value: 0.75, bluff: 0.18, raise: 0.85, size: [0.5, 0.75] },
     action: { label: 'Joueur d\'action live', like: 'station', vpip: 0.5, pfr: 0.2, cont: 0.85, three: 0.25, callF: 0.75, value: 0.7, bluff: 0.15, raise: 0.85, size: [0.5, 1.0], open: 4, loose: 1, cbet: 0.45 },
     prolive: { label: 'Pro de cash live', like: 'reg', vpip: 0.27, pfr: 0.22, cont: 0.62, three: 0.33, callF: 1.0, value: 0.8, bluff: 0.16, raise: 0.85, size: [0.5, 0.9], open: 3.5, adapt: 0.8, cbet: 0.62 },
   };
@@ -28,6 +29,7 @@
   const NAMES = { station: ['Gégé31', 'Mimi_Lol', 'TontonFlop', 'ChanceuxDu82'], maniaque: ['AllinKevin', 'Turbo_Raz'], nit: ['Roc_Solide', 'PapyNit'], reg: ['GrindZ', 'Reg_6max'],
     ivey: ['Style Ivey'], negreanu: ['Style Negreanu'], hellmuth: ['Style Hellmuth'], chidwick: ['Style Chidwick'], mizrachi: ['Style Mizrachi'], antonius: ['Style Antonius'],
     brunson: ['Style Brunson'], harrington: ['Style Harrington'], dwan: ['Style Dwan'],
+    sigma: ['Sigma_A', 'Sigma_B', 'Sigma_C', 'Sigma_D'],
     action: ['Whale_Vegas', 'Straddle_Sam', 'Lucky_Lou'], prolive: ['Pro_Live', 'Reg_Bike'] };
 
   // Rang préflop : percentile combo-pondéré de l'équité contre une main aléatoire (0 = meilleure main).
@@ -55,6 +57,7 @@
     return eq / sims;
   }
 
+  const EXTERNAL = { fn: null };
   class Table {
     constructor(opts = {}) {
       this.r = opts.random || Math.random;
@@ -199,6 +202,8 @@
     }
     botAct() {
       const i = this.toAct, p = this.players[i], pr = PROFILES[p.profile], L = this.legal(), r = this.r, kind = kindOf(pr, p.profile);
+      // Profil piloté par une politique externe (le moteur de la Table live) : bot nettement plus solide.
+      if (pr.external && EXTERNAL.fn) { try { if (EXTERNAL.fn(this, i)) return; } catch (e) { /* repli sur le profil de base */ } }
       if (this.street === 'pre') {
         // Les styles élargissent leurs ranges à court effectif (3 joueurs et moins) ; les profils d'origine restent inchangés.
         const wid = pr.like ? ({ 2: 2.3, 3: 1.5, 4: 1.2 }[this.active().length] || 1) : 1;
@@ -237,7 +242,8 @@
       const big = L.toCall > 0.75 * (L.pot - L.toCall) ? (pr.bigFold || 0) : 0;
       const sAdj = kind === 'station' && !pr.like ? s : s - disc * bets - (this.street === 'river' ? 0.05 : 0) - big;
       const need = L.toCall / (L.pot + L.toCall);
-      if (sAdj > pr.raise && r() < 0.6) return this.act('raise', this.cur + Math.max(this.minRaise, L.pot * 0.8));
+      // Relance de valeur : la décote de prudence ne doit pas empêcher de relancer un brelan ou mieux (force brute très élevée).
+      if ((sAdj > pr.raise || s - 0.03 * bets > Math.max(pr.raise, 0.84)) && r() < 0.6) return this.act('raise', this.cur + Math.max(this.minRaise, L.pot * 0.8));
       // Check-raise sur flop (style GTO moderne) : petite relance avec des mains fortes ou des tirages.
       if (pr.xr && this.street === 'flop' && bets === 1 && (s > 0.55 || s < 0.32) && r() < pr.xr) return this.act('raise', this.cur * 3);
       if ((kind === 'maniaque' && !pr.like) && s < 0.3 && r() < 0.12) return this.act('raise', this.cur * 2.5);
@@ -322,6 +328,6 @@
   const nashCache = {};
   const nash = (S) => nashCache[S] || (nashCache[S] = Solver.solveChip(S));
 
-  const api = { Table, PROFILES, NAMES, kindOf, handPct, strength, preflopPct, posName };
+  const api = { setExternal: (fn) => { EXTERNAL.fn = fn; }, Table, PROFILES, NAMES, kindOf, handPct, strength, preflopPct, posName };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.TableSim = api;
 })(typeof window !== 'undefined' ? window : globalThis);

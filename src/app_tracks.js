@@ -44,6 +44,7 @@
       const st = trackStatus(cur);
       out += `<section class="panel"><span class="eyebrow">Ton parcours · ${st.done}/${cur.steps.length} étapes</span><h2>${esc(cur.title)}</h2><p>${esc(cur.promise)}</p>
         <div class="meter"><i style="width:${st.pct * 100}%"></i></div>
+        ${trackTimeHTML(cur, st)}
         <div class="tsteps">${(showAll ? st.steps.map((x, i) => [x, i]) : st.steps.map((x, i) => [x, i]).filter(([x]) => !x.done).slice(0, 6)).map(([x, i]) => stepBtn(x, i)).join('')}</div>
         <div class="row"><button class="btn small" data-act="trall">${showAll ? 'Voir seulement les prochaines étapes' : `Voir les ${cur.steps.length} étapes (${st.done} faite${st.done > 1 ? 's' : ''})`}</button></div>
         <p class="note">Rythme conseillé : 45 minutes par jour (méthode express). Les étapes se valident d'elles-mêmes : quiz à 80 %, réussite aux spots, mains jouées, outils utilisés.</p></section>`;
@@ -51,6 +52,27 @@
     return out;
   };
   ACT.trsel = (t) => { const p = prog(); p.track = t.dataset.id; p.onboard = true; Store.save('progress'); render(); };
+  // Durée réaliste d'un parcours : modules (temps réel d'apprentissage), spots, mains au simulateur, sessions réelles.
+  function trackMinutes(t) {
+    let min = 0;
+    for (const s of t.steps) {
+      if (s[0] === 'mod') { const m = K.MODULES.find((x) => x.id === s[1]); if (m) min += K.learn(m).total; }
+      else if (s[0] === 'spot') min += (s[3] || 30) * 0.75;
+      else if (s[0] === 'table') min += (s[1] / 120) * 60;
+      else if (s[0] === 'expresso') min += s[1] * 6;
+      else if (s[0] === 'solver') min += s[1] * 10;
+      else if (s[0] === 'trainer') min += s[1] * 1;
+      else if (s[0] === 'drill') min += 30;
+      else min += 15;
+    }
+    return min;
+  }
+  function trackTimeHTML(t, st) {
+    const p = prog(), daily = p.dailyMin || 45, min = trackMinutes(t), left = min * (1 - st.pct), weeks = Math.ceil(left / daily / 7);
+    return `<div class="tracktime"><span>Apprentissage ≈ <b>${Math.round(min / 60)} h</b> au total, reste ≈ <b>${Math.round(left / 60)} h</b> : environ <b>${weeks} semaine${weeks > 1 ? 's' : ''}</b> à</span>${[20, 30, 45, 60, 90].map((d) => `<button class="chip" aria-pressed="${daily === d}" data-act="trdaily" data-v="${d}">${d} min/jour</button>`).join('')}</div>
+      <p class="note">Ce temps couvre l'apprentissage dans SIGMA 52. Le jeu réel s'y ajoute et ne se compresse pas : il faut des dizaines de milliers de mains pour mesurer ton winrate.</p>`;
+  }
+  ACT.trdaily = (t) => { prog().dailyMin = +t.dataset.v; Store.save('progress'); render(); };
   // ---- Test de niveau ----
   function placementHTML() {
     const q = pl.qs[pl.i], a = pl.ans[pl.i];
@@ -86,6 +108,53 @@
     return basePlango(t);
   };
 
+
+  // ---------------- Révision espacée des notions (questions de quiz des modules maîtrisés) ----------------
+  const INT = [1, 3, 7, 21, 60];
+  const addDays = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+  function srsSync() {
+    const p = prog(); p.srs = p.srs || {};
+    for (const m of K.MODULES) if ((p.quiz?.[m.id] ?? 0) >= 0.8) m.quiz.forEach((q, qi) => { const k = m.id + '#' + qi; if (!p.srs[k]) p.srs[k] = { b: 0, due: addDays(1) }; });
+  }
+  function srsDue() { srsSync(); const t = today(); return Object.entries(prog().srs).filter(([, v]) => v.b < INT.length && v.due <= t).map(([k]) => k); }
+  X.srsDue = () => srsDue().length;
+  let srs = null; // { keys, i, a }
+  const qOf = (k) => { const [id, qi] = k.split('#'), m = K.MODULES.find((x) => x.id === id); return m ? { m, q: m.quiz[+qi] } : null; };
+  function srsHTML() {
+    const k = srs.keys[srs.i];
+    if (!k) { const ok = srs.ok, n = srs.keys.length; const msg = srs.decayed.length ? `<p class="pill bad" style="white-space:normal">À revalider : ${srs.decayed.map((id) => esc(K.MODULES.find((m) => m.id === id).title)).join(', ')} (deux erreurs en révision).</p>` : ''; return `<section class="panel"><span class="eyebrow">Révision des notions terminée</span><h2>${ok}/${n} justes</h2>${msg}<p class="note">Les bonnes réponses reviendront plus tard (3, 7, 21 puis 60 jours) ; les erreurs reviennent demain.</p><div class="row"><button class="btn primary" data-act="srsend">Retour aux cours</button></div></section>`; }
+    const { m, q } = qOf(k), a = srs.a;
+    return `<section class="panel"><div class="row" style="justify-content:space-between"><span class="eyebrow">Révision des notions · ${srs.i + 1}/${srs.keys.length} · ${esc(m.title)}</span><button class="btn small" data-act="srsend">Arrêter</button></div>
+      <h2>${esc(q.q)}</h2><div class="opts">${q.opts.map((o, i) => `<button class="opt${a !== null ? (i === q.ok ? ' ok' : a === i ? ' ko' : '') : ''}" data-act="srsans" data-i="${i}" ${a !== null ? 'disabled' : ''}><span class="mono note">${i + 1}</span> ${esc(o)}</button>`).join('')}</div>
+      ${a !== null ? `<div class="verdict ${a === q.ok ? 'good' : 'bad'}"><p><strong>${a === q.ok ? 'Juste.' : 'Non.'}</strong> ${esc(q.why)}</p></div><div class="row"><button class="btn primary" data-act="srsnext">Suivante <span style="opacity:.7">Entrée</span></button><button class="btn" data-act="srsread" data-id="${m.id}">Relire le module</button></div>` : '<p class="note">Réponds de mémoire. Touches 1 à 3.</p>'}</section>`;
+  }
+  ACT.srsstart = () => { const keys = srsDue().sort(() => Math.random() - 0.5).slice(0, 15); srs = { keys, i: 0, a: null, ok: 0, decayed: [] }; X.setOpenMod(null); go('cours'); };
+  ACT.srsend = () => { srs = null; render(); };
+  ACT.srsread = (t) => { srs = null; X.setOpenMod(t.dataset.id); go('cours'); };
+  ACT.srsnext = () => { srs.i++; srs.a = null; render(); };
+  ACT.srsans = (t) => {
+    if (!srs || srs.a !== null) return; const k = srs.keys[srs.i], { m, q } = qOf(k), i = +t.dataset.i, p = prog(), it = p.srs[k];
+    srs.a = i;
+    if (i === q.ok) { srs.ok++; it.b++; it.due = it.b < INT.length ? addDays(INT[it.b]) : '9999-12-31'; }
+    else {
+      it.b = 0; it.due = addDays(1); p.srsMiss = p.srsMiss || {}; const lim = addDays(-30), miss = (p.srsMiss[m.id] || []).filter((d) => d >= lim).concat(today()); p.srsMiss[m.id] = miss;
+      if (miss.length >= 2) { p.quiz[m.id] = Math.min(p.quiz[m.id] ?? 0, 0.6); Object.keys(p.srs).filter((x) => x.startsWith(m.id + '#')).forEach((x) => delete p.srs[x]); p.srsMiss[m.id] = []; if (!srs.decayed.includes(m.id)) srs.decayed.push(m.id); }
+    }
+    Store.save('progress'); render();
+  };
+  ONKEY.push((e, tab) => {
+    if (tab !== 'cours' || !srs || !srs.keys[srs.i]) return;
+    if (/^[1-4]$/.test(e.key) && srs.a === null) { ACT.srsans({ dataset: { i: +e.key - 1 } }); return true; }
+    if (e.key === 'Enter' && srs.a !== null) { ACT.srsnext(); return true; }
+  });
+  const baseCours = VIEWS.cours;
+  VIEWS.cours = () => {
+    if (srs) return srsHTML();
+    const html = baseCours(), n = srsDue().length;
+    if (!n || html.indexOf('data-act="closemod"') >= 0) return html;
+    return `<section class="panel nextstep"><span class="eyebrow">Révision espacée</span><h2>${n} notion${n > 1 ? 's' : ''} à revoir aujourd'hui</h2><p class="note">Les questions des modules que tu as maîtrisés reviennent après 1, 3, 7, 21 et 60 jours. Deux erreurs sur un module : il repasse à valider.</p><div class="row"><button class="btn primary" data-act="srsstart">Réviser (${Math.min(15, n)} questions)</button></div></section>` + html;
+  };
+
   // ---------------- Accueil : objectif, prochaine étape, série ----------------
   const baseJour = VIEWS.jour;
   VIEWS.jour = () => {
@@ -101,6 +170,8 @@
         <h2>${next ? 'Prochaine étape : ' + esc(next.label) : 'Parcours terminé'}</h2><div class="meter"><i style="width:${st.pct * 100}%"></i></div>
         <div class="row">${next && next.go ? `<button class="btn primary" data-act="plango" data-g="${esc(JSON.stringify(next.go))}">Y aller</button>` : ''}<button class="btn" data-tab="parcours">Voir le parcours</button><button class="btn" data-tab="profil">Score et badges</button></div></section>`;
     }
+    const nd = srsDue().length;
+    if (nd) top += `<section class="panel"><div class="row" style="justify-content:space-between"><div><span class="eyebrow">Révision espacée</span><h2>${nd} notion${nd > 1 ? 's' : ''} à revoir</h2></div><button class="btn primary" data-act="srsstart">Réviser</button></div><p class="note">Cinq minutes par jour suffisent à garder ce que tu as appris.</p></section>`;
     return html.replace('<div class="warnbox"><strong>Fair-play.</strong>', top + '<div class="warnbox"><strong>Fair-play.</strong>');
   };
   ACT.onbskip = () => { prog().onboard = true; Store.save('progress'); render(); };

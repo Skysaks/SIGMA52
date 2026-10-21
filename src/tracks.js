@@ -13,7 +13,7 @@
     { id: 'tournois', title: 'Gagner en tournois et Sit & Go', who: 'Tu joues des tournois, des Sit & Go ou des Expresso.', promise: 'Tapis courts, ICM, bulles, primes : les décisions qui font les places payées.',
       steps: [['test'], ['mod', 'sprint'], ['mod', 'formats'], ['mod', 'icm'], ['spot', 'pushfold', 0.85, 30], ['mod', 'expresso'], ['expresso', 10], ['mod', 'mtt'], ['mod', 'icm2'], ['spot', 'bounty', 0.8, 20], ['mod', 'perf'], ['mod', 'discipline']] },
     { id: 'variantes', title: 'Omaha et autres variantes', who: 'Tu veux jouer PLO, Omaha 5 cartes, Hi-Lo ou Short Deck.', promise: 'Les règles qui piègent, les mains qui gagnent, et les outils pour vérifier.',
-      steps: [['test'], ['mod', 'sprint'], ['mod', 'omaha'], ['mod', 'variantes2'], ['visit', 'variantes', 'Calculer quelques équités dans l\'outil Variantes', ['tool', 'variantes']], ['mod', 'profondeur'], ['mod', 'hu']] },
+      steps: [['test'], ['mod', 'sprint'], ['mod', 'omaha'], ['mod', 'variantes2'], ['mod', 'stud'], ['visit', 'variantes', 'Calculer quelques équités dans l\'outil Variantes', ['tool', 'variantes']], ['mod', 'profondeur'], ['mod', 'hu']] },
   ];
   // Test de niveau : 3 questions tirées des quiz de chaque niveau 1 à 4 (12 questions).
   function placementQuestions(K, rand = Math.random) {

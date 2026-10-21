@@ -91,6 +91,35 @@
     }
     return { equity: eq.map((x) => x / total), scoop: scoop.map((x) => x / total), samples: total, exact: !rs && need <= 2 };
   }
+
+  // ---- Stud à 7 cartes (haute) et Razz (basse A-5 : l'as est bas, suites et couleurs ne comptent pas, la plus basse gagne) ----
+  const C7 = choose(7, 5);
+  function razzVal(cards) { // plus petit = meilleur
+    let best = Infinity;
+    for (const ix of C7) {
+      const r = ix.map((k) => { const x = cards[k] >> 2; return x === 12 ? 1 : x + 2; }), cnt = {};
+      r.forEach((x) => (cnt[x] = (cnt[x] || 0) + 1));
+      const g = Object.entries(cnt).map(([x, n]) => [+x, n]).sort((a, b) => b[1] - a[1] || b[0] - a[0]);
+      const cat = g[0][1] === 1 ? 0 : g[0][1] === 2 ? (g[1] && g[1][1] === 2 ? 2 : 1) : g[0][1] === 3 ? (g[1] && g[1][1] === 2 ? 4 : 3) : 5;
+      let v = cat; for (const [x] of g) v = v * 16 + x; for (let k = g.length; k < 5; k++) v *= 16;
+      if (v < best) best = v;
+    }
+    return best;
+  }
+  // Équité en Stud / Razz : known = cartes connues de chaque joueur (2 à 7), dead = cartes vues ailleurs (couchées).
+  function equityStud(game, known, dead = [], opts = {}) {
+    const rand = opts.random || Math.random, n = known.length, used = new Set([...dead, ...known.flat()]);
+    const deck = []; for (let c = 0; c < 52; c++) if (!used.has(c)) deck.push(c);
+    const need = known.map((k) => 7 - k.length), tot = need.reduce((a, b) => a + b, 0);
+    if (tot > deck.length) throw new Error('Pas assez de cartes restantes pour compléter toutes les mains.');
+    const eq = new Array(n).fill(0), it = opts.iterations || 6000; const d = deck.slice();
+    for (let t = 0; t < it; t++) {
+      for (let k = 0; k < tot; k++) { const j = k + Math.floor(rand() * (d.length - k)); const x = d[k]; d[k] = d[j]; d[j] = x; }
+      let p = 0; const vals = known.map((k, i) => { const h = k.concat(d.slice(p, p + need[i])); p += need[i]; return game === 'razz' ? -razzVal(h) : E.evaluate(h); });
+      const best = Math.max(...vals), w = vals.filter((v) => v === best).length; vals.forEach((v, i) => { if (v === best) eq[i] += 1 / w; });
+    }
+    return { equity: eq.map((x) => x / it), samples: it };
+  }
   // Forme canonique d'une main (permutation des couleurs) : sert aux tables précalculées.
   const PERMS = []; (function p(a, l) { if (!l.length) { PERMS.push(a); return; } l.forEach((x, i) => p([...a, x], l.filter((_, j) => j !== i))); })([], [0, 1, 2, 3]);
   function canon(cards) {
@@ -98,6 +127,6 @@
     for (const pm of PERMS) { const k = cards.map((c) => (c & ~3) | pm[c & 3]).sort((a, b) => b - a); let v = 0; for (const c of k) v = v * 64 + c; if (best === null || v < best) best = v; }
     return best;
   }
-  const api = { GAMES, SD_CAT, evalSD, evalOmaha, lowOmaha, equity, deckOf, canon, shares };
+  const api = { GAMES, SD_CAT, evalSD, evalOmaha, lowOmaha, equity, deckOf, canon, shares, razzVal, equityStud };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Variants = api;
 })(typeof window !== 'undefined' ? window : globalThis);

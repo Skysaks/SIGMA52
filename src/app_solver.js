@@ -88,7 +88,8 @@
     const pot = +String(sv.pot).replace(',', '.'), stack = +String(sv.stack).replace(',', '.');
     if (!(pot > 0)) throw new Error('Pot invalide.'); if (!(stack >= 0)) throw new Error('Tapis invalide.');
     const sizes = {}; for (const st of ST) sizes[st] = sv.sizes[st].map((x) => ({ bet: x.bet, raise: x.raise }));
-    return { board, pot, stack, ranges: sv.r.slice(), sizes, maxRaises: sv.maxRaises, sample: board.length === 3 ? SAMPLES[sv.sample] : null, include: sv.include || null };
+    const rp = +String(sv.rakePct ?? 0).replace(',', '.') || 0, rc = +String(sv.rakeCap ?? 3).replace(',', '.') || 0;
+    return { rake: rp > 0 ? { pct: rp / 100, cap: rc > 0 ? rc : Infinity } : null, board, pot, stack, ranges: sv.r.slice(), sizes, maxRaises: sv.maxRaises, sample: board.length === 3 ? SAMPLES[sv.sample] : null, include: sv.include || null };
   }
   function estimateText() {
     try {
@@ -162,6 +163,8 @@
         <label class="f">Board (flop, turn ou river)<input data-svf="board" value="${esc(sv.board)}" spellcheck="false" autocomplete="off" placeholder="Ks7d2c"></label>
         <label class="f">Pot au début de la rue (bb)<input data-svf="pot" inputmode="decimal" value="${esc(sv.pot)}"></label>
         <label class="f">Tapis effectif restant (bb)<input data-svf="stack" inputmode="decimal" value="${esc(sv.stack)}"></label>
+        <label class="f">Rake (% du pot, 0 = sans)<input data-svf="rakePct" inputmode="decimal" value="${esc(sv.rakePct ?? '0')}"></label>
+        <label class="f">Plafond du rake (bb)<input data-svf="rakeCap" inputmode="decimal" value="${esc(sv.rakeCap ?? '3')}"></label>
         <label class="f">Ta main (facultatif)<input data-svf="hero" value="${esc(sv.hero)}" placeholder="AhKd" spellcheck="false" autocomplete="off"></label>
       </div>
       <div class="row"><button class="btn small" data-act="svrand" data-n="3">Flop au hasard</button><button class="btn small" data-act="svrand" data-n="4">Turn au hasard</button><button class="btn small" data-act="svrand" data-n="5">River au hasard</button></div>

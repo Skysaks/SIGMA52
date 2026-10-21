@@ -69,4 +69,10 @@ t('flop échantillonné : arbre approché signalé, EV cohérentes', () => {
   assert(g.stats().approx);
   g.iterate(60); const r = g.info([]); close(r.evMean[0] + r.evMean[1], 5.5, 0.05, 'EV');
 });
+t('rake : la somme des EV égale le pot moins le rake moyen, et le rake réduit les EV', () => {
+  const base = { board: 'Ks7d2c9h4s', pot: 20, stack: 0, ranges: ['AA, KK', 'QQ, JJ'] };
+  const a = PF.create(base).info([]), b = PF.create({ ...base, rake: { pct: 0.05, cap: 3 } }).info([]);
+  close(b.evMean[0] + b.evMean[1], 20 - 1, 1e-6, 'EV avec rake');
+  assert(b.evMean[0] < a.evMean[0]);
+});
 console.log(n, 'tests passés');

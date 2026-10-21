@@ -82,18 +82,27 @@
   };
   // P(action observée | catégorie) pour un type, une rue, une situation.
   // ctx (facultatif) : { mw: pot à plusieurs, ip: l'adversaire est en position } -> table fine du modèle v2 si assez d'observations.
+  // Agressivité de référence (mises et relances ÷ calls après le flop) de chaque type, pour personnaliser avec l'AF observé.
+  const AF_REF = { serre: 1.5, normal: 2, large: 2.5, fish: 0.7, maniaque: 4, action: 1.5 };
   function likelihood(type, street, facing, sc, b, ctx) {
+    const base = likelihood0(type, street, facing, sc, b, ctx);
+    if (!ctx || !(ctx.af > 0)) return base;
+    const f = Math.max(0.4, Math.min(2.5, ctx.af / (AF_REF[type] || 2)));
+    const q = facing ? [base[0], base[1] / Math.sqrt(f), base[2] * f] : [base[0], base[1] * f, base[2] * f, base[3] * f];
+    const t = q.reduce((x, y) => x + y, 0); return q.map((x) => x / t);
+  }
+  function likelihood0(type, street, facing, sc, b, ctx) {
     const M = MODEL?.post?.[type], M2 = MODEL?.post2?.[type];
     const prior = facing ? FALLBACK.face[b] : FALLBACK.bet[b];
     if (M2 && ctx && ctx.mw !== undefined && ctx.ip !== undefined) {
       const c2 = M2[street][facing][facing ? sc : 0][ctx.mw ? 1 : 0][ctx.ip ? 1 : 0][b];
-      if (c2 && c2.n >= 40) { const k = c2.n >= 150 ? 0.8 : 0.7; return c2.p.map((x, i) => k * x + (1 - k) * prior[i]); }
+      if (c2 && c2.n >= 40) { const k = (c2.n >= 150 ? 0.8 : 0.7) * (facing && sc === 2 ? 0.6 : 1); return c2.p.map((x, i) => k * x + (1 - k) * prior[i]); }
     }
     if (M) {
       let c = M[street][facing][facing ? sc : 0][b];
       // Peu d'observations pour cette taille : on prend la taille voisine la mieux renseignée.
       if (facing && c.n < 30) { const alt = [sc === 2 ? 1 : 1 - sc, sc === 2 ? 0 : 2].map((j) => M[street][1][j][b]).find((x) => x.n >= 30); if (alt) c = alt; }
-      const k = c.n >= 30 ? 0.75 : c.n >= 8 ? 0.5 : 0.2; return c.p.map((x, i) => k * x + (1 - k) * prior[i]);
+      const k = (c.n >= 30 ? 0.75 : c.n >= 8 ? 0.5 : 0.2) * (facing && sc === 2 ? 0.6 : 1); return c.p.map((x, i) => k * x + (1 - k) * prior[i]);
     }
     return prior;
   }
@@ -265,7 +274,12 @@
     const posted = pos === 'BB' ? 1 : pos === 'SB' ? 0.5 : 0, heroOpen = o.pre === 'threebet' ? Math.min(R - 0.5, o.openBB || 3) : 0;
     const toCall = o.pre === 'threebet' ? R - heroOpen : R - posted;
     const pot = (o.pre === 'threebet' ? 1.5 + heroOpen + R - (S.blind ? posted : 0) : 1.5 + R * (1 + callers)) + (o.ante ? 1 : 0);
-    let w = preWeights(o.type, o.pre === 'threebet' ? 'threebet' : 'raise');
+    // Position de l'ouvreur connue : range d'ouverture de sa position et réponse des charts SIGMA 52 comme base.
+    const SIX = { UTG: 'UTG', 'UTG+1': 'UTG', 'UTG+2': 'UTG', MP: 'UTG', LJ: 'UTG', HJ: 'HJ', CO: 'CO', BTN: 'BTN', SB: 'SB', BB: 'BB' };
+    const oPos = o.openPos && o.pre !== 'threebet' ? SIX[o.openPos] : null, hPos = SIX[pos];
+    const chart = oPos && C.FACING[oPos] && C.FACING[oPos][hPos] ? C.FACING[oPos][hPos] : null;
+    let w = oPos && C.RFI[oPos] ? RG(C.RFI[oPos].range) : preWeights(o.type, o.pre === 'threebet' ? 'threebet' : 'raise');
+    if (oPos && o.type === 'serre') w = w.map((x, i) => x * (pctArr()[i] < 0.12 ? 1 : 0.3)); else if (oPos && ['large', 'maniaque', 'fish'].includes(o.type)) w = w.map((x, i) => Math.max(x, pctArr()[i] < (o.type === 'maniaque' ? 0.5 : 0.35) ? 1 : 0));
     // Grosse relance d'un joueur normal ou serré : range plus forte.
     if (R / (o.straddle ? 2 : 1) >= 4.5 && !['fish', 'maniaque'].includes(o.type)) w = w.map((x, i) => x * (pctArr()[i] < 0.08 ? 1 : 0.45));
     const eqHU = SV.eqVsRange(hi, w);
@@ -279,6 +293,15 @@
       const ok = eq * real >= need && (h[0] === h[1] || h[2] === 's' || pct < 0.06) && stack >= 40;
       lines.push(`Ton équité contre sa range de 3-bet : ${pctS(eq)} (réalisée ≈ ${pctS(eq * real)}), il en faut ${pctS(need)}.`);
       return res(ok ? 'SUIS' : 'COUCHE', ok ? fmt(toCall) + ' BB' : '', ok ? 'warn' : 'bad', { eq, need, options });
+    }
+    if (chart && !callers) {
+      const three = E.parseRange(chart.threebet).has(h), call = E.parseRange(chart.call).has(h);
+      const loose = ['fish', 'large', 'maniaque'].includes(o.type), tight = o.type === 'serre';
+      lines.push(`Chart SIGMA 52, ${oPos} ouvre et tu es ${hPos} : ${three ? '3-bet' : call ? 'call' : 'hors range'}. Ton équité contre sa range d'ouverture${tight ? ' resserrée (joueur serré)' : loose ? ' élargie (joueur large)' : ''} : ${pctS(eq)}.`);
+      if (three && !(tight && !E.parseRange('QQ+, AK').has(h))) { const size = (S.ip ? 3 : 4) * R; lines.push(`3-bet à ${fmt(size)} BB.`); return res('RELANCE', fmt(size) + ' BB', 'good', { eq, need, options }); }
+      if (call || (three && tight) || (loose && eq * real >= need)) { lines.push(call || three ? 'Call : main qui joue bien après le flop, sans dominer assez sa range pour 3-better.' : 'Hors chart, mais contre un ouvreur large ton équité couvre la cote.'); return res('SUIS', fmt(toCall) + ' BB', 'warn', { eq, need, options }); }
+      lines.push(`Couche : cette main perd de l'argent contre sa range d'ouverture${S.ip ? '' : ', surtout hors de position'}.`);
+      return res('COUCHE', '', 'bad', { eq, need, options });
     }
     const valueT = callers ? Math.max(0.42, 1 / (callers + 2) + 0.12) : 0.58;
     if (eq >= valueT || E.parseRange('QQ+, AK').has(h)) {
@@ -311,7 +334,7 @@
     const hist = (o.history || []).slice();
     const last = hist[hist.length - 1];
     if (toCall > 0 && !(last && last.street === street && (last.a === 'bet' || last.a === 'raise'))) hist.push({ street, a: o.raised ? 'raise' : 'bet', size: toCall / P0 });
-    const ctx = { mw: n > 1 ? 1 : 0, ip: ip ? 0 : 1 };
+    const ctx = { mw: n > 1 ? 1 : 0, ip: ip ? 0 : 1, af: o.af || 0 };
     const range = villainRange({ ...o, type, history: hist, ctx }, board, [...hero, ...board]);
     const vb = range.map((r) => bucket(r.c, board));
     const eqv = equityVec(hero, board, range, { random: o.random, runouts: o.runouts });
@@ -346,8 +369,18 @@
     const options = [];
     const sizeTxt = (amt) => (realPot ? `${fmt(amt, 0)} (${Math.round((amt / P0) * 100)} % du pot)` : `${Math.round((amt / P0) * 100)} % du pot`);
     if (toCall <= 0) {
-      options.push({ k: 'Check', act: 'CHECK', size: '', ev: rho * eq * P0 });
-      for (const f of n > 1 ? [0.33, 0.5, 0.75] : [0.33, 0.5, 0.75, 1.25]) { const Bt = Math.min(stack, f * P0); if (Bt >= stack && f > 0.33) continue; const r = evBet(Bt); options.push({ k: `Mise ${Math.round(f * 100)} %`, act: Bt >= stack ? 'TAPIS' : 'MISE', size: Bt >= stack ? 'tout' : sizeTxt(Bt), ev: r.ev, fold: r.fold, f, amt: Bt }); }
+      // Check : en position, la rue s'arrête ; hors de position, l'adversaire peut miser (≈ 60 % du pot) et tu choisis alors
+      // de payer ou de te coucher selon ton équité contre sa range de mise.
+      let evCheck = rho * eq * P0, pBetV = 0;
+      if (!ip && n === 1 && toCome >= 0) {
+        const Bv = 0.6 * P0, pb = range.map((r, i) => { const q = likelihood(type, si, 0, 0, vb[i], { ...ctx, ip: 1 }); return q[1] + q[2] + q[3]; });
+        let wb = 0, eb = 0; range.forEach((r, i) => { wb += r.w * pb[i]; eb += r.w * pb[i] * eqv[i]; }); pBetV = wb;
+        const eqB = wb > 0 ? eb / wb : 0, callOk = (toCome ? rho : 1) * eqB * (P0 + 2 * Bv) - Bv > 0;
+        evCheck = 0; range.forEach((r, i) => { const e = eqv[i]; evCheck += r.w * ((1 - pb[i]) * rho * e * P0 + pb[i] * (callOk ? (toCome ? rho : 1) * e * (P0 + 2 * Bv) - Bv : 0)); });
+      }
+      options.push({ k: 'Check', act: 'CHECK', size: '', ev: evCheck, betAfter: pBetV });
+      const polar = eq >= 0.75 || eq <= 0.3; // l'overbet se réserve aux ranges polarisées (très fort ou bluff)
+      for (const f of n > 1 || !polar ? [0.33, 0.5, 0.75] : [0.33, 0.5, 0.75, 1.25]) { const Bt = Math.min(stack, f * P0); if (Bt >= stack && f > 0.33) continue; const r = evBet(Bt); options.push({ k: `Mise ${Math.round(f * 100)} %`, act: Bt >= stack ? 'TAPIS' : 'MISE', size: Bt >= stack ? 'tout' : sizeTxt(Bt), ev: r.ev, fold: r.fold, f, amt: Bt }); }
       if (stack <= 2.5 * P0) { const r = evBet(stack); options.push({ k: 'Tapis', act: 'TAPIS', size: 'tout', ev: r.ev, fold: r.fold, amt: stack }); }
     } else {
       const B2 = toCall, potAfter = P0 + 2 * B2, need = B2 / potAfter;
@@ -390,7 +423,7 @@
     const why = best.fold !== undefined ? ` Il se couche ≈ ${pctS(best.fold)} du temps face à cette taille.` : '';
     if (best.act === 'MISE' || best.act === 'RELANCE' || best.act === 'TAPIS') lines.push(`${best.k} : meilleure EV estimée (${second ? '+' + fmt(best.ev - second.ev, realPot ? 1 : 1) + (realPot ? '' : ' % du pot') + ' par rapport à « ' + second.k.toLowerCase() + ' »' : ''}).${why}`);
     else if (best.act === 'SUIS') lines.push(`Payer rapporte plus que relancer ou se coucher.${outs >= 8 && toCome ? ' Tes outs et la position justifient de voir la suite.' : ''}`);
-    else if (best.act === 'CHECK') lines.push(n > 1 ? 'À plusieurs, check : trop de joueurs pour qu\'une mise passe.' : 'Check : aucune mise ne rapporte plus (trop de mains meilleures paient, les moins bonnes se couchent).');
+    else if (best.act === 'CHECK') lines.push(n > 1 ? 'À plusieurs, check : trop de joueurs pour qu\'une mise passe.' : 'Check : aucune mise ne rapporte plus (trop de mains meilleures paient, les moins bonnes se couchent).' + (best.betAfter ? ` Après ton check, il mise ≈ ${pctS(best.betAfter)} du temps : décide à l'avance si tu paieras.` : ''));
     else lines.push(T.keep === 'strong' || hist.some((x) => x.a === 'raise') ? 'Ses actions montrent une main forte chez ce profil : couche sans regret.' : 'Ton équité ne couvre pas la cote : couche.');
     if (close) lines.push(`Décision serrée : « ${second.k.toLowerCase()} » est presque aussi bon.`);
     const evScale = realPot ? 1 : 100 / P0;
@@ -451,7 +484,10 @@
     return SD_TAB[name] || null;
   }
   // Score rapide (sert à bâtir les ranges adverses en Omaha 5 cartes et Hi-Lo)
+  const OCAL = root.OmahaCalib || (typeof require !== 'undefined' ? (() => { try { return require('./omaha_calib.js'); } catch (e) { return null; } })() : null);
   function vScore(h, game) {
+    // Score calibré par régression sur l'équité (Omaha 5 et Hi-Lo) ; repli heuristique sinon.
+    if (OCAL && OCAL[game]) { const f = OCAL.feats(h, game); return f.reduce((a, x, i) => a + x * OCAL[game].w[i], 0); }
     let sc = ploScore(h);
     if (game === 'plo8') { const r = new Set(h.map((c) => c >> 2)); if (r.has(12) && r.has(0)) sc += 7; else if (r.has(12) && r.has(1)) sc += 4; sc += [0, 1, 2, 3].filter((x) => r.has(x)).length * 1.2; }
     return sc;
@@ -554,6 +590,56 @@
     return postflop(o);
   }
 
+
+  // ---------------- Adaptateur pour la table simulée : n'importe quel siège peut jouer avec ce moteur ----------------
+  const BOT_TYPE = { nit: 'serre', reg: 'normal', station: 'fish', maniaque: 'maniaque', mizrachi: 'large', action: 'action', prolive: 'normal', sigma: 'normal' };
+  const ORDER6 = ['SB', 'BB', 'UTG', 'HJ', 'CO', 'BTN'];
+  function fromTable(tb, i, fast = true) {
+    const L0 = tb.legal(), me = tb.players[i], bb = tb.bb, pos = TS.posName(tb, i);
+    const opps = tb.players.map((p, k) => [p, k]).filter(([p, k]) => k !== i && p.inHand && !p.out);
+    const aggr = [...tb.seq].reverse().find((x) => x.final === 'raise' && x.i !== i);
+    const vi = aggr && tb.players[aggr.i].inHand ? aggr.i : opps.length ? opps[0][1] : (i + 1) % tb.n;
+    const vp = tb.players[vi], vt = vp.hero ? 'normal' : BOT_TYPE[vp.profile] || BOT_TYPE[TS.kindOf(TS.PROFILES[vp.profile] || {}, vp.profile)] || 'normal';
+    const o = { hero: me.cards, board: tb.board.slice(), players: tb.active().length, pos, nOpp: Math.max(1, opps.length), type: vt, stackBB: tb.effStack(i) / bb };
+    if (fast) { o.runouts = 40; o.iterations = 500; }
+    if (tb.street === 'pre') {
+      const pre = tb.seq.filter((x) => x.street === 'pre'), before = pre.filter((x) => x.i !== i), raises = before.filter((x) => x.final === 'raise').length, heroRaised = pre.some((x) => x.i === i && x.final === 'raise');
+      const calls = before.filter((x) => x.final === 'call').length;
+      if (heroRaised) { o.pre = 'threebet'; o.raiseBB = tb.cur / bb; o.openBB = me.put / bb; }
+      else if (raises === 0) { o.pre = calls ? 'limp' : 'open'; o.limpers = calls; }
+      else { const lastR = before.map((x, k) => [x, k]).filter(([x]) => x.final === 'raise').pop()[1]; const after = before.slice(lastR + 1).filter((x) => x.final === 'call').length; o.pre = after ? 'raisecall' : 'raise'; o.callers = after; o.raiseBB = tb.cur / bb; }
+      return o;
+    }
+    const vpre = vp.acts.filter((a) => a.street === 'pre' && (a.final === 'raise' || a.final === 'call')), vRaised = vpre.some((a) => a.final === 'raise'), heroPreRaise = me.acts.some((a) => a.street === 'pre' && a.final === 'raise');
+    o.vpre = vRaised ? (heroPreRaise ? 'threebet' : 'raise') : vpre.length ? (heroPreRaise ? 'call' : 'limp') : 'call';
+    o.pot = (L0.pot - L0.toCall) / bb; o.toCall = L0.toCall / bb; o.stack = me.stack / bb;
+    o.ip = ORDER6.indexOf(pos) > ORDER6.indexOf(TS.posName(tb, vi));
+    o.raised = L0.toCall > 0 && me.put > 0;
+    const hist = [];
+    for (const a of vp.acts) {
+      if (a.street === 'pre' || a.street === tb.street) continue;
+      if (a.final === 'check') hist.push({ street: a.street, a: 'check' });
+      else if (a.final === 'call') hist.push({ street: a.street, a: 'call', size: a.toCall / Math.max(1e-9, a.pot - a.toCall) });
+      else if (a.final === 'raise') hist.push({ street: a.street, a: a.toCall > 0 ? 'raise' : 'bet', size: a.size });
+    }
+    o.history = hist;
+    return o;
+  }
+  // Joue l'action conseillée sur la table. Retourne true si une action a été jouée.
+  function actTable(tb, i) {
+    const L0 = tb.legal(), bb = tb.bb; let r = null;
+    try { r = decide(fromTable(tb, i)); } catch (e) { r = null; }
+    if (!r || !r.action || r.action === '?') return false;
+    const a = r.action;
+    if (a === 'COUCHE' || a === 'CHECK') tb.act(L0.canCheck ? 'check' : 'fold');
+    else if (a === 'SUIS') tb.act(L0.canCheck ? 'check' : 'call');
+    else if (a === 'TAPIS') tb.act('raise', L0.maxTo);
+    else if (tb.street === 'pre') { const x = parseFloat(String(r.size).replace(',', '.')); tb.act('raise', (isFinite(x) ? x : 3) * bb); }
+    else { const amt = (r.amount || 0) * bb; tb.act('raise', L0.toCall > 0 ? tb.cur + Math.max(amt - L0.toCall, tb.minRaise) : Math.max(amt, bb)); }
+    return true;
+  }
+  if (TS && TS.setExternal) TS.setExternal(actTable);
+
   // Structure de tournoi maison : grosses blindes tirées d'une suite classique (100, 150, 200, 300, 400, 500, 600, 800, 1 000…),
   // de 1 % du tapis de départ jusqu'à environ un quinzième des jetons en jeu ; ante de grosse blinde à partir du niveau 4.
   function structure({ stack = 10000, players = 6, hours = 3, levelMin = 15, smallChip = 25 } = {}) {
@@ -594,6 +680,6 @@
     return [40, 25, 16, 11, 8];
   }
 
-  const api = { TYPES, POSITIONS, POS_BY_N, positions, BUCKETS, decide, preflop, postflop, preRange, preWeights, villainRange, equityVec, bucket, likelihood, ploScore, ploPct, structure, chips, payouts, variantDecide, ploTable, sdTable };
+  const api = { TYPES, POSITIONS, POS_BY_N, positions, BUCKETS, decide, preflop, postflop, preRange, preWeights, villainRange, equityVec, bucket, likelihood, ploScore, ploPct, structure, chips, payouts, variantDecide, ploTable, sdTable, vScore, fromTable, actTable };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Live = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -48,10 +48,22 @@
 
   // ---------------- Variantes : équité ----------------
   const va = { game: 'sd', h: ['AsKs', 'QdQc', '', ''], board: '', res: null };
-  const EX = { nlh: ['AsKs', 'QdQc'], sd: ['AsKs', 'QdQc'], plo: ['AsAhKsKh', 'JdTd9c8c'], plo5: ['AsAhKsKhQd', 'JdTd9c8c7h'], plo8: ['As2s3hKh', 'KdKcQdQc'] };
+  const EX = { nlh: ['AsKs', 'QdQc'], sd: ['AsKs', 'QdQc'], plo: ['AsAhKsKh', 'JdTd9c8c'], plo5: ['AsAhKsKhQd', 'JdTd9c8c7h'], plo8: ['As2s3hKh', 'KdKcQdQc'], stud: ['AsAhKc', 'KsKdQc'], razz: ['As2d3c', '7s8d9c'] };
+  const STUD = { stud: 'Stud à 7 cartes', razz: 'Razz' };
   ONCHANGE.push((t) => { if (t.dataset.va !== undefined) { const k = t.dataset.va; if (k === 'board') va.board = t.value; else va.h[+k] = t.value; va.res = null; render(); return true; } });
   ACT.vagame = (t) => { va.game = t.dataset.v; va.h = [...EX[va.game], '', '']; va.board = ''; va.res = null; render(); };
   ACT.varun = () => {
+    if (STUD[va.game]) {
+      try {
+        const known = va.h.map((x) => x.trim()).filter(Boolean).map((x) => E.parseCards(x)), dead = E.parseCards(va.board);
+        if (known.length < 2) throw new Error('Saisis au moins deux joueurs.');
+        if (known.some((k) => k.length < 1 || k.length > 7)) throw new Error('Chaque joueur a de 1 à 7 cartes connues.');
+        const all = [...dead, ...known.flat()]; if (new Set(all).size !== all.length) throw new Error('Une carte apparaît deux fois.');
+        const t0 = performance.now(), r = V.equityStud(va.game, known, dead, { iterations: 8000 });
+        va.res = { hands: known, board: [], r: { ...r, scoop: r.equity.map(() => NaN), exact: false }, ms: Math.round(performance.now() - t0), stud: true };
+      } catch (e) { va.res = { err: e.message }; }
+      return render();
+    }
     try {
       const G = V.GAMES[va.game], deck = new Set(V.deckOf(va.game));
       const hands = va.h.map((x) => x.trim()).filter((x, i) => x || i < 2).map((x) => (x === '' ? null : E.parseCards(x)));
@@ -68,17 +80,17 @@
   };
   TOOLVIEWS.variantes = () => {
     X.markSeen?.('variantes');
-    const G = V.GAMES[va.game], r = va.res;
+    const G = V.GAMES[va.game] || { label: STUD[va.game] }, r = va.res;
     let out = '<p class="note">Saisis au moins deux mains, ou laisse un champ vide pour une main aléatoire, puis Calculer.</p>';
     if (r?.err) out = `<p class="pill bad" style="white-space:normal">${esc(r.err)}</p>`;
-    else if (r) out = `${r.board.length ? `<div class="felt"><div class="row" style="justify-content:center">${cardsHTML(r.board)}</div></div>` : ''}<div class="tw"><table class="t"><thead><tr><th>Main</th><th class="n">Équité</th><th class="n">Rafle le pot</th></tr></thead><tbody>${r.hands.map((h, i) => `<tr><td>${h ? cardsHTML(h, true) : '<span class="note">aléatoire</span>'}</td><td class="n mono"><b>${pct(r.r.equity[i], 1)}</b></td><td class="n mono">${pct(r.r.scoop[i], 1)}</td></tr>`).join('')}</tbody></table></div>
+    else if (r) out = `${r.board.length ? `<div class="felt"><div class="row" style="justify-content:center">${cardsHTML(r.board)}</div></div>` : ''}<div class="tw"><table class="t"><thead><tr><th>Main</th><th class="n">Équité</th><th class="n">Rafle le pot</th></tr></thead><tbody>${r.hands.map((h, i) => `<tr><td>${h ? cardsHTML(h, true) : '<span class="note">aléatoire</span>'}</td><td class="n mono"><b>${pct(r.r.equity[i], 1)}</b></td><td class="n mono">${isNaN(r.r.scoop[i]) ? '–' : pct(r.r.scoop[i], 1)}</td></tr>`).join('')}</tbody></table></div>
       <p class="note">${r.r.exact ? 'Calcul exact' : `${fr(r.r.samples, 0)} tirages (Monte-Carlo)`} · ${r.ms} ms.${va.game === 'plo8' ? ' Hi-Lo : l\'équité compte les moitiés et les quarts de pot.' : ''}</p>`;
-    const rules = { nlh: '2 cartes, toutes les combinaisons avec le board.', sd: '36 cartes (6 à As). La couleur bat le full, le brelan bat la suite, A-6-7-8-9 est une suite.', plo: '4 cartes : exactement 2 de la main et 3 du board.', plo5: '5 cartes : exactement 2 de la main et 3 du board.', plo8: '4 cartes. La moitié du pot va à la meilleure basse 8 or better (5 rangs différents de 8 ou moins, as bas), avec 2 cartes de la main et 3 du board.' }[va.game];
+    const rules = { nlh: '2 cartes, toutes les combinaisons avec le board.', sd: '36 cartes (6 à As). La couleur bat le full, le brelan bat la suite, A-6-7-8-9 est une suite.', plo: '4 cartes : exactement 2 de la main et 3 du board.', plo5: '5 cartes : exactement 2 de la main et 3 du board.', plo8: '4 cartes. La moitié du pot va à la meilleure basse 8 or better (5 rangs différents de 8 ou moins, as bas), avec 2 cartes de la main et 3 du board.', stud: '7 cartes par joueur, pas de board : saisis les cartes connues de chaque joueur (cachées si tu les connais, et visibles), et les cartes visibles des joueurs couchés comme cartes mortes. Meilleure main haute de 5 cartes.', razz: 'Stud à 7 cartes joué pour la main la plus basse : as bas, suites et couleurs ignorées, les paires sont mauvaises. Saisis les cartes connues et les cartes mortes.' }[va.game];
     return `<section class="panel"><h2>Équité des variantes</h2>
-      <div class="row"><span class="note">Jeu :</span>${Object.entries(V.GAMES).map(([k, g]) => `<button class="chip" aria-pressed="${va.game === k}" data-act="vagame" data-v="${k}">${esc(g.label)}</button>`).join('')}</div>
+      <div class="row"><span class="note">Jeu :</span>${Object.entries(V.GAMES).map(([k, g]) => [k, g.label]).concat(Object.entries(STUD)).map(([k, l]) => `<button class="chip" aria-pressed="${va.game === k}" data-act="vagame" data-v="${k}">${esc(l)}</button>`).join('')}</div>
       <p class="note">${esc(rules)}</p>
-      <div class="form">${va.h.map((x, i) => `<label class="f">Main ${i + 1}${i > 1 ? ' (facultatif)' : ''}<input data-va="${i}" value="${esc(x)}" spellcheck="false" placeholder="${i < 2 ? 'vide = aléatoire' : 'vide = absent'}"></label>`).join('')}<label class="f">Board (0, 3, 4 ou 5 cartes)<input data-va="board" value="${esc(va.board)}" spellcheck="false"></label></div>
+      <div class="form">${va.h.map((x, i) => `<label class="f">Main ${i + 1}${i > 1 ? ' (facultatif)' : ''}<input data-va="${i}" value="${esc(x)}" spellcheck="false" placeholder="${i < 2 ? 'vide = aléatoire' : 'vide = absent'}"></label>`).join('')}<label class="f">${STUD[va.game] ? 'Cartes mortes (vues chez les joueurs couchés)' : 'Board (0, 3, 4 ou 5 cartes)'}<input data-va="board" value="${esc(va.board)}" spellcheck="false"></label></div>
       <div class="row"><button class="btn primary" data-act="varun">Calculer</button></div>${out}
-      <p class="note">Module Avancé « Short Deck, Omaha 5 cartes, Omaha Hi-Lo ».</p></section>`;
+      <p class="note">Modules Avancé « Short Deck, Omaha 5 cartes, Omaha Hi-Lo » et « Stud et Razz ».</p></section>`;
   };
 })();

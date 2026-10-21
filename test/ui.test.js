@@ -32,14 +32,20 @@ const SHOTS = process.env.SHOTS || '';
 
     // Cours : quelques modules et leurs quiz
     await tab('cours');
-    if ((await p.locator('.mod').count()) !== 69) errs.push(name + ' modules ' + (await p.locator('.mod').count()));
-    for (let i = 0; i < 69; i++) { await p.locator('.mod').nth(i).click(); await over('module ' + i); await p.click('[data-act=closemod]'); }
-    for (const i of [0, 5, 20, 30, 38, 68]) {
+    if ((await p.locator('.mod').count()) !== 70) errs.push(name + ' modules ' + (await p.locator('.mod').count()));
+    for (let i = 0; i < 70; i++) { await p.locator('.mod').nth(i).click(); await over('module ' + i); await p.click('[data-act=closemod]'); }
+    for (const i of [0, 5, 20, 30, 38, 69]) {
       await p.locator('.mod').nth(i).click(); await over('module ' + i);
       const nq = await p.locator('[data-act=qans][data-i="0"]').count();
       for (let q = 0; q < nq; q++) await p.click(`[data-act=qans][data-q="${q}"][data-i="0"]`);
       await p.click('[data-act=closemod]');
     }
+
+    // Révision espacée : force un module maîtrisé et ses questions à échéance
+    await p.evaluate(() => { const pr = JSON.parse(localStorage.getItem('sigma52.progress')); pr.quiz = pr.quiz || {}; pr.quiz.positions = 1; pr.srs = { 'positions#0': { b: 0, due: '2000-01-01' }, 'positions#1': { b: 1, due: '2000-01-01' } }; localStorage.setItem('sigma52.progress', JSON.stringify(pr)); });
+    await p.reload(); await p.waitForTimeout(300); await tab('cours');
+    if (!(await has('[data-act=srsstart]'))) errs.push(name + ' SRS : panneau absent');
+    else { await p.click('[data-act=srsstart] >> nth=0'); await p.click('[data-act=srsans][data-i="0"]'); await over('srs'); await shot('srs'); await p.click('[data-act=srsnext]'); await p.click('[data-act=srsans][data-i="1"]'); await p.click('[data-act=srsnext]'); if (!(await has('text=Révision des notions terminée'))) errs.push(name + ' SRS : fin absente'); await p.click('[data-act=srsend]'); }
 
     // Simulateur : préparation, session de 25 mains avec coach en direct, bilan
     await tab('sim'); await over('sim-prep'); await shot('sim-prep');
@@ -93,6 +99,7 @@ const SHOTS = process.env.SHOTS || '';
     await tab('solveur');
     await p.fill('[data-svf=board]', 'Ks7d2c9h4s'); await p.press('[data-svf=board]', 'Tab'); await p.waitForTimeout(100);
     await p.fill('[data-svf=hero]', 'AhKc'); await p.press('[data-svf=hero]', 'Tab');
+    if (await has('[data-svf=rakePct]')) { await p.fill('[data-svf=rakePct]', '5'); await p.press('[data-svf=rakePct]', 'Tab'); } else errs.push(name + ' solveur : champ rake');
     await over('solveur-prep'); await shot('solveur-prep');
     await p.click('[data-act=svgo]'); await p.waitForSelector('[data-act=svact]', { timeout: 60000 });
     if (!(await has('text=Ta main'))) errs.push(name + ' solveur : ta main absente');
@@ -179,7 +186,7 @@ const SHOTS = process.env.SHOTS || '';
     const [bk] = await Promise.all([p.waitForEvent('download', { timeout: 5000 }).catch(() => null), p.click('[data-act=dataexp]')]); if (!bk) errs.push(name + ' export des données');
     await p.evaluate(() => { window.__S52.setTool('atlas'); window.__S52.go('outils'); }); await p.click('[data-act=atset][data-k=pre][data-v=raise]'); await p.locator('[data-act=atsel]').first().click(); await over('atlas'); await shot('atlas');
     await p.click('[data-act=atset][data-k=game][data-v=sd]'); await over('atlas-sd');
-    await p.click('[data-t=variantes]'); for (const g of ['sd', 'plo5', 'plo8', 'nlh']) { await p.click(`[data-act=vagame][data-v=${g}]`); await p.click('[data-act=varun]'); if (!(await has('text=Rafle le pot'))) errs.push(name + ' variantes ' + g); } await over('variantes');
+    await p.click('[data-t=variantes]'); for (const g of ['sd', 'plo5', 'plo8', 'stud', 'razz', 'nlh']) { await p.click(`[data-act=vagame][data-v=${g}]`); await p.click('[data-act=varun]'); if (!(await has('text=Rafle le pot'))) errs.push(name + ' variantes ' + g); } await over('variantes');
     // Recherche globale et thème
     await p.keyboard.press('Control+k'); await p.keyboard.type('défense minimale'); await p.waitForTimeout(80); await p.keyboard.press('Enter'); await p.waitForTimeout(100);
     if ((await p.evaluate(() => window.__S52.getTab())) !== 'cours') errs.push(name + ' recherche globale');

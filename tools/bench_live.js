@@ -52,10 +52,10 @@ function liveAct(tb) {
 }
 function run(lineup, policy, seed) {
   const tb = new TS.Table({ lineup, random: E.rng(seed) }); let dec = 0; const t0 = Date.now();
-  for (let h = 0; h < HANDS; h++) { tb.newHand(); let g = 0; while (!tb.done && g++ < 150) { if (tb.toAct === 0 && !tb.players[0].out) { dec++; if (policy === 'live') liveAct(tb); else tb.autoHero(policy); } else tb.runBots(); } }
+  for (let h = 0; h < HANDS; h++) { tb.newHand(); let g = 0; while (!tb.done && g++ < 150) { if (tb.toAct === 0 && !tb.players[0].out) { dec++; if (policy === 'live') { if (!L.actTable(tb, 0)) tb.autoHero('reg'); } else tb.autoHero(policy); } else tb.runBots(); } }
   return { bb100: (tb.session.net / tb.session.hands) * 100, dec, ms: (Date.now() - t0) / Math.max(1, dec) };
 }
-const LINEUPS = { mixte: ['station', 'reg', 'maniaque', 'station', 'nit'], fish: ['station', 'station', 'action', 'reg', 'station'], reguliers: ['reg', 'reg', 'nit', 'reg', 'prolive'], agressive: ['maniaque', 'mizrachi', 'reg', 'maniaque', 'reg'] };
+const LINEUPS = { mixte: ['station', 'reg', 'maniaque', 'station', 'nit'], fish: ['station', 'station', 'action', 'reg', 'station'], reguliers: ['reg', 'reg', 'nit', 'reg', 'prolive'], agressive: ['maniaque', 'mizrachi', 'reg', 'maniaque', 'reg'], difficile: ['sigma', 'sigma', 'reg', 'sigma', 'nit'] };
 const out = {};
 for (const [k, lu] of Object.entries(LINEUPS)) {
   const a = run(lu, 'live', SEED), b = run(lu, 'reg', SEED);

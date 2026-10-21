@@ -2,7 +2,7 @@
 (function (root) {
   function register(K) {
     K.mod({
-      id: 'sprint', level: 1, title: 'Méthode express : des résultats en 30 jours', drill: 'rfi',
+      id: 'sprint', level: 1, title: 'Méthode express : les premiers résultats en 30 jours', drill: 'rfi',
       goals: ['Corriger d\'abord les quelques fuites qui coûtent le plus', 'Suivre une routine courte, tenable chaque jour', 'Savoir mesurer un progrès réel sans attendre des mois de résultats'],
       sections: [
         ['Le principe : corriger les grosses fuites d\'abord', `<p>Un débutant perd surtout à cause de quelques erreurs répétées : trop de mains jouées avant le flop (limps, calls), des calls sans la cote après le flop, des bluffs contre des joueurs qui paient tout, et une bankroll ou un mental qui lâchent. Corriger ces points rapporte plus vite que n'importe quelle technique avancée. Tout le reste vient après.</p>`],
@@ -19,6 +19,7 @@
           <tr><td>3</td><td>Exploiter les fish, contrôler les pots</td><td>500 mains au simulateur avec le coach, bilan sans catégorie rouge</td></tr>
           <tr><td>4</td><td>Jouer en réel à petite limite, revue chaque jour</td><td>10 sessions saisies au Journal, 3 mains revues par session</td></tr></tbody></table>
           <p><strong>Routine quotidienne de 45 minutes</strong> : 10 minutes de révisions et 10 spots du jour, 15 minutes de cours (un module, son quiz), 20 minutes de simulateur ou de revue de mains. La régularité compte plus que la durée : 45 minutes chaque jour valent mieux que 5 heures le dimanche.</p>`],
+        ['Ce que 30 jours permettent, et ce qu\'ils ne permettent pas', `<p>En 30 jours de routine, tu corriges les fuites qui coûtent le plus : c'est le premier palier, souvent suffisant pour ne plus perdre contre des joueurs loisir. Ce n'est pas assez pour maîtriser le jeu. L'apprentissage complet de SIGMA 52 représente environ 80 heures (lecture, exercices, entraînement, révisions, pratique), et le jeu réel demande des dizaines de milliers de mains avant de savoir si tu gagnes vraiment. Compte 6 à 12 mois pour devenir un gagnant solide en petites limites, à condition de garder la routine. Un humain apprend par répétition espacée et par la pratique : relire ne suffit pas, il faut refaire, se tromper, revoir.</p>`],
         ['Mesurer ce qui progresse vraiment', `<p>Tes gains sur quelques milliers de mains ne disent presque rien : la variance les écrase (module « Penser en paris »). Mesure plutôt :</p>
           <ul><li>ta réussite aux spots par type (objectif : 90 % sur l'ouverture, les cotes et le tapis ou couché) ;</li>
           <li>tes statistiques de jeu : en 6-max, un VPIP autour de 22 à 26 % et un PFR proche (écart de moins de 5 points) ;</li>
@@ -197,6 +198,25 @@
         ['Lequel est un signal d\'alerte ?', ['Jouer pour se refaire', 'Faire une pause après une session'], 0, 'Chasser ses pertes est un signe classique de jeu problématique.'],
         ['Durée minimale de l\'interdiction volontaire de jeux ?', ['6 mois', '3 ans'], 1, 'Elle est valable au moins 3 ans.'],
         ['Numéro de Joueurs Info Service ?', ['09 74 75 13 13', '08 00 00 00 00'], 0, '09 74 75 13 13, non surtaxé.'],
+      ],
+    });
+
+
+    K.mod({
+      id: 'stud', level: 3, title: 'Stud à 7 cartes et Razz : les bases', drill: 'outs',
+      goals: ['Connaître le déroulé du stud et ce qui change sans board commun', 'Utiliser les cartes visibles et les cartes mortes', 'Jouer le Razz, la version basse'],
+      sections: [
+        ['Le déroulé', `<p>Pas de board commun : chaque joueur reçoit 7 cartes, dont 4 visibles (3e à 6e rue) et 3 cachées (deux au départ, la dernière à la 7e rue). Pas de blindes : une ante et un « bring-in » payé par la carte visible la plus faible (au stud haut). Ensuite, la main visible la plus forte parle en premier. La meilleure main de 5 cartes parmi 7 gagne.</p>`],
+        ['Les cartes mortes', `<p>Les cartes visibles des joueurs couchés sont <strong>mortes</strong> : elles ne viendront plus. Si tu as trois cœurs et que quatre cœurs sont visibles ailleurs, ton tirage couleur est très affaibli. Le stud récompense la mémoire : retiens les cartes couchées. L'outil Variantes prend les cartes mortes en compte.</p>
+          <p>Ordres de grandeur (moteur SIGMA 52, cartes connues seulement) : As-As-Roi contre Roi-Roi-Dame en début de main ≈ 67 % ; As-Roi-Dame de cœur (trois à la couleur) contre une paire de valets ≈ 49 %.</p>`],
+        ['Le Razz', `<p>Même déroulé, mais la main la plus basse gagne : l'as est bas, suites et couleurs ne comptent pas, les paires sont mauvaises. La meilleure main est A-2-3-4-5. Au Razz, c'est la carte visible la plus <strong>haute</strong> qui paie le bring-in. Une bonne main de départ : trois cartes basses différentes (A-2-3 contre 7-8-9 ≈ 66 %, moteur SIGMA 52).</p>`],
+      ],
+      mistakes: ['Oublier les cartes mortes dans le calcul de ses outs', 'Payer avec un tirage dont les outs sont déjà sortis', 'Au Razz, garder une main qui s\'apparie', 'Jouer trop de mains de départ par ennui (pas de position fixe comme au hold\'em)'],
+      keys: ['7 cartes, 4 visibles, 3 cachées', 'Cartes mortes = outs perdus', 'Razz : A-2-3-4-5, paires mauvaises', 'Vérifier dans l\'outil Variantes'],
+      quiz: [
+        ['Tu as trois cœurs en 3e rue, quatre cœurs sont visibles chez les joueurs couchés. Ton tirage couleur…', ['Est plus fort', 'Est très affaibli'], 1, 'Il ne reste que 6 cœurs au lieu de 10.'],
+        ['Au Razz, quelle main est la meilleure ?', ['A-2-3-4-5', '2-3-4-5-7'], 0, 'La roue est la meilleure main basse.'],
+        ['Au Razz, qui paie le bring-in ?', ['La carte visible la plus basse', 'La carte visible la plus haute'], 1, 'L\'inverse du stud haut, puisque bas = fort.'],
       ],
     });
 

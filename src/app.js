@@ -103,10 +103,14 @@
   function journalStats() {
     const ss = state.journal.sessions.slice().sort((a, b) => a.date.localeCompare(b.date));
     const total = ss.reduce((a, s) => a + s.result, 0), mins = ss.reduce((a, s) => a + (s.minutes || 0), 0);
-    let bbWon = 0, hands = 0;
-    ss.forEach((s) => { const bb = bbOf(s.stake); if (s.format === 'Cash' && bb && s.hands) { bbWon += s.result / bb; hands += s.hands; } });
-    const wr = hands ? bbWon / hands * 100 : null, ci = hands ? 1.96 * 90 / Math.sqrt(hands / 100) : null, since = addDays(-30);
-    return { ss, total, mins, bank: (+state.settings.bankroll0 || 0) + total, wr, ci, hands, last30: ss.filter((s) => s.date >= since).reduce((a, s) => a + s.result, 0) };
+    let bbWon = 0, hands = 0; const cash = [];
+    ss.forEach((s) => { const bb = bbOf(s.stake); if (s.format === 'Cash' && bb && s.hands) { bbWon += s.result / bb; hands += s.hands; cash.push([s.result / bb, s.hands]); } });
+    const wr = hands ? bbWon / hands * 100 : null, since = addDays(-30);
+    // Écart-type estimé sur tes propres sessions (var(résultat d'une session) ≈ σ² × mains ÷ 100), dès 15 sessions et 10 000 mains.
+    let sd = 90, sdOwn = false;
+    if (cash.length >= 15 && hands >= 10000) { const v = cash.reduce((a, [r, n]) => a + (r - (wr * n) / 100) ** 2, 0) / (hands / 100); sd = Math.max(40, Math.min(200, Math.sqrt(v))); sdOwn = true; }
+    const ci = hands ? 1.96 * sd / Math.sqrt(hands / 100) : null;
+    return { ss, total, mins, bank: (+state.settings.bankroll0 || 0) + total, wr, ci, hands, sd, sdOwn, last30: ss.filter((s) => s.date >= since).reduce((a, s) => a + s.result, 0) };
   }
   function maxStake(bank) { const ok = [2, 5, 10, 25, 50, 100, 200].filter((x) => x * (+state.settings.biRule || 40) <= bank); return ok.length ? 'NL' + ok[ok.length - 1] : null; }
 
@@ -179,7 +183,9 @@
         return `<div class="panel" style="gap:10px"><p><strong>${qi + 1}.</strong> ${esc(q.q)}</p><div class="opts">${q.opts.map((o, oi) => `<button class="opt${a !== undefined && oi === q.ok ? ' ok' : ''}${a === oi && oi !== q.ok ? ' ko' : ''}" data-act="qans" data-q="${qi}" data-i="${oi}" ${a !== undefined ? 'disabled' : ''}>${esc(o)}</button>`).join('')}</div>
           ${a !== undefined ? `<div class="verdict ${a === q.ok ? 'good' : 'bad'}"><b>${a === q.ok ? 'Juste.' : 'Non : ' + esc(q.opts[q.ok]) + '.'}</b><span>${esc(q.why)}</span></div>` : ''}</div>`;
       }).join('');
-      return `<div class="row"><button class="btn small" data-act="closemod">← Tous les modules</button><span class="eyebrow">Niveau ${m.level} · ${L.title} · module ${i + 1} sur ${K.MODULES.length} · ${m.minutes} min</span></div>
+      const lt = K.learn(m), hm = (x) => (x >= 60 ? `${Math.floor(x / 60)} h ${String(Math.round(x % 60)).padStart(2, '0')}` : `${Math.round(x)} min`);
+      return `<div class="row"><button class="btn small" data-act="closemod">← Tous les modules</button><span class="eyebrow">Niveau ${m.level} · ${L.title} · module ${i + 1} sur ${K.MODULES.length} · ${hm(lt.total)} d'apprentissage réel</span></div>
+      <div class="learnbar"><span><b>${m.minutes} min</b> lecture et quiz</span>${lt.exercises ? `<span><b>${lt.exercises} min</b> exercices corrigés</span>` : ''}${lt.drill ? `<span><b>${lt.drill} min</b> 30 spots ciblés</span>` : ''}<span><b>${lt.review} min</b> révisions espacées</span><span><b>${lt.practice} min</b> ${m.level <= 4 ? 'pratique au simulateur' : 'mise en application'}</span></div>
       <article class="panel prose"><h1>${esc(m.title)}</h1>
         <div class="warnbox"><strong>À la fin de ce module, tu sauras :</strong><ul>${m.goals.map((g) => `<li>${esc(g)}</li>`).join('')}</ul></div>
         ${m.sections.map(([h, html]) => `<section><h2>${h}</h2><div class="prose tw">${html}</div></section>`).join('')}
@@ -187,13 +193,20 @@
           <section class="panel" style="background:var(--good-bg);border-color:transparent"><h3>À retenir</h3><ul>${m.keys.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></section></div></article>
       <section style="display:grid;gap:10px"><div class="row" style="justify-content:space-between"><h2>Quiz du module</h2>${quizScore(m.id) !== undefined ? `<span class="pill ${mastered(m) ? 'good' : ''}">Meilleur score : ${pct(quizScore(m.id))}</span>` : ''}</div>${quiz}
         ${done ? `<div class="verdict ${right / m.quiz.length >= 0.8 ? 'good' : 'bad'}"><b>${right}/${m.quiz.length} · ${right / m.quiz.length >= 0.8 ? 'Module maîtrisé.' : 'Seuil de maîtrise : 80 %. Relis les sections concernées puis recommence.'}</b>${right < m.quiz.length ? '<span>Tes erreurs reviennent demain dans les Révisions.</span>' : ''}</div><div class="row"><button class="btn" data-act="qreset">Recommencer le quiz</button></div>` : ''}</section>
+      <section class="panel practice"><span class="eyebrow">Mise en pratique · c'est là que l'on apprend vraiment</span><h2>Après la lecture</h2>
+        <ol><li>${lt.exo ? `Fais les ${lt.exo} exercices corrigés <strong>de tête avant d'ouvrir la réponse</strong>.` : 'Explique le module à voix haute en 2 minutes, sans relire : ce que tu ne sais pas redire, relis-le.'}</li>
+          <li>30 spots « ${esc(S.TYPES[m.drill])} » avec au moins 80 % de réussite.</li>
+          <li>${m.level <= 4 ? '30 minutes au Simulateur avec le coach en mode Examen, en te concentrant sur ce seul module.' : 'Applique-le à ta prochaine session réelle ou partie entre amis, et note dans le Journal ce qui a changé.'}</li>
+          <li>Les questions du quiz reviennent dans « Révision des notions » après 1, 3, 7, 21 et 60 jours : c'est l'espacement qui fixe la mémoire. Deux erreurs sur ce module et il repasse à valider.</li></ol></section>
       <div class="row"><button class="btn" data-act="drill" data-type="${m.drill}">S'entraîner : ${S.TYPES[m.drill]}</button>
         ${nxt ? `<button class="btn primary" data-act="openmod" data-id="${nxt.id}">Module suivant →</button>` : ''}</div>`;
     }
     const total = K.MODULES.length, nM = K.MODULES.filter(mastered).length;
-    return head('Cours', `De débutant à professionnel, en ${K.LEVELS.length} niveaux et ${total} modules. Chaque module : objectifs, cours, erreurs fréquentes, points à retenir, quiz noté et exercice lié. Un module est maîtrisé à 80 % au quiz.`) +
-      `<div class="stats"><div class="stat hero"><span>Modules maîtrisés</span><b>${nM}/${total}</b><span>quiz réussis à 80 % ou plus</span></div>${K.LEVELS.map((L) => { const ms = K.MODULES.filter((m) => m.level === L.n); return `<div class="stat"><span>Niveau ${L.n} · ${L.title}</span><b>${ms.filter(mastered).length}/${ms.length}</b><span>${ms.reduce((a, m) => a + m.minutes, 0)} min</span></div>`; }).join('')}</div>
-      ${K.LEVELS.map((L) => `<section style="display:grid;gap:8px"><div><span class="eyebrow">Niveau ${L.n}</span><h2>${L.title} · ${L.sub}</h2></div><div class="modlist">${K.MODULES.filter((m) => m.level === L.n).map((m) => { const sc = quizScore(m.id), i = K.MODULES.indexOf(m); return `<button class="mod${mastered(m) ? ' done' : ''}" data-act="openmod" data-id="${m.id}"><span class="n">${mastered(m) ? '✓' : String(i + 1).padStart(2, '0')}</span><span><h3>${esc(m.title)}</h3><span class="note">${m.sections.map((x) => x[0]).join(' · ')}</span></span><span class="note mono" style="text-align:right">${m.minutes} min${sc !== undefined ? '<br>quiz ' + pct(sc) : ''}</span></button>`; }).join('')}</div></section>`).join('')}
+    const hrs = (ms) => Math.round(ms.reduce((a, m) => a + K.learn(m).total, 0) / 60), totH = hrs(K.MODULES), readH = Math.round(K.MODULES.reduce((a, m) => a + m.minutes, 0) / 60);
+    return head('Cours', `De débutant à professionnel, en ${K.LEVELS.length} niveaux et ${total} modules. Chaque module : objectifs, cours, exemples et exercices corrigés, erreurs fréquentes, points à retenir, quiz noté, entraînement ciblé et révisions espacées. Un module est maîtrisé à 80 % au quiz.`) +
+      `<div class="warnbox"><strong>Combien de temps, vraiment ?</strong> La lecture ne fait que ${readH} heures ; l'apprentissage complet en demande environ <strong>${totH} heures</strong> (exercices, entraînement, révisions, pratique), soit environ ${Math.round((totH * 60) / 45 / 30)} mois à 45 minutes par jour. S'y ajoute le jeu réel, qui ne se compresse pas : il faut des dizaines de milliers de mains pour mesurer un winrate (≈ 100 heures en ligne à 4 tables pour 30 000 mains, dix fois plus en live), d'où un horizon réaliste de 6 à 12 mois pour devenir un gagnant solide en petites limites. Les parcours de l'onglet Parcours donnent le chemin le plus court vers ton objectif.</div>` +
+      `<div class="stats"><div class="stat hero"><span>Modules maîtrisés</span><b>${nM}/${total}</b><span>quiz réussis à 80 % ou plus</span></div>${K.LEVELS.map((L) => { const ms = K.MODULES.filter((m) => m.level === L.n); return `<div class="stat"><span>Niveau ${L.n} · ${L.title}</span><b>${ms.filter(mastered).length}/${ms.length}</b><span>≈ ${hrs(ms)} h d'apprentissage</span></div>`; }).join('')}</div>
+      ${K.LEVELS.map((L) => `<section style="display:grid;gap:8px"><div><span class="eyebrow">Niveau ${L.n}</span><h2>${L.title} · ${L.sub}</h2></div><div class="modlist">${K.MODULES.filter((m) => m.level === L.n).map((m) => { const sc = quizScore(m.id), i = K.MODULES.indexOf(m); return `<button class="mod${mastered(m) ? ' done' : ''}" data-act="openmod" data-id="${m.id}"><span class="n">${mastered(m) ? '✓' : String(i + 1).padStart(2, '0')}</span><span><h3>${esc(m.title)}</h3><span class="note">${m.sections.map((x) => x[0]).join(' · ')}</span></span><span class="note mono" style="text-align:right">${(() => { const t = K.learn(m).total; return t >= 60 ? Math.floor(t / 60) + ' h ' + String(t % 60).padStart(2, '0') : t + ' min'; })()}${sc !== undefined ? '<br>quiz ' + pct(sc) : ''}</span></button>`; }).join('')}</div></section>`).join('')}
       <section class="panel"><div class="row" style="justify-content:space-between"><h2>Lexique</h2><button class="btn small" data-act="gloss">${showGloss ? 'Masquer' : 'Afficher les ' + K.GLOSSARY.length + ' termes'}</button></div>
         ${showGloss ? `<div class="tw"><table class="t"><tbody>${K.GLOSSARY.map(([w, d]) => `<tr><td style="min-width:120px"><strong>${esc(w)}</strong></td><td>${esc(d)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="note">Les termes des tables et des contenus de poker, en français et en anglais.</p>'}</section>`;
   };
@@ -460,7 +473,7 @@
         <div class="stat"><span>Par heure</span><b>${js.mins ? eur(js.total / js.mins * 60) : '—'}</b><span>${Math.round(js.mins / 60)} h jouées</span></div>
         <div class="stat"><span>Winrate cash</span><b>${js.wr !== null ? fr(js.wr, 1) : '—'}</b><span>${js.wr !== null ? `bb/100 · ±${fr(js.ci, 1)} (95 %) sur ${js.hands.toLocaleString('fr-FR')} mains` : 'renseigne les mains jouées'}</span></div>
         <div class="stat"><span>Limite max</span><b>${ms || '—'}</b><span>règle des ${state.settings.biRule} caves</span></div></div>
-      ${js.wr !== null ? '<p class="note">Intervalle calculé avec un écart-type de 90 bb/100, valeur courante en 6-max. Tant qu\'il contient 0, le résultat ne prouve rien.</p>' : ''}
+      ${js.wr !== null ? `<p class="note">${js.sdOwn ? `Intervalle calculé avec ton écart-type mesuré sur tes sessions : ${fr(js.sd, 0)} bb/100.` : 'Intervalle calculé avec un écart-type de 90 bb/100, valeur courante en 6-max (ton propre écart-type sera estimé à partir de 15 sessions et 10 000 mains).'} Tant qu'il contient 0, le résultat ne prouve rien.</p>` : ''}
       ${jMsg ? `<div class="warnbox" role="alert">${jMsg}</div>` : ''}
       <section class="panel"><span class="eyebrow">Nouvelle session</span><form id="jform" class="form">
         <label class="f">Date<input id="jdate" name="date" type="date" value="${today()}" required></label>
