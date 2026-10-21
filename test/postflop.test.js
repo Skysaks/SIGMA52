@@ -28,8 +28,11 @@ t('équité du solveur = équité exacte du moteur (river et turn)', () => {
   for (const board of ['Ks7d2c9h4s', 'Ks7d2c9h']) {
     const g = PF.create({ board, pot: 10, stack: 50, ranges: ['AhKh', 'QQ, 77, AJs, T9s'], maxRaises: 0 });
     const r = g.info([]);
-    const ex = E.equity([{ hand: E.parseCards('AhKh') }, { combos: E.rangeCombos('QQ, 77, AJs, T9s', [...E.parseCards(board), ...E.parseCards('AhKh')]) }], E.parseCards(board), { exact: true });
-    close(r.eqMean[0], ex.equity[0], 0.002, 'équité ' + board);
+    // Référence exacte : moyenne, combo par combo, de l'équité énumérée sur toutes les rivers restantes.
+    const hero = E.parseCards('AhKh'), bd = E.parseCards(board), combos = E.rangeCombos('QQ, 77, AJs, T9s', [...bd, ...hero]);
+    let num = 0, den = 0;
+    for (const c of combos) { const used = new Set([...bd, ...hero, ...c]), rivers = bd.length === 5 ? [null] : [...Array(52).keys()].filter((x) => !used.has(x)); for (const rv of rivers) { const b = rv === null ? bd : [...bd, rv], a = E.evaluate([...hero, ...b]), v = E.evaluate([...c, ...b]); num += a > v ? 1 : a === v ? 0.5 : 0; den++; } }
+    close(r.eqMean[0], num / den, 0.002, 'équité ' + board);
   }
 });
 t('parseur de ranges pondérées', () => {

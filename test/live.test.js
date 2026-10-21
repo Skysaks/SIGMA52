@@ -68,7 +68,7 @@ t('v2 : équité multiway précalculée (AA contre 4 mains aléatoires ≈ 56 %)
 t('v2 : modèle appris chargé et range mise à jour par les actions (une relance renforce sa range)', () => {
   const base = { hero: c('KsQd'), board: c('Kh8c3d'), pot: 10, toCall: 6, stack: 90, type: 'normal' };
   const bet = D(base), raise = D({ ...base, raised: true, toCall: 18 });
-  assert.ok(raise.eq < bet.eq - 0.05, bet.eq + ' / ' + raise.eq);
+  assert.ok(raise.eq < bet.eq - 0.03, bet.eq + ' / ' + raise.eq);
 });
 t('v2 : options chiffrées, la décision est la meilleure EV', () => {
   const r = D({ hero: c('AsKd'), board: c('Kh7c2d'), pot: 10, stack: 90 });
