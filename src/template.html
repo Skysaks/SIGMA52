@@ -299,6 +299,27 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
 .live.discret { background: #050304; border-color: #1a1013; color: #bfb3b6; }
 .live.discret .lres { background: #0d0809; border-color: #2a1a1f; } .live.discret .lres b { font-size: 26px; }
 .live.discret .lrk, .live.discret .lslot { background: #0d0809; border-color: #2a1a1f; color: #bfb3b6; } .live.discret .lsu { background: #1a1013; }
+
+/* Parcours, profil */
+.toolnav { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px 18px; padding-bottom: 14px; border-bottom: 1px solid var(--line); } .toolnav .tg { display: grid; gap: 6px; align-content: start; } .toolnav .row { gap: 6px; }
+.tracks { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.track { text-align: left; border: 1px solid var(--line); background: var(--surface); border-radius: 14px; padding: 14px; display: grid; gap: 6px; cursor: pointer; color: inherit; font: inherit; }
+.track h3 { margin: 0; font-size: 17px; } .track.on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.track:hover { border-color: var(--accent); }
+.tsteps { display: grid; gap: 6px; }
+.tstep { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; }
+.tstep .tn { width: 26px; height: 26px; border-radius: 99px; display: grid; place-items: center; font: 600 13px var(--f-mono); background: var(--sunk); flex: none; }
+.tstep.done { opacity: .6; } .tstep.done .tn { background: var(--good); color: #fff; } .tstep .tl { flex: 1; min-width: 0; }
+.welcome { border-color: var(--accent); }
+.nextstep h2 { font-size: 20px; }
+.cal { display: grid; grid-template-columns: repeat(14, minmax(0, 1fr)); gap: 4px; max-width: 520px; } .cal span { aspect-ratio: 1; border-radius: 4px; background: var(--sunk); } .cal span.on { background: var(--accent); }
+.badges { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
+.bdg { border: 1px dashed var(--line); border-radius: 12px; padding: 10px; display: grid; gap: 2px; opacity: .5; } .bdg b { font-size: 14px; } .bdg span { font-size: 12px; color: var(--muted); }
+.bdg.on { opacity: 1; border-style: solid; border-color: var(--gold); background: color-mix(in srgb, var(--gold) 10%, var(--surface)); }
+.atlas { display: grid; grid-template-columns: minmax(0, 520px) minmax(0, 1fr); gap: 16px; align-items: start; }
+.atlas .rgrid .rc { font-size: 10px; padding: 4px 0; border: 0; border-radius: 3px; cursor: pointer; } .atlas .rgrid .rc.off { opacity: .15; }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+@media (max-width: 720px) { .atlas { grid-template-columns: 1fr; } .atlas .rgrid .rc { font-size: 8px; } }
 </style>
 <header class="top"><div class="wrap">
   <div class="bar"><div class="brand"><span class="mark" aria-hidden="true">σ52</span><span><b>SIGMA 52</b><small>labo poker · hors table</small></span></div><span class="offline" id="saveState"></span>
@@ -311,6 +332,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
 <div class="cmdk" id="cmdk" hidden></div>
 <script>/*__ENGINE__*/</script>
 <script>/*__OMAHA__*/</script>
+<script>/*__VARIANTS__*/</script>
 <script>/*__MATRIX__*/</script>
 <script>/*__SOLVER__*/</script>
 <script>/*__CHARTS__*/</script>
@@ -324,6 +346,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
 <script>/*__COURSEL__*/</script>
 <script>/*__COURSEX__*/</script>
 <script>/*__COURSEU__*/</script>
+<script>/*__COURSEP__*/</script>
 <script>/*__SPOTS__*/</script>
 <script>/*__BOARD__*/</script>
 <script>/*__HH__*/</script>
@@ -331,6 +354,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
 <script>/*__COACH__*/</script>
 <script>/*__GUIDED__*/</script>
 <script>/*__PLAN__*/</script>
+<script>/*__TRACKS__*/</script>
 <script>/*__APP__*/</script>
 <script>/*__POSTFLOP__*/</script>
 <script>/*__APPSIM__*/</script>
@@ -343,8 +367,12 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
 <script>/*__APPCHAMP__*/</script>
 <script>/*__LIVEMODEL__*/</script>
 <script>/*__LIVEMULTI__*/</script>
+<script>/*__VARIANTSDATA__*/</script>
+<script>/*__VARIANTSQ__*/</script>
 <script>/*__LIVE__*/</script>
+<script>/*__APPTOOLS2__*/</script>
 <script>/*__APPLIVE__*/</script>
+<script>/*__APPTRACKS__*/</script>
 <script>/*__APPSTUDIO__*/</script>
 <script>/*__APPUI__*/</script>
 <script>window.__S52.start();</script>

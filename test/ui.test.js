@@ -32,9 +32,9 @@ const SHOTS = process.env.SHOTS || '';
 
     // Cours : quelques modules et leurs quiz
     await tab('cours');
-    if ((await p.locator('.mod').count()) !== 60) errs.push(name + ' modules ' + (await p.locator('.mod').count()));
-    for (let i = 0; i < 60; i++) { await p.locator('.mod').nth(i).click(); await over('module ' + i); await p.click('[data-act=closemod]'); }
-    for (const i of [0, 5, 20, 30, 38, 59]) {
+    if ((await p.locator('.mod').count()) !== 69) errs.push(name + ' modules ' + (await p.locator('.mod').count()));
+    for (let i = 0; i < 69; i++) { await p.locator('.mod').nth(i).click(); await over('module ' + i); await p.click('[data-act=closemod]'); }
+    for (const i of [0, 5, 20, 30, 38, 68]) {
       await p.locator('.mod').nth(i).click(); await over('module ' + i);
       const nq = await p.locator('[data-act=qans][data-i="0"]').count();
       for (let q = 0; q < nq; q++) await p.click(`[data-act=qans][data-q="${q}"][data-i="0"]`);
@@ -166,7 +166,20 @@ const SHOTS = process.env.SHOTS || '';
     await p.click('[data-act=lvsub][data-s=decision]'); await p.click('[data-act=lvcfgopen]').catch(() => {}); if (!(await has('[data-act=lvcfg][data-k=game][data-v=plo]'))) await p.click('[data-act=lvcfgopen]');
     await p.click('[data-act=lvcfg][data-k=game][data-v=plo]'); for (const c of [51, 47, 50, 46]) await p.click(`[data-act=lvpick][data-c="${c}"]`);
     if (!/RELANCE|SUIS|COUCHE/.test(await p.locator('.lres b').first().innerText())) errs.push(name + ' live v2 : Omaha'); await over('live-plo');
+    await p.click('[data-act=lvcfg][data-k=game][data-v=sd]'); await p.click('[data-act=lvcfg][data-k=input][data-v=grid]'); for (const c of [48, 44]) await p.click(`[data-act=lvpick][data-c="${c}"]`);
+    if (!/RELANCE|COUCHE/.test(await p.locator('.lres b').first().innerText())) errs.push(name + ' live : Short Deck'); await over('live-sd');
     await p.click('[data-act=lvcfg][data-k=game][data-v=nlh]'); await p.click('[data-act=lvcfg][data-k=input][data-v=rs]');
+    // Parcours : choix, test de niveau complet ; profil ; atlas ; variantes
+    await tab('jour'); if (await has('[data-act=trsel][data-id=salaire]')) await p.click('[data-act=trsel][data-id=salaire] >> nth=0');
+    await tab('parcours'); if (!(await has('.tsteps'))) errs.push(name + ' parcours : étapes absentes'); await over('parcours'); await shot('parcours');
+    await p.click('[data-act=plstart]'); for (let q = 0; q < 12; q++) { await p.click('[data-act=plans][data-i="0"]'); await p.click('[data-act=plnext]'); }
+    if (!(await has('text=Test terminé'))) errs.push(name + ' test de niveau'); await p.click('[data-act=plsave]'); await over('parcours-test');
+    await tab('jour'); if (!(await has('.nextstep'))) errs.push(name + ' prochaine étape absente'); await over('jour-parcours'); await shot('jour-parcours');
+    await tab('profil'); if (!(await has('text=Score SIGMA'))) errs.push(name + ' profil'); await over('profil'); await shot('profil');
+    const [bk] = await Promise.all([p.waitForEvent('download', { timeout: 5000 }).catch(() => null), p.click('[data-act=dataexp]')]); if (!bk) errs.push(name + ' export des données');
+    await p.evaluate(() => { window.__S52.setTool('atlas'); window.__S52.go('outils'); }); await p.click('[data-act=atset][data-k=pre][data-v=raise]'); await p.locator('[data-act=atsel]').first().click(); await over('atlas'); await shot('atlas');
+    await p.click('[data-act=atset][data-k=game][data-v=sd]'); await over('atlas-sd');
+    await p.click('[data-t=variantes]'); for (const g of ['sd', 'plo5', 'plo8', 'nlh']) { await p.click(`[data-act=vagame][data-v=${g}]`); await p.click('[data-act=varun]'); if (!(await has('text=Rafle le pot'))) errs.push(name + ' variantes ' + g); } await over('variantes');
     // Recherche globale et thème
     await p.keyboard.press('Control+k'); await p.keyboard.type('défense minimale'); await p.waitForTimeout(80); await p.keyboard.press('Enter'); await p.waitForTimeout(100);
     if ((await p.evaluate(() => window.__S52.getTab())) !== 'cours') errs.push(name + ' recherche globale');
@@ -186,7 +199,7 @@ const SHOTS = process.env.SHOTS || '';
     if (!dv) errs.push(name + ' studio : pas de vidéo');
 
     // Outils : équité, board, push/fold, nouveaux outils
-    await tab('outils');
+    await tab('outils'); await p.click('[data-t=equite]');
     await p.click('[data-act=eqex][data-i="1"]');
     if (!/: 15 sur 45/.test(await p.locator('.felt .eyebrow').textContent())) errs.push(name + ' outs');
     await p.click('[data-t=pushfold]');

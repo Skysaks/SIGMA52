@@ -16,7 +16,7 @@
 
   // ---------- Stockage ----------
   const DEF = {
-    progress: { stats: {}, hist: {}, streak: 0, best: 0, read: {}, quiz: {}, daily: { date: '', done: 0, ok: 0 }, review: [], guided: {}, tableHands: 0, coach: {}, expresso: { games: 0, places: [0, 0, 0, 0] }, solves: 0, trainer: { n: 0, ok: 0, loss: 0, hist: [] } },
+    progress: { stats: {}, hist: {}, streak: 0, best: 0, read: {}, quiz: {}, daily: { date: '', done: 0, ok: 0 }, review: [], guided: {}, tableHands: 0, coach: {}, expresso: { games: 0, places: [0, 0, 0, 0] }, solves: 0, trainer: { n: 0, ok: 0, loss: 0, hist: [] }, days: [], seen: {}, track: null, placement: null, onboard: false },
     settings: { bankroll0: 0, biRule: 40 },
     journal: { sessions: [] },
     notes: { opponents: {}, lastImport: null },
@@ -70,7 +70,7 @@
     return `<div class="rgrid" role="group" aria-label="Grille des 169 mains">${cells.join('')}</div>`;
   }
 
-  const TABS = [['jour', 'Aujourd\'hui'], ['cours', 'Cours'], ['spots', 'Spots'], ['sim', 'Simulateur'], ['champions', 'Champions'], ['live', 'Table live'], ['solveur', 'Solveur'], ['analyse', 'Analyse'], ['outils', 'Outils'], ['journal', 'Journal'], ['studio', 'Studio']];
+  const TABS = [['jour', 'Aujourd\'hui'], ['parcours', 'Parcours'], ['cours', 'Cours'], ['spots', 'Spots'], ['sim', 'Simulateur'], ['champions', 'Champions'], ['live', 'Table live'], ['solveur', 'Solveur'], ['analyse', 'Analyse'], ['outils', 'Outils'], ['journal', 'Journal'], ['profil', 'Profil'], ['studio', 'Studio']];
   // Espaces : la navigation principale regroupe les onglets ; le dernier onglet visité de chaque espace est mémorisé.
   const ICON = {
     jour: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5V20h-5v-5H9v5H4z"/></svg>',
@@ -79,7 +79,7 @@
     etudier: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16M6 16V9M10 16V5M14 16v-6M18 16v-9"/></svg>',
     suivre: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18 9 12l4 3 7-8"/><path d="M15 7h5v5"/></svg>',
   };
-  const GROUPS = [['jour', 'Aujourd\'hui', ['jour']], ['apprendre', 'Apprendre', ['cours', 'spots']], ['jouer', 'Jouer', ['sim', 'champions', 'live']], ['etudier', 'Étudier', ['solveur', 'analyse', 'outils']], ['suivre', 'Suivre', ['journal', 'studio']]];
+  const GROUPS = [['jour', 'Aujourd\'hui', ['jour']], ['apprendre', 'Apprendre', ['parcours', 'cours', 'spots']], ['jouer', 'Jouer', ['sim', 'champions', 'live']], ['etudier', 'Étudier', ['solveur', 'analyse', 'outils']], ['suivre', 'Suivre', ['journal', 'profil', 'studio']]];
   const groupOf = (t) => GROUPS.find((g) => g[2].includes(t)) || GROUPS[0];
   const lastIn = {};
   let tab = (location.hash || '').slice(1);
@@ -260,7 +260,13 @@
   const TOOLS = [['equite', 'Équité'], ['board', 'Board'], ['pushfold', 'Push/Fold & ICM'], ['ranges', 'Ranges']];
   const TOOLVIEWS = {};
   VIEWS.outils = () => head('Outils', 'Pour étudier hors session : équité exacte, lecture de board, solveur tapis/couché avec ICM, ranges d\'ouverture.') +
-    `<div class="subtabs" role="tablist">${TOOLS.map(([k, l]) => `<button class="chip" aria-pressed="${tool === k}" data-act="tool" data-t="${k}">${l}</button>`).join('')}</div>` + TOOLVIEWS[tool]();
+    toolNav() + TOOLVIEWS[tool]();
+  const TOOLGROUPS = [['Équités', ['equite', 'variantes', 'omaha', 'probas']], ['Ranges et boards', ['ranges', 'atlas', 'board', 'dist', 'bloq']], ['Tournois', ['pushfold', 'deal', 'pko']], ['Calculs et préparation', ['maths', 'memo', 'partie']]];
+  function toolNav() {
+    const name = Object.fromEntries(TOOLS), seen = new Set(TOOLGROUPS.flatMap((g) => g[1]));
+    const groups = TOOLGROUPS.map(([l, ks]) => [l, ks.filter((k) => name[k])]).concat([['Autres', TOOLS.map(([k]) => k).filter((k) => !seen.has(k))]]).filter((g) => g[1].length);
+    return `<div class="toolnav">${groups.map(([l, ks]) => `<div class="tg"><span class="eyebrow">${l}</span><div class="row">${ks.map((k) => `<button class="chip" aria-pressed="${tool === k}" data-act="tool" data-t="${k}">${name[k]}</button>`).join('')}</div></div>`).join('')}</div>`;
+  }
 
   // Équité
   const eqIn = { p: ['AhKh', 'QcQs', '', ''], board: '2h7hJd' };

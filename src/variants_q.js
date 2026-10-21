@@ -1,0 +1,3 @@
+// Généré par tools/build_variants_q.js (2500 mains, 300 tirages) : quantiles d'équité Omaha Hi-Lo contre une main aléatoire (×1000, du meilleur au moins bon).
+(function (root) { const Q = { plo8q: [739,674,634,615,607,600,593,588,584,581,577,574,571,568,565,563,560,558,556,553,550,548,544,543,540,538,535,533,531,529,528,526,523,521,519,518,516,514,513,512,510,508,507,506,504,502,502,500,498,498,496,495,493,492,490,489,488,487,485,484,483,482,481,479,478,476,475,473,473,472,469,468,468,466,465,463,462,460,458,458,455,453,452,450,448,445,443,441,438,436,433,430,426,422,418,413,408,399,392,369,283] };
+  if (typeof module !== 'undefined' && module.exports) module.exports = Q; else root.VariantsQ = Q; })(typeof window !== 'undefined' ? window : globalThis);

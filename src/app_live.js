@@ -10,7 +10,7 @@
   const lv = {
     sub: 'decision', consent: ls.get('consent', false), discret: false,
     cfg: { ...cfg0, ...ls.get('cfg', {}) }, showCfg: false,
-    cards: Array(9).fill(null), slot: 0, rank: null,
+    cards: Array(10).fill(null), slot: 0, rank: null,
     pos: 'BTN', nOpp: 1, type: 'normal', pre: 'open', limpers: 1, raiseBB: 3, callers: 1, vpre: 'call', raised: false, ip: null,
     hist: { flop: '', turn: '' }, villain: null,
     bb: ls.get('bb', 100), pot: '', toCall: '', stack: '', res: null, ms: 0, showRange: false,
@@ -23,7 +23,7 @@
   lv.levels = L.structure(lv.st);
   const RK = 'AKQJT98765432'.split(''), SU = [['s', '♠'], ['h', '♥'], ['d', '♦'], ['c', '♣']];
   const saveCfg = () => ls.set('cfg', lv.cfg);
-  const nHole = () => (lv.cfg.game === 'plo' ? 4 : 2);
+  const nHole = () => ({ plo: 4, plo8: 4, plo5: 5 }[lv.cfg.game] || 2);
   const hero = () => lv.cards.slice(0, nHole()).filter((c) => c !== null);
   const boardRaw = () => lv.cards.slice(nHole(), nHole() + 5).filter((c) => c !== null);
   const num = (v) => +String(v).replace(',', '.').replace(/\s/g, '') || 0;
@@ -100,18 +100,19 @@
   function pickerHTML() {
     const used = new Set(lv.cards.filter((c) => c !== null));
     if (lv.cfg.input === 'grid') {
-      return `<div class="lg52">${SU.map(([s, sym]) => RK.map((r) => { const c = E.card(r + s), u = used.has(c); return `<button class="lg52c ${s}" data-act="lvpick" data-c="${c}" ${u ? 'disabled' : ''} aria-label="${r}${sym}">${r === 'T' ? '10' : r}<i>${sym}</i></button>`; }).join('')).join('')}</div>`;
+      const sdx = (r) => lv.cfg.game === 'sd' && '2345'.includes(r);
+      return `<div class="lg52">${SU.map(([s, sym]) => RK.map((r) => { const c = E.card(r + s), u = used.has(c) || sdx(r); return `<button class="lg52c ${s}" data-act="lvpick" data-c="${c}" ${u ? 'disabled' : ''} aria-label="${r}${sym}">${r === 'T' ? '10' : r}<i>${sym}</i></button>`; }).join('')).join('')}</div>`;
     }
-    const ranks = RK.map((r) => `<button class="lrk${lv.rank === r ? ' on' : ''}" data-act="lvrank" data-r="${r}">${r === 'T' ? '10' : r}</button>`).join('');
+    const ranks = RK.map((r) => `<button class="lrk${lv.rank === r ? ' on' : ''}" data-act="lvrank" data-r="${r}" ${lv.cfg.game === 'sd' && '2345'.includes(r) ? 'disabled' : ''}>${r === 'T' ? '10' : r}</button>`).join('');
     const suits = SU.map(([s, sym]) => { const c = lv.rank ? E.card(lv.rank + s) : null, dis = c !== null && used.has(c); return `<button class="lsu ${s}" data-act="lvsuit" data-s="${s}" ${!lv.rank || dis ? 'disabled' : ''}>${sym}</button>`; }).join('');
     return `<div class="lpick"><div class="lranks">${ranks}</div><div class="lsuits">${suits}</div></div>`;
   }
   const chips = (key, opts, act = 'lvset') => opts.map(([v, l]) => `<button class="chip" aria-pressed="${String(lv[key]) === String(v)}" data-act="${act}" data-k="${key}" data-v="${v}">${l}</button>`).join('');
   const cchips = (key, opts) => opts.map(([v, l]) => `<button class="chip" aria-pressed="${String(lv.cfg[key]) === String(v)}" data-act="lvcfg" data-k="${key}" data-v="${v}">${l}</button>`).join('');
   function cfgHTML() {
-    const c = lv.cfg, sum = `${{ nlh: 'Hold\'em', plo: 'Omaha PLO', bomb: 'Bomb pot' }[c.game]} · ${c.players} joueurs${c.straddle ? ' · straddle' : ''}${c.ante ? ' · ante' : ''}${c.icm ? ' · tournoi ICM' : ''} · BB ${fr(bbNow(), 0)}${lv.cfg.linkTimer && lv.timer.used ? ' (minuteur)' : ''}`;
+    const c = lv.cfg, sum = `${{ nlh: 'Hold\'em', plo: 'Omaha PLO', plo5: 'Omaha 5 cartes', plo8: 'Omaha Hi-Lo', sd: 'Short Deck', bomb: 'Bomb pot' }[c.game]} · ${c.players} joueurs${c.straddle ? ' · straddle' : ''}${c.ante ? ' · ante' : ''}${c.icm ? ' · tournoi ICM' : ''} · BB ${fr(bbNow(), 0)}${lv.cfg.linkTimer && lv.timer.used ? ' (minuteur)' : ''}`;
     if (!lv.showCfg) return `<div class="row lcfgsum"><span class="note">${esc(sum)}</span><button class="btn small" data-act="lvcfgopen">Réglages de la partie</button></div>`;
-    return `<div class="lcfg"><div class="row"><span class="note">Jeu :</span>${cchips('game', [['nlh', 'Hold\'em'], ['plo', 'Omaha PLO'], ['bomb', 'Bomb pot']])}</div>
+    return `<div class="lcfg"><div class="row"><span class="note">Jeu :</span>${cchips('game', [['nlh', 'Hold\'em'], ['plo', 'Omaha PLO'], ['plo5', 'Omaha 5 cartes'], ['plo8', 'Omaha Hi-Lo'], ['sd', 'Short Deck'], ['bomb', 'Bomb pot']])}</div>
       <div class="row"><span class="note">Joueurs à la table :</span>${cchips('players', [2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => [n, String(n)]))}</div>
       <div class="row"><label class="check"><input type="checkbox" data-act="lvcfgb" data-k="straddle" ${c.straddle ? 'checked' : ''}><span>Straddle</span></label><label class="check"><input type="checkbox" data-act="lvcfgb" data-k="ante" ${c.ante ? 'checked' : ''}><span>Ante de grosse blinde</span></label><label class="check"><input type="checkbox" data-act="lvcfgb" data-k="icm" ${c.icm ? 'checked' : ''}><span>Tournoi : tenir compte de l'ICM (tapis de l'onglet Joueurs)</span></label></div>
       <div class="row"><span class="note">Saisie des cartes :</span>${cchips('input', [['grid', 'Grille 52 cartes (1 touche)'], ['rs', 'Valeur puis couleur']])}<label class="check"><input type="checkbox" data-act="lvcfgb" data-k="vibrate" ${c.vibrate ? 'checked' : ''}><span>Vibrer la décision</span></label><label class="check"><input type="checkbox" data-act="lvcfgb" data-k="linkTimer" ${c.linkTimer ? 'checked' : ''}><span>Grosse blinde = niveau du minuteur</span></label></div>
@@ -126,7 +127,7 @@
   }
   function decisionHTML() {
     compute();
-    const b = boardRaw().length, post = b >= 3, plo = lv.cfg.game === 'plo', bomb = lv.cfg.game === 'bomb', st = STREET(b);
+    const b = boardRaw().length, post = b >= 3, plo = ['plo', 'plo5', 'plo8'].includes(lv.cfg.game), bomb = lv.cfg.game === 'bomb', st = STREET(b);
     const toCallTxt = num(lv.toCall) > 0;
     const pastRows = ['flop', 'turn'].filter((s) => (s === 'flop' && b >= 4) || (s === 'turn' && b >= 5)).map((s) => `<div class="row"><span class="note">${s === 'flop' ? 'Au flop' : 'Au turn'} :</span>${Object.entries(HIST).map(([k, [l]]) => `<button class="chip" aria-pressed="${lv.hist[s] === k}" data-act="lvhist" data-s="${s}" data-v="${k}">${l}</button>`).join('')}</div>`).join('');
     const situation = post ? `
@@ -150,25 +151,25 @@
     return `<section class="panel live${lv.discret ? ' discret' : ''}">
       ${lv.discret ? '' : cfgHTML()}
       ${resultHTML()}
-      <div class="lslots"><div><span class="note">Ta main${plo ? ' (4 cartes)' : ''}</span><div class="row">${holes}</div></div>
+      <div class="lslots"><div><span class="note">Ta main${plo ? ` (${nHole()} cartes)` : ''}</span><div class="row">${holes}</div></div>
         <div><span class="note">Board</span><div class="row">${slotHTML(bs, 'Flop')}${slotHTML(bs + 1, 'Flop')}${slotHTML(bs + 2, 'Flop')}${slotHTML(bs + 3, 'Turn')}${slotHTML(bs + 4, 'River')}</div></div></div>
       ${pickerHTML()}
       ${lv.discret ? '' : situation + common}
       ${rangeHTML()}
       <div class="row"><button class="btn primary" data-act="lvnew">Nouvelle main</button><button class="btn" data-act="lvnext">Main suivante (position +1)</button>
         <button class="btn" data-act="lvdiscret">${lv.discret ? 'Quitter le mode discret' : 'Mode discret'}</button>${'wakeLock' in navigator ? `<button class="btn" data-act="lvwake">${lv.wake ? 'Écran : reste allumé' : 'Garder l\'écran allumé'}</button>` : ''}</div>
-      ${lv.discret ? '<p class="note">Mode discret : écran sombre, seule la décision s\'affiche. Les réglages de situation restent ceux choisis avant.</p>' : `<p class="note">${lv.cfg.game === 'plo' ? 'Omaha : estimation simplifiée (score de main de départ, filtre d\'action, équité Monte-Carlo).' : 'Modèle : range adverse apprise sur des mains simulées de chaque type, mise à jour rue par rue selon ses actions ; équité exacte au turn et à la river ; EV de chaque option sur la rue en cours.'} Clavier : valeur + couleur (a s), Retour pour effacer, Entrée pour une nouvelle main.</p>`}
+      ${lv.discret ? '<p class="note">Mode discret : écran sombre, seule la décision s\'affiche. Les réglages de situation restent ceux choisis avant.</p>' : `<p class="note">${['plo', 'plo5', 'plo8', 'sd'].includes(lv.cfg.game) ? 'Variante : rang exact de la main de départ (PLO, Short Deck) ou estimé (Omaha 5, Hi-Lo), range adverse filtrée par ses actions, équité Monte-Carlo.' : 'Modèle : range adverse apprise sur des mains simulées de chaque type, mise à jour rue par rue selon ses actions ; équité exacte au turn et à la river ; EV de chaque option sur la rue en cours.'} Clavier : valeur + couleur (a s), Retour pour effacer, Entrée pour une nouvelle main.</p>`}
     </section>`;
   }
   // ---------------- Actions décision ----------------
   const nextEmpty = () => { const i = lv.cards.slice(0, nHole() + 5).findIndex((c) => c === null); return i < 0 ? nHole() + 4 : i; };
-  function place(c) { if (lv.cards.includes(c)) return; const i = lv.cards[lv.slot] === null && lv.slot < nHole() + 5 ? lv.slot : nextEmpty(); lv.cards[i] = c; lv.rank = null; lv.slot = nextEmpty(); render(); }
+  function place(c) { if (lv.cards.includes(c) || (lv.cfg.game === 'sd' && (c >> 2) < 4)) return; const i = lv.cards[lv.slot] === null && lv.slot < nHole() + 5 ? lv.slot : nextEmpty(); lv.cards[i] = c; lv.rank = null; lv.slot = nextEmpty(); render(); }
   ACT.lvslot = (t) => { const i = +t.dataset.i; if (lv.cards[i] !== null) lv.cards[i] = null; lv.slot = i; lv.rank = null; render(); };
   ACT.lvrank = (t) => { lv.rank = t.dataset.r; render(); };
   ACT.lvsuit = (t) => { if (!lv.rank) return; place(E.card(lv.rank + t.dataset.s)); };
   ACT.lvpick = (t) => place(+t.dataset.c);
   ACT.lvset = (t) => { const k = t.dataset.k, v = t.dataset.v; lv[k] = isNaN(+v) ? v : +v; render(); };
-  ACT.lvcfg = (t) => { const k = t.dataset.k, v = t.dataset.v; lv.cfg[k] = isNaN(+v) ? v : +v; if (k === 'game') { lv.cards = Array(9).fill(null); lv.slot = 0; } if (k === 'players' && !POSL().includes(lv.pos)) lv.pos = 'BTN'; if (k === 'players' && !POSL().includes(lv.pos)) lv.pos = POSL()[0]; saveCfg(); render(); };
+  ACT.lvcfg = (t) => { const k = t.dataset.k, v = t.dataset.v; lv.cfg[k] = isNaN(+v) ? v : +v; if (k === 'game') { lv.cards = Array(10).fill(null); lv.slot = 0; } if (k === 'players' && !POSL().includes(lv.pos)) lv.pos = 'BTN'; if (k === 'players' && !POSL().includes(lv.pos)) lv.pos = POSL()[0]; saveCfg(); render(); };
   ACT.lvcfgb = (t) => { lv.cfg[t.dataset.k] = t.checked; saveCfg(); render(); };
   ACT.lvcfgopen = () => { lv.showCfg = !lv.showCfg; render(); };
   ACT.lvbet = (t) => { const f = +t.dataset.f; if (!f) { lv.toCall = ''; lv.raised = false; } else { if (!num(lv.pot)) lv.pot = '100'; lv.toCall = String(Math.round(num(lv.pot) * f)); } render(); };
@@ -183,7 +184,7 @@
     if (lv.log.length > 400) lv.log.length = 400; ls.set('log', lv.log);
   }
   ACT.lvnew = () => { logHand(); lv.players.forEach((p) => { if (p.on !== false) p.hands = (p.hands || 0) + 1; }); if (lv.players.length) ls.set('players', lv.players);
-    lv.cards = Array(9).fill(null); lv.slot = 0; lv.rank = null; lv.pot = ''; lv.toCall = ''; lv.pre = 'open'; lv.raised = false; lv.hist = { flop: '', turn: '' }; lv.ip = null; lv.showRange = false; lv.lastVib = null; render(); };
+    lv.cards = Array(10).fill(null); lv.slot = 0; lv.rank = null; lv.pot = ''; lv.toCall = ''; lv.pre = 'open'; lv.raised = false; lv.hist = { flop: '', turn: '' }; lv.ip = null; lv.showRange = false; lv.lastVib = null; render(); };
   ACT.lvnext = () => { const P = POSL(), i = P.indexOf(lv.pos); lv.pos = P[(i + 1) % P.length]; ACT.lvnew(); };
   ACT.lvdiscret = () => { lv.discret = !lv.discret; document.body.classList.toggle('discret-on', lv.discret); render(); };
   ACT.lvwake = async () => { try { if (lv.wake) { await lv.wake.release(); lv.wake = null; } else { lv.wake = await navigator.wakeLock.request('screen'); lv.wake.addEventListener?.('release', () => { lv.wake = null; }); } } catch (e) { lv.wake = null; } render(); };
@@ -256,7 +257,7 @@
   // ---------------- Soirée : journal des décisions ----------------
   function soireeHTML() {
     const lg = lv.log, by = {}; lg.forEach((x) => (by[x.a] = (by[x.a] || 0) + 1));
-    const rows = lg.slice(0, 60).map((x, i) => `<tr><td class="mono">${new Date(x.t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</td><td class="mono">${esc(x.h)}${x.b ? ' · ' + esc(x.b) : ''}</td><td>${esc(x.pos)}</td><td><b>${esc(x.a)}</b> ${esc(x.s)}</td><td class="n mono">${x.eq === null ? '–' : pct(x.eq, 0)}</td><td>${x.b && x.b.length >= 6 && x.g !== 'plo' ? `<button class="btn small" data-act="lvlogsolve" data-i="${i}">Solveur</button>` : ''}</td></tr>`).join('');
+    const rows = lg.slice(0, 60).map((x, i) => `<tr><td class="mono">${new Date(x.t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</td><td class="mono">${esc(x.h)}${x.b ? ' · ' + esc(x.b) : ''}</td><td>${esc(x.pos)}</td><td><b>${esc(x.a)}</b> ${esc(x.s)}</td><td class="n mono">${x.eq === null ? '–' : pct(x.eq, 0)}</td><td>${x.b && x.b.length >= 6 && (!x.g || x.g === 'nlh' || x.g === 'bomb') ? `<button class="btn small" data-act="lvlogsolve" data-i="${i}">Solveur</button>` : ''}</td></tr>`).join('');
     return `<section class="panel"><h2>Soirée</h2><p class="note">Chaque main validée par « Nouvelle main » est notée ici (400 au plus, sur cet appareil). Après la partie, revois les spots serrés et envoie-les au solveur.</p>
       <div class="stats"><div class="stat hero"><span>Décisions notées</span><b>${lg.length}</b><span>${Object.entries(by).map(([a, n]) => `${a.toLowerCase()} ${n}`).join(' · ') || '—'}</span></div>
       <div class="stat"><span>Postflop</span><b>${lg.filter((x) => x.b).length}</b><span>dont ${lg.filter((x) => x.b && x.eq !== null && x.eq > 0.4 && x.eq < 0.6).length} à équité serrée (40 à 60 %)</span></div></div>
@@ -275,7 +276,7 @@
     const x = lv.log[+t.dataset.i]; if (!x) return;
     const keep = { cards: lv.cards.slice(), type: lv.type, vpre: lv.vpre, pos: lv.pos, pot: lv.pot, toCall: lv.toCall, stack: lv.stack, hist: lv.hist, res: lv.res };
     const hc = E.parseCards(x.h), bc = E.parseCards(x.b);
-    lv.cards = Array(9).fill(null); hc.forEach((c, i) => (lv.cards[i] = c)); bc.forEach((c, i) => (lv.cards[2 + i] = c));
+    lv.cards = Array(10).fill(null); hc.forEach((c, i) => (lv.cards[i] = c)); bc.forEach((c, i) => (lv.cards[2 + i] = c));
     lv.type = x.type; lv.vpre = x.vpre; lv.pos = x.pos; lv.pot = String(x.pot || ''); lv.res = { ip: x.ip };
     ACT.lvsolve(); Object.assign(lv, keep);
   };

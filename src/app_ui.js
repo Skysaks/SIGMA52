@@ -23,7 +23,7 @@
   // ---------------- Recherche globale ----------------
   function entries() {
     const out = [];
-    const tabDesc = { jour: 'Programme, révisions, spots du jour', cours: '60 modules, 6 niveaux', spots: 'Exercices corrigés', sim: 'Table avec coach, mains guidées, Expresso', champions: 'Styles inspirés de joueurs connus', live: 'Décision éclair avec EV, range adverse, joueurs, soirée, entraînement, minuteur (parties amicales)', solveur: 'Équilibre postflop, rapport agrégé, entraîneur river', analyse: 'Historiques, replayer, bibliothèque', outils: 'Équité, board, push/fold, calculs', journal: 'Sessions, bankroll, variance', studio: 'Images et vidéos à partir de tes mains' };
+    const tabDesc = { jour: 'Programme, révisions, spots du jour', parcours: 'Objectif, test de niveau, chemin le plus court', profil: 'Score SIGMA, badges, série, sauvegarde des données', cours: '69 modules, 6 niveaux', spots: 'Exercices corrigés', sim: 'Table avec coach, mains guidées, Expresso', champions: 'Styles inspirés de joueurs connus', live: 'Décision éclair avec EV, range adverse, joueurs, soirée, entraînement, minuteur (parties amicales)', solveur: 'Équilibre postflop, rapport agrégé, entraîneur river', analyse: 'Historiques, replayer, bibliothèque', outils: 'Équité, board, push/fold, calculs', journal: 'Sessions, bankroll, variance', studio: 'Images et vidéos à partir de tes mains' };
     X.TABS.forEach(([k, l]) => out.push({ kind: 'Onglet', title: l, desc: tabDesc[k] || '', run: () => X.go(k) }));
     K.MODULES.forEach((m) => out.push({ kind: 'Module', title: m.title, desc: `Niveau ${m.level} · ${K.LEVELS[m.level - 1].title} · ${m.minutes} min`, extra: m.sections.map((s) => s[0]).join(' '), run: () => { X.setOpenMod(m.id); X.go('cours'); } }));
     Object.entries(S.TYPES).forEach(([k, l]) => out.push({ kind: 'Exercice', title: l, desc: 'Spots corrigés', run: () => { X.setSpotMode(k); X.go('spots'); } }));
@@ -33,6 +33,8 @@
     out.push({ kind: 'Action', title: 'Résoudre une river au hasard', desc: 'Solveur exact, en une seconde', run: () => { const sv = X.solverState; const d = [...Array(52).keys()].sort(() => Math.random() - 0.5); sv.sub = 'solve'; sv.board = d.slice(0, 5).map(window.Engine.cardStr).join(''); sv.game = null; X.go('solveur'); } });
     out.push({ kind: 'Action', title: 'Entraîneur river', desc: 'Décisions notées en perte d\'EV', run: () => { X.solverState.sub = 'train'; X.go('solveur'); } });
     out.push({ kind: 'Action', title: 'Défi mystère', desc: 'Identifier un style en 60 mains', run: () => ACT.chmyst?.() });
+    out.push({ kind: 'Action', title: 'Test de niveau', desc: '12 questions pour savoir où commencer', run: () => ACT.plstart?.() });
+    out.push({ kind: 'Action', title: 'Exporter mes données', desc: 'Sauvegarde JSON de toute ta progression', run: () => ACT.dataexp?.() });
     out.push({ kind: 'Action', title: 'Changer de thème', desc: 'Automatique, clair, sombre', run: () => ACT.theme() });
     out.push({ kind: 'Action', title: 'Raccourcis clavier', desc: 'Toutes les touches', run: () => setTimeout(help, 10) });
     return out;
@@ -76,7 +78,7 @@
   // ---------------- Aide des raccourcis ----------------
   function help() {
     pal = null; const box = $('#cmdk'); box.hidden = false;
-    const rows = [['Ctrl K ou /', 'Recherche globale'], ['?', 'Cette aide'], ['Échap', 'Fermer'], ['Spots : 1 à 4', 'Répondre'], ['Spots : Entrée', 'Spot suivant'], ['Simulateur : F / C', 'Se coucher / parole ou suivre'], ['Simulateur : Entrée', 'Main suivante'], ['Replayer : ← →', 'Étape précédente / suivante'], ['Entraîneur : 1 à 5, Entrée', 'Répondre, spot suivant']];
+    const rows = [['Ctrl K ou /', 'Recherche globale'], ['?', 'Cette aide'], ['Échap', 'Fermer'], ['Spots : 1 à 4', 'Répondre'], ['Spots : Entrée', 'Spot suivant'], ['Simulateur : F / C', 'Se coucher / parole ou suivre'], ['Simulateur : Entrée', 'Main suivante'], ['Replayer : ← →', 'Étape précédente / suivante'], ['Entraîneur : 1 à 5, Entrée', 'Répondre, spot suivant'], ['Test de niveau : 1 à 4, Entrée', 'Répondre, question suivante'], ['Table live : a s, k h…', 'Saisir une carte (valeur puis couleur)'], ['Table live : Retour, Entrée', 'Effacer la dernière carte, nouvelle main'], ['Entraînement éclair : 1 à 3, Entrée', 'Répondre, spot suivant']];
     box.innerHTML = `<div class="box" role="dialog" aria-label="Raccourcis clavier"><div style="padding:16px 18px"><h2>Raccourcis clavier</h2></div><ul>${rows.map(([k, d]) => `<li><div style="display:grid;grid-template-columns:180px 1fr;gap:10px;padding:8px 12px"><span class="mono">${k}</span><span>${d}</span></div></li>`).join('')}</ul><div class="foot"><button class="btn small" data-act="closehelp">Fermer</button></div></div>`;
   }
   ACT.closehelp = () => { $('#cmdk').hidden = true; $('#cmdk').innerHTML = ''; };

@@ -81,9 +81,14 @@
     face: [[0.02, 0.5, 0.48], [0.05, 0.65, 0.3], [0.15, 0.78, 0.07], [0.4, 0.57, 0.03], [0.55, 0.43, 0.02], [0.35, 0.55, 0.1], [0.7, 0.27, 0.03], [0.85, 0.13, 0.02]],
   };
   // P(action observée | catégorie) pour un type, une rue, une situation.
-  function likelihood(type, street, facing, sc, b) {
-    const M = MODEL?.post?.[type];
+  // ctx (facultatif) : { mw: pot à plusieurs, ip: l'adversaire est en position } -> table fine du modèle v2 si assez d'observations.
+  function likelihood(type, street, facing, sc, b, ctx) {
+    const M = MODEL?.post?.[type], M2 = MODEL?.post2?.[type];
     const prior = facing ? FALLBACK.face[b] : FALLBACK.bet[b];
+    if (M2 && ctx && ctx.mw !== undefined && ctx.ip !== undefined) {
+      const c2 = M2[street][facing][facing ? sc : 0][ctx.mw ? 1 : 0][ctx.ip ? 1 : 0][b];
+      if (c2 && c2.n >= 40) { const k = c2.n >= 150 ? 0.8 : 0.7; return c2.p.map((x, i) => k * x + (1 - k) * prior[i]); }
+    }
     if (M) {
       let c = M[street][facing][facing ? sc : 0][b];
       // Peu d'observations pour cette taille : on prend la taille voisine la mieux renseignée.
@@ -119,7 +124,7 @@
     for (const x of hist) {
       const ai = actIndex(x); if (!ai) continue;
       const len = STREET_NAMES.indexOf(x.street), bd = board.slice(0, len), si = len - 3;
-      for (const r of list) { if (r.w <= 0) continue; r.w *= Math.max(0.001, likelihood(type, si, ai.facing, ai.sc, bucket(r.c, bd))[ai.a]); }
+      for (const r of list) { if (r.w <= 0) continue; r.w *= Math.max(0.001, likelihood(type, si, ai.facing, ai.sc, bucket(r.c, bd), o.ctx)[ai.a]); }
     }
     let tot = list.reduce((s, r) => s + r.w, 0);
     if (!(tot > 0)) { list.forEach((r) => (r.w = 1)); tot = list.length; }
@@ -306,7 +311,8 @@
     const hist = (o.history || []).slice();
     const last = hist[hist.length - 1];
     if (toCall > 0 && !(last && last.street === street && (last.a === 'bet' || last.a === 'raise'))) hist.push({ street, a: o.raised ? 'raise' : 'bet', size: toCall / P0 });
-    const range = villainRange({ ...o, type, history: hist }, board, [...hero, ...board]);
+    const ctx = { mw: n > 1 ? 1 : 0, ip: ip ? 0 : 1 };
+    const range = villainRange({ ...o, type, history: hist, ctx }, board, [...hero, ...board]);
     const vb = range.map((r) => bucket(r.c, board));
     const eqv = equityVec(hero, board, range, { random: o.random, runouts: o.runouts });
     const eqHU = range.reduce((s, r, i) => s + r.w * eqv[i], 0);
@@ -316,7 +322,7 @@
     // Réponses adverses (modèle) à une mise de taille f (part du pot avant la mise) : fold / call / raise par combo.
     // Interpolation entre les trois classes de taille (centres 33 %, 66 %, 100 %) ; au-delà du pot, chaque tranche de 100 %
     // ajoute jusqu'à 25 % de couchers chez les mains moyennes (élasticité, plafonnée à 40 %).
-    const LK = [0, 1, 2].map((sc) => BUCKETS.map((_, b) => likelihood(type, si, 1, sc, b)));
+    const LK = [0, 1, 2].map((sc) => BUCKETS.map((_, b) => likelihood(type, si, 1, sc, b, ctx)));
     const respB = (f, b) => {
       const cs = [0.33, 0.66, 1], p = (sc) => LK[sc][b];
       let q;
@@ -424,70 +430,123 @@
     if (level === 2) return twoPair || (fd && h.some((c) => (c >> 2) === 12 && bs[c & 3] >= 2));
     return pair || fd || madeFlush;
   }
-  function ploDecide(o) {
-    if (!O) return null;
-    const t0 = Date.now(), hero = o.hero, board = o.board || [], n = Math.max(1, Math.min(5, o.nOpp || 1)), lines = [], T = TYPES[o.type] || TYPES.normal;
-    const D = O.describe(hero), pctH = ploPct(hero), R = o.random || seededRand(hero.reduce((a, c) => a * 53 + c, 11) + board.length);
-    const width = o.pre === 'raise' || o.pre === 'threebet' || o.vpre === 'raise' ? Math.min(1, T.raise * 1.8) : o.vpre === 'bomb' ? 1 : Math.min(1, T.call * 1.3);
-    const thr = width >= 1 ? -1e9 : ploQuantile(width);
-    const toCall = Math.max(0, +o.toCall || 0), realPot = +o.pot > 0;
-    // Pool de mains adverses compatibles (préflop + actions de la rue)
-    const used = new Set([...hero, ...board]), deck = []; for (let c = 0; c < 52; c++) if (!used.has(c)) deck.push(c);
+  // ---------------- Variantes : PLO, Omaha 5 cartes, Omaha Hi-Lo, Short Deck ----------------
+  const VV = root.Variants || (typeof require !== 'undefined' ? (() => { try { return require('./variants.js'); } catch (e) { return null; } })() : null);
+  const VD = root.VariantsData || (typeof require !== 'undefined' ? (() => { try { return require('./variants_data.js'); } catch (e) { return null; } })() : null);
+  const VQ = root.VariantsQ || (typeof require !== 'undefined' ? (() => { try { return require('./variants_q.js'); } catch (e) { return null; } })() : null);
+  // PLO : rang exact de la main parmi les 270 725 mains (16 432 classes), d'après la table précalculée.
+  let PLO_PCT = null;
+  function ploTable(h) {
+    if (!VD || !VV) return null;
+    const { keys, eq, w } = VD.plo;
+    if (!PLO_PCT) { const idx = keys.map((_, i) => i).sort((x, y) => eq[y] - eq[x]), tot = w.reduce((x, y) => x + y, 0); PLO_PCT = new Float32Array(keys.length); let cum = 0; for (const i of idx) { PLO_PCT[i] = (cum + w[i] / 2) / tot; cum += w[i]; } }
+    const k = VV.canon(h); let lo = 0, hi = keys.length - 1; while (lo < hi) { const m = (lo + hi) >> 1; if (keys[m] < k) lo = m + 1; else hi = m; }
+    return keys[lo] === k ? { pct: PLO_PCT[lo], eq: eq[lo] / 1000 } : null;
+  }
+  // Short Deck : 81 mains, équité contre 1, 2, 3 mains aléatoires et rang pondéré par le nombre de combinaisons.
+  let SD_TAB = null;
+  function sdTable(name) {
+    if (!VD) return null;
+    if (!SD_TAB) { SD_TAB = {}; const rows = VD.sd.map(([nm, e1, e2, e3]) => ({ nm, e: [e1 / 1000, e2 / 1000, e3 / 1000], w: nm.length === 2 ? 6 : nm[2] === 's' ? 4 : 12 })).sort((x, y) => y.e[0] - x.e[0]); let cum = 0; for (const r of rows) { r.pct = (cum + r.w / 2) / 630; cum += r.w; SD_TAB[r.nm] = r; } }
+    return SD_TAB[name] || null;
+  }
+  // Score rapide (sert à bâtir les ranges adverses en Omaha 5 cartes et Hi-Lo)
+  function vScore(h, game) {
+    let sc = ploScore(h);
+    if (game === 'plo8') { const r = new Set(h.map((c) => c >> 2)); if (r.has(12) && r.has(0)) sc += 7; else if (r.has(12) && r.has(1)) sc += 4; sc += [0, 1, 2, 3].filter((x) => r.has(x)).length * 1.2; }
+    return sc;
+  }
+  const VSQ = {};
+  function vScoreQuantile(game, q) {
+    if (!VSQ[game]) { const R = seededRand(77), d = VV.deckOf(game), nH = VV.GAMES[game].hole, v = []; for (let i = 0; i < 5000; i++) { const h = new Set(); while (h.size < nH) h.add(d[Math.floor(R() * d.length)]); v.push(vScore([...h], game)); } VSQ[game] = v.sort((a, b) => b - a); }
+    const L = VSQ[game]; return L[Math.min(L.length - 1, Math.max(0, Math.floor(q * L.length)))];
+  }
+  function quantilePct(q, eq) { let i = 0; while (i < q.length && q[i] / 1000 > eq) i++; return i / (q.length - 1); }
+  // Rang préflop de la main du héros pour chaque variante
+  function heroPct(game, hero, R) {
+    if (game === 'plo') { const t = ploTable(hero); if (t) return { pct: t.pct, eq: t.eq, exact: true }; return { pct: ploPct(hero), eq: null }; }
+    if (game === 'sd') { const t = sdTable(E.abstractOf(hero[0], hero[1])); return t ? { pct: t.pct, eq: t.e[0], exact: true } : { pct: 0.5, eq: null }; }
+    const e = VV.equity(game, [hero, null], [], { iterations: 400, random: R }).equity[0], q = game === 'plo5' ? VD?.plo5q : VQ?.plo8q;
+    return { pct: q ? quantilePct(q, e) : 0.5, eq: e };
+  }
+  // Acceptation d'une main adverse dans sa range préflop (top « width »)
+  function rangeAccept(game, width) {
+    if (width >= 1) return () => true;
+    if (game === 'plo' && VD) return (h) => { const t = ploTable(h); return t ? t.pct <= width : ploScore(h) >= ploQuantile(width); };
+    if (game === 'sd' && VD) return (h) => { const t = sdTable(E.abstractOf(h[0], h[1])); return t ? t.pct <= width : true; };
+    const thr = vScoreQuantile(game, width); return (h) => vScore(h, game) >= thr;
+  }
+  const GNAME = { plo: 'PLO', plo5: 'Omaha 5 cartes', plo8: 'Omaha Hi-Lo', sd: 'Short Deck' };
+  function variantDecide(o, game) {
+    if (!VV) return null;
+    const G = VV.GAMES[game], t0 = Date.now(), hero = o.hero, board = o.board || [], n = Math.max(1, Math.min(5, o.nOpp || 1)), lines = [], T = TYPES[o.type] || TYPES.normal;
+    const omaha = game !== 'sd', R = o.random || seededRand(hero.reduce((a, c) => a * 53 + c, 11) + board.length);
+    const D = omaha && O ? O.describe(hero.slice(0, 4)) : null, HP = heroPct(game, hero, R);
+    const width = o.pre === 'raise' || o.pre === 'threebet' || o.vpre === 'raise' ? Math.min(1, T.raise * (omaha ? 1.8 : 1.4)) : o.vpre === 'bomb' ? 1 : Math.min(1, T.call * (omaha ? 1.3 : 1.2));
+    const accept = rangeAccept(game, width), toCall = Math.max(0, +o.toCall || 0), realPot = +o.pot > 0;
+    const used = new Set([...hero, ...board]), deck = VV.deckOf(game).filter((c) => !used.has(c));
     const level = board.length >= 3 && toCall > 0 ? (o.raised ? 2 : 1) : 0, pool = [];
-    for (let tries = 0; tries < 20000 && pool.length < 260; tries++) {
-      const h = []; while (h.length < 4) { const c = deck[Math.floor(R() * deck.length)]; if (!h.includes(c)) h.push(c); }
-      if (ploScore(h) < thr) continue; if (level && !ploHas(h, board, level)) continue; pool.push(h);
+    for (let tries = 0; tries < 25000 && pool.length < 300; tries++) {
+      const h = []; while (h.length < G.hole) { const c = deck[Math.floor(R() * deck.length)]; if (!h.includes(c)) h.push(c); }
+      if (!accept(h)) continue; if (level && !ploHas(h, board, level)) continue; pool.push(h);
     }
-    let eq = 0.5, it = 0;
+    let eq = 0.5, it = 0, sum = 0;
     if (pool.length) {
-      const iters = o.iterations || (board.length === 5 ? 500 : 700);
-      for (; it < iters; it++) {
+      const iters = o.iterations || (omaha ? (board.length === 5 ? 500 : 700) : 1500);
+      for (let k = 0; k < iters; k++) {
         const opp = [], u = new Set(used); let ok = true;
-        for (let j = 0; j < n; j++) { let h, k = 0; do h = pool[Math.floor(R() * pool.length)]; while (h.some((c) => u.has(c)) && ++k < 20); if (k >= 20) { ok = false; break; } h.forEach((c) => u.add(c)); opp.push(h); }
+        for (let j = 0; j < n; j++) { let h, m = 0; do h = pool[Math.floor(R() * pool.length)]; while (h.some((c) => u.has(c)) && ++m < 20); if (m >= 20) { ok = false; break; } h.forEach((c) => u.add(c)); opp.push(h); }
         if (!ok) continue;
         const bd = board.slice(); while (bd.length < 5) { const c = deck[Math.floor(R() * deck.length)]; if (!u.has(c)) { u.add(c); bd.push(c); } }
-        const mine = O.evaluate(hero, bd); let best = true, ties = 1;
-        for (const h of opp) { const v = O.evaluate(h, bd); if (v > mine) { best = false; break; } if (v === mine) ties++; }
-        if (best) eq += 1 / ties;
+        sum += VV.shares(G, [hero, ...opp], bd)[0]; it++;
       }
-      eq = (eq - 0.5) / Math.max(1, it);
+      eq = it ? sum / it : 0.5;
     }
-    const res = (action, size, tone, extra = {}) => ({ game: 'plo', street: board.length ? STREET_NAMES[board.length] : 'pre', hand: hero.map(E.cardStr).join(''), cat: D.tags.join(', '), action, size, tone, eq, lines, ms: Date.now() - t0, ...extra });
+    const tags = game === 'sd' ? 'Short Deck · top ' + pctS(Math.max(0.01, HP.pct)) : D ? D.tags.join(', ') : '';
+    const res = (action, size, tone, extra = {}) => ({ game, street: board.length ? STREET_NAMES[board.length] : 'pre', hand: game === 'sd' ? E.abstractOf(hero[0], hero[1]) : hero.map(E.cardStr).join(''), cat: tags, action, size, tone, eq, lines, ms: Date.now() - t0, ...extra });
+    const raiseTxt = (pot, call) => (omaha ? 'pot (' + fmt(O ? O.potRaise(pot, call) : pot + 2 * call, 1) + ' BB)' : fmt(3 * Math.max(call, 1), 1) + ' BB');
     if (!board.length) {
       const S = seatInfo(o);
-      lines.push(`Profil : ${D.tags.join(', ')} · environ top ${pctS(Math.max(0.01, pctH))} des mains.`);
+      lines.push(`${GNAME[game]} : ta main est dans le top ${pctS(Math.max(0.01, HP.pct))} des mains${HP.exact ? ' (classement exact précalculé)' : ' (équité contre une main aléatoire : ' + pctS(HP.eq || 0) + ')'}.`);
       if (o.pre === 'open') {
-        const openPct = S.N === 2 ? 0.75 : [1, 0.6, 0.45, 0.3, 0.22, 0.17, 0.14, 0.12, 0.1, 0.09][Math.min(9, S.behind)];
-        const go = pctH <= openPct && S.pos !== 'BB';
-        lines.push(`Ouverture PLO depuis ${S.pos} : environ ${pctS(openPct)} des mains.`);
-        return res(go ? 'RELANCE' : S.pos === 'BB' ? 'CHECK' : 'COUCHE', go ? 'pot (3,5 BB)' : '', go ? 'good' : 'bad', { pct: pctH });
+        const openPct = S.N === 2 ? (omaha ? 0.75 : 0.8) : (omaha ? [1, 0.6, 0.45, 0.3, 0.22, 0.17, 0.14, 0.12, 0.1, 0.09] : [1, 0.55, 0.45, 0.32, 0.25, 0.2, 0.17, 0.15, 0.13, 0.12])[Math.min(9, S.behind)];
+        const go = HP.pct <= openPct && S.pos !== 'BB';
+        lines.push(`Ouverture depuis ${S.pos} : environ ${pctS(openPct)} des mains.`);
+        return res(go ? 'RELANCE' : S.pos === 'BB' ? 'CHECK' : 'COUCHE', go ? (omaha ? 'pot (3,5 BB)' : fmt(o.live ? 3 : 2.5) + ' BB') : '', go ? 'good' : 'bad', { pct: HP.pct });
       }
       const Rb = Math.max(2, o.raiseBB || 3.5), pot = 1.5 + Rb * (1 + (o.callers || 0)), call = Rb - (S.pos === 'BB' ? 1 : S.pos === 'SB' ? 0.5 : 0), need = call / (pot + call);
-      lines.push(`Équité estimée contre ${n > 1 ? n + ' adversaires' : 'sa range'} : ${pctS(eq)} ; il en faut ${pctS(need)} (réalisation PLO ≈ 85 %${S.ip ? ', en position' : ''}).`);
-      if (eq >= (n === 1 ? 0.57 : 0.45) && (D.pairs.includes(12) || pctH < 0.05)) return res('RELANCE', 'pot (' + fmt(O.potRaise(pot, call), 1) + ' BB)', 'good');
-      const go = eq * (S.ip ? 0.92 : 0.82) >= need && pctH < 0.45;
+      lines.push(`Équité estimée contre ${n > 1 ? n + ' adversaires' : 'sa range'} : ${pctS(eq)} ; il en faut ${pctS(need)}${S.ip ? ', tu es en position' : ''}.`);
+      if (eq >= (n === 1 ? (omaha ? 0.57 : 0.6) : 0.45) && HP.pct < 0.06) return res('RELANCE', raiseTxt(pot, call), 'good');
+      const go = eq * (S.ip ? 0.92 : 0.82) >= need && HP.pct < (omaha ? 0.45 : 0.5);
       return res(go ? 'SUIS' : 'COUCHE', go ? fmt(call) + ' BB' : '', go ? 'warn' : 'bad');
     }
-    const P0 = realPot ? +o.pot : toCall > 0 ? toCall / 0.7 : 100, potMax = toCall > 0 ? O.potRaise(P0 + toCall, toCall) : P0;
+    const P0 = realPot ? +o.pot : toCall > 0 ? toCall / 0.7 : 100, potMax = toCall > 0 ? (O ? O.potRaise(P0 + toCall, toCall) : P0 + 3 * toCall) : P0;
     const sizeTxt = (amt) => (realPot ? `${fmt(amt, 0)} (${Math.round((amt / P0) * 100)} % du pot)` : `${Math.round((amt / P0) * 100)} % du pot`);
-    lines.push(`Main : ${E.CAT_FR[E.category(O.evaluate(hero, board))]}. Équité estimée contre ${n > 1 ? n + ' adversaires' : 'sa range'} : ${pctS(eq)} (${pool.length} mains adverses compatibles, ${it} tirages).`);
-    lines.push('Rappel : 2 cartes de ta main + 3 du board. Joue les nuts et les tirages aux nuts.');
+    const made = omaha ? E.CAT_FR[E.category(G.hi(hero, board))] : G.cat(G.hi(hero, board));
+    lines.push(`Main : ${made}${game === 'plo8' && G.lo(hero, board.length === 5 ? board : board) >= 0 ? ' + main basse' : ''}. Équité estimée contre ${n > 1 ? n + ' adversaires' : 'sa range'} : ${pctS(eq)} (${pool.length} mains adverses compatibles, ${it} tirages).`);
+    lines.push(omaha ? (game === 'plo8' ? 'Hi-Lo : vise le scoop ; une basse seule risque le partage en quatre.' : 'Rappel : 2 cartes de ta main + 3 du board. Joue les nuts et les tirages aux nuts.') : 'Short Deck : la couleur bat le full, le brelan bat la suite.');
     if (toCall > 0) {
       const need = toCall / (P0 + 2 * toCall);
       lines.push(`À payer ${realPot ? fmt(toCall, 0) : Math.round((toCall / P0) * 100) + ' % du pot'} : il te faut ${pctS(need)}.`);
-      if (eq >= Math.max(n === 1 ? 0.62 : 0.5, need + 0.15)) return res('RELANCE', 'pot (' + (realPot ? 'à ' + fmt(potMax, 0) : 'max') + ')', 'good', { need });
+      if (eq >= Math.max(n === 1 ? 0.62 : 0.5, need + 0.15)) return res('RELANCE', omaha ? 'pot (' + (realPot ? 'à ' + fmt(potMax, 0) : 'max') + ')' : realPot ? 'à ' + fmt(3 * toCall, 0) : '×3', 'good', { need });
       const go = eq * (board.length === 5 ? 1 : 0.88) >= need;
       return res(go ? 'SUIS' : 'COUCHE', go && realPot ? fmt(toCall, 0) : '', go ? 'warn' : 'bad', { need });
     }
-    if (eq >= 1 / (n + 1) + (n === 1 ? 0.12 : 0.2)) return res('MISE', sizeTxt(P0 * (n > 1 ? 1 : 0.75)), 'good');
+    if (eq >= 1 / (n + 1) + (n === 1 ? 0.12 : 0.2)) return res('MISE', sizeTxt(P0 * (n > 1 ? (omaha ? 1 : 0.75) : 0.66)), 'good');
     if (n === 1 && eq >= 0.4 && board.length < 5) return res('MISE', sizeTxt(P0 * 0.6), 'warn', { lines: lines.concat('Gros tirage : semi-bluff.') });
     return res('CHECK', '', 'warn');
   }
+  const ploDecide = (o) => variantDecide(o, 'plo');
 
   // ---------------- Point d'entrée ----------------
   function decide(o) {
     const game = o.game || 'nlh';
-    if (game === 'plo') { if (!o.hero || o.hero.length !== 4 || new Set(o.hero).size !== 4) return null; if (o.board && o.board.length && o.board.length < 3) return null; return ploDecide(o); }
+    if (['plo', 'plo5', 'plo8', 'sd'].includes(game)) {
+      const nH = game === 'plo5' ? 5 : game === 'sd' ? 2 : 4;
+      if (!o.hero || o.hero.length !== nH || new Set(o.hero).size !== nH) return null; if (o.board && o.board.length && o.board.length < 3) return null;
+      if (game === 'sd' && [...o.hero, ...(o.board || [])].some((c) => (c >> 2) < 4)) return { action: '?', tone: 'warn', lines: ['Short Deck : pas de 2, 3, 4 ni 5 dans le jeu.'], hand: '' };
+      return variantDecide(o, game);
+    }
     if (!o.hero || o.hero.length !== 2 || o.hero[0] === o.hero[1]) return null;
     if (game === 'bomb') { if (!o.board || o.board.length < 3) return { street: 'pre', action: 'ATTENDS', size: 'le flop', tone: 'idle', lines: ['Bomb pot : pas de préflop. Saisis le flop.'], hand: E.abstractOf(o.hero[0], o.hero[1]) }; return postflop({ ...o, vpre: 'bomb', nOpp: o.nOpp || Math.max(1, (o.players || 6) - 1) }); }
     if (!o.board || o.board.length === 0) return preflop(o);
@@ -535,6 +594,6 @@
     return [40, 25, 16, 11, 8];
   }
 
-  const api = { TYPES, POSITIONS, POS_BY_N, positions, BUCKETS, decide, preflop, postflop, preRange, preWeights, villainRange, equityVec, bucket, likelihood, ploScore, ploPct, structure, chips, payouts };
+  const api = { TYPES, POSITIONS, POS_BY_N, positions, BUCKETS, decide, preflop, postflop, preRange, preWeights, villainRange, equityVec, bucket, likelihood, ploScore, ploPct, structure, chips, payouts, variantDecide, ploTable, sdTable };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Live = api;
 })(typeof window !== 'undefined' ? window : globalThis);
