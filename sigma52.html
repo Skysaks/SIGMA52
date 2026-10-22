@@ -1,3 +1,4 @@
+<meta charset="utf-8">
 <title>SIGMA 52</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -172,6 +173,7 @@ details summary { cursor: pointer; }
 :root { --act-f: #5B7EA6; --act-x: #3C9A63; --act-b1: #D9768E; --act-b2: #B23656; --act-b3: #851A33; --act-a: #3A0814; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --act-f: #6F93BD; --act-x: #47B176; --act-b1: #8E3550; --act-b2: #C24464; --act-b3: #EA6E8D; --act-a: #FFC2D0; } }
 :root[data-theme="dark"] { --act-f: #6F93BD; --act-x: #47B176; --act-b1: #8E3550; --act-b2: #C24464; --act-b3: #EA6E8D; --act-a: #FFC2D0; }
+.exams { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; } .exam { display: grid; gap: 6px; padding: 12px; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); } .exam.done { border-color: var(--good); } .exam .btn { justify-self: start; }
 .pbar { height: 8px; border-radius: 99px; background: var(--sunk); overflow: hidden; } .pbar i { display: block; height: 100%; background: var(--accent); transition: width .3s; }
 .sbar { display: flex; height: 14px; border-radius: 6px; overflow: hidden; background: var(--sunk); } .sbar.small { height: 10px; } .sbar i { display: block; height: 100%; }
 .crumbs { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; } .crumbs .chip { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; }
@@ -1088,7 +1090,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
     r.total = r.read + r.exercises + r.drill + r.review + r.practice; r.exo = exo; return r;
   }
   const api = { MODULES: M, SITUATIONS: S, LEVELS, GLOSSARY, mod, extend, learn };
-  if (typeof module !== 'undefined' && module.exports) { module.exports = api; ['l1', 'l2', 'l3', 'l4', 'elite', 'champions', 'live', 'extra', 'ultimate', 'paths', 'deep'].forEach((n) => require('./course_' + n + '.js')(api)); }
+  if (typeof module !== 'undefined' && module.exports) { module.exports = api; ['l1', 'l2', 'l3', 'l4', 'elite', 'champions', 'live', 'extra', 'ultimate', 'paths', 'deep', 'deep2', 'deep3'].forEach((n) => require('./course_' + n + '.js')(api)); }
   else root.Course = api;
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
@@ -3268,6 +3270,544 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
   if (typeof module !== 'undefined' && module.exports) module.exports = register; else register(root.Course);
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
+<script>// Cours — exercices corrigés, niveaux 1 à 3 (modules qui n'en avaient pas).
+// Équités : moteur SIGMA 52 (200 000 tirages, ± 0,3 point). Probabilités : calcul exact indiqué.
+(function (root) {
+  const ex = (items) => items.map(([q, a], i) => `<details class="exo"><summary><strong>Exercice ${i + 1}.</strong> ${q}</summary><p>${a}</p></details>`).join('');
+  function register(K) {
+    const add = (id, x) => { if (K.MODULES.some((m) => m.id === id)) K.extend(id, x); };
+
+    // ---------------- Niveau 1 ----------------
+    add('cadre', { sections: [['Exercices corrigés', ex([
+      ["Un site inconnu propose un bonus de 500 % aux joueurs français. Il n'apparaît pas sur la liste de l'ANJ. Tu t'inscris ?", "Non. Hors liste, tes gains ne sont pas protégés et tu n'as aucun recours en cas de litige ou de compte bloqué. Le bonus ne compense pas un risque de perte totale du solde."],
+      ["Pendant une session, tu gardes ouverte une chart préflop dans un onglet de ton navigateur « juste pour vérifier ». Risque ?", "Chez PokerStars, même une chart préflop ouverte pendant le jeu est interdite. Ferme tout outil d'étude avant d'ouvrir le client : la règle simple est « rien d'autre que le client pendant le jeu »."],
+      ["Tu joues chaque soir, tu gagnes régulièrement et tu as un emploi à côté. Tes gains sont-ils forcément non imposables ?", "Non. Depuis la décision du Conseil d'État de 2018, une pratique habituelle, où le savoir-faire maîtrise l'aléa et qui rapporte des revenus significatifs, peut être imposée en BNC même avec un autre métier. Garde tes historiques et vois le module Fiscalité."],
+    ])]], quiz: [
+      ["Le HUD intégré de Winamax pendant le jeu est…", ['Autorisé', 'Interdit'], 0, "C'est un outil fourni et autorisé par la room."],
+      ["Baisser ta limite de dépôt s'applique…", ['Tout de suite', 'Après un délai'], 0, "Une baisse s'applique immédiatement ; une hausse demande un délai, pour te protéger."],
+    ] });
+
+    add('regles', { sections: [['Exercices corrigés', ex([
+      ["Blindes 1/2. UTG relance à 6, le joueur suivant veut relancer. Quel est le montant minimum ?", "La relance précédente est de 4 (de 2 à 6) : il doit relancer d'au moins 4, donc à <strong>10</strong> minimum."],
+      ["Tête-à-tête : qui parle en premier avant le flop, et après ?", "Le bouton est la petite blinde : il parle <strong>en premier avant le flop</strong> et <strong>en dernier après</strong>."],
+      ["A a 50 jetons, B 200, C 200. A part à tapis, B et C paient puis misent encore entre eux. Comment se forment les pots ?", "Pot principal : 3 × 50 = 150, que les trois peuvent gagner. Pot annexe : ce que B et C misent au-delà de 50, que seuls B et C peuvent gagner. A ne peut jamais gagner plus de 50 par adversaire."],
+    ])]], quiz: [
+      ["Board A♠K♠Q♠J♠T♥, tu as 2♣3♦, ton adversaire 4♥5♥. Résultat ?", ['Partage', 'Tu perds', 'Tu gagnes'], 0, "Le board donne une suite à l'as pour tout le monde : partage."],
+      ["Qui montre en premier à l'abattage après une mise river payée ?", ['Le joueur qui a misé', 'Le joueur qui a payé'], 0, "Le dernier agresseur de la dernière rue montre en premier."],
+    ] });
+
+    add('mains', { sections: [['Exercices corrigés', ex([
+      ["Board K♥Q♥7♣4♥2♦. Quelle est la meilleure main possible (les nuts) ?", "La couleur à l'as : A♥ + un autre cœur. Pas de paire au board, donc pas de full ni de carré ; pas de quinte flush possible avec ces cœurs (K-Q-7-4)."],
+      ["Board 9♠9♦5♣5♥2♠. Tu as A♣3♦, ton adversaire K♠K♦. Qui gagne ?", "Lui. Il a trois paires possibles (K-K, 9-9, 5-5) et garde les deux meilleures : <strong>rois et 9</strong>, avec un 5 en kicker. Toi : 9 et 5 avec un as. Rois et 9 battent 9 et 5."],
+      ["Au flop, tu as une paire en main (7♣7♦). Probabilité de toucher un brelan ou mieux au flop ?", "1 − C(48,3) ÷ C(50,3) = 1 − 17 296 ÷ 19 600 ≈ <strong>11,8 %</strong>, environ une fois sur 8,5."],
+    ])]], quiz: [
+      ["Brelan contre suite : qui gagne en hold'em ?", ['La suite', 'Le brelan'], 0, "La suite bat le brelan (en Short Deck, c'est l'inverse)."],
+      ["Board A♠A♦A♣K♥K♠ : tu as Q♥Q♦. Ta main ?", ['Full aux as par les rois, comme tout le monde', 'Full aux as par les dames'], 0, "Le board fait déjà A-A-A-K-K ; tes dames ne jouent pas."],
+    ] });
+
+    add('preflop', { sections: [['Exercices corrigés', ex([
+      ["Deux joueurs limpent, tu es au bouton avec A♠J♦. Que fais-tu ?", "Tu isoles : relance à environ <strong>6 bb</strong> (4 bb + 1 par limper). AJ domine les mains que les limpers jouent, et la position te donne l'avantage dans le pot."],
+      ["AKo contre QQ, tout à tapis préflop. Qui est favori ?", "QQ, environ <strong>57,5 %</strong> contre 42,5 % pour AKo (moteur SIGMA 52). Une paire contre deux overcards est un « coin flip » légèrement en faveur de la paire."],
+      ["Pourquoi limper 8♥7♥ en début de parole est-il une erreur, même si la main est jouable ?", "Le limp n'a ni fold equity ni initiative : tu invites les joueurs derrière à relancer ou à entrer à bas prix, et tu joues un pot multiway hors de position. Soit la main est dans ta range d'ouverture et tu relances, soit tu couches."],
+    ])]], quiz: [
+      ["AKs contre 77 à tapis préflop ?", ['≈ 48 % pour AKs', '≈ 65 % pour AKs'], 0, "Moteur SIGMA 52 : AKs 47,9 %, 77 52,1 %."],
+      ["Premier à entrer, ta main n'est pas dans ta range d'ouverture. Tu…", ['Te couches', 'Limpes'], 0, "Premier à entrer : relance ou couche-toi."],
+    ] });
+
+    add('online', { sections: [['Exercices corrigés', ex([
+      ["Tu débutes. Combien de tables ouvrir ?", "Une ou deux. Le nombre de tables se monte seulement si ton taux de bonnes décisions (Spots, revue de mains) reste stable : plus de tables réduit le temps de réflexion par décision."],
+      ["Deux tables NL5 : l'une a 3 joueurs à VPIP supérieur à 40 %, l'autre 5 réguliers serrés. Laquelle ?", "La première. Les joueurs très larges paient trop et font l'essentiel de tes gains ; une table de réguliers te coûte surtout du rake."],
+      ["Tu viens de perdre trois caves, il est 2 h du matin. Ta routine dit ?", "Stop. Le stop-loss et la fatigue sont deux raisons d'arrêter ; tu notes les mains à revoir et tu les analyses demain, au calme."],
+    ])]], quiz: [
+      ["Plus de tables, c'est…", ['Plus de mains, mais souvent un winrate plus bas', 'Toujours plus rentable'], 0, "L'optimum se mesure : winrate × volume."],
+      ["Le critère n°1 pour choisir une table ?", ['La présence de joueurs faibles', 'Le nombre de places libres'], 0, "La sélection de table rapporte souvent plus que n'importe quelle technique."],
+    ] });
+
+    add('sprint', { sections: [['Exercices corrigés', ex([
+      ["Jour 3 du programme. Tu as limpé quatre fois hier. Quelle règle as-tu cassée et que fais-tu aujourd'hui ?", "La règle « premier à entrer : relance ou couche ». Aujourd'hui, objectif unique de session : zéro limp. Note chaque main où tu as hésité et vérifie-la dans l'Atlas préflop."],
+      ["Un passif qui ne relance jamais te relance à la river. Tu as top paire. Que dit la méthode express ?", "Couche, sauf main très forte. Contre un joueur passif, une relance river est presque toujours de la valeur : ta top paire est battue la plupart du temps."],
+      ["Au bout de 30 jours, tu es à −2 caves sur 4 000 mains. Le programme a-t-il échoué ?", "Impossible à dire sur 4 000 mains : l'écart-type d'un winrate est énorme sur un tel échantillon. Juge les décisions (taux de réussite aux Spots, fuites corrigées dans l'Analyse), pas le résultat."],
+    ])]], quiz: [
+      ["Après 30 jours, ce qui doit avoir progressé à coup sûr, c'est…", ['Tes décisions mesurées (Spots, fuites)', 'Ton résultat en argent'], 0, "Le résultat demande des dizaines de milliers de mains pour être lisible."],
+      ["Contre un joueur qui paie tout, la règle express est…", ['Valeur grosse, peu de bluffs', 'Beaucoup de bluffs'], 0, "On ne bluffe pas un joueur qui ne se couche pas."],
+    ] });
+
+    add('responsable', { sections: [['Exercices corrigés', ex([
+      ["Tu as perdu ton budget du mois le 12. Tu proposes de « prendre un peu sur le mois prochain ». Lecture ?", "C'est le signal « jouer pour se refaire » : le budget est épuisé, tu arrêtes jusqu'au mois suivant. Si l'envie persiste, parles-en ; Joueurs Info Service : 09 74 75 13 13."],
+      ["Un ami cache à sa compagne le temps qu'il passe à jouer. Que peux-tu lui dire ?", "Que le mensonge sur le temps ou l'argent joués est un signal d'alerte reconnu, et qu'une pause et une discussion avec un proche ou un professionnel valent mieux que d'attendre. L'interdiction volontaire de jeux (ANJ, au moins 3 ans) existe s'il le souhaite."],
+      ["Quelles limites fixer avant ta première session ?", "Un budget mensuel séparé, des limites de dépôt et de mise dans la room, une durée maximale de session et des jours sans poker dans la semaine."],
+    ])]], quiz: [
+      ["L'interdiction volontaire de jeux ANJ couvre…", ['Casinos, clubs et sites agréés', 'Seulement les sites en ligne'], 0, "Elle couvre aussi casinos, clubs, jeux FDJ et PMU avec compte."],
+      ["Tu es irritable quand tu ne joues pas. C'est…", ['Un signal d\'alerte', 'Normal pour un joueur sérieux'], 0, "Irritabilité et pensées tournées vers le jeu sont des signaux reconnus."],
+    ] });
+
+    // ---------------- Niveau 2 ----------------
+    add('maths2', { sections: [['Exercices corrigés', ex([
+      ["Combien de combinaisons de AK au total ? Et s'il y a un as au board ?", "16 au total (4 × 4). Avec un as au board, il reste 3 as : 3 × 4 = <strong>12</strong>."],
+      ["Ton adversaire peut avoir KK, AK ou QQ. Tu as A♠Q♦, board 7♣3♦2♥. Combien de combos de chaque ?", "KK : 6 (aucun roi visible). AK : 3 as restants × 4 rois = 12. QQ : 3 dames restantes → 3 combos. Ton as et ta dame bloquent AK et QQ."],
+      ["Pot 100, tapis effectifs 400 au flop. SPR, et que veut-il dire pour une top paire ?", "SPR = 400 ÷ 100 = <strong>4</strong>. Avec un SPR de 4, une top paire bon kicker est généralement prête à mettre son tapis ; à SPR 10 et plus, elle préfère contrôler la taille du pot."],
+    ])]], quiz: [
+      ["Combos d'une paire précise (ex. JJ) sans carte visible ?", ['6', '4', '12'], 0, "C(4,2) = 6."],
+      ["Combos d'une main assortie précise (ex. AKs) ?", ['4', '12', '16'], 0, "Une par couleur."],
+    ] });
+
+    add('formats', { sections: [['Exercices corrigés', ex([
+      ["Tu as 6 heures par semaine et tu veux mesurer ta progression. Quel format principal ?", "Le cash game 6-max : chaque main est comparable aux autres, et ton winrate devient lisible plus vite que tes résultats en tournoi."],
+      ["Pourquoi l'Expresso est-il difficile à battre malgré des adversaires faibles ?", "Le rake est intégré au multiplicateur tiré au sort, et la variance est extrême : il faut un écart de niveau net en push/fold pour couvrir le coût."],
+      ["Selon l'ANJ, quelle part du produit brut du poker en ligne vient du cash game en 2025 ?", "Environ <strong>19 %</strong>, contre 68 % pour les Sit&Go (dont Expresso) et environ 13 % pour les tournois."],
+    ])]], quiz: [
+      ["Le format le plus utile pour apprendre l'ICM ?", ['Sit&Go classique', 'Cash game'], 0, "Les tapis décroissent et les places payées comptent."],
+      ["En MTT, les gains sont…", ['Concentrés sur quelques grosses places', 'Réguliers'], 0, "D'où une variance très forte."],
+    ] });
+
+    add('live', { sections: [['Exercices corrigés', ex([
+      ["Partie 1/2 € en casino : trois joueurs limpent, tu es au bouton avec A♦Q♠. Quelle taille de relance ?", "Plus grosse qu'en ligne : environ 4 bb + 1 bb par limper, soit <strong>7 bb (14 €)</strong>. Les joueurs live paient beaucoup ; une petite relance invite tout le monde."],
+      ["Tu joues 30 mains par heure en live. Combien d'heures pour 30 000 mains ?", "30 000 ÷ 30 = <strong>1 000 heures</strong>. Un winrate live se mesure sur des années : suis plutôt ton taux horaire et tes décisions."],
+      ["Un joueur passif live relance à la turn. Lecture par défaut ?", "Main forte. La population live passive relance rarement en bluff : sans lecture contraire, couche tes mains moyennes."],
+    ])]], quiz: [
+      ["En live, on joue environ…", ['25 à 35 mains par heure', '75 mains par heure'], 0, "Une table en ligne va deux à trois fois plus vite."],
+      ["Contre une table live passive, la valeur se prend…", ['Plus gros', 'Plus petit'], 0, "Ils paient trop : mises de valeur plus grosses."],
+    ] });
+
+    add('online2', { sections: [['Exercices corrigés', ex([
+      ["Tu veux passer de 4 à 8 tables. Comment savoir si c'est rentable ?", "Mesure sur ta base : winrate × mains par heure à 4 tables, puis à 6 et 8 sur des échantillons comparables. Si le winrate chute plus vite que le volume ne monte, reste à 4."],
+      ["Un logiciel qui affiche en direct la range conseillée selon ta position est-il autorisé ?", "Non : c'est une aide en temps réel, interdite par toutes les rooms. Seuls les outils listés comme autorisés par la room sont utilisables pendant le jeu."],
+      ["Ton ami te demande ton mot de passe pour « jouer une session à ta place ». Réponse ?", "Non : partager son compte est interdit (fraude à l'identité) et peut entraîner la fermeture du compte et la confiscation du solde."],
+    ])]], quiz: [
+      ["Une base de mains achetée à un tiers…", ['Est interdite (data mining)', 'Est autorisée'], 0, "Les rooms l'interdisent."],
+      ["La double authentification sert à…", ['Protéger ton compte et ton solde', 'Jouer plus de tables'], 0, "Sécurité de base."],
+    ] });
+
+    add('decision', { sections: [['Exercices corrigés', ex([
+      ["Tu paies un tapis avec QQ contre AKo préflop et tu perds. Bonne ou mauvaise décision ?", "Probablement bonne : QQ a environ 57,5 % contre AKo. Juge la décision avec la range de l'adversaire et la cote, pas avec la carte de la river."],
+      ["Tu bluffes la river, il se couche. Ton bluff était-il bon ?", "On ne sait pas encore. Il faut estimer combien de fois il se couche dans ce spot et comparer à la cote du bluff : misé un pot, le bluff doit réussir plus d'une fois sur deux."],
+      ["Combien de mains faut-il pour qu'un winrate de 4 bb/100 soit distinct de zéro avec un écart-type de 90 bb/100 ?", "Environ <strong>195 000 mains</strong> (intervalle à 95 %). Avant, c'est surtout la qualité des décisions qui renseigne sur ton niveau."],
+    ])]], quiz: [
+      ["Le « piège du résultat », c'est…", ['Juger une décision par son issue', 'Ne pas noter ses mains'], 0, "Une bonne décision peut perdre, une mauvaise peut gagner."],
+      ["Dans le journal de décisions, on note…", ['Les informations disponibles au moment de décider', 'Seulement le résultat'], 0, "C'est ce qui permet de juger la décision."],
+    ] });
+
+    add('tilt2', { sections: [['Exercices corrigés', ex([
+      ["Après un bad beat, tu relances trois mains de suite hors range. Que fais-tu maintenant ?", "Applique le plan en temps réel : pause de 5 minutes, respiration, relis ton script. Si deux décisions émotionnelles se sont déjà produites, la session s'arrête."],
+      ["Tu gagnes 5 caves en une heure et commences à jouer plus de mains « parce que tu es chaud ». Est-ce du tilt ?", "Oui : le tilt de confiance (ou de gagnant) existe. Les résultats récents ne changent pas les cotes ; reviens à tes ranges."],
+      ["Après la session, comment traiter la cause d'un tilt de « méritocratie » (« je mérite de gagner ») ?", "Écris la croyance, puis la correction : sur une main, le meilleur joueur perd souvent ; sur un grand échantillon, la qualité des décisions finit par compter. Relis-la avant la session suivante."],
+    ])]], quiz: [
+      ["Deux décisions émotionnelles dans une session…", ['Stop', 'Continuer en se concentrant'], 0, "C'est une règle d'arrêt."],
+      ["Le tilt de gagnant…", ['Existe', 'N\'existe pas'], 0, "L'excès de confiance déforme aussi les décisions."],
+    ] });
+
+    add('discipline', { sections: [['Exercices corrigés', ex([
+      ["Ta bankroll est de 1 200 € et tu joues NL25 (cave 25 €). Ta règle dit 40 caves minimum. Que fais-tu ?", "1 200 ÷ 25 = 48 caves : tu restes en NL25. Sous 30 caves (750 €), la règle impose de redescendre en NL10."],
+      ["Tu atteins ton stop-loss de 3 caves, mais la table est « très bonne ». Tu continues ?", "Non. Une règle décidée avant la session ne se renégocie pas pendant ; la table sera encore là un autre jour."],
+      ["Écris un objectif de semaine correct et un objectif à éviter.", "Correct : « 10 heures de jeu, 3 mains revues par session, 2 heures d'étude ». À éviter : « gagner 300 € », qui dépend de la variance et pousse à forcer."],
+    ])]], quiz: [
+      ["Bankroll sous le seuil de descente…", ['Tu descends de limite', 'Tu joues plus pour te refaire'], 0, "C'est la règle qui protège la bankroll."],
+      ["Ratio d'étude conseillé dans le module…", ['Au moins 1 h pour 4 h de jeu', 'Pas d\'étude, seulement du volume'], 0, "Le volume sans étude répète les erreurs."],
+    ] });
+
+    add('loisir', { sections: [['Exercices corrigés', ex([
+      ["Budget loisir : 100 € par mois. À quelle limite jouer en cash ?", "Le budget est de l'argent de loisir, mais pour jouer un mois sans tout perdre en une soirée, vise au moins 20 caves : NL2 ou NL5 (cave de 2 ou 5 €)."],
+      ["Tu as 2 soirées par semaine. Quelle partie choisir ?", "Les horaires du soir et du week-end, où les récréatifs sont plus nombreux, en cash à petite limite ou en tournois à petit buy-in. Évite les tables pleines de réguliers en semaine la journée."],
+      ["Le jeu ne t'amuse plus depuis trois semaines et tu joues « pour récupérer ». Que dit le plan ?", "Pause, et relis le module « Jeu responsable ». Le plan du joueur loisir s'arrête quand le plaisir disparaît ou que le budget est dépassé."],
+    ])]], quiz: [
+      ["Le module qui suffit pour battre la plupart des parties loisir ?", ['Méthode express', 'Solveurs'], 0, "Charts, pas de limp, valeur grosse, peu de bluffs."],
+      ["Un format très rapide pour un petit budget…", ['Variance énorme : amusant mais risqué', 'Le plus sûr'], 0, "Le budget peut fondre en une mauvaise série."],
+    ] });
+
+    // ---------------- Niveau 3 ----------------
+    add('theorie', { sections: [['Exercices corrigés', ex([
+      ["River, pot 100, tu mises 100 avec une range polarisée. Quelle proportion de bluffs rend l'adversaire indifférent entre payer et se coucher ?", "Il paie 100 pour gagner 200 : il lui faut 33 % d'équité. Ta range doit contenir <strong>1/3 de bluffs</strong> et 2/3 de valeur."],
+      ["Face à ta mise pot, quelle fréquence de défense rend tes bluffs indifférents ?", "Ton bluff risque 100 pour gagner 100 : il est rentable si l'adversaire couche plus de 50 %. Il doit donc défendre <strong>50 %</strong> de sa range (MDF)."],
+      ["Ton adversaire couche 80 % face aux mises river. Que fais-tu, équilibre ou exploitation ?", "Exploitation : bluffe plus que la proportion d'équilibre. L'équilibre protège contre un adversaire qui s'adapte ; contre une fuite claire et stable, l'exploitation rapporte plus."],
+    ])]], quiz: [
+      ["Mise de la moitié du pot à la river : proportion de bluffs d'équilibre ?", ['25 %', '33 %', '50 %'], 0, "b ÷ (p + 2b) = 50 ÷ 200."],
+      ["Une stratégie d'équilibre garantit…", ['De ne pas être exploitée', 'De gagner le maximum contre tout le monde'], 0, "Elle ne maximise pas contre un joueur faible."],
+    ] });
+
+    add('ranges', { sections: [['Exercices corrigés', ex([
+      ["UTG ouvre, tu paies au bouton. Flop A♠K♦7♣. Qui a l'avantage de range ?", "UTG : sa range contient beaucoup plus d'AK, AA, KK, AQ que la tienne (qui a souvent 3-bet ces mains). Il peut miser souvent et petit."],
+      ["Même spot, flop 7♥6♥5♣. Et maintenant ?", "Ta range de call au bouton contient plus de connecteurs, petites paires et assorties (98, 76s, 55, 66) : l'avantage de nuts est plutôt de ton côté ; UTG doit miser moins souvent."],
+      ["Comment décrire une range « condensée » face à une relance ?", "Beaucoup de mains moyennes, peu de nuts et peu d'air : typiquement la range d'un joueur qui paie une relance sans 3-bet (paires moyennes, as moyens assortis, broadways)."],
+    ])]], quiz: [
+      ["L'avantage de nuts appartient à…", ['Celui qui a le plus de mains très fortes sur ce board', 'Celui qui a relancé préflop'], 0, "Il dépend du board, pas seulement de l'initiative."],
+      ["Une range polarisée contient…", ['Des mains très fortes et des bluffs', 'Surtout des mains moyennes'], 0, "Les mains moyennes en sont exclues."],
+    ] });
+
+    add('etude', { sections: [['Exercices corrigés', ex([
+      ["Tu as joué 10 heures cette semaine. Combien d'heures d'étude selon le ratio du module ?", "Au début, une heure d'étude pour deux à trois heures de jeu : entre <strong>3 h 20 et 5 h</strong>."],
+      ["Tu as perdu un gros pot. Quand l'analyser ?", "Après la session, au calme : écris ta lecture rue par rue, puis vérifie combos et équités dans les Outils. Pendant la session, note seulement un mot pour la retrouver."],
+      ["Ta base montre que la population de ta limite couche 65 % face au c-bet flop. Que changes-tu ?", "Tu c-bettes plus souvent, surtout avec des mains qui n'ont pas d'abattage. Un écart de population se joue contre tout le monde, pas contre un seul joueur."],
+    ])]], quiz: [
+      ["Partager quelques mains avec un groupe d'étude…", ['Autorisé et courant', 'Interdit'], 0, "Ce qui est interdit, c'est l'échange ou la vente de bases complètes."],
+      ["Une leçon par main revue, notée…", ['Dans le Journal', 'Nulle part'], 0, "Écrire fixe la leçon."],
+    ] });
+
+    add('hu', { sections: [['Exercices corrigés', ex([
+      ["En tête-à-tête, tu es au bouton avec K♣4♦. Ouvrir ?", "Oui. Au bouton en tête-à-tête, on ouvre environ 75 à 85 % des mains : K4o est largement dans la range."],
+      ["Tu es en grosse blinde, il relance à 2,5 bb. Quelle équité te faut-il pour payer ?", "Tu paies 1,5 bb pour un pot final de 5 bb : 1,5 ÷ 5 = <strong>30 %</strong> (sans compter la position). D'où une défense très large."],
+      ["Tu perds 8 caves en un soir de tête-à-tête. Signe que tu joues mal ?", "Pas forcément : la variance du tête-à-tête est énorme. Revois les mains clés (gros pots, tapis), juge les décisions, et protège-toi avec des sessions plus courtes ou des tapis plus courts."],
+    ])]], quiz: [
+      ["En tête-à-tête, une paire de 4 vaut…", ['Beaucoup plus qu\'à 6', 'Pareil qu\'à 6'], 0, "Contre une seule range large, les petites paires gagnent souvent."],
+      ["Après le flop, le bouton parle…", ['En dernier', 'En premier'], 0, "Le bouton a la position après le flop."],
+    ] });
+
+    add('profondeur', { sections: [['Exercices corrigés', ex([
+      ["Tapis de 40 bb. Tu ouvres, on te relance. Tu as A♠Q♦. Que faire ?", "Souvent tapis (3-bet/shove si tu relances, ou tapis face au 3-bet). À 40 bb, le SPR après un 3-bet payé est trop bas pour jouer AQ en pot moyen."],
+      ["Tapis de 200 bb, tu as 5♠5♦ face à une relance. Le set-mining est-il plus rentable qu'à 100 bb ?", "Oui. Tu touches un brelan au flop environ 11,8 % du temps ; plus les tapis sont profonds, plus tu peux gagner quand tu touches, donc plus le call est rentable."],
+      ["Tapis de 200 bb, tu as K♦J♣ (dépareillé) face à une relance UTG. Tu paies ?", "Plutôt non : KJo est souvent dominé (AK, KQ, AJ) et, profond, une paire de rois avec un kicker faible peut coûter un tapis entier."],
+    ])]], quiz: [
+      ["Plus les tapis sont profonds, plus les mains…", ['Spéculatives gagnent en valeur', 'Dominées gagnent en valeur'], 0, "Cotes implicites plus fortes."],
+      ["SPR bas (1 à 3) : top paire est…", ['Souvent prête pour le tapis', 'À contrôler à tout prix'], 0, "Peu de jetons derrière : l'engagement est quasi automatique."],
+    ] });
+
+    add('omaha', { sections: [['Exercices corrigés', ex([
+      ["PLO, board K♥8♥3♣2♥. Tu as A♥Q♠J♠T♦. As-tu une couleur ?", "Non. En Omaha, il faut <strong>exactement deux cartes de la main</strong> : tu n'as qu'un cœur (A♥), donc pas de couleur."],
+      ["Pot 100 en PLO, l'adversaire mise 50. Quelle est ta relance maximale (relance pot) ?", "Tu paies d'abord 50 (pot = 200), puis tu relances de 200 : relance totale à <strong>250</strong>."],
+      ["Pourquoi les équités préflop sont-elles plus serrées en PLO qu'en hold'em ?", "Chaque joueur a six combinaisons de deux cartes : même la meilleure main de départ n'est qu'environ 60/40 contre une bonne main. Les décisions se jouent surtout après le flop."],
+    ])]], quiz: [
+      ["En PLO, une bonne main de départ est…", ['Coordonnée : paires, cartes connectées, assorties', 'Quatre cartes hautes dépareillées'], 0, "Les mains qui travaillent ensemble font les nuts."],
+      ["Board sans paire en PLO : un brelan est…", ['Souvent vulnérable', 'Presque imbattable'], 0, "Suites et couleurs sont bien plus fréquentes qu'en hold'em."],
+    ] });
+
+    add('stud', { sections: [['Exercices corrigés', ex([
+      ["Stud : tu as 3 cœurs (deux cachés, un visible). Trois cœurs sont visibles chez les adversaires couchés. Tes outs couleur ?", "13 cœurs − 3 à toi − 3 morts = <strong>7 outs</strong> au lieu de 10. Les cartes mortes changent tout en Stud."],
+      ["Razz : quelle est la meilleure main possible ?", "A-2-3-4-5 (la « roue ») : as bas, suites et couleurs ne comptent pas."],
+      ["Razz : tu as A-2-3 en main, ton adversaire montre un K visible en 3e rue. Qui commence en meilleure position ?", "Toi : un roi visible est une très mauvaise carte en Razz. Une main de trois cartes basses est un bon départ."],
+    ])]], quiz: [
+      ["En Razz, une paire est…", ['Mauvaise', 'Bonne'], 0, "Les paires comptent comme des cartes hautes."],
+      ["Les cartes visibles des joueurs couchés…", ['Réduisent tes outs', 'N\'ont aucune importance'], 0, "Ce sont des cartes mortes."],
+    ] });
+
+    add('variantes2', { sections: [['Exercices corrigés', ex([
+      ["Short Deck : tu as une couleur, ton adversaire un full. Qui gagne ?", "Toi : en Short Deck (règles Triton), <strong>la couleur bat le full</strong>, car elle est plus rare avec 36 cartes."],
+      ["Omaha 5 cartes : combien de cartes de ta main utilises-tu ?", "Exactement deux, comme en Omaha 4 cartes, avec trois cartes du board."],
+      ["Omaha Hi-Lo : board 2♠5♦8♣K♥K♦. Tu as A♣3♥Q♦Q♠. Qu'as-tu en bas ?", "Une basse 8-5-3-2-A (avec A et 3 de ta main, et 2-5-8 du board) : elle qualifie (5 rangs différents, tous 8 ou moins). En haut, tu as deux paires rois et dames."],
+    ])]], quiz: [
+      ["En Short Deck, A-6-7-8-9 est…", ['Une suite', 'Rien'], 0, "L'as joue bas sous le 6."],
+      ["En Hi-Lo, la basse doit être…", ['8 ou moins, 5 rangs différents', 'Quelconque'], 0, "« 8 or better »."],
+    ] });
+  }
+  if (typeof module !== 'undefined' && module.exports) module.exports = register; else register(root.Course);
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+<script>// Cours — exercices corrigés, niveaux 4 à 6 (modules qui n'en avaient pas).
+// Les chiffres reprennent les formules et les données des modules ; ICM : calcul exact du moteur (Malmuth-Harville).
+(function (root) {
+  const ex = (items) => items.map(([q, a], i) => `<details class="exo"><summary><strong>Exercice ${i + 1}.</strong> ${q}</summary><p>${a}</p></details>`).join('');
+  function register(K) {
+    const add = (id, x) => { if (K.MODULES.some((m) => m.id === id)) K.extend(id, x); };
+
+    // ---------------- Niveau 4 ----------------
+    add('solveurs', { sections: [['Exercices corrigés', ex([
+      ["Le solveur mise 33 % du pot avec 90 % de sa range sur A♠7♦2♣ (BTN contre BB). Que retiens-tu pour ta session ?", "Une règle simple : sur un board sec à l'as, le relanceur en position peut miser petit et très souvent, parce qu'il a l'avantage de range. Tu ne retiens pas la fréquence exacte, tu retiens la logique et la taille."],
+      ["Ton arbre de solve contient 6 tailles par rue et met 2 heures à calculer. Que changes-tu ?", "Réduis les tailles (une ou deux par rue). Chaque taille multiplie l'arbre ; l'écart d'EV entre une et six tailles est souvent faible, et tu apprends mieux avec une stratégie simple."],
+      ["Ton adversaire ne bluffe jamais la river. Comment le traduire au solveur ?", "Par le node locking : tu verrouilles sa stratégie river (zéro bluff) et tu laisses le solveur recalculer ta meilleure réponse. Il couchera la plupart de tes bluff-catchers."],
+    ])]], quiz: [
+      ["Un solveur calcule…", ['Un équilibre pour l\'arbre et les ranges donnés', 'La stratégie de ton adversaire réel'], 0, "Il dépend entièrement de ce que tu lui donnes."],
+      ["Lire une solution commence par…", ['La stratégie globale de la range (fréquences, tailles)', 'Ta main seule'], 0, "La range d'abord, la main ensuite."],
+    ] });
+
+    add('mdf', { sections: [['Exercices corrigés', ex([
+      ["Il mise 2/3 du pot. Alpha, MDF et équité requise pour payer ?", "Alpha = 0,667 ÷ 1,667 = <strong>40 %</strong>. MDF = <strong>60 %</strong>. Équité requise = 0,667 ÷ 2,333 ≈ <strong>28,6 %</strong>."],
+      ["River, tu mises 75 % du pot avec 14 combos de valeur. Combien de bluffs pour une range équilibrée ?", "La part de bluffs d'équilibre est de 30 % : 14 ÷ 0,7 = 20 combos au total, donc <strong>6 bluffs</strong>."],
+      ["Pot 20 bb, tapis 80 bb, deux rues à jouer. Quelle taille géométrique pour mettre tout le tapis ?", "f = ((1 + 2 × 80 ÷ 20)^(1/2) − 1) ÷ 2 = (√9 − 1) ÷ 2 = <strong>100 % du pot</strong> à chaque rue (20 → 60 → 180 après les deux calls, tapis engagés)."],
+    ])]], quiz: [
+      ["Face à une mise de 2 fois le pot, la MDF vaut…", ['33,3 %', '50 %', '66,7 %'], 0, "P ÷ (P + B) = 1 ÷ 3."],
+      ["La MDF s'applique à…", ['Une range entière', 'Une main seule'], 0, "Une main se décide à l'équité requise."],
+    ] });
+
+    add('bloqueurs', { sections: [['Exercices corrigés', ex([
+      ["River, board K♥9♥5♠2♣7♥ (couleur possible). Pour bluffer, préfères-tu A♥Q♣ ou Q♣J♣ ?", "A♥Q♣ : l'as de cœur bloque toutes les couleurs à l'as (les nuts) et une partie des couleurs qu'il paierait. Q♣J♣ ne bloque rien d'utile."],
+      ["Tu as A♠K♦ sur A♣8♦3♥. Combien de combos de AK reste-t-il à l'adversaire ? Et de AA ?", "AK : 2 as restants × 3 rois restants = <strong>6</strong>. AA : 2 as restants → <strong>1</strong> combo."],
+      ["Comme bluff-catcher, faut-il bloquer ses bluffs ou sa valeur ?", "Sa <strong>valeur</strong>. Un bluff-catcher qui bloque ses mains fortes rend ses bluffs proportionnellement plus fréquents ; bloquer ses bluffs fait l'inverse."],
+    ])]], quiz: [
+      ["Combos de AA quand tu tiens un as ?", ['3', '6', '1'], 0, "C(3,2) = 3."],
+      ["Le meilleur bluff river a souvent…", ['Aucune valeur à l\'abattage et de bons bloqueurs', 'Une paire moyenne'], 0, "Une paire moyenne préfère l'abattage."],
+    ] });
+
+    add('avantage', { sections: [['Exercices corrigés', ex([
+      ["BTN contre BB, pot simple. Flop K♠K♦4♣. Stratégie du bouton ?", "Mise petite et très fréquente : le bouton a plus de Kx forts et de surpaires, le board touche peu la range de BB. Petite taille, car BB ne peut presque rien avoir de très fort."],
+      ["Même spot, flop 9♥8♥7♣. Le bouton mise-t-il souvent ?", "Moins souvent, et plutôt plus gros quand il mise : BB a beaucoup de deux paires, suites et tirages. L'avantage de nuts est partagé ou du côté de BB."],
+      ["En session, comment simplifier en deux règles ?", "Board haut et sec qui favorise ta range : petite mise fréquente. Board bas et connecté qui touche sa range : check plus souvent, mise plus grosse et polarisée quand tu mises."],
+    ])]], quiz: [
+      ["L'avantage de range justifie…", ['Des mises fréquentes et petites', 'Des overbets systématiques'], 0, "L'overbet demande l'avantage de nuts."],
+      ["En pot 3-bet, la range du 3-bettor est…", ['Plus forte : il mise plus souvent sur la plupart des boards', 'Plus faible'], 0, "L'avantage de range grandit en pot 3-bet."],
+    ] });
+
+    add('oopplay', { sections: [['Exercices corrigés', ex([
+      ["Tu es BB, flop 8♠7♠3♦, le bouton c-bette 33 %. Tu as 9♠6♠. Que fais-tu ?", "Check-raise souvent : suite par les deux bouts et tirage couleur, beaucoup d'équité, et le board favorise ta range. Le check-raise gagne le pot tout de suite ou construit un pot quand tu touches."],
+      ["Même board, tu as 8♣5♣ (top paire, kicker faible). Check-raise ?", "Plutôt call : ta main a de la valeur à l'abattage mais ne supporte pas bien une 3-bet. Check-raise avec les mains très fortes et les gros tirages, call avec les mains moyennes."],
+      ["Le relanceur check derrière au flop. Turn brique. Que fais-tu hors de position ?", "Probe bet : il a montré de la faiblesse, sa range est plafonnée. Mise une taille moyenne avec ta valeur et tes tirages, et quelques mains sans abattage."],
+    ])]], quiz: [
+      ["Un donk bet est…", ['Une mise hors de position avant le relanceur', 'Une relance à la river'], 0, "Utile surtout quand la carte change l'avantage de ton côté."],
+      ["Hors de position, on réalise…", ['Moins bien son équité', 'Mieux son équité'], 0, "D'où une défense plus serrée hors de position."],
+    ] });
+
+    add('barrels', { sections: [['Exercices corrigés', ex([
+      ["Tu as misé le flop 9♣7♦3♠ avec A♥Q♥, il a payé. Turn A♠. Deuxième mise ?", "Oui : l'as améliore ta range de relanceur bien plus que la sienne (il a souvent 9x, 7x, tirages). Tu as top paire : mise pour la valeur et la protection."],
+      ["Flop K♠8♦3♣, turn 6♠ (deuxième pique). Tu as A♦Q♦ sans rien. Deuxième barrel ?", "Faible candidat : la carte complète des tirages et des deux paires qu'il paie, et tu n'as ni tirage ni bloqueur utile. Préfère abandonner ou choisir un bluff avec un pique."],
+      ["River, tu as une deuxième paire contre une calling station qui paie toute paire. Valeur fine ?", "Oui, mise pour la valeur, même assez gros : elle paie avec des paires plus faibles. Contre un nit, la même main checkerait."],
+    ])]], quiz: [
+      ["L'overbet demande…", ['Avantage de nuts et range adverse plafonnée', 'Juste un board effrayant'], 0, "Sans avantage de nuts, l'overbet se fait exploiter."],
+      ["En petites limites, une relance river adverse est…", ['Presque toujours de la valeur', 'Souvent un bluff'], 0, "Coucher les bluff-catchers est souvent correct."],
+    ] });
+
+    add('deep', { sections: [['Exercices corrigés', ex([
+      ["Tu paies une relance de 6 bb avec 4♦4♣ pour toucher un brelan. Combien faut-il gagner en moyenne quand tu touches, et quel tapis effectif minimum ?", "Environ 7,5 fois le call : <strong>≈ 45 bb</strong> en moyenne. La règle pratique demande un tapis effectif de 15 à 20 fois le call, soit <strong>90 à 120 bb</strong>."],
+      ["Pot 4-bet à 100 bb : 4-bet à 22 bb payé. SPR au flop ?", "Pot ≈ 45 bb, tapis ≈ 78 bb : SPR ≈ <strong>1,7</strong>. Avec une surpaire, pas de contrôle du pot : la main va à tapis."],
+      ["Partie live à 100 bb avec un straddle à 2 bb. Profondeur effective ?", "100 ÷ 2 = <strong>50 straddles</strong> : joue comme à 50 bb, plus serré, et ouvre à 3 ou 4 fois le straddle."],
+    ])]], quiz: [
+      ["SPR de 12 en pot simple : top paire…", ['Contrôle la taille du pot', 'Va à tapis automatiquement'], 0, "Il faut deux paires et mieux pour engager 100 bb dans la plupart des cas."],
+      ["Tapis profonds : quelles mains perdent de la valeur ?", ['Les mains dominées (AJo, KQo)', 'Les petites paires'], 0, "Elles font des top paires qui perdent de gros pots."],
+    ] });
+
+    add('exploitpop', { sections: [['Exercices corrigés', ex([
+      ["Un adversaire affiche 60 % de fold to c-bet sur 50 occasions. Quelle est l'incertitude ?", "Erreur type = √(0,6 × 0,4 ÷ 50) ≈ <strong>6,9 points</strong> ; à 95 %, l'intervalle va d'environ 46 % à 74 %. L'écart est probable mais pas encore sûr : exploite modérément."],
+      ["La population de ta limite relance la river presque uniquement pour la valeur. Ton exploit ?", "Couche tes bluff-catchers face aux relances river, même avec une main correcte. C'est l'un des exploits les plus rentables des petites limites."],
+      ["Tu bluffes beaucoup un nit depuis une heure. Un régulier attentif est à la table. Risque ?", "Il peut s'adapter à ton image (payer plus large contre toi). Contre les réguliers attentifs, reviens près de l'équilibre ; exploite fort surtout les récréatifs."],
+    ])]], quiz: [
+      ["Contre un joueur qui paie trop, l'exploit est…", ['Valeur plus grosse et plus fine, zéro bluff river', 'Plus de bluffs'], 0, "On ne bluffe pas un joueur qui ne couche pas."],
+      ["Une statistique river se stabilise…", ['Lentement (milliers de mains)', 'En 100 mains'], 0, "Peu d'occasions par main."],
+    ] });
+
+    add('hud', { sections: [['Exercices corrigés', ex([
+      ["VPIP 48 / PFR 7 sur 300 mains. Profil et plan ?", "Fish passif (écart VPIP − PFR de 41 points). Plan : isole-le en position, valeur grosse sur trois rues, pas de bluff."],
+      ["WTSD 38 % et W$SD 44 %. Que lis-tu ?", "Il va trop souvent à l'abattage et y perd souvent : il paie trop. Mise pour la valeur plus fine et ne le bluffe pas à la river."],
+      ["Écris une note correcte sur un joueur qui a relancé la river avec une deuxième paire.", "« 12/10 : relance river avec 2e paire (K-9 sur K-9-5-2-7) face à une mise de 1/2 pot. » Un fait daté et vérifiable, pas une étiquette (« bluffeur »)."],
+    ])]], quiz: [
+      ["Écart VPIP − PFR de plus de 15 points signale…", ['Un joueur qui paie trop préflop', 'Un joueur très agressif'], 0, "La cible prioritaire."],
+      ["En France, un HUD tiers en temps réel…", ['Est à considérer comme interdit ou restreint : vérifie ta room', 'Est toujours autorisé'], 0, "Les règles varient par room et changent."],
+    ] });
+
+    add('icm2', { sections: [['Exercices corrigés', ex([
+      ["Trois joueurs, prix 50/30/20, tapis 5 000 / 3 000 / 2 000. Quelle part du prize pool vaut chaque tapis en ICM ?", "Moteur SIGMA 52 : <strong>38,4 % / 32,8 % / 28,9 %</strong>. Le gros tapis possède 50 % des jetons mais seulement 38,4 % de la valeur : en ICM, les jetons gagnés valent moins que les jetons perdus."],
+      ["Tapis moyen, tu reçois un tapis du gros tapis, juste avant la bulle. Tu as A♠J♦. Pourquoi le call est-il plus serré qu'en cash ?", "La prime de risque : perdre te sort sans gain, doubler te rapporte moins en valeur. Dans le tableau du module, un tapis moyen qui paie le gros doit avoir environ 72 % d'équité au lieu de 50 %."],
+      ["PKO, prime de départ ≈ 2 500 jetons. Un joueur à 2 800 pousse, tu as 11 500 en BB. Pourquoi élargir ton call ?", "Tu gagnes le pot et environ 2 500 jetons d'équivalent prime : l'équité requise baisse nettement. La prime compte comme de l'argent mort dans le pot."],
+    ])]], quiz: [
+      ["Dans un chip chop, qui est avantagé par rapport à l'ICM ?", ['Les gros tapis', 'Les petits tapis'], 0, "Le partage au prorata des jetons ignore la prime de risque."],
+      ["En satellite à places égales, une fois ta place quasi acquise…", ['Coucher AA peut être correct', 'Il faut tout jouer'], 0, "La prime de risque devient extrême."],
+    ] });
+
+    add('perf', { sections: [['Exercices corrigés', ex([
+      ["Comment reconnaître ton C-game en session ?", "Décisions automatiques ou émotionnelles, calls « pour voir », impatience. Écris tes 3 signes personnels avant la session ; s'ils apparaissent, pause ou arrêt."],
+      ["Tu joues 6 heures d'affilée. Où se trouvent tes erreurs ?", "Souvent dans la dernière partie : la fatigue coûte des bb/100 avant d'être ressentie. Compare ton winrate et tes erreurs notées par heure de session dans le Journal."],
+      ["Après une semaine à −10 caves, tu veux changer toute ta stratégie. Bonne idée ?", "Non, sauf erreur identifiée. Revois les mains clés, sépare variance et erreurs ; ne change que ce que la revue montre."],
+    ])]], quiz: [
+      ["Le A-game se protège par…", ['Une routine de session fixe', 'Plus de tables'], 0, "La routine réduit la part émotionnelle."],
+      ["Une mauvaise semaine prouve…", ['Peu de choses sur ton niveau', 'Que ta stratégie est fausse'], 0, "La variance domine sur de petits échantillons."],
+    ] });
+
+    add('champions', { sections: [['Exercices corrigés', ex([
+      ["Un joueur a 60 millions de gains bruts en tournois live. Peut-on dire qu'il est le plus rentable ?", "Non : les gains bruts ne déduisent ni les buy-ins, ni les parts vendues, ni les frais. Un gros volume de high rollers fait monter les gains bruts sans prouver le profit."],
+      ["Quelle idée de Negreanu (small ball) peux-tu appliquer en NL10 ?", "Jouer plus de petits pots en position et éviter les gros pots marginaux hors de position. Pas besoin de son niveau de lecture pour appliquer ce principe."],
+      ["Quelle leçon de Chidwick (l'équilibre comme base) appliquer à ton niveau ?", "Partir d'une stratégie solide par défaut (charts, tailles simples), puis dévier seulement face à un écart mesuré de l'adversaire."],
+    ])]], quiz: [
+      ["Un classement des gains bruts mesure…", ['Les gains en tournois, sans les coûts', 'Le profit net'], 0, "Buy-ins non déduits."],
+      ["Ce qui se transpose le mieux à ton niveau…", ['Les principes (position, discipline, sélection)', 'Les bluffs spectaculaires'], 0, "Les principes, pas les coups d'éclat."],
+    ] });
+
+    add('champions', { sections: [['Douze styles de plus : ce que chacun t\'apprend', `<p>Les styles ajoutés dans Champions sont construits, comme les autres, à partir de descriptions publiques (sources dans chaque briefing). Chacun sert à travailler une compétence précise.</p>
+      <div class="tw"><table class="t"><thead><tr><th>Style (inspiré de)</th><th>Ce qu'il fait</th><th>Ce qu'il t'apprend</th></tr></thead><tbody>
+      <tr><td>Le joueur de flops (Gus Hansen)</td><td>Voit beaucoup de flops, ne limpe pas, paie en position</td><td>Value-bet plus fin, ne pas bluffer sur une seule rue</td></tr>
+      <tr><td>Le prodige suragressif (Viktor Blom)</td><td>3-bets, overbets, relances-bluffs</td><td>Payer avec les bons bluff-catchers, 4-bet pour la valeur</td></tr>
+      <tr><td>Le spécialiste du tête-à-tête (Doug Polk)</td><td>Petites mises au flop, grosses ensuite, check-raises</td><td>Défendre face aux petites mises, lire une ligne sur trois rues</td></tr>
+      <tr><td>Le cérébral patient (Erik Seidel)</td><td>Serré, réfléchi, pièges occasionnels</td><td>Voler un joueur serré, respecter ses relances</td></tr>
+      <tr><td>La pression sans peur (Vanessa Selbst)</td><td>Squeezes, 3-bets, tapis préflop</td><td>Ouvrir moins large devant elle, payer ses 3-bets avec les mains fortes</td></tr>
+      <tr><td>Le génie agressif (Stu Ungar)</td><td>Large, bluffs bien placés, lit vite tes habitudes</td><td>Changer de rythme, ne pas devenir prévisible</td></tr>
+      <tr><td>La position d'abord (Annette Obrestad)</td><td>Très large au bouton, serrée en début de parole</td><td>Jouer la position, 3-better les ouvertures de bouton</td></tr>
+      <tr><td>L'analyste (Chris Ferguson)</td><td>Tailles variées, bluffs mesurés</td><td>Jouer solide quand il n'y a pas de faille à exploiter</td></tr>
+      <tr><td>L'amateur qui ose (Chris Moneymaker)</td><td>Large, paie beaucoup, gros bluffs parfois</td><td>Value-bet gros, payer ses overbets avec les mains fortes</td></tr>
+      <tr><td>Le stratège du volume (ElkY)</td><td>Agressif, plus large en position</td><td>Défendre face aux c-bets fréquents, 4-bet la valeur</td></tr>
+      <tr><td>Le volcan (Mike Matusow)</td><td>Solide, puis 12 mains en tilt après un gros pot perdu</td><td>Repérer le tilt adverse, et ne pas le reproduire</td></tr>
+      <tr><td>Le théoricien (The Theory of Poker)</td><td>Serré, valeur, semi-bluffs, pièges</td><td>Penser en ranges, bluffer les boards qui ratent sa range</td></tr>
+      </tbody></table></div>
+      <p>Parcours conseillé dans l'onglet Champions : les styles de niveau Moyen d'abord, puis Difficile, puis Très difficile. Un style compte comme battu avec un résultat positif sur au moins 50 mains.</p>`]] });
+
+    add('styles', { sections: [['Exercices corrigés', ex([
+      ["En 50 mains, un adversaire affiche VPIP 40 / PFR 32 et 3-bet 15 %. Contre-stratégie ?", "Agressif large : paie plus large face à ses mises, 4-bet tes mains fortes pour la valeur, piège plutôt que bluffer. (Attention : 50 mains, ce sont des repères, pas des certitudes.)"],
+      ["Un adversaire change de comportement après un gros pot perdu (plus de mains, plus de mises). Que fais-tu ?", "C'est probablement du tilt : élargis ta valeur et tes calls contre lui, réduis tes bluffs. Dans SIGMA 52, le style « Le volcan » reproduit ce schéma."],
+      ["Contre un joueur plus fort que toi, quelle stratégie ?", "Réduis ta variance face à lui : joue serré et solide, évite les gros pots marginaux, change de table si possible. La sélection de table est un choix stratégique."],
+    ])]], quiz: [
+      ["Contre un adversaire qui s'adapte à toi…", ['Reste proche de l\'équilibre et varie tes lignes', 'Garde un exploit fixe'], 0, "Un exploit fixe se fait contre-exploiter."],
+      ["Le style qui couche beaucoup face au c-bet appelle…", ['Plus de c-bets', 'Moins de c-bets'], 0, "Il abandonne trop."],
+    ] });
+
+    add('analyste', { sections: [['Exercices corrigés', ex([
+      ["Hypothèse : « je perds de l'argent en défendant ma grosse blinde ». Comment la tester ?", "Filtre tes mains de BB dans l'Analyse : résultat par main défendue, comparé aux repères. Regarde les spots perdants (défense trop large hors de position contre UTG ?), corrige un point, puis mesure à nouveau sur un nouvel échantillon."],
+      ["Ton fold to 3-bet est de 70 % sur 80 occasions. Fuite certaine ?", "Probable, pas certaine : erreur type ≈ √(0,7 × 0,3 ÷ 80) ≈ 5,1 points. L'intervalle à 95 % va d'environ 60 % à 80 % : au-dessus des repères (45-60 %), donc à corriger."],
+      ["Le piège de l'analyste ?", "Accumuler des analyses sans changer de jeu, ou tirer une conclusion d'un échantillon trop petit. Une hypothèse, un test, une décision."],
+    ])]], quiz: [
+      ["Une hypothèse se juge sur…", ['Un nouvel échantillon après correction', 'Une seule session'], 0, "Il faut mesurer avant et après."],
+      ["L'outil pour chiffrer une fuite préflop dans SIGMA 52 ?", ['Analyse (import d\'historiques)', 'Studio'], 0, "L'Analyse classe tes résultats par position et action."],
+    ] });
+
+    // ---------------- Niveau 5 ----------------
+    add('live_debut', { sections: [['Exercices corrigés', ex([
+      ["Tu arrives au casino pour jouer en cash 1/2 €. Les étapes ?", "Pièce d'identité à l'entrée, inscription sur la liste d'attente auprès du floor, achat de la cave (maximum si ta bankroll le permet), placement par le floor, puis attendre ou poster la grosse blinde selon la règle de la salle."],
+      ["La salle prend un pourcentage plafonné par pot. Pourquoi est-ce important pour ton résultat ?", "Sur des pots moyens de 30 à 60 €, quelques euros par pot représentent une part bien plus grande de tes gains qu'en ligne : il faut un écart de niveau net avec la table pour être gagnant."],
+      ["Ta table est pleine de réguliers silencieux. Que peux-tu faire ?", "Demander un changement de table (« table change ») : c'est un outil normal de sélection, pas une impolitesse."],
+    ])]], quiz: [
+      ["Le pourboire au croupier est…", ['Un usage, pas une obligation', 'Obligatoire'], 0, "Compte-le dans ton Journal : il pèse sur le résultat."],
+      ["Pour éviter les litiges, la meilleure habitude est…", ['Annoncer ses actions à voix haute', 'Jeter ses jetons dans le pot'], 0, "L'annonce verbale engage et clarifie."],
+    ] });
+
+    add('live_regles', { sections: [['Exercices corrigés', ex([
+      ["Face à une mise de 40, tu poses un seul jeton de 100 sans rien dire. Qu'as-tu fait ?", "Un <strong>call</strong>. Pour relancer avec un seul gros jeton, il faut annoncer « relance » avant qu'il touche la table."],
+      ["Mise de 20, relance à 60. Quel est le minimum pour relancer à nouveau ?", "La relance précédente est de 40 : il faut relancer à <strong>100</strong> minimum."],
+      ["Tu annonces « je suis » puis poses par erreur des jetons pour une relance. Que compte ?", "L'annonce verbale à ton tour : « je suis » = call. Le surplus te revient."],
+    ])]], quiz: [
+      ["Un fold hors tour est…", ['Définitif', 'Annulable'], 0, "Il est toujours définitif."],
+      ["À l'abattage, une main jetée dans les cartes mortes est…", ['Perdue', 'Récupérable si elle est meilleure'], 0, "Montre tes deux cartes avant de lâcher la main."],
+    ] });
+
+    add('live_strat', { sections: [['Exercices corrigés', ex([
+      ["Deux limpers, tu es au CO avec K♠Q♠. Taille d'isolation en live ?", "Environ 5 bb + 1 par limper, soit <strong>7 bb</strong> : les joueurs live paient presque autant une grosse relance qu'une petite, tu prends plus de valeur."],
+      ["Un joueur passif live, jusque-là silencieux, mise pot à la river. Tu as top paire bon kicker. Décision par défaut ?", "Couche, sauf lecture contraire : les grosses mises des passifs live sont presque toujours de la force."],
+      ["Tu gagnes +10 bb/100 en live à 30 mains par heure, partie 2/5 €. Taux horaire avant rake et pourboires ?", "10 × 30 ÷ 100 = <strong>3 bb par heure</strong>, soit 15 € par heure à 2/5 €."],
+    ])]], quiz: [
+      ["Pot multiway live : on c-bette…", ['Seulement avec une vraie main ou un gros tirage', 'Avec toute sa range'], 0, "À plusieurs, quelqu'un a touché."],
+      ["Place idéale à une table live…", ['Le joueur faible à ta droite', 'Le joueur agressif à ta droite'], 0, "Tu parles après le joueur faible."],
+    ] });
+
+    add('live_tells', { sections: [['Exercices corrigés', ex([
+      ["Qu'a montré l'étude de Slepian et al. (2013) ?", "Des observateurs novices jugeaient la force des mains de pros <strong>moins bien que le hasard</strong> en regardant le visage, et <strong>mieux que le hasard</strong> en regardant les bras et le geste de mise. Regarde le geste, pas le visage."],
+      ["Un joueur paie instantanément au flop. Que t'apprend ce timing ?", "Souvent une main plafonnée (paire, tirage) : avec un brelan, il aurait souvent réfléchi à relancer. C'est un indice, pas une preuve."],
+      ["Ta lecture de range dit « il a la couleur », mais il semble nerveux. Tu paies ?", "Non. Un tell ajuste une décision serrée ; il ne renverse jamais une lecture de range claire."],
+    ])]], quiz: [
+      ["Un tell, c'est…", ['Un écart par rapport à la référence du joueur', 'Un geste isolé'], 0, "Il faut connaître sa référence."],
+      ["Pour ne rien donner toi-même…", ['La même routine à chaque décision', 'Des lunettes noires suffisent'], 0, "La routine plutôt que le camouflage."],
+    ] });
+
+    add('live_table', { sections: [['Exercices corrigés', ex([
+      ["Un joueur conteste le montant d'une mise. Comment réagir ?", "Calmement : « Floor, s'il vous plaît ». Le floor décide ; ne règle pas le litige avec le joueur."],
+      ["Tu remarques deux joueurs qui semblent se faire des signes. Que fais-tu ?", "Tu le signales discrètement au floor. La collusion est sanctionnée, mais ce n'est pas à toi d'accuser à la table."],
+      ["Tu gagnes 800 € dans la soirée. Une précaution ?", "Change tes jetons à la caisse, ne compte pas ton argent à la table, et quitte la salle sans afficher tes gains."],
+    ])]], quiz: [
+      ["Ton image à la table sert à…", ['Ajuster tes bluffs et ta valeur', 'Rien'], 0, "Une image serrée rend tes bluffs crédibles."],
+      ["Un litige se règle par…", ['Le floor', 'Un vote de la table'], 0, "La décision appartient au floor."],
+    ] });
+
+    add('live_mtt', { sections: [['Exercices corrigés', ex([
+      ["Tournoi live : niveaux de 40 minutes, 30 mains par heure. Combien de mains par niveau ?", "40 ÷ 60 × 30 = <strong>20 mains</strong> environ : un niveau passe vite, chaque vol de blindes compte."],
+      ["ROI de +20 % sur des tournois à 300 € avec 150 € de frais de déplacement par tournoi. Résultat réel ?", "Gain moyen : 60 € par tournoi ; coût réel : 450 €. ROI réel = 60 − 150 = −90 € sur 450, soit environ <strong>−20 %</strong>. Les frais changent tout."],
+      ["Festival : combien de buy-ins prévoir pour une catégorie à 200 € ?", "50 à 100 buy-ins (10 000 à 20 000 €), davantage pour les gros champs. Sinon, joue des satellites ou une catégorie inférieure."],
+    ])]], quiz: [
+      ["Une réentrée compte dans ton ROI…", ['Comme un nouveau buy-in', 'Pas du tout'], 0, "Chaque réentrée est un coût."],
+      ["L'ante de grosse blinde…", ['Augmente le pot et pousse à voler plus large', 'Ne change rien'], 0, "Plus d'argent mort au milieu."],
+    ] });
+
+    add('eclair', { sections: [['Exercices corrigés', ex([
+      ["Il mise 1/3 du pot, tu as un tirage couleur au flop (deux cartes à venir). Tu paies ?", "Équité requise : 20 %. Tirage couleur : environ 35 % sur deux cartes (9 × 4 ≈ 36 %). Tu paies largement, et un semi-bluff est possible."],
+      ["Turn, il mise le pot. Tu as une suite par les deux bouts (8 outs). Tu paies ?", "Équité requise : 33,3 %. Tu as environ 17 % (8 × 2). Couche, sauf cotes implicites énormes."],
+      ["Préflop, tu as 12 bb au bouton, tout le monde se couche. La séquence dit ?", "Sous 15 bb : tapis ou couché. Consulte ta chart de push (Outils › Push/Fold)."],
+    ])]], quiz: [
+      ["Équité requise face à une mise de la moitié du pot ?", ['25 %', '33 %'], 0, "0,5 ÷ (1 + 2 × 0,5)."],
+      ["Ventrale au turn, une carte à venir : environ…", ['8,5 %', '17 %'], 0, "4 outs × 2."],
+    ] });
+
+    add('home', { sections: [['Exercices corrigés', ex([
+      ["Six joueurs, 3 heures de partie. Quelle structure ?", "Tapis de 100 à 200 bb (ex. 10 000 jetons, blindes 25/50), niveaux de 15 à 20 minutes. L'outil Préparer la partie calcule la structure et la répartition des jetons."],
+      ["Personne ne se couche à ta table d'amis. Ta stratégie ?", "Zéro bluff, valeur grosse sur trois rues avec tes bonnes mains, isole les limpers en relançant plus gros (4 bb + 1 par limper)."],
+      ["Un ami débutant ralentit la partie. Comment le gérer ?", "Explique-lui les règles et l'ordre de parole avant la partie, sans commenter ses erreurs pendant. L'ambiance compte : une partie entre amis doit rester un plaisir."],
+    ])]], quiz: [
+      ["Une partie entre amis sans argent…", ['Ne pose pas de problème légal', 'Est interdite'], 0, "C'est l'argent en jeu qui change le cadre."],
+      ["Utiliser la Table live à une partie entre amis…", ['Seulement en le disant et avec l\'accord de tous', 'En cachette'], 0, "C'est la règle de fair-play de SIGMA 52."],
+    ] });
+
+    // ---------------- Niveau 6 ----------------
+    add('marche', { sections: [['Exercices corrigés', ex([
+      ["Selon l'ANJ, combien pèse le cash game dans le produit brut du poker en ligne en 2025 ?", "Environ <strong>100 M€ sur 525 M€</strong>, soit 19 %, contre 27 % en 2020 : un format en recul."],
+      ["Plus de comptes, dépense moyenne en baisse : qu'en déduire pour toi ?", "Des récréatifs plus nombreux mais à petit budget, venus surtout des paris sportifs et des formats rapides. Les parties faibles se trouvent plutôt en Sit&Go et à petites limites."],
+      ["Comment choisir une room ?", "Trois critères : le nombre de récréatifs à ta limite et dans ton format, le coût réel (rake moins fidélité), les règles logicielles (outils autorisés)."],
+    ])]], quiz: [
+      ["Le produit brut des jeux, c'est…", ['Mises moins gains reversés (surtout rake et frais)', 'Le total des mises'], 0, "Ce que les opérateurs gardent."],
+      ["La liquidité partagée depuis 2018 se fait avec…", ['L\'Espagne (et le Portugal pour PokerStars)', 'L\'Allemagne'], 0, "D'après le module."],
+    ] });
+
+    add('economie', { sections: [['Exercices corrigés', ex([
+      ["Winrate +4 bb/100, 300 mains par heure, NL50. Taux horaire ?", "4 × 300 ÷ 100 × 0,50 € = <strong>6 € par heure</strong>, avant fidélité."],
+      ["Tu gagnes 4 bb/100 et paies 10 bb/100 de rake. De combien bats-tu tes adversaires ?", "<strong>14 bb/100</strong> : le rake prend plus que toi. Compare les rooms sur le coût net (rake moins fidélité)."],
+      ["À 4 tables, ton winrate est de 5 bb/100 (300 mains/h) ; à 8 tables, 2 bb/100 (550 mains/h). Lequel est meilleur ?", "4 tables : 5 × 300 = 1 500 ; 8 tables : 2 × 550 = 1 100 (en bb/100 × mains). Reste à 4 tables."],
+    ])]], quiz: [
+      ["Pour qu'un winrate de 4 bb/100 soit distinct de zéro (écart-type 90) il faut environ…", ['195 000 mains', '20 000 mains'], 0, "D'après le module."],
+      ["Le rakeback, c'est…", ['La part du rake rendue par la fidélité', 'Un bonus de dépôt'], 0, "Une part importante du revenu des gros volumes."],
+    ] });
+
+    add('carriere', { sections: [['Exercices corrigés', ex([
+      ["Tes dépenses sont de 2 000 € par mois. Quel fonds de vie séparé avant de passer pro ?", "6 à 12 mois : <strong>12 000 à 24 000 €</strong>, en plus de la bankroll de jeu. Un downswing ne doit jamais t'obliger à retirer de la bankroll."],
+      ["Pourquoi la voie semi-pro est-elle la plus solide ?", "Un autre revenu supprime la pression de payer un loyer avec le poker, qui dégrade les décisions. Tu progresses avec 10 à 20 heures par semaine sans risque vital."],
+      ["Quels revenus annexes un pro combine-t-il souvent ?", "Gains de jeu, fidélité de la room, staking, coaching, contenu. La part du jeu pur est souvent plus faible qu'on l'imagine."],
+    ])]], quiz: [
+      ["Bankroll d'un pro en cash, d'après le module…", ['50 à 100 caves', '10 caves'], 0, "Plus large que pour un amateur."],
+      ["Avant de passer pro, une routine à temps plein « à blanc » pendant…", ['Au moins trois mois', 'Une semaine'], 0, "En gardant un autre revenu."],
+    ] });
+
+    add('staking', { sections: [['Exercices corrigés', ex([
+      ["Un joueur vend son action à 1,1. Son ROI attendu est de 15 %. L'achat est-il rentable ?", "Pour 110 € payés, l'acheteur récupère en moyenne 115 € : <strong>+5 €, soit ≈ +4,5 %</strong>. Rentable, mais seulement si le ROI de 15 % est vérifié sur un long historique."],
+      ["Makeup de 10 000 €, accord à 50/50. Le joueur gagne 25 000 €. Qui touche quoi ?", "Les 10 000 premiers remboursent le makeup au backer. Il reste 15 000 € partagés : 7 500 € chacun. Total backer : 17 500 €, joueur : 7 500 €."],
+      ["Quels points doit contenir un contrat de staking ?", "Périmètre, pourcentage et markup avec un exemple chiffré, règle du makeup en fin de période, conditions de sortie, rythme de reporting et de paiement, jeu hors accord. Tout par écrit."],
+    ])]], quiz: [
+      ["À un markup de 1,3, l'acheteur gagne si le ROI du joueur dépasse…", ['30 %', '13 %'], 0, "Il paie 130 pour 100 d'action."],
+      ["Un joueur très en makeup…", ['Risque de perdre sa motivation', 'Joue toujours mieux'], 0, "Première source de conflits."],
+    ] });
+
+    add('business', { sections: [['Exercices corrigés', ex([
+      ["Tu veux vendre du coaching. Comment le présenter honnêtement ?", "Sur la progression mesurable de l'élève (fuites corrigées, taux de réussite aux exercices), avec tes résultats vérifiables. Jamais sur une promesse de gains."],
+      ["Tu streams tes sessions en ligne. Quelle précaution ?", "Un délai de diffusion : sans délai, tu exposes tes cartes et ta stratégie aux joueurs de la table."],
+      ["Une room te propose de la promouvoir sur un réseau social. Que faut-il vérifier ?", "Que la plateforme permet d'exclure les mineurs et que l'exclusion est activée, que la mention d'interdiction aux moins de 18 ans est visible pendant toute la promotion, que la room est agréée, et que le contrat prévoit ces règles."],
+    ])]], quiz: [
+      ["La publicité pour un site non agréé est…", ['Interdite', 'Autorisée avec mention'], 0, "D'après le module."],
+      ["Les rooms recrutent leurs ambassadeurs surtout pour…", ['Leur visibilité et leur image', 'Leur seul niveau de jeu'], 0, "Audience et régularité comptent."],
+    ] });
+
+    add('fiscal', { sections: [['Exercices corrigés', ex([
+      ["Recettes 2026 de 20 000 € en micro-BNC. Montant imposable ?", "Abattement forfaitaire de 34 % : 20 000 × 0,66 = <strong>13 200 €</strong>, avant cotisations sociales. Valide avec un expert-comptable."],
+      ["Tes frais réels (formation, logiciels, déplacements) font 45 % de tes recettes. Quel régime étudier ?", "La déclaration contrôlée (formulaire 2035), qui déduit les frais réels : elle devient intéressante quand les frais dépassent l'abattement de 34 %."],
+      ["Quelles preuves garder dès le premier euro ?", "Historique des dépôts et retraits de chaque room, journal des sessions, factures de formation, logiciels et déplacements. La preuve des pertes compte autant que celle des gains."],
+    ])]], quiz: [
+      ["Seuil micro-BNC pour les recettes 2026, d'après le module ?", ['83 600 €', '30 000 €'], 0, "Il était de 77 700 € pour 2023 à 2025."],
+      ["Les gains d'un joueur occasionnel sont…", ['En principe non imposables', 'Toujours imposables'], 0, "La pratique habituelle change la situation."],
+    ] });
+
+    add('integrite', { sections: [['Exercices corrigés', ex([
+      ["Un ami te propose de vous signaler vos cartes par message quand vous êtes à la même table. Que réponds-tu ?", "Non : c'est de la collusion, sanctionnée par la fermeture des comptes et souvent la confiscation des soldes. Les rooms analysent ces schémas."],
+      ["Tu soupçonnes un bot à ta table (temps de réaction identiques, 24 h sur 24). Que fais-tu ?", "Tu le signales au support avec les numéros de mains. Ne l'accuse pas dans le chat."],
+      ["Ton compte a été piraté. Quelles protections auraient aidé ?", "Double authentification, mot de passe unique, aucun partage de compte. Préviens immédiatement le support."],
+    ])]], quiz: [
+      ["Le chip dumping, c'est…", ['Perdre volontairement des jetons à un complice', 'Jouer très serré'], 0, "Une forme de triche."],
+      ["Ouvrir un solveur entre deux mains, tables ouvertes…", ['Est interdit', 'Est autorisé'], 0, "C'est de l'aide en temps réel."],
+    ] });
+
+    add('longevite', { sections: [['Exercices corrigés', ex([
+      ["Écris une semaine type soutenable pour un semi-pro.", "Horaires fixes, 4 sessions de 2 à 3 heures, une pause toutes les 60 à 90 minutes, 2 séances d'étude, au moins un jour sans jeu, activité physique régulière."],
+      ["Tu joues pour fuir une difficulté personnelle. Signal ?", "Oui, c'est un signal d'alerte : stop, et parles-en. Joueurs Info Service : 09 74 75 13 13 ; l'auto-exclusion ANJ couvre toutes les rooms."],
+      ["Comment préparer une sortie du poker ?", "Documenter tes compétences (décision sous incertitude, probabilités, gestion du risque, discipline) avec tes méthodes, résultats et contenus, pour qu'elles comptent dans une autre activité."],
+    ])]], quiz: [
+      ["Mentir sur ses résultats ou son temps de jeu est…", ['Un signal d\'alerte', 'Sans importance'], 0, "D'après le module."],
+      ["La fatigue coûte des bb/100…", ['Avant d\'être ressentie', 'Seulement quand on la sent'], 0, "D'où les horaires fixes."],
+    ] });
+
+    add('progression', { sections: [['Exercices corrigés', ex([
+      ["Tu es à l'étape 2 avec un winrate positif sur 12 000 mains. Peux-tu passer à l'étape 3 ?", "Pas encore : le critère est un winrate positif sur <strong>30 000 mains</strong> et une bankroll suffisante pour NL10."],
+      ["Quel indicateur montre ta progression le plus tôt ?", "La qualité des décisions (Spots, fuites préflop, revues), mesurée chaque semaine. L'argent se juge sur de grands échantillons."],
+      ["Étape 4 (semi-pro) : quel critère ?", "Un winrate prouvé statistiquement à une limite qui couvre tes dépenses."],
+    ])]], quiz: [
+      ["Critère de l'étape 1 dans les Spots ?", ['90 % en Ouverture, Cotes et Tapis ou couché', '50 % partout'], 0, "D'après le tableau du module."],
+      ["L'argent se mesure…", ['Sur de grands échantillons', 'Chaque semaine'], 0, "La variance domine à court terme."],
+    ] });
+
+    add('salaire', { sections: [['Exercices corrigés', ex([
+      ["Objectif : 2 000 € par mois en 120 heures. Quel taux horaire, et quelle limite à +4 bb/100 et 300 mains par heure ?", "2 000 ÷ 120 ≈ <strong>16,7 € par heure</strong>. À NL100 : 12 €/h ; à NL200 : 24 €/h. Il faut donc battre NL200 (ou NL100 avec la fidélité), avant impôts et cotisations."],
+      ["À NL200, sur un mois de 36 000 mains (écart-type 90 bb/100), quel écart-type du résultat ?", "90 × √360 ≈ <strong>1 707 bb</strong>, soit environ 3 400 € : plus que l'espérance (2 880 €). Un mois négatif arrive environ une fois sur cinq."],
+      ["Quelles conditions avant de quitter ton emploi ?", "100 000 mains au moins avec une borne basse d'intervalle positive, bankroll de 50 à 100 caves, réserve de 6 à 12 mois, six mois de semi-pro tenus, statut fiscal clarifié, plan B écrit."],
+    ])]], quiz: [
+      ["Revenu par heure = …", ['winrate × mains par heure ÷ 100 × valeur de la bb', 'winrate × nombre de tables'], 0, "La formule du module."],
+      ["Ce qu'on oublie souvent…", ['Retraite, congés et couverture santé à organiser', 'Le rake'], 0, "Pas de protections automatiques."],
+    ] });
+  }
+  if (typeof module !== 'undefined' && module.exports) module.exports = register; else register(root.Course);
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
 <script>// Générateur de spots d'entraînement. Chaque spot : { type, title, prompt, cards?, board?, opts, ok (index ou liste), why }.
 (function (root) {
   const E = root.Engine || require('./engine.js');
@@ -3895,6 +4435,18 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
     brunson: { label: 'Style Brunson', like: 'reg', vpip: 0.3, pfr: 0.24, cont: 0.75, three: 0.3, callF: 0.95, value: 0.85, bluff: 0.3, raise: 0.8, size: [0.75, 1.0], jam: 0.05, cbet: 0.88, disc: 0.1 },
     harrington: { label: 'Style Harrington', like: 'reg', vpip: 0.19, pfr: 0.16, cont: 0.5, three: 0.3, callF: 1.15, value: 0.8, bluff: 0.12, raise: 0.88, size: [0.5, 0.66], open: 3, cbet: 0.7 },
     dwan: { label: 'Style Dwan', like: 'maniaque', vpip: 0.38, pfr: 0.3, cont: 0.75, three: 0.42, callF: 0.92, value: 0.88, bluff: 0.36, raise: 0.78, size: [0.66, 1.1], over: 0.35, raiseBluff: 0.1, adapt: 1.2, disc: 0.09, cbet: 0.75 },
+    hansen: { label: 'Style Hansen', like: 'maniaque', vpip: 0.46, pfr: 0.34, cont: 0.8, three: 0.35, callF: 0.9, value: 0.85, bluff: 0.3, raise: 0.8, size: [0.5, 0.8], flat: 1.5, disc: 0.08, cbet: 0.82 },
+    blom: { label: 'Style Blom', like: 'maniaque', vpip: 0.5, pfr: 0.43, cont: 0.75, three: 0.5, callF: 0.88, value: 0.9, bluff: 0.38, raise: 0.76, size: [0.7, 1.1], over: 0.35, raiseBluff: 0.12, disc: 0.07, cbet: 0.85 },
+    polk: { label: 'Style Polk', like: 'reg', vpip: 0.29, pfr: 0.25, cont: 0.7, three: 0.4, callF: 0.98, value: 0.82, bluff: 0.25, raise: 0.82, size: [0.2, 0.4], sizeLate: [0.33, 0.8], over: 0.18, xr: 0.12, adapt: 1, open: 2.5, cbet: 0.72 },
+    seidel: { label: 'Style Seidel', like: 'reg', vpip: 0.18, pfr: 0.14, cont: 0.55, three: 0.28, callF: 1.1, value: 0.8, bluff: 0.13, raise: 0.86, size: [0.5, 0.75], adapt: 0.8, trap: 0.25, cbet: 0.6 },
+    selbst: { label: 'Style Selbst', like: 'maniaque', vpip: 0.36, pfr: 0.31, cont: 0.7, three: 0.55, callF: 0.92, value: 0.88, bluff: 0.33, raise: 0.78, size: [0.6, 1.0], over: 0.2, raiseBluff: 0.1, jam: 0.06, disc: 0.08, cbet: 0.8 },
+    ungar: { label: 'Style Ungar', like: 'maniaque', vpip: 0.4, pfr: 0.33, cont: 0.75, three: 0.42, callF: 0.95, value: 0.88, bluff: 0.32, raise: 0.8, size: [0.6, 1.0], over: 0.2, adapt: 1.5, disc: 0.09, cbet: 0.82 },
+    obrestad: { label: 'Style Obrestad', like: 'reg', vpip: 0.26, pfr: 0.23, cont: 0.62, three: 0.32, callF: 1.0, value: 0.8, bluff: 0.22, raise: 0.84, size: [0.5, 0.75], pos: 0.8, adapt: 1, cbet: 0.7 },
+    ferguson: { label: 'Style Ferguson', like: 'reg', vpip: 0.23, pfr: 0.2, cont: 0.62, three: 0.33, callF: 1.0, value: 0.8, bluff: 0.2, raise: 0.85, size: [0.5, 1.0], trap: 0.12, cbet: 0.62 },
+    moneymaker: { label: 'Style Moneymaker', like: 'station', vpip: 0.38, pfr: 0.2, cont: 0.8, three: 0.25, callF: 0.85, value: 0.75, bluff: 0.26, raise: 0.85, size: [0.5, 1.0], over: 0.3, loose: 1, cbet: 0.6 },
+    elky: { label: 'Style ElkY', like: 'reg', vpip: 0.3, pfr: 0.27, cont: 0.7, three: 0.45, callF: 0.95, value: 0.85, bluff: 0.27, raise: 0.8, size: [0.5, 0.8], raiseBluff: 0.06, pos: 0.4, cbet: 0.8 },
+    matusow: { label: 'Style Matusow', like: 'reg', vpip: 0.27, pfr: 0.21, cont: 0.65, three: 0.33, callF: 0.98, value: 0.8, bluff: 0.2, raise: 0.84, size: [0.5, 0.9], tilt: 1, cbet: 0.68 },
+    sklansky: { label: 'Style Sklansky', like: 'reg', vpip: 0.2, pfr: 0.16, cont: 0.58, three: 0.3, callF: 1.05, value: 0.82, bluff: 0.16, raise: 0.86, size: [0.5, 0.8], trap: 0.2, xr: 0.08, cbet: 0.62 },
     sigma: { label: 'Moteur SIGMA', like: 'reg', external: true, vpip: 0.25, pfr: 0.22, cont: 0.6, three: 0.3, callF: 1.0, value: 0.75, bluff: 0.18, raise: 0.85, size: [0.5, 0.75] },
     action: { label: 'Joueur d\'action live', like: 'station', vpip: 0.5, pfr: 0.2, cont: 0.85, three: 0.25, callF: 0.75, value: 0.7, bluff: 0.15, raise: 0.85, size: [0.5, 1.0], open: 4, loose: 1, cbet: 0.45 },
     prolive: { label: 'Pro de cash live', like: 'reg', vpip: 0.27, pfr: 0.22, cont: 0.62, three: 0.33, callF: 1.0, value: 0.8, bluff: 0.16, raise: 0.85, size: [0.5, 0.9], open: 3.5, adapt: 0.8, cbet: 0.62 },
@@ -3904,6 +4456,8 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
   const NAMES = { station: ['Gégé31', 'Mimi_Lol', 'TontonFlop', 'ChanceuxDu82'], maniaque: ['AllinKevin', 'Turbo_Raz'], nit: ['Roc_Solide', 'PapyNit'], reg: ['GrindZ', 'Reg_6max'],
     ivey: ['Style Ivey'], negreanu: ['Style Negreanu'], hellmuth: ['Style Hellmuth'], chidwick: ['Style Chidwick'], mizrachi: ['Style Mizrachi'], antonius: ['Style Antonius'],
     brunson: ['Style Brunson'], harrington: ['Style Harrington'], dwan: ['Style Dwan'],
+    hansen: ['Style Hansen'], blom: ['Style Blom'], polk: ['Style Polk'], seidel: ['Style Seidel'], selbst: ['Style Selbst'], ungar: ['Style Ungar'],
+    obrestad: ['Style Obrestad'], ferguson: ['Style Ferguson'], moneymaker: ['Style Moneymaker'], elky: ['Style ElkY'], matusow: ['Style Matusow'], sklansky: ['Style Sklansky'],
     sigma: ['Sigma_A', 'Sigma_B', 'Sigma_C', 'Sigma_D'],
     action: ['Whale_Vegas', 'Straddle_Sam', 'Lucky_Lou'], prolive: ['Pro_Live', 'Reg_Bike'] };
 
@@ -3955,6 +4509,8 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
     active() { return this.players.filter((p) => !p.out); }
     newHand() {
       this.handNo++;
+      // Tilt (styles qui « explosent » après un gros pot perdu) : 12 mains plus larges et plus agressives après une perte de 25 bb ou plus.
+      for (const p of this.players) { const pr = PROFILES[p.profile]; if (!pr || !pr.tilt || p.start === undefined) continue; if (p.start - p.stack >= 25 * this.bb) p.tiltLeft = 12; else if (p.tiltLeft > 0) p.tiltLeft--; }
       if (this.rebuy) {
         // Recave à 100 bb sous 40 bb ; au-delà de 250 bb, le joueur quitte la table et un nouveau s'assoit à 100 bb.
         for (const p of this.players) { if (p.stack < this.startStack * 0.4 || p.stack > this.startStack * 2.5) p.stack = this.startStack; }
@@ -4076,13 +4632,17 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
       return 1 + (k - 1) * Math.min(1, pr.adapt);
     }
     botAct() {
-      const i = this.toAct, p = this.players[i], pr = PROFILES[p.profile], L = this.legal(), r = this.r, kind = kindOf(pr, p.profile);
+      const i = this.toAct, p = this.players[i], L = this.legal(), r = this.r;
+      let pr = PROFILES[p.profile]; const kind = kindOf(pr, p.profile);
+      if (pr.tilt && p.tiltLeft > 0) { const t = pr.tilt; pr = { ...pr, vpip: Math.min(0.85, pr.vpip * (1 + 0.6 * t)), pfr: Math.min(0.6, pr.pfr * (1 + 0.5 * t)), bluff: Math.min(0.7, pr.bluff + 0.18 * t), callF: pr.callF * (1 - 0.2 * t), raiseBluff: (pr.raiseBluff || 0) + 0.08 * t, jam: (pr.jam ?? 0.03) * (1 + t) }; }
       // Profil piloté par une politique externe (le moteur de la Table live) : bot nettement plus solide.
       if (pr.external && EXTERNAL.fn) { try { if (EXTERNAL.fn(this, i)) return; } catch (e) { /* repli sur le profil de base */ } }
       if (this.street === 'pre') {
         // Les styles élargissent leurs ranges à court effectif (3 joueurs et moins) ; les profils d'origine restent inchangés.
         const wid = pr.like ? ({ 2: 2.3, 3: 1.5, 4: 1.2 }[this.active().length] || 1) : 1;
-        const pct = handPct(p.cards) / wid, facing = this.raises; // 1 = seulement la BB
+        // Jeu de position (styles « position d'abord ») : plus large au bouton et au cut-off, plus serré en début de parole.
+        const pn = pr.pos ? posName(this, i) : '', posF = pr.pos ? ({ BTN: 1 + pr.pos, CO: 1 + pr.pos * 0.6, SB: 1 + pr.pos * 0.2, BB: 1 }[pn] || 1 - pr.pos * 0.5) : 1;
+        const pct = handPct(p.cards) / wid / posF, facing = this.raises; // 1 = seulement la BB
         const S = this.effStack(i) / this.bb;
         if (S <= 15) return this.shortStackAct(i, pct, S);
         if (facing <= 1) {
@@ -4105,6 +4665,8 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
       const size = () => L.pot * (band[0] + r() * (band[1] - band[0]));
       const over = () => L.pot * (1.2 + r() * 0.5);
       if (L.canCheck) {
+        // Piège : avec une main très forte au flop, certains styles checkent pour laisser miser.
+        if (pr.trap && this.street === 'flop' && s > 0.8 && r() < pr.trap) return this.act('check');
         if (s > 0.62 && r() < pr.value) return this.act('raise', pr.over && late && s > 0.78 && r() < pr.over ? over() : size());
         if (s < 0.35 && r() < Math.min(0.9, pr.bluff * rf)) return this.act('raise', pr.over && late && r() < pr.over ? over() : size());
         // Continuation bet des styles : le relanceur préflop mise souvent le flop, quelle que soit sa main.
@@ -4752,6 +5314,137 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
   }
   const api = { TRACKS, placementQuestions, placementLevel };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Tracks = api;
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+<script>// Examens de niveau : banque de questions propres aux examens (mises en situation, distinctes des quiz de modules).
+// Un examen = 12 questions de cette banque + 8 questions des quiz du niveau, tirées au hasard ; validé à 80 %.
+// Équités citées : moteur SIGMA 52 ; ICM : calcul exact du moteur.
+(function (root) {
+  const Q = (level, mod, q, opts, ok, why) => ({ level, mod, q, opts, ok, why });
+  const BANK = [
+    // ---- Niveau 1 : Fondations
+    Q(1, 'positions', 'Table à 6, tout le monde se couche jusqu\'à toi au CO. Tu as A♦9♠. Que fais-tu ?', ['Relancer', 'Payer la grosse blinde', 'Coucher'], 0, 'A9o fait partie de la range d\'ouverture du CO ; premier à entrer, on relance ou on se couche.'),
+    Q(1, 'positions', 'Qui parle en dernier après le flop à 6 joueurs ?', ['Le bouton', 'La grosse blinde', 'UTG'], 0, 'Le bouton garde la position sur toute la main après le flop.'),
+    Q(1, 'regles', 'Blindes 1/2, UTG relance à 5. Relance minimum suivante ?', ['8', '10', '7'], 0, 'La relance précédente est de 3 (de 2 à 5) : 5 + 3 = 8.'),
+    Q(1, 'regles', 'Board 7♣7♦7♥7♠2♣. Tu as A♥3♦, ton adversaire K♣K♦. Résultat ?', ['Tu gagnes (carré de 7, kicker as)', 'Il gagne', 'Partage'], 0, 'Tout le monde a le carré de 7 ; le kicker décide : as contre roi.'),
+    Q(1, 'mains', 'Board A♠K♠7♠2♦2♣. Quelle main bat une couleur ?', ['Un full (ex. A-A-A-2-2 ou 2-2-2-A-A)', 'Une suite', 'Deux paires'], 0, 'Le board est pairé : full et carré battent la couleur.'),
+    Q(1, 'mains', 'Probabilité de toucher un brelan ou mieux au flop avec une paire en main ?', ['≈ 12 %', '≈ 25 %', '≈ 5 %'], 0, '1 − C(48,3) ÷ C(50,3) ≈ 11,8 %.'),
+    Q(1, 'preflop', 'Un joueur limpe, tu es au bouton avec K♠Q♦. Le bon choix ?', ['Relancer pour isoler (≈ 5 bb)', 'Limper derrière', 'Coucher'], 0, 'On isole les limpers en position avec une main qui les domine.'),
+    Q(1, 'preflop', 'A♥K♦ contre Q♠Q♣ à tapis préflop. Qui est favori ?', ['QQ, ≈ 57 %', 'AK, ≈ 57 %', 'Exactement 50/50'], 0, 'Moteur SIGMA 52 : QQ 57,5 %, AKo 42,5 %.'),
+    Q(1, 'maths', 'Le pot fait 60, il mise 30. Équité requise pour payer ?', ['25 %', '33 %', '50 %'], 0, '30 ÷ (60 + 30 + 30) = 25 %.'),
+    Q(1, 'maths', 'Tirage couleur au flop, deux cartes à venir, sans être relancé : chance de toucher ?', ['≈ 35 %', '≈ 19 %', '≈ 50 %'], 0, 'Règle des 4 : 9 × 4 ≈ 36 % ; exact : 35 %.'),
+    Q(1, 'bankroll', 'Bankroll de 400 €, règle de 40 caves en cash. Limite maximale ?', ['NL10 (cave 10 €)', 'NL25', 'NL50'], 0, '400 ÷ 40 = 10 € par cave.'),
+    Q(1, 'cadre', 'Une chart préflop ouverte dans un onglet pendant ta session PokerStars est…', ['Interdite', 'Autorisée si tu ne la regardes pas', 'Autorisée'], 0, 'PokerStars interdit même une chart préflop ouverte pendant le jeu.'),
+    Q(1, 'responsable', 'Tu augmentes tes mises pour récupérer une perte. C\'est…', ['Un signal d\'alerte', 'Une stratégie de bankroll', 'Normal en fin de mois'], 0, 'Jouer pour se refaire est le signal le plus classique.'),
+    Q(1, 'sprint', 'Contre un joueur passif qui relance la river, avec top paire, le réflexe par défaut est…', ['Coucher', 'Relancer', 'Payer toujours'], 0, 'Une relance river d\'un passif est presque toujours de la valeur.'),
+    Q(1, 'online', 'Deux tables : l\'une avec trois joueurs à VPIP 45 %, l\'autre avec cinq réguliers serrés. Tu choisis…', ['La première', 'La seconde', 'Peu importe'], 0, 'Les joueurs très larges font l\'essentiel des gains.'),
+    // ---- Niveau 2 : Joueur gagnant
+    Q(2, 'maths2', 'Tu tiens A♠K♣, board A♦9♥4♣. Combos de AK restants pour l\'adversaire ?', ['6', '9', '12'], 0, '2 as restants × 3 rois restants = 6.'),
+    Q(2, 'maths2', 'Pot 50, tapis effectifs 200 au flop. SPR ?', ['4', '2', '8'], 0, '200 ÷ 50.'),
+    Q(2, 'preflop2', 'Le CO ouvre, tu es au bouton avec A♠5♠. Option souvent la plus rentable ?', ['3-bet (bluff à bloqueur, jouable)', 'Payer à chaque fois', 'Coucher'], 0, 'A5s bloque AA et AK, joue bien après le flop : 3-bet classique en position.'),
+    Q(2, 'postflop', 'Tu relances au bouton, BB paie. Flop K♦7♣2♠, BB checke. Taille de c-bet la plus courante ?', ['Petite (≈ 1/3 du pot)', 'Overbet', 'Pas de mise'], 0, 'Board sec et haut qui favorise ta range : petite mise fréquente.'),
+    Q(2, 'postflop', 'Contre une calling station, avec top paire bon kicker sur un board sec…', ['Mise trois rues', 'Check pour piéger', 'Mise le flop puis check'], 0, 'Elle paie : la valeur se prend en misant.'),
+    Q(2, 'turnriver', 'River, tu as une paire moyenne et il checke. Tu mises pour la valeur si…', ['Des mains moins bonnes paient', 'Tu veux qu\'il couche', 'Le pot est gros'], 0, 'Une mise de valeur doit être payée par moins bon.'),
+    Q(3, 'multiway', 'Pot à 4 joueurs, flop A♥8♥4♣. Tu as A♣T♦. Ta main vaut…', ['Moins qu\'en tête-à-tête : prudence', 'Plus qu\'en tête-à-tête', 'Pareil'], 0, 'À plusieurs, quelqu\'un a souvent mieux ou un tirage : la valeur requise monte.'),
+    Q(2, 'adversaires', 'VPIP 50 / PFR 5. Plan ?', ['Valeur, pas de bluff, isole-le', 'Bluffe-le souvent', 'Évite-le'], 0, 'Fish passif : il paie, il ne couche pas.'),
+    Q(2, 'fish', 'Tu as raté ton tirage à la river contre un joueur qui paie tout. Tu…', ['Abandonnes', 'Bluffes gros', 'Bluffes petit'], 0, 'On ne bluffe pas un joueur qui ne couche pas.'),
+    Q(2, 'mental', 'Après deux bad beats, tu sens la colère monter. La règle ?', ['Pause, et arrêt si une décision émotionnelle suit', 'Jouer plus de mains pour te refaire', 'Changer de limite vers le haut'], 0, 'Le protocole anti-tilt s\'applique avant l\'erreur.'),
+    Q(2, 'decision', 'Tu paies tapis avec QQ contre AK préflop et perds. La décision était…', ['Probablement bonne', 'Mauvaise puisqu\'elle a perdu', 'Impossible à juger'], 0, 'QQ est favorite (≈ 57 %) : on juge la décision, pas l\'issue.'),
+    Q(2, 'discipline', 'Ta règle : stop-loss de 3 caves. Tu es à −3 caves sur une table très faible. Tu…', ['T\'arrêtes', 'Continues une heure', 'Doubles la limite'], 0, 'Une règle fixée avant la session ne se renégocie pas.'),
+    Q(2, 'live', 'Partie live 1/2 € : deux limpers, tu relances avec AQ. Taille adaptée ?', ['≈ 7 bb', '≈ 2,5 bb', '≈ 20 bb'], 0, '4 à 5 bb + 1 par limper : les joueurs live paient beaucoup.'),
+    Q(2, 'formats', 'Le format le plus utile pour mesurer ta progression ?', ['Cash game', 'Expresso', 'Gros tournois'], 0, 'Décisions comparables, winrate lisible plus vite.'),
+    Q(2, 'tilt2', 'Après une grosse série gagnante, tu joues plus large « parce que tu es chaud ». C\'est…', ['Un tilt de confiance', 'Une adaptation correcte', 'De la gestion de bankroll'], 0, 'Les résultats récents ne changent pas les cotes.'),
+    // ---- Niveau 3 : Avancé
+    Q(3, 'theorie', 'River, tu mises la moitié du pot. Proportion de bluffs d\'équilibre ?', ['25 %', '33 %', '50 %'], 0, 'B ÷ (P + 2B) = 0,5 ÷ 2.'),
+    Q(3, 'theorie', 'Ton adversaire couche 80 % face aux mises river. Meilleure réponse ?', ['Bluffer plus que l\'équilibre', 'Rester exactement à l\'équilibre', 'Ne plus bluffer'], 0, 'Contre une fuite stable, l\'exploitation rapporte plus.'),
+    Q(3, 'ranges', 'UTG ouvre, tu paies au bouton. Flop A♠K♦7♣. Qui a l\'avantage de range ?', ['UTG', 'Toi', 'Personne'], 0, 'UTG a beaucoup plus d\'AK, AA, KK, AQ.'),
+    Q(3, 'icm', 'Trois joueurs, prix 50/30/20, tapis 5 000 / 3 000 / 2 000. Le gros tapis vaut en ICM…', ['≈ 38 % du prize pool', '50 %', '≈ 25 %'], 0, 'Calcul exact : 38,4 %. Les jetons valent moins que leur part en ICM.'),
+    Q(3, 'icm', 'Bulle, tapis moyen, le gros tapis pousse. Par rapport au cash, ton call doit être…', ['Plus serré', 'Plus large', 'Identique'], 0, 'La prime de risque ICM augmente l\'équité requise.'),
+    Q(3, 'hu', 'Tête-à-tête, le bouton relance à 2,5 bb. Équité requise en grosse blinde pour payer ?', ['30 %', '40 %', '20 %'], 0, '1,5 ÷ 5 = 30 %.'),
+    Q(3, 'profondeur', 'Tapis de 40 bb, quelles mains perdent le plus de valeur ?', ['Assorties connectées et petites paires', 'Paires hautes', 'AK'], 0, 'Moins de cotes implicites à 40 bb.'),
+    Q(3, 'omaha', 'PLO, board K♥8♥3♣2♥. Tu as A♥Q♠J♠T♦. As-tu une couleur ?', ['Non', 'Oui, à l\'as', 'Oui, sans l\'as'], 0, 'Il faut exactement deux cartes de la main : un seul cœur ne suffit pas.'),
+    Q(3, 'omaha', 'PLO : pot 100, mise de 50. Relance pot maximale ?', ['À 250', 'À 200', 'À 150'], 0, 'Call de 50 (pot 200), puis relance de 200.'),
+    Q(3, 'variantes2', 'Short Deck : couleur contre full ?', ['La couleur gagne', 'Le full gagne', 'Partage'], 0, 'Avec 36 cartes, la couleur est plus rare.'),
+    Q(3, 'stud', 'Stud : tu as 3 cœurs, 3 cœurs sont visibles chez des joueurs couchés. Tes outs couleur ?', ['7', '10', '9'], 0, '13 − 3 − 3.'),
+    Q(3, 'mtt', 'Tournoi, 12 bb au bouton, tout le monde se couche. Ton jeu ?', ['Tapis ou couché', 'Relance à 2,5 bb', 'Limp'], 0, 'Sous 15 bb, on joue push/fold.'),
+    Q(3, 'sizing', 'Un adversaire paie toutes les petites mises mais couche face aux grosses. Avec une main forte, tu mises…', ['Petit à moyen, sur plusieurs rues', 'Toujours très gros', 'Pas du tout'], 0, 'Choisis la plus grosse taille que ses mains moins bonnes paient encore.'),
+    Q(3, 'lecture', 'Un joueur passif check-raise la turn sur un board sec. Sa range ?', ['Très forte', 'Surtout des bluffs', 'Des tirages'], 0, 'Les check-raises turn des passifs sont rarement des bluffs.'),
+    Q(3, 'expresso', 'Expresso, tête-à-tête final à 10 bb au bouton. Tu pousses…', ['Une très large part des mains', 'Seulement les paires', 'Seulement AK et AA'], 0, 'À 10 bb en tête-à-tête, l\'équilibre pousse environ 58 % des mains.'),
+    // ---- Niveau 4 : Élite
+    Q(4, 'mdf', 'Il mise 2/3 du pot. MDF ?', ['60 %', '40 %', '67 %'], 0, 'P ÷ (P + B) = 1 ÷ 1,667.'),
+    Q(4, 'mdf', 'Tu mises 75 % du pot à la river avec 14 combos de valeur. Bluffs d\'équilibre ?', ['6', '14', '3'], 0, '30 % de bluffs : 20 combos au total.'),
+    Q(4, 'mdf', 'Pot 20, tapis 80, deux rues. Taille géométrique ?', ['100 % du pot', '50 %', '150 %'], 0, '((1 + 8)^(1/2) − 1) ÷ 2 = 1.'),
+    Q(4, 'bloqueurs', 'River, couleur possible. Meilleur bluff ?', ['L\'as de la couleur sans paire', 'Une paire moyenne', 'Deux cartes basses sans rapport'], 0, 'L\'as bloque les couleurs à l\'as et une partie des calls.'),
+    Q(4, 'bloqueurs', 'Comme bluff-catcher, tu préfères bloquer…', ['Sa valeur', 'Ses bluffs', 'Rien'], 0, 'Bloquer sa valeur augmente la part de bluffs restants.'),
+    Q(4, 'avantage', 'BTN contre BB, flop K♠K♦4♣. Stratégie du bouton ?', ['Petite mise très fréquente', 'Overbet polarisé', 'Check systématique'], 0, 'Avantage de range net, peu de mains fortes chez BB.'),
+    Q(4, 'oopplay', 'BB, flop 8♠7♠3♦, petite c-bet. Tu as 9♠6♠. Ligne fréquente ?', ['Check-raise', 'Coucher', 'Call puis coucher au turn'], 0, 'Gros tirage, board qui favorise ta range.'),
+    Q(4, 'barrels', 'L\'overbet turn demande…', ['Avantage de nuts et range adverse plafonnée', 'Un board pairé', 'Une main moyenne'], 0, 'Sans avantage de nuts, il se fait exploiter.'),
+    Q(4, 'deep', 'Call de 6 bb pour toucher un brelan. Gain moyen nécessaire quand tu touches ?', ['≈ 45 bb', '≈ 12 bb', '≈ 150 bb'], 0, '≈ 7,5 fois le call.'),
+    Q(4, 'exploitpop', 'Fold to c-bet de 50 % sur 30 occasions. Conclusion ?', ['Très incertain (±18 points à 95 %)', 'Fuite certaine', 'Exact à 1 point près'], 0, 'Erreur type ≈ 9,1 points.'),
+    Q(4, 'hud', 'WTSD 38 % et W$SD 44 %. Lecture ?', ['Il paie trop', 'Il bluffe trop', 'Il est très serré'], 0, 'Trop d\'abattages perdants.'),
+    Q(4, 'icm2', 'PKO : quelle partie de la prime compte dans la décision immédiate ?', ['La part encaissée tout de suite', 'La prime entière', 'Aucune'], 0, 'L\'autre moitié s\'ajoute à ta propre prime.'),
+    Q(4, 'solveurs', 'Ton adversaire ne bluffe jamais la river. L\'outil du solveur pour en tirer la meilleure réponse ?', ['Le node locking', 'Plus de tailles de mise', 'Un flop aléatoire'], 0, 'On verrouille sa stratégie et on recalcule.'),
+    Q(4, 'perf', 'Une semaine à −10 caves sans erreur identifiée. Tu…', ['Revois les mains clés et ne changes que ce qui est prouvé', 'Changes toute ta stratégie', 'Montes de limite'], 0, 'La variance domine sur de petits échantillons.'),
+    Q(4, 'analyste', 'Fold to 3-bet de 70 % sur 80 occasions. Intervalle à 95 % environ ?', ['60 à 80 %', '69 à 71 %', '40 à 100 %'], 0, 'Erreur type ≈ 5,1 points.'),
+    // ---- Niveau 5 : Tables physiques
+    Q(5, 'live_regles', 'Face à une mise de 40, tu poses un seul jeton de 100 sans rien dire. C\'est…', ['Un call', 'Une relance à 100', 'Une relance minimum'], 0, 'Sans annonce, un seul gros jeton est un call.'),
+    Q(5, 'live_regles', 'Mise de 20, relance à 60. Relance minimum suivante ?', ['100', '80', '120'], 0, 'La relance précédente est de 40.'),
+    Q(5, 'live_regles', 'Un fold hors tour est…', ['Définitif', 'Annulé', 'Pénalisé mais rejouable'], 0, 'Règle TDA.'),
+    Q(5, 'live_debut', 'Tu arrives au casino. Pour jouer en cash, tu t\'inscris…', ['Sur la liste d\'attente auprès du floor', 'Directement à une table libre', 'À la caisse uniquement'], 0, 'Le floor gère les places.'),
+    Q(5, 'live_strat', 'Un joueur passif live mise pot à la river. Avec top paire bon kicker, par défaut…', ['Tu couches', 'Tu relances', 'Tu paies toujours'], 0, 'Les grosses mises des passifs live sont presque toujours de la force.'),
+    Q(5, 'live_strat', '+10 bb/100 en live à 30 mains par heure. Taux horaire ?', ['3 bb par heure', '10 bb par heure', '30 bb par heure'], 0, '10 × 30 ÷ 100.'),
+    Q(5, 'live_tells', 'Selon l\'étude de Slepian et al. (2013), on lit mieux la force d\'une main en regardant…', ['Les bras et le geste de mise', 'Le visage', 'Les yeux'], 0, 'Le visage donnait des résultats pires que le hasard.'),
+    Q(5, 'live_tells', 'Ta lecture de range est claire, mais un tell semble la contredire. Tu…', ['Suis la range', 'Suis le tell', 'Joues à pile ou face'], 0, 'Un tell ajuste une décision serrée, il ne renverse pas une lecture claire.'),
+    Q(5, 'live_mtt', 'ROI de +20 % sur des tournois à 300 € avec 150 € de frais par tournoi. ROI réel ?', ['≈ −20 %', '≈ +20 %', '≈ 0 %'], 0, '60 € de gain moyen − 150 € de frais, sur 450 €.'),
+    Q(5, 'deep', 'Straddle à 2 bb, tapis de 100 bb. Profondeur effective ?', ['50 straddles', '100 straddles', '200 straddles'], 0, 'Le straddle double les blindes.'),
+    Q(5, 'eclair', 'Il mise 1/3 du pot. Équité requise ?', ['20 %', '25 %', '33 %'], 0, '1/3 ÷ (1 + 2/3).'),
+    Q(5, 'eclair', 'Suite par les deux bouts au turn : chance de toucher à la river ?', ['≈ 17 %', '≈ 31 %', '≈ 9 %'], 0, '8 outs × 2.'),
+    Q(5, 'home', 'Partie entre amis où personne ne se couche. Ton ajustement principal ?', ['Zéro bluff, valeur grosse', 'Bluffs fréquents', 'Jouer très peu de mains'], 0, 'On ne bluffe pas une table qui paie tout.'),
+    Q(5, 'live_table', 'Un litige sur le montant d\'une mise. Tu…', ['Appelles le floor', 'Négocies avec le joueur', 'Fais voter la table'], 0, 'La décision appartient au floor.'),
+    Q(5, 'live_tells', 'Un call instantané au flop indique souvent…', ['Une main plafonnée (paire, tirage)', 'Un brelan', 'Un bluff'], 0, 'Un brelan aurait souvent réfléchi à relancer.'),
+    // ---- Niveau 6 : Professionnel
+    Q(6, 'economie', '+4 bb/100, 300 mains par heure, NL100. Taux horaire ?', ['12 €', '4 €', '30 €'], 0, '4 × 300 ÷ 100 × 1 €.'),
+    Q(6, 'economie', 'Winrate +4 bb/100, rake payé 10 bb/100. Tu bats tes adversaires de…', ['14 bb/100', '4 bb/100', '6 bb/100'], 0, 'Le rake prend plus que toi.'),
+    Q(6, 'salaire', 'À NL200, 36 000 mains par mois, écart-type 90 bb/100. Écart-type du résultat mensuel ?', ['≈ 1 700 bb', '≈ 170 bb', '≈ 17 000 bb'], 0, '90 × √360.'),
+    Q(6, 'salaire', 'Objectif : 2 000 € par mois en 120 heures. Taux horaire nécessaire ?', ['≈ 16,7 €', '≈ 8 €', '≈ 30 €'], 0, '2 000 ÷ 120.'),
+    Q(6, 'staking', 'Markup de 1,2. L\'acheteur gagne si le ROI du joueur dépasse…', ['20 %', '12 %', '2 %'], 0, 'Il paie 120 pour 100 d\'action.'),
+    Q(6, 'staking', 'Makeup 10 000 €, accord 50/50, le joueur gagne 25 000 €. Part du joueur ?', ['7 500 €', '12 500 €', '15 000 €'], 0, 'Les 10 000 premiers remboursent le makeup ; 15 000 partagés.'),
+    Q(6, 'fiscal', 'Recettes de 20 000 € en micro-BNC (abattement 34 %). Montant imposable ?', ['13 200 €', '20 000 €', '6 800 €'], 0, '20 000 × 0,66.'),
+    Q(6, 'fiscal', 'Frais réels à 45 % des recettes. Régime à étudier ?', ['Déclaration contrôlée', 'Micro-BNC', 'Aucun'], 0, 'Les frais réels dépassent l\'abattement forfaitaire.'),
+    Q(6, 'carriere', 'Dépenses de 2 000 € par mois. Fonds de vie conseillé avant de passer pro ?', ['12 000 à 24 000 €', '2 000 €', '100 000 €'], 0, '6 à 12 mois de dépenses.'),
+    Q(6, 'carriere', 'La voie la plus solide selon le module ?', ['Semi-pro avec un autre revenu', 'Pro à temps plein tout de suite', 'Arrêter les études'], 0, 'Moins de pression financière, de meilleures décisions.'),
+    Q(6, 'marche', 'Part du cash game dans le produit brut du poker en ligne en France en 2025 (ANJ) ?', ['≈ 19 %', '≈ 68 %', '≈ 50 %'], 0, '100 M€ sur 525 M€.'),
+    Q(6, 'business', 'Promouvoir une room sur un réseau social exige notamment…', ['L\'exclusion des mineurs activée et la mention -18 ans', 'Seulement un code promo', 'Rien de particulier'], 0, 'Loi du 9 juin 2023 sur l\'influence commerciale.'),
+    Q(6, 'integrite', 'Échanger ses cartes par message avec un ami à la même table en ligne est…', ['De la collusion', 'Autorisé entre amis', 'Toléré en micro-limites'], 0, 'Sanctionné par la fermeture des comptes.'),
+    Q(6, 'longevite', 'Signal d\'alerte le plus grave ?', ['Jouer l\'argent du quotidien', 'Faire une pause par semaine', 'Étudier le dimanche'], 0, 'Puiser dans l\'argent du quotidien.'),
+    Q(6, 'progression', 'Critère pour quitter l\'étape 2 du plan de progression ?', ['Winrate positif sur 30 000 mains et bankroll pour NL10', '5 000 mains gagnantes', 'Un gros tournoi gagné'], 0, 'D\'après le tableau du module.'),
+  ];
+
+  // Tirage sans remise.
+  const pick = (arr, n, rand) => { const a = arr.slice(), out = []; while (out.length < n && a.length) out.push(a.splice(Math.floor(rand() * a.length), 1)[0]); return out; };
+  // Examen d'un niveau : 12 questions de la banque + 8 des quiz de modules du niveau.
+  function examQuestions(K, level, rand = Math.random) {
+    const bank = BANK.filter((q) => q.level === level);
+    const quiz = K.MODULES.filter((m) => m.level === level).flatMap((m) => m.quiz.map((q) => ({ ...q, level, mod: m.id })));
+    return pick(pick(bank, 12, rand).concat(pick(quiz, 20 - Math.min(12, bank.length), rand)), 20, rand);
+  }
+  const PASS = 0.8;
+  // Test de positionnement : 4 questions par niveau (3 de la banque, 1 de quiz), 24 au total.
+  function placementQuestions(K, rand = Math.random) {
+    const out = [];
+    for (const level of [1, 2, 3, 4, 5, 6]) {
+      const quiz = K.MODULES.filter((m) => m.level === level).flatMap((m) => m.quiz.map((q) => ({ ...q, level, mod: m.id })));
+      out.push(...pick(BANK.filter((q) => q.level === level), 3, rand), ...pick(quiz, 1, rand));
+    }
+    return out;
+  }
+  // Niveau conseillé : le premier niveau avec moins de 3 bonnes réponses sur 4 ; 7 = tout validé.
+  function placementLevel(answers) {
+    for (const level of [1, 2, 3, 4, 5, 6]) { const a = answers.filter((x) => x.level === level); if (a.length && a.filter((x) => x.ok).length < Math.ceil(a.length * 0.75)) return level; }
+    return 7;
+  }
+  const api = { BANK, PASS, examQuestions, placementQuestions, placementLevel };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Exams = api;
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
 <script>// Interface SIGMA 52 : onglets, stockage (espace privé de la page, sinon navigateur), vues.
@@ -7104,76 +7797,176 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
     harr2: { t: 'Wikipédia, M-ratio', u: 'https://en.wikipedia.org/wiki/M-ratio' },
     dwan1: { t: 'Wikipédia, Tom Dwan', u: 'https://en.wikipedia.org/wiki/Tom_Dwan' },
     dwan2: { t: 'PokerListings, Tom Dwan, Profit Maximization Artist', u: 'https://www.pokerlistings.com/hand-analysis/tom-dwan-profit-maximization-artist' },
+    hansenRev: { t: 'PokerNews, critique de Every Hand Revealed (Gus Hansen, 2008)', u: 'https://www.pokernews.com/news/2008/03/book-review-gus-hansen-every-hand-revealed-4856.htm' },
+    blomW: { t: 'Wikipédia, Viktor Blom', u: 'https://en.wikipedia.org/wiki/Viktor_Blom' },
+    polkW: { t: 'Wikipédia, Doug Polk', u: 'https://en.wikipedia.org/wiki/Doug_Polk' },
+    polkPN: { t: 'PokerNews, Doug Polk explique une main contre Negreanu (2021)', u: 'https://www.pokernews.com/strategy/doug-polk-reveals-how-he-won-1-2-million-vs-daniel-negreanu-39625.htm' },
+    seidelPN: { t: 'PokerNews, Legends of Poker : Erik Seidel (2005)', u: 'https://www.pokernews.com/news/2005/09/legends-poker-erik-seidel-2110.htm' },
+    seidelChan: { t: 'PokerNews, Erik Seidel revient sur la main finale de 1988 (2019)', u: 'https://www.pokernews.com/news/2019/03/poker-moments-erik-seidel-johnny-chan-eye-to-the-sky-33438.htm' },
+    selbstPN: { t: 'PokerNews, profil de Vanessa Selbst (2008)', u: 'https://www.pokernews.com/news/2008/09/pokernews-profile-vanessa-selbst-fslexcduck-5562.htm' },
+    selbstW: { t: 'Wikipédia, Vanessa Selbst', u: 'https://en.wikipedia.org/wiki/Vanessa_Selbst' },
+    ungarW: { t: 'Wikipédia, Stu Ungar', u: 'https://en.wikipedia.org/wiki/Stu_Ungar' },
+    obreW: { t: 'Wikipédia, Annette Obrestad', u: 'https://en.wikipedia.org/wiki/Annette_Obrestad' },
+    fergPN: { t: 'PokerNews, Legends of Poker : Chris « Jesus » Ferguson (2005)', u: 'https://www.pokernews.com/news/2005/10/legends-poker-chris-jesus-ferguson-2177.htm' },
+    moneyW: { t: 'Wikipédia, Chris Moneymaker', u: 'https://en.wikipedia.org/wiki/Chris_Moneymaker' },
+    farhaPN: { t: 'PokerNews, Unlit Cigarette : Sammy Farha (2017)', u: 'https://www.pokernews.com/news/2017/11/unlit-cigarette-catching-up-with-2003-main-event-runner-up-s-29331.htm' },
+    elkyPN: { t: 'PokerNews, profil de Bertrand « ElkY » Grospellier (2008)', u: 'https://www.pokernews.com/news/2008/10/pokernews-profile-bertrand-grospellier-elky-5730.htm' },
+    matuPL: { t: 'PokerListings, Top Ten Tilting Poker Players of All-Time', u: 'https://www.pokerlistings.com/blog/top-ten-tilting-poker-players-of-all-time' },
+    sklW: { t: 'Wikipédia, Fundamental theorem of poker', u: 'https://en.wikipedia.org/wiki/Fundamental_theorem_of_poker' },
     holz: { t: 'Card Player, interview de Fedor Holz', u: 'https://www.cardplayer.com/?p=1037852' },
     yohW: { t: 'Wikipédia, Johan Guilbert', u: 'https://en.wikipedia.org/wiki/Johan_Guilbert' },
     yohPN: { t: 'PokerNews, fiche Johan Guilbert', u: 'https://www.pokernews.com/poker-players/johan-guilbert/' },
   };
   // stats = repères mesurés par SIGMA 52 sur 1 500 à 2 000 mains simulées (VPIP, PFR, 3-bet, c-bet flop, fold to c-bet, en %).
   const STYLES = [
-    { id: 'ivey', profile: 'ivey', name: 'L\'agresseur complet', inspired: 'Phil Ivey', flag: 'États-Unis', level: 'Très difficile', format: 'hu6',
+    { id: 'ivey', profile: 'ivey', name: 'L\'agresseur complet', inspired: 'Phil Ivey', flag: 'États-Unis', level: 'Très difficile', format: 'hu6', era: 'moderne',
       tagline: 'Pression constante, overbets, et il bluffe plus si tu abandonnes trop.',
       facts: ['Son cours MasterClass compte 11 modules : préflop et défense des blindes, tailles de mise, bluff, jeu postflop, tapis profonds (plus de 100 bb), mental (tilt, confiance, mettre l\'adversaire sous pression) et tells physiques.', 'La critique le décrit calme à la table, avec un regard réputé et un historique de bluffs très agressifs à haute limite.'],
       sources: ['iveyRev', 'iveyMC'],
       traits: ['Ouvre et 3-bette souvent ; c-bet fréquent', 'Mises de 60 à 100 % du pot, overbets au turn et à la river', 'Relances-bluffs occasionnelles', 'Lit tes tendances : après une douzaine de mises affrontées, il bluffe plus si tu couches plus de 45 % du temps'],
       adapt: ['Ne couche pas trop face à ses mises : c\'est exactement ce qu\'il exploite', 'Face à ses overbets river, paie avec tes meilleurs bluff-catchers (ceux qui bloquent sa valeur)', '4-bet pour la valeur un peu plus large contre ses 3-bets fréquents', 'Garde des mains fortes dans ta range de check pour le piéger'],
       stats: { vpip: 26, pfr: 18, three: 9, cbet: 48, ftc: 7 } },
-    { id: 'negreanu', profile: 'negreanu', name: 'Le small ball', inspired: 'Daniel Negreanu', flag: 'Canada', level: 'Difficile', format: 'hu6',
+    { id: 'negreanu', profile: 'negreanu', name: 'Le small ball', inspired: 'Daniel Negreanu', flag: 'Canada', level: 'Difficile', format: 'hu6', era: 'moderne',
       tagline: 'Petits pots, petites mises, beaucoup de mains en position : il te grignote.',
       facts: ['Power Hold\'em Strategy (2008) présente le « small ball » : faire grossir son tapis sans prendre de gros risques, en exploitant la position, la texture du board et les adversaires prévisibles ; « jouer la main de l\'adversaire plutôt que la sienne ».', 'Son cours MasterClass, lancé en juin 2018, vise les joueurs intermédiaires : tournois, tells, cash et jeu en ligne.'],
       sources: ['negBook', 'negMC'],
       traits: ['Petites ouvertures (2,2 bb) et beaucoup de calls en position', 'Petites mises fréquentes (25 à 40 % du pot au flop)', 'Évite les gros pots sans main forte : couche plus souvent face aux grosses mises'],
       adapt: ['Relance ses petites mises : sa range de mise est large', 'Bluffe gros plutôt que petit : il couche davantage face aux mises de plus de 75 % du pot', 'Mise gros pour la valeur avec tes mains fortes : il paiera les petites mises, pas forcément les grosses', 'Évite les petits pots marginaux hors de position, son terrain favori'],
       stats: { vpip: 27, pfr: 14, three: 5, cbet: 72, ftc: 29 } },
-    { id: 'hellmuth', profile: 'hellmuth', name: 'Le lecteur adaptatif', inspired: 'Phil Hellmuth', flag: 'États-Unis', level: 'Difficile', format: 'hu6',
+    { id: 'hellmuth', profile: 'hellmuth', name: 'Le lecteur adaptatif', inspired: 'Phil Hellmuth', flag: 'États-Unis', level: 'Difficile', format: 'hu6', era: 'classique',
       tagline: 'Serré, orienté valeur, et il s\'ajuste à ce que tu montres.',
       facts: ['Play Poker Like the Pros classe les adversaires en cinq « animaux » (souris, lion, chacal, éléphant, aigle) et conseille aux débutants de ne jouer que dix mains : AA, KK, QQ, AK, JJ, TT, 99, 88, AQ, 77.', 'En interview (2015), il résume le poker à « lire les gens » et dit pouvoir jouer le plus ou le moins de mains de la table selon les adversaires.'],
       sources: ['helBook', 'helInt'],
       traits: ['Range préflop serrée (environ 17 % des mains)', 'Valeur avant tout, peu de bluffs', 'S\'adapte fortement à toi : il vole davantage si tu couches trop'],
       adapt: ['Sois imprévisible : mélange tes lignes, sinon il s\'ajuste', 'Vole ses blindes : il défend serré', 'Respecte ses grosses mises : elles contiennent peu de bluffs', 'Ne deviens pas le joueur qui « couche tout » face aux mises : il le repère'],
       stats: { vpip: 18, pfr: 12, three: 5, cbet: 61, ftc: 16 } },
-    { id: 'chidwick', profile: 'chidwick', name: 'Le GTO moderne', inspired: 'Stephen Chidwick', flag: 'Angleterre', level: 'Très difficile', format: 'hu6',
+    { id: 'chidwick', profile: 'chidwick', name: 'Le GTO moderne', inspired: 'Stephen Chidwick', flag: 'Angleterre', level: 'Très difficile', format: 'hu6', era: 'moderne',
       tagline: 'Proche de l\'équilibre : peu de failles, des check-raises et des grosses mises au turn.',
       facts: ['Card Player (2019) : il étudie avec des solveurs pour comprendre le raisonnement derrière leurs résultats, et voit l\'équilibre comme le moyen de repérer précisément les erreurs adverses.', 'Il recommande les coups qui mettent l\'adversaire mal à l\'aise : petits check-raises sur boards secs, grosses mises au turn quand la range adverse est faible.', 'Premier d\'un sondage de Card Player auprès des joueurs sur le meilleur joueur du circuit.'],
       sources: ['chid'],
       traits: ['Environ 20 % de mains jouées, c-bet très fréquent', 'Check-raises au flop avec mains fortes et tirages', 'Overbets occasionnels au turn et à la river'],
       adapt: ['Pas d\'exploit évident : joue ta base solide (charts, solveur)', 'Ne surpaie pas ses check-raises avec des mains faibles', 'Garde dans ta range des mains capables de payer ses grosses mises turn', 'Dans une vraie partie, la meilleure stratégie contre lui est de choisir une autre table'],
       stats: { vpip: 20, pfr: 15, three: 4, cbet: 78, ftc: 10 } },
-    { id: 'mizrachi', profile: 'mizrachi', name: 'Le loose-agressif atypique', inspired: 'Michael Mizrachi', flag: 'États-Unis', level: 'Moyen', format: 'hu6',
+    { id: 'mizrachi', profile: 'mizrachi', name: 'Le loose-agressif atypique', inspired: 'Michael Mizrachi', flag: 'États-Unis', level: 'Moyen', format: 'hu6', era: 'moderne',
       tagline: 'Joue beaucoup de mains, mise souvent, overbette et ne lâche rien au flop.',
       facts: ['PokerNews (2016) : style loose-agressif ; il joue une large range sans range fixe, utilise beaucoup d\'overbets et accepte de jouer environ 25 % de son tapis sur des coups à pile ou face, plus solide une fois tombé à la moitié de son tapis.', 'Il conseille lui-même aux débutants de ne pas copier son style et de s\'en tenir aux mains fortes.'],
       sources: ['miz'],
       traits: ['Joue environ un tiers des mains', 'C-bet presque systématique, overbets fréquents', 'Couche très rarement face aux c-bets'],
       adapt: ['Ne bluffe pas au flop : il ne couche presque jamais', 'Laisse-le miser : check-call avec tes mains moyennes-fortes', 'Paie ses overbets plus large : ils contiennent beaucoup d\'air', 'Isole-le avec des mains fortes, évite les mains dominées'],
       stats: { vpip: 36, pfr: 23, three: 12, cbet: 83, ftc: 10 } },
-    { id: 'antonius', profile: 'antonius', name: 'La pression en tête-à-tête', inspired: 'Patrik Antonius', flag: 'Finlande', level: 'Très difficile', format: 'hu',
+    { id: 'antonius', profile: 'antonius', name: 'La pression en tête-à-tête', inspired: 'Patrik Antonius', flag: 'Finlande', level: 'Très difficile', format: 'hu', era: 'moderne',
       tagline: 'Tête-à-tête à haute pression : relances constantes, mises lourdes, sang-froid.',
       facts: ['Card Player (2006) : jeu agressif à très haute limite, souvent en tête-à-tête ; il considère la qualité de ses lectures comme sa principale force ; décrit comme insensible à l\'adversité comme à la chance ; préfère peu de tables, dans des parties difficiles, pour rester concentré à 100 %.'],
       sources: ['anto'],
       traits: ['Relance la majorité de ses boutons en tête-à-tête, 3-bets fréquents', 'Mises de 2/3 du pot au pot, overbets', 'Bluffe plus si tu couches trop'],
       adapt: ['Défends ta grosse blinde large (call ou 3-bet) : en tête-à-tête, les ranges sont très larges', 'Ne couche pas plus d\'environ la moitié face à ses mises', '3-bet ses ouvertures larges avec tes mains fortes et quelques bluffs à bloqueurs', 'Reste calme : la variance du tête-à-tête est énorme'],
       stats: { vpip: 40, pfr: 33, three: 22, cbet: 68, ftc: 18 } },
-    { id: 'brunson', profile: 'brunson', name: 'Le parrain agressif', inspired: 'Doyle Brunson', flag: 'États-Unis', level: 'Difficile', format: 'hu6',
+    { id: 'brunson', profile: 'brunson', name: 'Le parrain agressif', inspired: 'Doyle Brunson', flag: 'États-Unis', level: 'Difficile', format: 'hu6', era: 'classique',
       tagline: 'Il mise presque chaque flop et ramasse une montagne de petits pots.',
       facts: ['Super/System (1979) : « il faut être agressif pour exceller ». Brunson ramasse « beaucoup de petits pots, des tonnes », ce qui finance les gros pots perdus ; il réserve ses plus grosses mises aux mains très fortes ou aux tirages (semi-bluff à tapis avec une ventrale en exemple).', 'Le livre préconise de miser au flop presque à chaque fois après avoir relancé (environ 90 %). Un solveur moderne le fait autour de 63 % en moyenne, beaucoup moins sur les boards qui favorisent le défenseur.'],
       sources: ['brun1', 'brun2'],
       traits: ['C-bet presque systématique (plus de 90 % mesuré)', 'Grosses mises (75 % du pot au pot)', 'Tapis en semi-bluff de temps en temps', 'Peu de 3-bets préflop (fidèle au livre : surtout AA et KK)'],
       adapt: ['Défends plus large face au c-bet : sa range de mise est très large', 'Check-raise les boards qui favorisent ta range (bas, connectés)', 'Paie plus léger face aux grosses mises au flop, moins à la river', 'Ses 3-bets sont forts : couche tes mains moyennes'],
       stats: { vpip: 28, pfr: 18, three: 5, cbet: 95, ftc: 24 } },
-    { id: 'harrington', profile: 'harrington', name: 'Le joueur de tournoi méthodique', inspired: 'Dan Harrington', flag: 'États-Unis', level: 'Moyen', format: 'hu6',
+    { id: 'harrington', profile: 'harrington', name: 'Le joueur de tournoi méthodique', inspired: 'Dan Harrington', flag: 'États-Unis', level: 'Moyen', format: 'hu6', era: 'classique',
       tagline: 'Serré-agressif, discipliné, et tout son jeu dépend de son tapis (le « M »).',
       facts: ['Harrington on Hold\'em définit M = tapis ÷ (blindes + antes) et cinq zones : verte (M ≥ 20, tout le jeu est possible), jaune (10 à 20, s\'ouvrir, les petites paires et assorties perdent de la valeur), orange (6 à 10, entrer avec des mains fortes, éviter les calls marginaux), rouge (1 à 5, tapis ou couché), morte (moins de 1).', 'Il recommande d\'adapter son style à la table : jouer serré quand les autres jouent large, et l\'inverse.'],
       sources: ['harr1', 'harr2'],
       traits: ['Range serrée (15 % de VPIP), ouvertures à 3 bb', 'Mise de continuation fréquente, tailles moyennes', 'Couche facilement face à la pression (fold to c-bet élevé)'],
       adapt: ['Vole ses blindes souvent : il défend peu', 'Ses relances et 3-bets sont fortes : respecte-les', 'Bluffe-le aux tours suivants quand il check : il abandonne beaucoup', 'En tournoi, calcule ton propre M : la zone dicte ta stratégie autant que la sienne'],
       stats: { vpip: 15, pfr: 11, three: 2, cbet: 87, ftc: 32 } },
-    { id: 'dwan', profile: 'dwan', name: 'L\'ultra-agressif opaque', inspired: 'Tom Dwan', flag: 'États-Unis', level: 'Très difficile', format: 'hu6',
+    { id: 'dwan', profile: 'dwan', name: 'L\'ultra-agressif opaque', inspired: 'Tom Dwan', flag: 'États-Unis', level: 'Très difficile', format: 'hu6', era: 'moderne',
       tagline: 'Grosses mises, gros bluffs, il construit les pots tôt pour finir à tapis.',
       facts: ['Joueur de cash « durrrr » en ligne à très haute limite (hold\'em et PLO), puis Macau et Manille. Phil Galfond lui prête « le plus de pensées par minute » qu\'il connaisse. Son bluff avec 7-2 à High Stakes Poker (2009) est resté célèbre.', 'PokerListings le décrit « ultra-agressif et opaque » : mises tôt dans la main pour grossir le pot, avec des tapis profonds (300 bb) qui changent les décisions.'],
       sources: ['dwan1', 'dwan2'],
       traits: ['Très large et très agressif, 3-bets fréquents', 'Overbets au turn et à la river', 'Relances-bluffs, il bluffe plus si tu couches trop', 'Taux de fold to c-bet très bas : il défend et contre-attaque'],
       adapt: ['Élargis tes calls avec les bluff-catchers qui bloquent sa valeur', 'Ne bluffe pas en c-bet systématique : il défend', 'Piège avec tes mains fortes : laisse-le miser', 'Variance énorme : joue des tapis plus courts si tu es mal à l\'aise'],
       stats: { vpip: 32, pfr: 22, three: 10, cbet: 72, ftc: 32 } },
-    { id: 'live', profile: null, name: 'La partie live à gros enjeux', inspired: 'type de partie fréquentée par YoH ViraL', flag: 'France', level: 'Moyen', format: 'live',
+    { id: 'hansen', profile: 'hansen', name: 'Le joueur de flops', inspired: 'Gus Hansen', flag: 'Danemark', level: 'Difficile', format: 'hu6', era: 'moderne',
+      tagline: 'Il voit énormément de flops, puis met la pression ; il ne limpe presque jamais.',
+      facts: ['Every Hand Revealed (2008) raconte sa victoire à l\'Aussie Millions 2007 main par main : 329 mains commentées, enregistrées au dictaphone après chaque coup.', 'La critique PokerNews le décrit à l\'aise en jouant un fort pourcentage de flops puis en appliquant une pression maximale ; il juge le limp préflop rarement bon, mais paie souvent en position après le flop ; il exploite la prudence des adversaires au premier et au dernier tour de chaque niveau.'],
+      sources: ['hansenRev'],
+      traits: ['Très large préflop, toujours en relance (pas de limp)', 'C-bet presque systématique, tailles moyennes (50 à 80 % du pot)', 'Paie beaucoup en position après le flop', 'Décote peu face aux mises : il continue souvent'],
+      adapt: ['Value-bet plus fin : il paie avec beaucoup de mains moyennes', 'Ne bluffe pas sur une seule rue : il suit en position', 'Défends large face à ses c-bets, check-raise les boards bas', 'Garde tes mains moyennes pour des pots moyens hors de position'],
+      stats: { vpip: 41, pfr: 26, three: 13, cbet: 92, ftc: 15 } },
+    { id: 'blom', profile: 'blom', name: 'Le prodige suragressif', inspired: 'Viktor Blom (Isildur1)', flag: 'Suède', level: 'Très difficile', format: 'hu6', era: 'moderne',
+      tagline: 'Il met une décision difficile à chaque rue, en hold\'em comme en Omaha.',
+      facts: ['Suédois né en 1990, connu en ligne sous le pseudo Isildur1 : à partir de septembre 2009, il affronte en tête-à-tête à très haute limite Tom Dwan, Phil Ivey, Patrik Antonius et Brian Hastings.', 'Fin 2009, il gagne environ 4 millions de dollars contre Dwan en une semaine, puis en perd environ 4,2 contre Hastings en cinq heures. Un chroniqueur de HighStakesDB le juge « trop agressif » ; Antonius le dit « extrêmement dangereux » parce qu\'il impose sans arrêt des décisions difficiles.'],
+      sources: ['blomW'],
+      traits: ['Ouvre et 3-bette très large', 'Mises de 70 à 110 % du pot, overbets', 'Relances-bluffs fréquentes', 'C-bet très fréquent'],
+      adapt: ['Paie plus large avec tes bluff-catchers : sa range de mise contient beaucoup d\'air', '4-bet pour la valeur plus large, et quelques 4-bets bluffs à bloqueurs', 'Ne bluffe presque pas : il paie et relance', 'Variance énorme : tapis plus courts si tu es mal à l\'aise'],
+      stats: { vpip: 45, pfr: 33, three: 15, cbet: 93, ftc: 16 } },
+    { id: 'polk', profile: 'polk', name: 'Le spécialiste du tête-à-tête', inspired: 'Doug Polk', flag: 'États-Unis', level: 'Très difficile', format: 'hu', era: 'moderne',
+      tagline: 'Petites mises au flop, gros coups aux rues suivantes : tête-à-tête préparé au solveur.',
+      facts: ['Spécialiste du tête-à-tête no-limit (pseudo WCGRider), cofondateur d\'Upswing Poker en 2015. Il bat Ben Sulsky en 2013 (15 000 mains), puis Daniel Negreanu en 2020-2021 : 25 000 mains, environ 1,2 million de dollars gagnés.', 'Dans une main qu\'il commente contre Negreanu, il mise 20 % du pot sur un flop pairé (« miser très petit est préférable sur les boards pairés »), un tiers au turn, puis 78 % à tapis à la river en bluff avec une paire de 5.'],
+      sources: ['polkW', 'polkPN'],
+      traits: ['Petites mises au flop (20 à 40 % du pot), plus grosses ensuite (33 à 80 %), overbets parfois', 'Check-raises au flop', 'Lit tes tendances : bluffe plus si tu couches trop', 'Ouvertures à 2,5 bb, 3-bets fréquents'],
+      adapt: ['Ne surcouche pas face aux petites mises : elles sont très larges', 'Face à la grosse mise river, paie avec les bluff-catchers qui bloquent sa valeur', 'Défends ta grosse blinde large : en tête-à-tête, les ranges sont très larges', 'Varie tes lignes : il exploite les schémas répétés'],
+      stats: { vpip: 24, pfr: 19, three: 6, cbet: 68, ftc: 15 } },
+    { id: 'seidel', profile: 'seidel', name: 'Le cérébral patient', inspired: 'Erik Seidel', flag: 'États-Unis', level: 'Difficile', format: 'hu6', era: 'classique',
+      tagline: 'Serré, réfléchi, rarement là sans raison : il attend et il punit.',
+      facts: ['PokerNews (2005) décrit son jeu comme « serré, contemplatif », proche de Howard Lederer et Dan Harrington ; un autre pro le dit « très cérébral ». Ancien joueur de backgammon et trader, il apprend le poker au Mayfair Club de New York.', 'Deuxième du Main Event 1988 contre Johnny Chan ; sur la main finale, il touche top paire, Chan a flopé une suite et paie son tapis à la river. Seidel dira avoir « mal joué la main » : l\'agressivité de Chan aurait dû lui signaler que sa dame était battue.'],
+      sources: ['seidelPN', 'seidelChan'],
+      traits: ['Range étroite, ouvertures standard', 'Piège parfois avec ses mains très fortes au flop', 'Bluffe peu', 'Lit tes tendances avec le temps'],
+      adapt: ['Vole ses blindes : il défend peu', 'Respecte ses relances et ses check-raises : sa range est forte', 'Quand il check une main forte au flop, une mise de sa part au turn est un signal', 'Bluffe-le quand le board change et qu\'il a montré de la faiblesse'],
+      stats: { vpip: 14, pfr: 9, three: 2, cbet: 56, ftc: 22 } },
+    { id: 'selbst', profile: 'selbst', name: 'La pression sans peur', inspired: 'Vanessa Selbst', flag: 'États-Unis', level: 'Très difficile', format: 'hu6', era: 'moderne',
+      tagline: 'Squeezes, 3-bets et tapis : elle te fait payer chaque hésitation.',
+      facts: ['PokerNews (2008) décrit un style « hyper-agressif », « sans peur », forgé en ligne ; exemple : face à une relance, un call puis un squeeze, elle part à tapis.', 'Trois bracelets WSOP, deux NAPT Mohegan Sun consécutifs (2010, 2011), première femme en tête du classement Global Poker Index ; diplômée de Yale (sciences politiques puis droit).'],
+      sources: ['selbstPN', 'selbstW'],
+      traits: ['3-bets et squeezes très fréquents', 'Tapis préflop plus larges que la moyenne', 'Mises de 60 à 100 % du pot, relances-bluffs', 'Décote peu face aux mises'],
+      adapt: ['4-bet ou paie ses 3-bets plus large avec les mains fortes', 'N\'ouvre pas trop large devant elle : ses squeezes punissent les ranges faibles', 'Laisse-la bluffer quand tu as une main forte', 'Ne paie pas ses tapis préflop avec des mains moyennes'],
+      stats: { vpip: 31, pfr: 24, three: 14, cbet: 89, ftc: 10 } },
+    { id: 'ungar', profile: 'ungar', name: 'Le génie agressif', inspired: 'Stu Ungar', flag: 'États-Unis', level: 'Très difficile', format: 'hu6', era: 'classique',
+      tagline: 'Jetons toujours en mouvement, bluffs bien choisis, lectures redoutables.',
+      facts: ['Trois fois champion du Main Event (1980, 1981, 1997), considéré comme le meilleur joueur de gin rummy de tous les temps.', 'Décrit comme extrêmement agressif, avec des bluffs bien placés ; Mike Sexton note que ses jetons étaient « constamment en mouvement » ; un pro le juge « clairvoyant » pour lire les cartes adverses. Sa mémoire et sa vivacité sont citées comme centrales.'],
+      sources: ['ungarW'],
+      traits: ['Large et agressif, 3-bets fréquents', 'Bluffs fréquents, overbets parfois', 'Lit tes tendances plus vite que les autres styles', 'C-bet fréquent'],
+      adapt: ['Change de rythme : il exploite vite tes habitudes', 'Paie plus large à la river face à ses mises', 'Piège avec tes mains fortes', 'Évite les gros pots hors de position avec des mains moyennes'],
+      stats: { vpip: 35, pfr: 26, three: 13, cbet: 62, ftc: 25 } },
+    { id: 'obrestad', profile: 'obrestad', name: 'La position d\'abord', inspired: 'Annette Obrestad', flag: 'Norvège', level: 'Difficile', format: 'hu6', era: 'moderne',
+      tagline: 'Large au bouton, serrée en début de parole : la position décide de tout.',
+      facts: ['En juillet 2007, elle gagne un sit-and-go en ligne de 180 joueurs en ne regardant ses cartes qu\'une fois, face à un tapis, pour montrer l\'importance de jouer la position et d\'observer la table.', 'En septembre 2007, la veille de ses 19 ans, elle remporte le premier Main Event des WSOP Europe (1 million de livres) et devient la plus jeune gagnante d\'un bracelet.'],
+      sources: ['obreW'],
+      traits: ['Ouvre très large au bouton et au cut-off, serrée en début de parole', 'Lit tes tendances', 'Mises moyennes, c-bet fréquent'],
+      adapt: ['3-bet ses ouvertures de bouton : sa range y est large', 'Respecte ses ouvertures en début de parole', 'Défends ta grosse blinde plus large face à elle au bouton', 'Joue toi aussi plus large en position'],
+      stats: { vpip: 23, pfr: 17, three: 5, cbet: 61, ftc: 35 } },
+    { id: 'ferguson', profile: 'ferguson', name: 'L\'analyste', inspired: 'Chris Ferguson', flag: 'États-Unis', level: 'Difficile', format: 'hu6', era: 'classique',
+      tagline: 'Approche mathématique et théorie des jeux : tailles variées, peu de failles évidentes.',
+      facts: ['PokerNews (2005) : études d\'informatique et de théorie des jeux à UCLA, « esprit analytique » ; David Sklansky le compterait parmi les joueurs les plus brillants. Il dit n\'avoir « pas de style particulier ».', 'Champion du Main Event 2000 contre T.J. Cloutier (A-9 contre A-Q, un 9 à la river).', 'Son rôle de dirigeant dans l\'affaire Full Tilt Poker (2011) a terni sa réputation ; SIGMA 52 ne retient que la description de son approche technique.'],
+      sources: ['fergPN'],
+      traits: ['Range assez serrée, ouvertures standard', 'Tailles de mise variées (50 à 100 % du pot)', 'Bluffs mesurés, quelques pièges', 'Peu de tendances exploitables'],
+      adapt: ['Joue solide : peu de leviers d\'exploitation', 'Vole un peu plus ses blindes', 'Paie selon la cote face aux grosses mises : il bluffe dans les bonnes proportions', 'Cherche l\'avantage dans les pots à plusieurs et contre les autres joueurs'],
+      stats: { vpip: 19, pfr: 14, three: 5, cbet: 72, ftc: 27 } },
+    { id: 'moneymaker', profile: 'moneymaker', name: 'L\'amateur qui ose', inspired: 'Chris Moneymaker', flag: 'États-Unis', level: 'Moyen', format: 'hu6', era: 'classique',
+      tagline: 'Joue beaucoup de mains, paie beaucoup, et sort le gros bluff au mauvais moment pour toi.',
+      facts: ['Comptable et amateur, qualifié par un satellite en ligne à 86 $ sur PokerStars, il gagne le Main Event 2003 et 2,5 millions de dollars, son premier tournoi live : l\'« effet Moneymaker ».', 'En tête-à-tête contre Sammy Farha, il bluffe à tapis à la river avec une hauteur roi et fait coucher une paire de 9 ; PokerNews le qualifie d\'« ultra-agressif » face à un Farha plus posé.'],
+      sources: ['moneyW', 'farhaPN'],
+      traits: ['Large préflop, paie beaucoup', 'Gros bluffs occasionnels, overbets', 'Peu de 3-bets'],
+      adapt: ['Value-bet gros et souvent', 'Paie ses overbets avec tes mains fortes : il bluffe plus qu\'un amateur typique', 'Isole-le en position', 'Ne bluffe pas sur une seule rue : il paie'],
+      stats: { vpip: 34, pfr: 16, three: 7, cbet: 77, ftc: 16 } },
+    { id: 'elky', profile: 'elky', name: 'Le stratège du volume', inspired: 'Bertrand « ElkY » Grospellier', flag: 'France', level: 'Difficile', format: 'hu6', era: 'moderne',
+      tagline: 'Ex-pro de StarCraft : agressif, rapide, et il joue sa position.',
+      facts: ['Français né en 1981, ancien joueur professionnel de StarCraft en Corée (2e des World Cyber Games 2001). Premier joueur à atteindre le statut Supernova Elite sur PokerStars, surtout en sit-and-go à 500 et 1 000 $ joués en multitable.', 'Vainqueur de la PokerStars Caribbean Adventure 2008 (2 millions de dollars) puis d\'un WPT la même année ; PokerNews décrit son style comme « hyper-agressif ».'],
+      sources: ['elkyPN'],
+      traits: ['Agressif préflop, 3-bets fréquents', 'Plus large en position', 'C-bet fréquent, relances-bluffs occasionnelles'],
+      adapt: ['Défends plus large face à ses c-bets', '4-bet tes meilleures mains contre ses 3-bets', 'Respecte ses ouvertures en début de parole', 'Check-raise les boards qui favorisent ta range'],
+      stats: { vpip: 27, pfr: 21, three: 9, cbet: 88, ftc: 33 } },
+    { id: 'matusow', profile: 'matusow', name: 'Le volcan', inspired: 'Mike Matusow', flag: 'États-Unis', level: 'Moyen', format: 'hu6', era: 'classique',
+      tagline: 'Solide… jusqu\'au gros pot perdu. Ensuite, il explose.',
+      facts: ['Surnommé « The Mouth » : il parle sans arrêt à la table, se plaint ou critique les autres joueurs.', 'PokerListings le classe parmi les joueurs les plus enclins au tilt : explosions après des pots perdus (Main Event 2004), bluffs agressifs coûteux (triple barrel puis relance-bluff à la river au Main Event 2022).'],
+      sources: ['matuPL'],
+      traits: ['Joue solide en temps normal', 'Après une perte de 25 bb ou plus : 12 mains beaucoup plus larges, plus de bluffs, plus de tapis', 'Paie moins prudemment quand il est énervé'],
+      adapt: ['Repère le gros pot qu\'il vient de perdre : c\'est le moment de jouer plus de mains contre lui', 'En tilt, value-bet plus large et paie plus large', 'Évite de le bluffer quand il est en tilt : il paie', 'Leçon pour toi : le protocole anti-tilt du cours existe pour ne pas devenir ce bot'],
+      stats: { vpip: 25, pfr: 17, three: 7, cbet: 83, ftc: 24 } },
+    { id: 'sklansky', profile: 'sklansky', name: 'Le théoricien', inspired: 'The Theory of Poker (David Sklansky)', flag: 'États-Unis', level: 'Moyen', format: 'hu6', era: 'classique',
+      tagline: 'Joue comme s\'il voyait tes cartes : valeur, semi-bluffs et pièges.',
+      facts: ['Le « théorème fondamental du poker », formulé dans The Theory of Poker : chaque fois que tu joues autrement que si tu voyais les cartes adverses, l\'adversaire gagne ; chaque fois que tu joues comme si tu les voyais, il perd. Le but est d\'induire des erreurs, par exemple par le semi-bluff.', 'Le théorème de Morton nuance : à plusieurs, une bonne décision d\'un adversaire peut parfois t\'avantager.', 'Style construit à partir de ces principes, pas à partir du jeu de l\'auteur.'],
+      sources: ['sklW'],
+      traits: ['Range serrée', 'Value-bet fréquent, quelques pièges', 'Semi-bluffs et check-raises occasionnels', 'Bluffs purs rares'],
+      adapt: ['Vole ses blindes', 'Respecte ses relances aux rues tardives', 'Bluffe les boards qui ne touchent pas sa range serrée', 'Réfléchis en ranges : c\'est ce qu\'il fait'],
+      stats: { vpip: 16, pfr: 12, three: 3, cbet: 71, ftc: 33 } },
+    { id: 'live', profile: null, name: 'La partie live à gros enjeux', inspired: 'type de partie fréquentée par YoH ViraL', flag: 'France', level: 'Moyen', format: 'live', era: 'moderne',
       tagline: 'Tapis profonds, joueurs d\'action, un pro à la table : la partie des diffusions live.',
       facts: ['Johan Guilbert, alias YoH ViraL, né en 1989 à Sarreguemines : joueur de cash game devenu régulier des high rollers et vlogueur. PokerNews le cite dans des parties diffusées comme Hustler Casino Live et Live at the Bike.', 'Premier bracelet WSOP en 2025 (WSOP Paradise, GGMillion$ Single Day Turbo, 1 534 645 $) ; deuxième de la WSOP Europe Main Event 2021 (près de 800 000 €).', 'Aucune description publique détaillée de son style de jeu n\'a été trouvée : SIGMA 52 reproduit le type de partie, pas son jeu.'],
       sources: ['yohW', 'yohPN'],
@@ -7186,8 +7979,8 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
   const LEGENDS = ['ivey', 'negreanu', 'hellmuth', 'chidwick', 'mizrachi'];
   const CLASSICS = ['brunson', 'harrington', 'dwan', 'antonius', 'ivey'];
   // Types de partie : profondeur, structure et composition de table. Les tournois utilisent le moteur Expresso généralisé.
-  const ARCH = { mix: ['station', 'reg', 'maniaque', 'station', 'nit'], fish: ['station', 'action', 'station', 'reg', 'station'], regs: ['reg', 'chidwick', 'reg', 'harrington', 'nit'], agressifs: ['maniaque', 'dwan', 'mizrachi', 'reg', 'brunson'], legendes: ['ivey', 'negreanu', 'hellmuth', 'chidwick', 'mizrachi'], classiques: ['brunson', 'harrington', 'dwan', 'antonius', 'ivey'], sigma: ['sigma', 'sigma', 'reg', 'sigma', 'nit'] };
-  const ARCH_LABEL = { mix: 'Table mixte (2 fish, régulier, maniaque, nit)', fish: 'Table de fish', regs: 'Table de réguliers', agressifs: 'Table agressive', legendes: 'Légendes', classiques: 'Classiques (Brunson, Harrington, Dwan…)', sigma: 'Table difficile (moteur SIGMA)' };
+  const ARCH = { mix: ['station', 'reg', 'maniaque', 'station', 'nit'], fish: ['station', 'action', 'station', 'reg', 'station'], regs: ['reg', 'chidwick', 'reg', 'harrington', 'nit'], agressifs: ['maniaque', 'dwan', 'mizrachi', 'reg', 'brunson'], legendes: ['ivey', 'negreanu', 'hellmuth', 'chidwick', 'mizrachi'], classiques: ['brunson', 'harrington', 'dwan', 'antonius', 'ivey'], modernes: ['blom', 'selbst', 'polk', 'elky', 'hansen'], ancienne: ['ungar', 'seidel', 'ferguson', 'moneymaker', 'sklansky'], volcan: ['matusow', 'station', 'obrestad', 'reg', 'moneymaker'], sigma: ['sigma', 'sigma', 'reg', 'sigma', 'nit'] };
+  const ARCH_LABEL = { mix: 'Table mixte (2 fish, régulier, maniaque, nit)', fish: 'Table de fish', regs: 'Table de réguliers', agressifs: 'Table agressive', legendes: 'Légendes', classiques: 'Classiques (Brunson, Harrington, Dwan…)', modernes: 'Agressifs modernes (Blom, Selbst, Polk, ElkY, Hansen)', ancienne: 'Vieille école (Ungar, Seidel, Ferguson, Moneymaker, Sklansky)', volcan: 'Table avec un joueur qui tilte (Matusow)', sigma: 'Table difficile (moteur SIGMA)' };
   const lv = (a) => a.map((x) => [x / 2, x]);
   const FORMATS = [
     { id: 'cash100', kind: 'cash', name: 'Cash 100 bb', stackBB: 100, desc: 'La référence du cash en ligne à 6 joueurs.', keys: ['Ouvertures selon les charts, 3-bet polarisé en position', 'SPR moyen : top paire bon kicker se joue souvent pour un pot moyen'], mods: ['positions', 'postflop'] },
@@ -7213,7 +8006,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
     ['Jesse Lonis', 'États-Unis', 33978205], ['Matthias Eibinger', 'Autriche', 33873729], ['Sam Soverel', 'États-Unis', 33182102], ['Phil Hellmuth Jr', 'États-Unis', 31641595],
     ['Elton Tsang', 'Hong Kong', 31479299], ['Nick Schulman', 'États-Unis', 31472564], ['Michael Mizrachi', 'États-Unis', 30699393], ['Jean-Noel Thorel', 'France', 30558278],
   ];
-  const STYLE_OF = { 'Stephen Chidwick': 'chidwick', 'Daniel Negreanu': 'negreanu', 'Phil Ivey': 'ivey', 'Patrik Antonius': 'antonius', 'Phil Hellmuth Jr': 'hellmuth', 'Michael Mizrachi': 'mizrachi' };
+  const STYLE_OF = { 'Erik Seidel': 'seidel', 'Stephen Chidwick': 'chidwick', 'Daniel Negreanu': 'negreanu', 'Phil Ivey': 'ivey', 'Patrik Antonius': 'antonius', 'Phil Hellmuth Jr': 'hellmuth', 'Michael Mizrachi': 'mizrachi' };
   const NOTES = { 'Fedor Holz': 'Interview Card Player : gère moins de 2 % de sa bankroll par tournoi, préfère les tournois au cash (« pas assez patient »), apprend en groupe avec des amis. Pas de description publique de son style de jeu : pas de bot.' };
 
   const api = { NOTES, SRC, STYLES, MONEY, STYLE_OF, LEGENDS, CLASSICS, ARCH, ARCH_LABEL, FORMATS, lineupFor };
@@ -7225,7 +8018,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
 (function () {
   const X = window.__S52, CH = window.Champions;
   const { TS, HH, $, esc, fr, pct, sgn, state, Store, render, head, VIEWS, ACT } = X;
-  const ch = { sub: 'styles', sel: null, fmt: 'hu', mode: 'exam', target: 50, guess: null };
+  const ch = { sub: 'styles', sel: null, fmt: 'hu', mode: 'exam', target: 50, guess: null, lvl: 'all', era: 'all' };
   const prog = () => state.progress.champs || (state.progress.champs = { by: {}, mystery: { n: 0, ok: 0 } });
   const styleOf = (id) => CH.STYLES.find((s) => s.id === id);
   const srcLinks = (st) => st.sources.map((k) => `<a href="${CH.SRC[k].u}" target="_blank" rel="noopener">${esc(CH.SRC[k].t)}</a>`).join(' · ');
@@ -7240,7 +8033,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
   function card(st) {
     const r = prog().by[st.id];
     return `<button class="champ${ch.sel === st.id ? ' on' : ''}" data-act="chsel" data-id="${st.id}">
-      <span class="eyebrow">${esc(st.level)}${st.format === 'hu' ? ' · tête-à-tête' : ''}</span><h3>${esc(st.name)}</h3><span class="note">Inspiré de ${esc(st.inspired)}</span>
+      <span class="eyebrow">${beaten(st.id) ? '✓ ' : ''}${esc(st.level)}${st.format === 'hu' ? ' · tête-à-tête' : ''}</span><h3>${esc(st.name)}</h3><span class="note">Inspiré de ${esc(st.inspired)}</span>
       <span>${esc(st.tagline)}</span>${r ? `<span class="note mono">${r.hands} mains · ${sgn(r.bb, 0)} bb</span>` : ''}</button>`;
   }
   function statsTable(st) {
@@ -7262,10 +8055,23 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
       <p class="note">Le coach estime les ranges de ces styles à partir du profil le plus proche : ses conseils sont plus approximatifs qu'aux tables normales. Le rapport de fin de session compare ce que tu as observé au style réel du bot.</p>
       <div class="row"><button class="btn primary" data-act="chplay">Jouer</button><button class="btn" data-act="openmod" data-id="styles">Module : affronter les grands styles</button></div></section>`;
   }
-  function stylesHTML() {
-    const st = styleOf(ch.sel);
-    return `<div class="champs">${CH.STYLES.map(card).join('')}</div>${st ? briefing(st) : '<p class="note">Choisis un adversaire pour lire son briefing.</p>'}`;
+  // Parcours des champions : du plus abordable au plus difficile ; un style est « battu » avec un résultat positif sur 50 mains ou plus.
+  const LVL = ['Moyen', 'Difficile', 'Très difficile'];
+  const beaten = (id) => { const r = prog().by[id]; return !!r && r.hands >= 50 && r.bb > 0; };
+  function ladderHTML() {
+    const pool = CH.STYLES.filter((s) => s.profile).slice().sort((a, b) => LVL.indexOf(a.level) - LVL.indexOf(b.level)), n = pool.filter((s) => beaten(s.id)).length, next = pool.find((s) => !beaten(s.id));
+    return `<section class="panel"><div class="row" style="justify-content:space-between"><div><span class="eyebrow">Parcours des champions</span><h2>${n}/${pool.length} styles battus</h2></div>${next ? `<button class="btn primary" data-act="chsel" data-id="${next.id}">Prochain : ${esc(next.name)}</button>` : ''}</div>
+      <div class="pbar"><i style="width:${Math.round((n / pool.length) * 100)}%"></i></div>
+      <p class="note">Ordre conseillé : niveau Moyen, puis Difficile, puis Très difficile. Un style compte comme battu avec un résultat positif sur au moins 50 mains (examen ou sans aide).</p></section>`;
   }
+  function stylesHTML() {
+    const st = styleOf(ch.sel), list = CH.STYLES.filter((s) => (ch.lvl === 'all' || s.level === ch.lvl) && (ch.era === 'all' || s.era === ch.era));
+    const chips = `<div class="row"><span class="note">Niveau :</span>${[['all', 'Tous']].concat(LVL.map((l) => [l, l])).map(([k, l]) => `<button class="chip" aria-pressed="${ch.lvl === k}" data-act="chlvl" data-v="${k}">${l}</button>`).join('')}</div>
+      <div class="row"><span class="note">Époque :</span>${[['all', 'Toutes'], ['classique', 'Classiques'], ['moderne', 'Modernes']].map(([k, l]) => `<button class="chip" aria-pressed="${ch.era === k}" data-act="chera" data-v="${k}">${l}</button>`).join('')}<span class="note">${list.length} adversaire${list.length > 1 ? 's' : ''}</span></div>`;
+    return ladderHTML() + chips + `<div class="champs">${list.map((x) => card(x)).join('')}</div>${st ? briefing(st) : '<p class="note">Choisis un adversaire pour lire son briefing.</p>'}`;
+  }
+  ACT.chlvl = (t) => { ch.lvl = t.dataset.v; render(); };
+  ACT.chera = (t) => { ch.era = t.dataset.v; render(); };
   ACT.chsel = (t) => { ch.sel = t.dataset.id; render(); setTimeout(() => $('.brief')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 30); };
   ACT.chfmt = (t) => { ch.fmt = t.dataset.v; render(); };
   ACT.chtarget = (t) => { ch.target = +t.dataset.v; render(); };
@@ -8591,7 +9397,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
 </script>
 <script>// Parcours par objectif, test de niveau, accueil guidé, série quotidienne, Score SIGMA, badges, sauvegarde des données.
 (function () {
-  const X = window.__S52, T = window.Tracks, P = window.Plan, K = window.Course, S = window.Spots;
+  const X = window.__S52, T = window.Tracks, P = window.Plan, K = window.Course, S = window.Spots, EXM = window.Exams;
   const { $, esc, pct, state, Store, render, head, VIEWS, ACT, ONKEY } = X;
   const go = X.go;
   const today = () => new Date().toISOString().slice(0, 10);
@@ -8627,9 +9433,12 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
     const p = prog(), cur = p.track ? trackOf(p.track) : null;
     let out = head('Parcours', 'Choisis ton objectif : SIGMA 52 te donne le chemin le plus court, étape par étape, et coche chaque étape tout seul.');
     if (pl) return out + placementHTML();
+    if (exm) return out + examHTML();
     const lvl = p.placement ? p.placement.level : null;
-    out += `<section class="panel"><div class="row" style="justify-content:space-between"><div><span class="eyebrow">Test de niveau · 12 questions · 3 minutes</span><h2>${lvl ? (lvl >= 5 ? 'Niveau conseillé : Tables physiques et Professionnel' : 'Niveau conseillé : ' + K.LEVELS[lvl - 1].title) : 'Où commencer ?'}</h2></div><button class="btn${lvl ? '' : ' primary'}" data-act="plstart">${lvl ? 'Refaire le test' : 'Faire le test'}</button></div>
-      ${lvl ? `<p class="note">Résultat du ${esc(p.placement.date)} : ${p.placement.score}/12. Les modules des niveaux inférieurs : lis seulement le résumé et passe directement leur quiz pour les valider.</p>` : '<p class="note">Trois questions par niveau, de Fondations à Élite. Le test indique où commencer pour ne pas perdre de temps sur ce que tu sais déjà.</p>'}</section>`;
+    const nq = p.placement?.n || 12, lvlName = (l) => (l >= 7 ? 'tous les niveaux sont acquis : valide-les par les examens' : K.LEVELS[l - 1].title);
+    out += `<section class="panel"><div class="row" style="justify-content:space-between"><div><span class="eyebrow">Test de niveau · 24 questions · 6 minutes</span><h2>${lvl ? 'Niveau conseillé : ' + lvlName(lvl) : 'Où commencer ?'}</h2></div><button class="btn${lvl ? '' : ' primary'}" data-act="plstart">${lvl ? 'Refaire le test' : 'Faire le test'}</button></div>
+      ${lvl ? `<p class="note">Résultat du ${esc(p.placement.date)} : ${p.placement.score}/${nq}. Les modules des niveaux inférieurs : lis seulement le résumé et passe directement leur quiz, ou l'examen du niveau, pour les valider.</p>` : '<p class="note">Quatre questions par niveau, des Fondations au Professionnel, surtout des mises en situation. Le test indique où commencer pour ne pas perdre de temps sur ce que tu sais déjà.</p>'}</section>`;
+    out += examsPanelHTML();
     out += `<div class="tracks">${T.TRACKS.map((t) => { const st = trackStatus(t); return `<button class="track${p.track === t.id ? ' on' : ''}" data-act="trsel" data-id="${t.id}"><span class="eyebrow">${st.done}/${t.steps.length} étapes</span><h3>${esc(t.title)}</h3><span class="note">${esc(t.who)}</span><div class="meter"><i style="width:${st.pct * 100}%"></i></div></button>`; }).join('')}</div>`;
     if (cur) {
       const st = trackStatus(cur);
@@ -8664,13 +9473,50 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
       <p class="note">Ce temps couvre l'apprentissage dans SIGMA 52. Le jeu réel s'y ajoute et ne se compresse pas : il faut des dizaines de milliers de mains pour mesurer ton winrate.</p>`;
   }
   ACT.trdaily = (t) => { prog().dailyMin = +t.dataset.v; Store.save('progress'); render(); };
+  // ---- Examens de niveau : 20 questions, validé à 80 % ----
+  let exm = null; // { level, qs, i, ans: [] }
+  const exams = () => { const p = prog(); return p.exams || (p.exams = {}); };
+  function examsPanelHTML() {
+    const E = exams(), ok = K.LEVELS.filter((L) => E[L.n]?.passed).length;
+    return `<section class="panel"><div class="row" style="justify-content:space-between"><div><span class="eyebrow">Examens de niveau · 20 questions · validés à 80 %</span><h2>${ok}/6 niveaux validés</h2></div></div>
+      <div class="exams">${K.LEVELS.map((L) => { const r = E[L.n]; return `<div class="exam${r?.passed ? ' done' : ''}"><span class="eyebrow">${r?.passed ? '✓ ' : ''}Niveau ${L.n}</span><strong>${esc(L.title)}</strong><span class="note mono">${r ? `meilleur ${r.best}/20 · ${esc(r.date)}` : 'pas encore passé'}</span><button class="btn small${r?.passed ? '' : ' primary'}" data-act="exstart" data-l="${L.n}">${r ? 'Repasser' : 'Passer l\'examen'}</button></div>`; }).join('')}</div>
+      <p class="note">12 mises en situation propres aux examens et 8 questions des quiz du niveau, tirées au hasard à chaque passage. Les erreurs renvoient aux modules à relire.</p></section>`;
+  }
+  X.examsPanelHTML = examsPanelHTML;
+  function examHTML() {
+    const q = exm.qs[exm.i], a = exm.ans[exm.i], L = K.LEVELS[exm.level - 1];
+    if (!q) {
+      const score = exm.ans.filter((x) => x.ok).length, passed = score / exm.qs.length >= EXM.PASS;
+      const miss = [...new Set(exm.ans.map((x, i) => (x.ok ? null : exm.qs[i].mod)).filter(Boolean))].map((id) => K.MODULES.find((m) => m.id === id)).filter(Boolean);
+      return `<section class="panel"><span class="eyebrow">Examen terminé · Niveau ${L.n} · ${esc(L.title)}</span><h2>${score}/20 · ${passed ? 'Niveau validé' : 'Pas encore validé (16/20 requis)'}</h2>
+        ${miss.length ? `<p>À relire :</p><div class="row">${miss.map((m) => `<button class="btn small" data-act="openmod" data-id="${m.id}">${esc(m.title)}</button>`).join('')}</div>` : '<p>Aucune erreur.</p>'}
+        <div class="row"><button class="btn primary" data-act="exend">Retour au parcours</button><button class="btn" data-act="exstart" data-l="${L.n}">Repasser (nouvelles questions)</button></div></section>`;
+    }
+    return `<section class="panel"><div class="row" style="justify-content:space-between"><span class="eyebrow">Examen niveau ${L.n} · ${esc(L.title)} · question ${exm.i + 1}/${exm.qs.length}</span><button class="btn small" data-act="exend">Abandonner</button></div>
+      <div class="meter"><i style="width:${(exm.i / exm.qs.length) * 100}%"></i></div><h2>${esc(q.q)}</h2>
+      <div class="opts">${q.opts.map((o, i) => `<button class="opt${a ? (i === q.ok ? ' ok' : a.i === i ? ' ko' : '') : ''}" data-act="exans" data-i="${i}" ${a ? 'disabled' : ''}><span class="mono note">${i + 1}</span> ${esc(o)}</button>`).join('')}</div>
+      ${a ? `<div class="verdict ${a.ok ? 'good' : 'bad'}"><p><strong>${a.ok ? 'Juste.' : 'Non.'}</strong> ${esc(q.why)}</p></div><div class="row"><button class="btn primary" data-act="exnext">Suivante <span style="opacity:.7">Entrée</span></button></div>` : '<p class="note">Touches 1 à 3 pour répondre.</p>'}</section>`;
+  }
+  ACT.exstart = (t) => { pl = null; X.setOpenMod && X.setOpenMod(null); const level = +t.dataset.l; exm = { level, qs: EXM.examQuestions(K, level), i: 0, ans: [] }; go('parcours'); window.scrollTo && window.scrollTo(0, 0); };
+  ACT.exans = (t) => { const q = exm.qs[exm.i]; if (exm.ans[exm.i]) return; const i = +t.dataset.i; exm.ans[exm.i] = { i, ok: i === q.ok }; render(); };
+  ACT.exnext = () => {
+    exm.i++;
+    if (exm.i >= exm.qs.length) { const E = exams(), score = exm.ans.filter((x) => x.ok).length, r = E[exm.level] || { best: 0, n: 0 }; E[exm.level] = { best: Math.max(r.best, score), last: score, n: (r.n || 0) + 1, date: today(), passed: r.passed || score / exm.qs.length >= EXM.PASS }; Store.save('progress'); }
+    render();
+  };
+  ACT.exend = () => { exm = null; render(); };
+  ONKEY.push((e, tab) => {
+    if (tab !== 'parcours' || !exm || !exm.qs[exm.i]) return;
+    if (/^[1-4]$/.test(e.key) && !exm.ans[exm.i] && +e.key <= exm.qs[exm.i].opts.length) { ACT.exans({ dataset: { i: +e.key - 1 } }); return true; }
+    if (e.key === 'Enter' && exm.ans[exm.i]) { ACT.exnext(); return true; }
+  });
   // ---- Test de niveau ----
   function placementHTML() {
     const q = pl.qs[pl.i], a = pl.ans[pl.i];
     if (!q) {
-      const lvl = T.placementLevel(pl.ans), score = pl.ans.filter((x) => x.ok).length;
-      return `<section class="panel"><span class="eyebrow">Test terminé · ${score}/12</span><h2>Niveau conseillé : ${lvl >= 5 ? 'Tables physiques et Professionnel' : esc(K.LEVELS[lvl - 1].title)}</h2>
-        <div class="tw"><table class="t"><thead><tr><th>Niveau</th><th class="n">Bonnes réponses</th></tr></thead><tbody>${[1, 2, 3, 4].map((l) => `<tr><td>${esc(K.LEVELS[l - 1].title)}</td><td class="n mono">${pl.ans.filter((x) => x.level === l && x.ok).length}/3</td></tr>`).join('')}</tbody></table></div>
+      const lvl = EXM.placementLevel(pl.ans), score = pl.ans.filter((x) => x.ok).length;
+      return `<section class="panel"><span class="eyebrow">Test terminé · ${score}/${pl.qs.length}</span><h2>Niveau conseillé : ${lvl >= 7 ? 'tous les niveaux sont acquis' : esc(K.LEVELS[lvl - 1].title)}</h2>
+        <div class="tw"><table class="t"><thead><tr><th>Niveau</th><th class="n">Bonnes réponses</th></tr></thead><tbody>${K.LEVELS.map((L) => `<tr><td>${esc(L.title)}</td><td class="n mono">${pl.ans.filter((x) => x.level === L.n && x.ok).length}/${pl.ans.filter((x) => x.level === L.n).length}</td></tr>`).join('')}</tbody></table></div>
         <p>Commence ton parcours par les étapes de ce niveau. Pour les niveaux en dessous, passe directement les quiz pour valider ce que tu sais déjà.</p>
         <div class="row"><button class="btn primary" data-act="plsave">Enregistrer et choisir mon parcours</button></div></section>`;
     }
@@ -8679,11 +9525,11 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
       <div class="opts">${q.opts.map((o, i) => `<button class="opt${a ? (i === q.ok ? ' ok' : a.i === i ? ' ko' : '') : ''}" data-act="plans" data-i="${i}" ${a ? 'disabled' : ''}><span class="mono note">${i + 1}</span> ${esc(o)}</button>`).join('')}</div>
       ${a ? `<div class="verdict ${a.ok ? 'good' : 'bad'}"><p><strong>${a.ok ? 'Juste.' : 'Pas tout à fait.'}</strong> ${esc(q.why)}</p></div><div class="row"><button class="btn primary" data-act="plnext">Suivante <span style="opacity:.7">Entrée</span></button></div>` : '<p class="note">Touches 1 à 3 pour répondre.</p>'}</section>`;
   }
-  ACT.plstart = () => { pl = { qs: T.placementQuestions(K), i: 0, ans: [] }; go('parcours'); };
+  ACT.plstart = () => { exm = null; pl = { qs: EXM.placementQuestions(K), i: 0, ans: [] }; go('parcours'); };
   ACT.plquit = () => { pl = null; render(); };
   ACT.plans = (t) => { const q = pl.qs[pl.i]; if (pl.ans[pl.i]) return; const i = +t.dataset.i; pl.ans[pl.i] = { i, ok: i === q.ok, level: q.level }; render(); };
   ACT.plnext = () => { pl.i++; render(); };
-  ACT.plsave = () => { const p = prog(); p.placement = { level: T.placementLevel(pl.ans), score: pl.ans.filter((x) => x.ok).length, date: today() }; p.onboard = true; pl = null; Store.save('progress'); render(); };
+  ACT.plsave = () => { const p = prog(); p.placement = { level: EXM.placementLevel(pl.ans), score: pl.ans.filter((x) => x.ok).length, n: pl.qs.length, date: today() }; p.onboard = true; pl = null; Store.save('progress'); render(); };
   ONKEY.push((e, tab) => {
     if (tab !== 'parcours' || !pl) return;
     if (/^[1-4]$/.test(e.key) && pl.qs[pl.i] && !pl.ans[pl.i] && +e.key <= pl.qs[pl.i].opts.length) { ACT.plans({ dataset: { i: +e.key - 1 } }); return true; }
@@ -8742,8 +9588,9 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
   VIEWS.cours = () => {
     if (srs) return srsHTML();
     const html = baseCours(), n = srsDue().length;
-    if (!n || html.indexOf('data-act="closemod"') >= 0) return html;
-    return `<section class="panel nextstep"><span class="eyebrow">Révision espacée</span><h2>${n} notion${n > 1 ? 's' : ''} à revoir aujourd'hui</h2><p class="note">Les questions des modules que tu as maîtrisés reviennent après 1, 3, 7, 21 et 60 jours. Deux erreurs sur un module : il repasse à valider.</p><div class="row"><button class="btn primary" data-act="srsstart">Réviser (${Math.min(15, n)} questions)</button></div></section>` + html;
+    if (html.indexOf('data-act="closemod"') >= 0) return html;
+    if (!n) return html + examsPanelHTML();
+    return `<section class="panel nextstep"><span class="eyebrow">Révision espacée</span><h2>${n} notion${n > 1 ? 's' : ''} à revoir aujourd'hui</h2><p class="note">Les questions des modules que tu as maîtrisés reviennent après 1, 3, 7, 21 et 60 jours. Deux erreurs sur un module : il repasse à valider.</p><div class="row"><button class="btn primary" data-act="srsstart">Réviser (${Math.min(15, n)} questions)</button></div></section>` + html + examsPanelHTML();
   };
 
   // ---------------- Accueil : objectif, prochaine étape, série ----------------
@@ -8786,6 +9633,8 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
   const BADGES = [
     ['Premier pas', 'Répondre à un premier spot', () => Object.values(prog().stats || {}).some((s) => s.n > 0)],
     ['Test passé', 'Faire le test de niveau', () => !!prog().placement],
+    ['Diplômé', 'Valider un examen de niveau', () => Object.values(prog().exams || {}).some((r) => r.passed)],
+    ['Cursus complet', 'Valider les 6 examens de niveau', () => K.LEVELS.every((L) => prog().exams?.[L.n]?.passed)],
     ['Trois jours', 'Série de 3 jours', () => streak() >= 3],
     ['Une semaine', 'Série de 7 jours', () => streak() >= 7],
     ['Un mois', 'Série de 30 jours', () => streak() >= 30],
@@ -9210,7 +10059,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
   // ---------------- Recherche globale ----------------
   function entries() {
     const out = [];
-    const tabDesc = { jour: 'Programme, révisions, spots du jour', parcours: 'Objectif, test de niveau, chemin le plus court', profil: 'Score SIGMA, badges, série, sauvegarde des données', cours: '70 modules, 6 niveaux', spots: 'Exercices corrigés', sim: 'Table avec coach, mains guidées, Expresso', champions: 'Styles inspirés de joueurs connus', live: 'Décision éclair avec EV, range adverse, joueurs, soirée, entraînement, minuteur (parties amicales)', solveur: 'Équilibre postflop, rapport agrégé, entraîneur river', analyse: 'Historiques, replayer, bibliothèque', outils: 'Équité, board, push/fold, calculs', journal: 'Sessions, bankroll, variance', studio: 'Images et vidéos à partir de tes mains' };
+    const tabDesc = { jour: 'Programme, révisions, spots du jour', parcours: 'Objectif, test de niveau, chemin le plus court', profil: 'Score SIGMA, badges, série, sauvegarde des données', cours: '70 modules, 6 niveaux, examens de niveau', spots: 'Exercices corrigés', sim: 'Table avec coach, mains guidées, Expresso', champions: '21 styles inspirés de joueurs connus, parcours des champions', live: 'Décision éclair avec EV, range adverse, joueurs, soirée, entraînement, minuteur (parties amicales)', solveur: 'Équilibre postflop, rapport agrégé, entraîneur river', analyse: 'Historiques, replayer, bibliothèque', outils: 'Équité, board, push/fold, calculs', journal: 'Sessions, bankroll, variance', studio: 'Images et vidéos à partir de tes mains' };
     X.TABS.forEach(([k, l]) => out.push({ kind: 'Onglet', title: l, desc: tabDesc[k] || '', run: () => X.go(k) }));
     K.MODULES.forEach((m) => out.push({ kind: 'Module', title: m.title, desc: `Niveau ${m.level} · ${K.LEVELS[m.level - 1].title} · ${m.minutes} min`, extra: m.sections.map((s) => s[0]).join(' '), run: () => { X.setOpenMod(m.id); X.go('cours'); } }));
     Object.entries(S.TYPES).forEach(([k, l]) => out.push({ kind: 'Exercice', title: l, desc: 'Spots corrigés', run: () => { X.setSpotMode(k); X.go('spots'); } }));
@@ -9220,7 +10069,8 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
     out.push({ kind: 'Action', title: 'Résoudre une river au hasard', desc: 'Solveur exact, en une seconde', run: () => { const sv = X.solverState; const d = [...Array(52).keys()].sort(() => Math.random() - 0.5); sv.sub = 'solve'; sv.board = d.slice(0, 5).map(window.Engine.cardStr).join(''); sv.game = null; X.go('solveur'); } });
     out.push({ kind: 'Action', title: 'Entraîneur river', desc: 'Décisions notées en perte d\'EV', run: () => { X.solverState.sub = 'train'; X.go('solveur'); } });
     out.push({ kind: 'Action', title: 'Défi mystère', desc: 'Identifier un style en 60 mains', run: () => ACT.chmyst?.() });
-    out.push({ kind: 'Action', title: 'Test de niveau', desc: '12 questions pour savoir où commencer', run: () => ACT.plstart?.() });
+    out.push({ kind: 'Action', title: 'Test de niveau', desc: '24 questions pour savoir où commencer', run: () => ACT.plstart?.() });
+    for (const L of (window.Course?.LEVELS || [])) out.push({ kind: 'Action', title: 'Examen niveau ' + L.n + ' : ' + L.title, desc: '20 questions, validé à 80 %', run: () => ACT.exstart?.({ dataset: { l: L.n } }) });
     out.push({ kind: 'Action', title: 'Exporter mes données', desc: 'Sauvegarde JSON de toute ta progression', run: () => ACT.dataexp?.() });
     out.push({ kind: 'Action', title: 'Changer de thème', desc: 'Automatique, clair, sombre', run: () => ACT.theme() });
     out.push({ kind: 'Action', title: 'Raccourcis clavier', desc: 'Toutes les touches', run: () => setTimeout(help, 10) });

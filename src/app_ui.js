@@ -23,7 +23,7 @@
   // ---------------- Recherche globale ----------------
   function entries() {
     const out = [];
-    const tabDesc = { jour: 'Programme, révisions, spots du jour', parcours: 'Objectif, test de niveau, chemin le plus court', profil: 'Score SIGMA, badges, série, sauvegarde des données', cours: '70 modules, 6 niveaux', spots: 'Exercices corrigés', sim: 'Table avec coach, mains guidées, Expresso', champions: 'Styles inspirés de joueurs connus', live: 'Décision éclair avec EV, range adverse, joueurs, soirée, entraînement, minuteur (parties amicales)', solveur: 'Équilibre postflop, rapport agrégé, entraîneur river', analyse: 'Historiques, replayer, bibliothèque', outils: 'Équité, board, push/fold, calculs', journal: 'Sessions, bankroll, variance', studio: 'Images et vidéos à partir de tes mains' };
+    const tabDesc = { jour: 'Programme, révisions, spots du jour', parcours: 'Objectif, test de niveau, chemin le plus court', profil: 'Score SIGMA, badges, série, sauvegarde des données', cours: '70 modules, 6 niveaux, examens de niveau', spots: 'Exercices corrigés', sim: 'Table avec coach, mains guidées, Expresso', champions: '21 styles inspirés de joueurs connus, parcours des champions', live: 'Décision éclair avec EV, range adverse, joueurs, soirée, entraînement, minuteur (parties amicales)', solveur: 'Équilibre postflop, rapport agrégé, entraîneur river', analyse: 'Historiques, replayer, bibliothèque', outils: 'Équité, board, push/fold, calculs', journal: 'Sessions, bankroll, variance', studio: 'Images et vidéos à partir de tes mains' };
     X.TABS.forEach(([k, l]) => out.push({ kind: 'Onglet', title: l, desc: tabDesc[k] || '', run: () => X.go(k) }));
     K.MODULES.forEach((m) => out.push({ kind: 'Module', title: m.title, desc: `Niveau ${m.level} · ${K.LEVELS[m.level - 1].title} · ${m.minutes} min`, extra: m.sections.map((s) => s[0]).join(' '), run: () => { X.setOpenMod(m.id); X.go('cours'); } }));
     Object.entries(S.TYPES).forEach(([k, l]) => out.push({ kind: 'Exercice', title: l, desc: 'Spots corrigés', run: () => { X.setSpotMode(k); X.go('spots'); } }));
@@ -33,7 +33,8 @@
     out.push({ kind: 'Action', title: 'Résoudre une river au hasard', desc: 'Solveur exact, en une seconde', run: () => { const sv = X.solverState; const d = [...Array(52).keys()].sort(() => Math.random() - 0.5); sv.sub = 'solve'; sv.board = d.slice(0, 5).map(window.Engine.cardStr).join(''); sv.game = null; X.go('solveur'); } });
     out.push({ kind: 'Action', title: 'Entraîneur river', desc: 'Décisions notées en perte d\'EV', run: () => { X.solverState.sub = 'train'; X.go('solveur'); } });
     out.push({ kind: 'Action', title: 'Défi mystère', desc: 'Identifier un style en 60 mains', run: () => ACT.chmyst?.() });
-    out.push({ kind: 'Action', title: 'Test de niveau', desc: '12 questions pour savoir où commencer', run: () => ACT.plstart?.() });
+    out.push({ kind: 'Action', title: 'Test de niveau', desc: '24 questions pour savoir où commencer', run: () => ACT.plstart?.() });
+    for (const L of (window.Course?.LEVELS || [])) out.push({ kind: 'Action', title: 'Examen niveau ' + L.n + ' : ' + L.title, desc: '20 questions, validé à 80 %', run: () => ACT.exstart?.({ dataset: { l: L.n } }) });
     out.push({ kind: 'Action', title: 'Exporter mes données', desc: 'Sauvegarde JSON de toute ta progression', run: () => ACT.dataexp?.() });
     out.push({ kind: 'Action', title: 'Changer de thème', desc: 'Automatique, clair, sombre', run: () => ACT.theme() });
     out.push({ kind: 'Action', title: 'Raccourcis clavier', desc: 'Toutes les touches', run: () => setTimeout(help, 10) });

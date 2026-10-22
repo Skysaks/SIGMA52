@@ -20,6 +20,18 @@
     brunson: { label: 'Style Brunson', like: 'reg', vpip: 0.3, pfr: 0.24, cont: 0.75, three: 0.3, callF: 0.95, value: 0.85, bluff: 0.3, raise: 0.8, size: [0.75, 1.0], jam: 0.05, cbet: 0.88, disc: 0.1 },
     harrington: { label: 'Style Harrington', like: 'reg', vpip: 0.19, pfr: 0.16, cont: 0.5, three: 0.3, callF: 1.15, value: 0.8, bluff: 0.12, raise: 0.88, size: [0.5, 0.66], open: 3, cbet: 0.7 },
     dwan: { label: 'Style Dwan', like: 'maniaque', vpip: 0.38, pfr: 0.3, cont: 0.75, three: 0.42, callF: 0.92, value: 0.88, bluff: 0.36, raise: 0.78, size: [0.66, 1.1], over: 0.35, raiseBluff: 0.1, adapt: 1.2, disc: 0.09, cbet: 0.75 },
+    hansen: { label: 'Style Hansen', like: 'maniaque', vpip: 0.46, pfr: 0.34, cont: 0.8, three: 0.35, callF: 0.9, value: 0.85, bluff: 0.3, raise: 0.8, size: [0.5, 0.8], flat: 1.5, disc: 0.08, cbet: 0.82 },
+    blom: { label: 'Style Blom', like: 'maniaque', vpip: 0.5, pfr: 0.43, cont: 0.75, three: 0.5, callF: 0.88, value: 0.9, bluff: 0.38, raise: 0.76, size: [0.7, 1.1], over: 0.35, raiseBluff: 0.12, disc: 0.07, cbet: 0.85 },
+    polk: { label: 'Style Polk', like: 'reg', vpip: 0.29, pfr: 0.25, cont: 0.7, three: 0.4, callF: 0.98, value: 0.82, bluff: 0.25, raise: 0.82, size: [0.2, 0.4], sizeLate: [0.33, 0.8], over: 0.18, xr: 0.12, adapt: 1, open: 2.5, cbet: 0.72 },
+    seidel: { label: 'Style Seidel', like: 'reg', vpip: 0.18, pfr: 0.14, cont: 0.55, three: 0.28, callF: 1.1, value: 0.8, bluff: 0.13, raise: 0.86, size: [0.5, 0.75], adapt: 0.8, trap: 0.25, cbet: 0.6 },
+    selbst: { label: 'Style Selbst', like: 'maniaque', vpip: 0.36, pfr: 0.31, cont: 0.7, three: 0.55, callF: 0.92, value: 0.88, bluff: 0.33, raise: 0.78, size: [0.6, 1.0], over: 0.2, raiseBluff: 0.1, jam: 0.06, disc: 0.08, cbet: 0.8 },
+    ungar: { label: 'Style Ungar', like: 'maniaque', vpip: 0.4, pfr: 0.33, cont: 0.75, three: 0.42, callF: 0.95, value: 0.88, bluff: 0.32, raise: 0.8, size: [0.6, 1.0], over: 0.2, adapt: 1.5, disc: 0.09, cbet: 0.82 },
+    obrestad: { label: 'Style Obrestad', like: 'reg', vpip: 0.26, pfr: 0.23, cont: 0.62, three: 0.32, callF: 1.0, value: 0.8, bluff: 0.22, raise: 0.84, size: [0.5, 0.75], pos: 0.8, adapt: 1, cbet: 0.7 },
+    ferguson: { label: 'Style Ferguson', like: 'reg', vpip: 0.23, pfr: 0.2, cont: 0.62, three: 0.33, callF: 1.0, value: 0.8, bluff: 0.2, raise: 0.85, size: [0.5, 1.0], trap: 0.12, cbet: 0.62 },
+    moneymaker: { label: 'Style Moneymaker', like: 'station', vpip: 0.38, pfr: 0.2, cont: 0.8, three: 0.25, callF: 0.85, value: 0.75, bluff: 0.26, raise: 0.85, size: [0.5, 1.0], over: 0.3, loose: 1, cbet: 0.6 },
+    elky: { label: 'Style ElkY', like: 'reg', vpip: 0.3, pfr: 0.27, cont: 0.7, three: 0.45, callF: 0.95, value: 0.85, bluff: 0.27, raise: 0.8, size: [0.5, 0.8], raiseBluff: 0.06, pos: 0.4, cbet: 0.8 },
+    matusow: { label: 'Style Matusow', like: 'reg', vpip: 0.27, pfr: 0.21, cont: 0.65, three: 0.33, callF: 0.98, value: 0.8, bluff: 0.2, raise: 0.84, size: [0.5, 0.9], tilt: 1, cbet: 0.68 },
+    sklansky: { label: 'Style Sklansky', like: 'reg', vpip: 0.2, pfr: 0.16, cont: 0.58, three: 0.3, callF: 1.05, value: 0.82, bluff: 0.16, raise: 0.86, size: [0.5, 0.8], trap: 0.2, xr: 0.08, cbet: 0.62 },
     sigma: { label: 'Moteur SIGMA', like: 'reg', external: true, vpip: 0.25, pfr: 0.22, cont: 0.6, three: 0.3, callF: 1.0, value: 0.75, bluff: 0.18, raise: 0.85, size: [0.5, 0.75] },
     action: { label: 'Joueur d\'action live', like: 'station', vpip: 0.5, pfr: 0.2, cont: 0.85, three: 0.25, callF: 0.75, value: 0.7, bluff: 0.15, raise: 0.85, size: [0.5, 1.0], open: 4, loose: 1, cbet: 0.45 },
     prolive: { label: 'Pro de cash live', like: 'reg', vpip: 0.27, pfr: 0.22, cont: 0.62, three: 0.33, callF: 1.0, value: 0.8, bluff: 0.16, raise: 0.85, size: [0.5, 0.9], open: 3.5, adapt: 0.8, cbet: 0.62 },
@@ -29,6 +41,8 @@
   const NAMES = { station: ['Gégé31', 'Mimi_Lol', 'TontonFlop', 'ChanceuxDu82'], maniaque: ['AllinKevin', 'Turbo_Raz'], nit: ['Roc_Solide', 'PapyNit'], reg: ['GrindZ', 'Reg_6max'],
     ivey: ['Style Ivey'], negreanu: ['Style Negreanu'], hellmuth: ['Style Hellmuth'], chidwick: ['Style Chidwick'], mizrachi: ['Style Mizrachi'], antonius: ['Style Antonius'],
     brunson: ['Style Brunson'], harrington: ['Style Harrington'], dwan: ['Style Dwan'],
+    hansen: ['Style Hansen'], blom: ['Style Blom'], polk: ['Style Polk'], seidel: ['Style Seidel'], selbst: ['Style Selbst'], ungar: ['Style Ungar'],
+    obrestad: ['Style Obrestad'], ferguson: ['Style Ferguson'], moneymaker: ['Style Moneymaker'], elky: ['Style ElkY'], matusow: ['Style Matusow'], sklansky: ['Style Sklansky'],
     sigma: ['Sigma_A', 'Sigma_B', 'Sigma_C', 'Sigma_D'],
     action: ['Whale_Vegas', 'Straddle_Sam', 'Lucky_Lou'], prolive: ['Pro_Live', 'Reg_Bike'] };
 
@@ -80,6 +94,8 @@
     active() { return this.players.filter((p) => !p.out); }
     newHand() {
       this.handNo++;
+      // Tilt (styles qui « explosent » après un gros pot perdu) : 12 mains plus larges et plus agressives après une perte de 25 bb ou plus.
+      for (const p of this.players) { const pr = PROFILES[p.profile]; if (!pr || !pr.tilt || p.start === undefined) continue; if (p.start - p.stack >= 25 * this.bb) p.tiltLeft = 12; else if (p.tiltLeft > 0) p.tiltLeft--; }
       if (this.rebuy) {
         // Recave à 100 bb sous 40 bb ; au-delà de 250 bb, le joueur quitte la table et un nouveau s'assoit à 100 bb.
         for (const p of this.players) { if (p.stack < this.startStack * 0.4 || p.stack > this.startStack * 2.5) p.stack = this.startStack; }
@@ -201,13 +217,17 @@
       return 1 + (k - 1) * Math.min(1, pr.adapt);
     }
     botAct() {
-      const i = this.toAct, p = this.players[i], pr = PROFILES[p.profile], L = this.legal(), r = this.r, kind = kindOf(pr, p.profile);
+      const i = this.toAct, p = this.players[i], L = this.legal(), r = this.r;
+      let pr = PROFILES[p.profile]; const kind = kindOf(pr, p.profile);
+      if (pr.tilt && p.tiltLeft > 0) { const t = pr.tilt; pr = { ...pr, vpip: Math.min(0.85, pr.vpip * (1 + 0.6 * t)), pfr: Math.min(0.6, pr.pfr * (1 + 0.5 * t)), bluff: Math.min(0.7, pr.bluff + 0.18 * t), callF: pr.callF * (1 - 0.2 * t), raiseBluff: (pr.raiseBluff || 0) + 0.08 * t, jam: (pr.jam ?? 0.03) * (1 + t) }; }
       // Profil piloté par une politique externe (le moteur de la Table live) : bot nettement plus solide.
       if (pr.external && EXTERNAL.fn) { try { if (EXTERNAL.fn(this, i)) return; } catch (e) { /* repli sur le profil de base */ } }
       if (this.street === 'pre') {
         // Les styles élargissent leurs ranges à court effectif (3 joueurs et moins) ; les profils d'origine restent inchangés.
         const wid = pr.like ? ({ 2: 2.3, 3: 1.5, 4: 1.2 }[this.active().length] || 1) : 1;
-        const pct = handPct(p.cards) / wid, facing = this.raises; // 1 = seulement la BB
+        // Jeu de position (styles « position d'abord ») : plus large au bouton et au cut-off, plus serré en début de parole.
+        const pn = pr.pos ? posName(this, i) : '', posF = pr.pos ? ({ BTN: 1 + pr.pos, CO: 1 + pr.pos * 0.6, SB: 1 + pr.pos * 0.2, BB: 1 }[pn] || 1 - pr.pos * 0.5) : 1;
+        const pct = handPct(p.cards) / wid / posF, facing = this.raises; // 1 = seulement la BB
         const S = this.effStack(i) / this.bb;
         if (S <= 15) return this.shortStackAct(i, pct, S);
         if (facing <= 1) {
@@ -230,6 +250,8 @@
       const size = () => L.pot * (band[0] + r() * (band[1] - band[0]));
       const over = () => L.pot * (1.2 + r() * 0.5);
       if (L.canCheck) {
+        // Piège : avec une main très forte au flop, certains styles checkent pour laisser miser.
+        if (pr.trap && this.street === 'flop' && s > 0.8 && r() < pr.trap) return this.act('check');
         if (s > 0.62 && r() < pr.value) return this.act('raise', pr.over && late && s > 0.78 && r() < pr.over ? over() : size());
         if (s < 0.35 && r() < Math.min(0.9, pr.bluff * rf)) return this.act('raise', pr.over && late && r() < pr.over ? over() : size());
         // Continuation bet des styles : le relanceur préflop mise souvent le flop, quelle que soit sa main.

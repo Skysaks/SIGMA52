@@ -137,11 +137,17 @@ const SHOTS = process.env.SHOTS || '';
     }
     if (!(await has('text=Rapport d\'adaptation'))) errs.push(name + ' rapport champion absent');
     await over('champion-rapport');
+    // Champions v12 : filtres, parcours, nouveaux styles
+    await tab('champions'); await p.click('[data-act=chsub][data-s=styles]'); await p.click('[data-act=chlvl][data-v="Moyen"]');
+    if ((await p.locator('.champ').count()) < 4) errs.push(name + ' filtre niveau'); await p.click('[data-act=chlvl][data-v=all]'); await p.click('[data-act=chera][data-v=moderne]'); await p.click('[data-act=chera][data-v=all]');
+    if ((await p.locator('.champ').count()) !== 22) errs.push(name + ' champions : ' + (await p.locator('.champ').count()));
+    for (const id of ['matusow', 'polk', 'elky']) { await p.click(`[data-act=chsel][data-id=${id}]`); await p.waitForSelector('.brief'); await over('champion-' + id); }
+    await shot('champions-v12');
     await tab('champions'); await p.click('[data-act=chsub][data-s=mystery]'); await p.click('[data-act=chmyst]');
     cg = 0; while (!(await has('[data-act=chguess]')) && cg++ < 400) { if (await has('[data-act=hcall]')) await p.click('[data-act=hcall]'); else if (await has('[data-act=cashnext]')) await p.click('[data-act=cashnext]'); else break; }
     if (!(await has('[data-act=chguess]'))) errs.push(name + ' défi mystère sans choix final');
     else { await p.locator('[data-act=chguess]').first().click(); if (!(await has('text=C\'était'))) errs.push(name + ' défi mystère sans révélation'); }
-    await tab('champions'); await p.click('[data-act=chsub][data-s=money]'); if ((await p.locator('[data-act=chgo]').count()) !== 6) errs.push(name + ' classement : liens de style'); await over('classement');
+    await tab('champions'); await p.click('[data-act=chsub][data-s=money]'); if ((await p.locator('[data-act=chgo]').count()) !== 7) errs.push(name + ' classement : liens de style'); await over('classement');
     // Champions : nouveaux styles et types de partie (cash court, Sit & Go)
     await tab('champions'); await p.click('[data-act=chsub][data-s=styles]'); await p.click('[data-act=chsel][data-id=dwan]'); await over('champion-dwan');
     await p.click('[data-act=chsub][data-s=formats]'); for (const f of ['short', 'deep', 'home', 'hu', 'sng6', 'ft', 'expresso', 'cash100']) { await p.click(`[data-act=fmsel][data-id=${f}]`); await over('format-' + f); }
@@ -179,9 +185,15 @@ const SHOTS = process.env.SHOTS || '';
     // Parcours : choix, test de niveau complet ; profil ; atlas ; variantes
     await tab('jour'); if (await has('[data-act=trsel][data-id=salaire]')) await p.click('[data-act=trsel][data-id=salaire] >> nth=0');
     await tab('parcours'); if (!(await has('.tsteps'))) errs.push(name + ' parcours : étapes absentes'); await over('parcours'); await shot('parcours');
-    await p.click('[data-act=plstart]'); for (let q = 0; q < 12; q++) { await p.click('[data-act=plans][data-i="0"]'); await p.click('[data-act=plnext]'); }
+    await p.click('[data-act=plstart]'); for (let q = 0; q < 24; q++) { await p.click('[data-act=plans][data-i="0"]'); await p.click('[data-act=plnext]'); }
     if (!(await has('text=Test terminé'))) errs.push(name + ' test de niveau'); await p.click('[data-act=plsave]'); await over('parcours-test');
     await tab('jour'); if (!(await has('.nextstep'))) errs.push(name + ' prochaine étape absente'); await over('jour-parcours'); await shot('jour-parcours');
+    // Examen de niveau complet
+    await tab('parcours'); await p.click('[data-act=exstart][data-l="1"]');
+    for (let q = 0; q < 20; q++) { await p.click('[data-act=exans][data-i="0"]'); await p.click('[data-act=exnext]'); }
+    if (!(await has('text=Examen terminé'))) errs.push(name + ' examen'); await over('examen'); await shot('examen'); await p.click('[data-act=exend]');
+    if (!(await has('text=meilleur'))) errs.push(name + ' examen non enregistré');
+    await tab('cours'); if (!(await has('[data-act=exstart]'))) errs.push(name + ' examens absents des cours');
     await tab('profil'); if (!(await has('text=Score SIGMA'))) errs.push(name + ' profil'); await over('profil'); await shot('profil');
     const [bk] = await Promise.all([p.waitForEvent('download', { timeout: 5000 }).catch(() => null), p.click('[data-act=dataexp]')]); if (!bk) errs.push(name + ' export des données');
     await p.evaluate(() => { window.__S52.setTool('atlas'); window.__S52.go('outils'); }); await p.click('[data-act=atset][data-k=pre][data-v=raise]'); await p.locator('[data-act=atsel]').first().click(); await over('atlas'); await shot('atlas');

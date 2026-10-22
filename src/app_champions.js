@@ -3,7 +3,7 @@
 (function () {
   const X = window.__S52, CH = window.Champions;
   const { TS, HH, $, esc, fr, pct, sgn, state, Store, render, head, VIEWS, ACT } = X;
-  const ch = { sub: 'styles', sel: null, fmt: 'hu', mode: 'exam', target: 50, guess: null };
+  const ch = { sub: 'styles', sel: null, fmt: 'hu', mode: 'exam', target: 50, guess: null, lvl: 'all', era: 'all' };
   const prog = () => state.progress.champs || (state.progress.champs = { by: {}, mystery: { n: 0, ok: 0 } });
   const styleOf = (id) => CH.STYLES.find((s) => s.id === id);
   const srcLinks = (st) => st.sources.map((k) => `<a href="${CH.SRC[k].u}" target="_blank" rel="noopener">${esc(CH.SRC[k].t)}</a>`).join(' · ');
@@ -18,7 +18,7 @@
   function card(st) {
     const r = prog().by[st.id];
     return `<button class="champ${ch.sel === st.id ? ' on' : ''}" data-act="chsel" data-id="${st.id}">
-      <span class="eyebrow">${esc(st.level)}${st.format === 'hu' ? ' · tête-à-tête' : ''}</span><h3>${esc(st.name)}</h3><span class="note">Inspiré de ${esc(st.inspired)}</span>
+      <span class="eyebrow">${beaten(st.id) ? '✓ ' : ''}${esc(st.level)}${st.format === 'hu' ? ' · tête-à-tête' : ''}</span><h3>${esc(st.name)}</h3><span class="note">Inspiré de ${esc(st.inspired)}</span>
       <span>${esc(st.tagline)}</span>${r ? `<span class="note mono">${r.hands} mains · ${sgn(r.bb, 0)} bb</span>` : ''}</button>`;
   }
   function statsTable(st) {
@@ -40,10 +40,23 @@
       <p class="note">Le coach estime les ranges de ces styles à partir du profil le plus proche : ses conseils sont plus approximatifs qu'aux tables normales. Le rapport de fin de session compare ce que tu as observé au style réel du bot.</p>
       <div class="row"><button class="btn primary" data-act="chplay">Jouer</button><button class="btn" data-act="openmod" data-id="styles">Module : affronter les grands styles</button></div></section>`;
   }
-  function stylesHTML() {
-    const st = styleOf(ch.sel);
-    return `<div class="champs">${CH.STYLES.map(card).join('')}</div>${st ? briefing(st) : '<p class="note">Choisis un adversaire pour lire son briefing.</p>'}`;
+  // Parcours des champions : du plus abordable au plus difficile ; un style est « battu » avec un résultat positif sur 50 mains ou plus.
+  const LVL = ['Moyen', 'Difficile', 'Très difficile'];
+  const beaten = (id) => { const r = prog().by[id]; return !!r && r.hands >= 50 && r.bb > 0; };
+  function ladderHTML() {
+    const pool = CH.STYLES.filter((s) => s.profile).slice().sort((a, b) => LVL.indexOf(a.level) - LVL.indexOf(b.level)), n = pool.filter((s) => beaten(s.id)).length, next = pool.find((s) => !beaten(s.id));
+    return `<section class="panel"><div class="row" style="justify-content:space-between"><div><span class="eyebrow">Parcours des champions</span><h2>${n}/${pool.length} styles battus</h2></div>${next ? `<button class="btn primary" data-act="chsel" data-id="${next.id}">Prochain : ${esc(next.name)}</button>` : ''}</div>
+      <div class="pbar"><i style="width:${Math.round((n / pool.length) * 100)}%"></i></div>
+      <p class="note">Ordre conseillé : niveau Moyen, puis Difficile, puis Très difficile. Un style compte comme battu avec un résultat positif sur au moins 50 mains (examen ou sans aide).</p></section>`;
   }
+  function stylesHTML() {
+    const st = styleOf(ch.sel), list = CH.STYLES.filter((s) => (ch.lvl === 'all' || s.level === ch.lvl) && (ch.era === 'all' || s.era === ch.era));
+    const chips = `<div class="row"><span class="note">Niveau :</span>${[['all', 'Tous']].concat(LVL.map((l) => [l, l])).map(([k, l]) => `<button class="chip" aria-pressed="${ch.lvl === k}" data-act="chlvl" data-v="${k}">${l}</button>`).join('')}</div>
+      <div class="row"><span class="note">Époque :</span>${[['all', 'Toutes'], ['classique', 'Classiques'], ['moderne', 'Modernes']].map(([k, l]) => `<button class="chip" aria-pressed="${ch.era === k}" data-act="chera" data-v="${k}">${l}</button>`).join('')}<span class="note">${list.length} adversaire${list.length > 1 ? 's' : ''}</span></div>`;
+    return ladderHTML() + chips + `<div class="champs">${list.map((x) => card(x)).join('')}</div>${st ? briefing(st) : '<p class="note">Choisis un adversaire pour lire son briefing.</p>'}`;
+  }
+  ACT.chlvl = (t) => { ch.lvl = t.dataset.v; render(); };
+  ACT.chera = (t) => { ch.era = t.dataset.v; render(); };
   ACT.chsel = (t) => { ch.sel = t.dataset.id; render(); setTimeout(() => $('.brief')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 30); };
   ACT.chfmt = (t) => { ch.fmt = t.dataset.v; render(); };
   ACT.chtarget = (t) => { ch.target = +t.dataset.v; render(); };

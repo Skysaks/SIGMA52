@@ -1,6 +1,6 @@
 // Parcours par objectif, test de niveau, accueil guidé, série quotidienne, Score SIGMA, badges, sauvegarde des données.
 (function () {
-  const X = window.__S52, T = window.Tracks, P = window.Plan, K = window.Course, S = window.Spots;
+  const X = window.__S52, T = window.Tracks, P = window.Plan, K = window.Course, S = window.Spots, EXM = window.Exams;
   const { $, esc, pct, state, Store, render, head, VIEWS, ACT, ONKEY } = X;
   const go = X.go;
   const today = () => new Date().toISOString().slice(0, 10);
@@ -36,9 +36,12 @@
     const p = prog(), cur = p.track ? trackOf(p.track) : null;
     let out = head('Parcours', 'Choisis ton objectif : SIGMA 52 te donne le chemin le plus court, étape par étape, et coche chaque étape tout seul.');
     if (pl) return out + placementHTML();
+    if (exm) return out + examHTML();
     const lvl = p.placement ? p.placement.level : null;
-    out += `<section class="panel"><div class="row" style="justify-content:space-between"><div><span class="eyebrow">Test de niveau · 12 questions · 3 minutes</span><h2>${lvl ? (lvl >= 5 ? 'Niveau conseillé : Tables physiques et Professionnel' : 'Niveau conseillé : ' + K.LEVELS[lvl - 1].title) : 'Où commencer ?'}</h2></div><button class="btn${lvl ? '' : ' primary'}" data-act="plstart">${lvl ? 'Refaire le test' : 'Faire le test'}</button></div>
-      ${lvl ? `<p class="note">Résultat du ${esc(p.placement.date)} : ${p.placement.score}/12. Les modules des niveaux inférieurs : lis seulement le résumé et passe directement leur quiz pour les valider.</p>` : '<p class="note">Trois questions par niveau, de Fondations à Élite. Le test indique où commencer pour ne pas perdre de temps sur ce que tu sais déjà.</p>'}</section>`;
+    const nq = p.placement?.n || 12, lvlName = (l) => (l >= 7 ? 'tous les niveaux sont acquis : valide-les par les examens' : K.LEVELS[l - 1].title);
+    out += `<section class="panel"><div class="row" style="justify-content:space-between"><div><span class="eyebrow">Test de niveau · 24 questions · 6 minutes</span><h2>${lvl ? 'Niveau conseillé : ' + lvlName(lvl) : 'Où commencer ?'}</h2></div><button class="btn${lvl ? '' : ' primary'}" data-act="plstart">${lvl ? 'Refaire le test' : 'Faire le test'}</button></div>
+      ${lvl ? `<p class="note">Résultat du ${esc(p.placement.date)} : ${p.placement.score}/${nq}. Les modules des niveaux inférieurs : lis seulement le résumé et passe directement leur quiz, ou l'examen du niveau, pour les valider.</p>` : '<p class="note">Quatre questions par niveau, des Fondations au Professionnel, surtout des mises en situation. Le test indique où commencer pour ne pas perdre de temps sur ce que tu sais déjà.</p>'}</section>`;
+    out += examsPanelHTML();
     out += `<div class="tracks">${T.TRACKS.map((t) => { const st = trackStatus(t); return `<button class="track${p.track === t.id ? ' on' : ''}" data-act="trsel" data-id="${t.id}"><span class="eyebrow">${st.done}/${t.steps.length} étapes</span><h3>${esc(t.title)}</h3><span class="note">${esc(t.who)}</span><div class="meter"><i style="width:${st.pct * 100}%"></i></div></button>`; }).join('')}</div>`;
     if (cur) {
       const st = trackStatus(cur);
@@ -73,13 +76,50 @@
       <p class="note">Ce temps couvre l'apprentissage dans SIGMA 52. Le jeu réel s'y ajoute et ne se compresse pas : il faut des dizaines de milliers de mains pour mesurer ton winrate.</p>`;
   }
   ACT.trdaily = (t) => { prog().dailyMin = +t.dataset.v; Store.save('progress'); render(); };
+  // ---- Examens de niveau : 20 questions, validé à 80 % ----
+  let exm = null; // { level, qs, i, ans: [] }
+  const exams = () => { const p = prog(); return p.exams || (p.exams = {}); };
+  function examsPanelHTML() {
+    const E = exams(), ok = K.LEVELS.filter((L) => E[L.n]?.passed).length;
+    return `<section class="panel"><div class="row" style="justify-content:space-between"><div><span class="eyebrow">Examens de niveau · 20 questions · validés à 80 %</span><h2>${ok}/6 niveaux validés</h2></div></div>
+      <div class="exams">${K.LEVELS.map((L) => { const r = E[L.n]; return `<div class="exam${r?.passed ? ' done' : ''}"><span class="eyebrow">${r?.passed ? '✓ ' : ''}Niveau ${L.n}</span><strong>${esc(L.title)}</strong><span class="note mono">${r ? `meilleur ${r.best}/20 · ${esc(r.date)}` : 'pas encore passé'}</span><button class="btn small${r?.passed ? '' : ' primary'}" data-act="exstart" data-l="${L.n}">${r ? 'Repasser' : 'Passer l\'examen'}</button></div>`; }).join('')}</div>
+      <p class="note">12 mises en situation propres aux examens et 8 questions des quiz du niveau, tirées au hasard à chaque passage. Les erreurs renvoient aux modules à relire.</p></section>`;
+  }
+  X.examsPanelHTML = examsPanelHTML;
+  function examHTML() {
+    const q = exm.qs[exm.i], a = exm.ans[exm.i], L = K.LEVELS[exm.level - 1];
+    if (!q) {
+      const score = exm.ans.filter((x) => x.ok).length, passed = score / exm.qs.length >= EXM.PASS;
+      const miss = [...new Set(exm.ans.map((x, i) => (x.ok ? null : exm.qs[i].mod)).filter(Boolean))].map((id) => K.MODULES.find((m) => m.id === id)).filter(Boolean);
+      return `<section class="panel"><span class="eyebrow">Examen terminé · Niveau ${L.n} · ${esc(L.title)}</span><h2>${score}/20 · ${passed ? 'Niveau validé' : 'Pas encore validé (16/20 requis)'}</h2>
+        ${miss.length ? `<p>À relire :</p><div class="row">${miss.map((m) => `<button class="btn small" data-act="openmod" data-id="${m.id}">${esc(m.title)}</button>`).join('')}</div>` : '<p>Aucune erreur.</p>'}
+        <div class="row"><button class="btn primary" data-act="exend">Retour au parcours</button><button class="btn" data-act="exstart" data-l="${L.n}">Repasser (nouvelles questions)</button></div></section>`;
+    }
+    return `<section class="panel"><div class="row" style="justify-content:space-between"><span class="eyebrow">Examen niveau ${L.n} · ${esc(L.title)} · question ${exm.i + 1}/${exm.qs.length}</span><button class="btn small" data-act="exend">Abandonner</button></div>
+      <div class="meter"><i style="width:${(exm.i / exm.qs.length) * 100}%"></i></div><h2>${esc(q.q)}</h2>
+      <div class="opts">${q.opts.map((o, i) => `<button class="opt${a ? (i === q.ok ? ' ok' : a.i === i ? ' ko' : '') : ''}" data-act="exans" data-i="${i}" ${a ? 'disabled' : ''}><span class="mono note">${i + 1}</span> ${esc(o)}</button>`).join('')}</div>
+      ${a ? `<div class="verdict ${a.ok ? 'good' : 'bad'}"><p><strong>${a.ok ? 'Juste.' : 'Non.'}</strong> ${esc(q.why)}</p></div><div class="row"><button class="btn primary" data-act="exnext">Suivante <span style="opacity:.7">Entrée</span></button></div>` : '<p class="note">Touches 1 à 3 pour répondre.</p>'}</section>`;
+  }
+  ACT.exstart = (t) => { pl = null; X.setOpenMod && X.setOpenMod(null); const level = +t.dataset.l; exm = { level, qs: EXM.examQuestions(K, level), i: 0, ans: [] }; go('parcours'); window.scrollTo && window.scrollTo(0, 0); };
+  ACT.exans = (t) => { const q = exm.qs[exm.i]; if (exm.ans[exm.i]) return; const i = +t.dataset.i; exm.ans[exm.i] = { i, ok: i === q.ok }; render(); };
+  ACT.exnext = () => {
+    exm.i++;
+    if (exm.i >= exm.qs.length) { const E = exams(), score = exm.ans.filter((x) => x.ok).length, r = E[exm.level] || { best: 0, n: 0 }; E[exm.level] = { best: Math.max(r.best, score), last: score, n: (r.n || 0) + 1, date: today(), passed: r.passed || score / exm.qs.length >= EXM.PASS }; Store.save('progress'); }
+    render();
+  };
+  ACT.exend = () => { exm = null; render(); };
+  ONKEY.push((e, tab) => {
+    if (tab !== 'parcours' || !exm || !exm.qs[exm.i]) return;
+    if (/^[1-4]$/.test(e.key) && !exm.ans[exm.i] && +e.key <= exm.qs[exm.i].opts.length) { ACT.exans({ dataset: { i: +e.key - 1 } }); return true; }
+    if (e.key === 'Enter' && exm.ans[exm.i]) { ACT.exnext(); return true; }
+  });
   // ---- Test de niveau ----
   function placementHTML() {
     const q = pl.qs[pl.i], a = pl.ans[pl.i];
     if (!q) {
-      const lvl = T.placementLevel(pl.ans), score = pl.ans.filter((x) => x.ok).length;
-      return `<section class="panel"><span class="eyebrow">Test terminé · ${score}/12</span><h2>Niveau conseillé : ${lvl >= 5 ? 'Tables physiques et Professionnel' : esc(K.LEVELS[lvl - 1].title)}</h2>
-        <div class="tw"><table class="t"><thead><tr><th>Niveau</th><th class="n">Bonnes réponses</th></tr></thead><tbody>${[1, 2, 3, 4].map((l) => `<tr><td>${esc(K.LEVELS[l - 1].title)}</td><td class="n mono">${pl.ans.filter((x) => x.level === l && x.ok).length}/3</td></tr>`).join('')}</tbody></table></div>
+      const lvl = EXM.placementLevel(pl.ans), score = pl.ans.filter((x) => x.ok).length;
+      return `<section class="panel"><span class="eyebrow">Test terminé · ${score}/${pl.qs.length}</span><h2>Niveau conseillé : ${lvl >= 7 ? 'tous les niveaux sont acquis' : esc(K.LEVELS[lvl - 1].title)}</h2>
+        <div class="tw"><table class="t"><thead><tr><th>Niveau</th><th class="n">Bonnes réponses</th></tr></thead><tbody>${K.LEVELS.map((L) => `<tr><td>${esc(L.title)}</td><td class="n mono">${pl.ans.filter((x) => x.level === L.n && x.ok).length}/${pl.ans.filter((x) => x.level === L.n).length}</td></tr>`).join('')}</tbody></table></div>
         <p>Commence ton parcours par les étapes de ce niveau. Pour les niveaux en dessous, passe directement les quiz pour valider ce que tu sais déjà.</p>
         <div class="row"><button class="btn primary" data-act="plsave">Enregistrer et choisir mon parcours</button></div></section>`;
     }
@@ -88,11 +128,11 @@
       <div class="opts">${q.opts.map((o, i) => `<button class="opt${a ? (i === q.ok ? ' ok' : a.i === i ? ' ko' : '') : ''}" data-act="plans" data-i="${i}" ${a ? 'disabled' : ''}><span class="mono note">${i + 1}</span> ${esc(o)}</button>`).join('')}</div>
       ${a ? `<div class="verdict ${a.ok ? 'good' : 'bad'}"><p><strong>${a.ok ? 'Juste.' : 'Pas tout à fait.'}</strong> ${esc(q.why)}</p></div><div class="row"><button class="btn primary" data-act="plnext">Suivante <span style="opacity:.7">Entrée</span></button></div>` : '<p class="note">Touches 1 à 3 pour répondre.</p>'}</section>`;
   }
-  ACT.plstart = () => { pl = { qs: T.placementQuestions(K), i: 0, ans: [] }; go('parcours'); };
+  ACT.plstart = () => { exm = null; pl = { qs: EXM.placementQuestions(K), i: 0, ans: [] }; go('parcours'); };
   ACT.plquit = () => { pl = null; render(); };
   ACT.plans = (t) => { const q = pl.qs[pl.i]; if (pl.ans[pl.i]) return; const i = +t.dataset.i; pl.ans[pl.i] = { i, ok: i === q.ok, level: q.level }; render(); };
   ACT.plnext = () => { pl.i++; render(); };
-  ACT.plsave = () => { const p = prog(); p.placement = { level: T.placementLevel(pl.ans), score: pl.ans.filter((x) => x.ok).length, date: today() }; p.onboard = true; pl = null; Store.save('progress'); render(); };
+  ACT.plsave = () => { const p = prog(); p.placement = { level: EXM.placementLevel(pl.ans), score: pl.ans.filter((x) => x.ok).length, n: pl.qs.length, date: today() }; p.onboard = true; pl = null; Store.save('progress'); render(); };
   ONKEY.push((e, tab) => {
     if (tab !== 'parcours' || !pl) return;
     if (/^[1-4]$/.test(e.key) && pl.qs[pl.i] && !pl.ans[pl.i] && +e.key <= pl.qs[pl.i].opts.length) { ACT.plans({ dataset: { i: +e.key - 1 } }); return true; }
@@ -151,8 +191,9 @@
   VIEWS.cours = () => {
     if (srs) return srsHTML();
     const html = baseCours(), n = srsDue().length;
-    if (!n || html.indexOf('data-act="closemod"') >= 0) return html;
-    return `<section class="panel nextstep"><span class="eyebrow">Révision espacée</span><h2>${n} notion${n > 1 ? 's' : ''} à revoir aujourd'hui</h2><p class="note">Les questions des modules que tu as maîtrisés reviennent après 1, 3, 7, 21 et 60 jours. Deux erreurs sur un module : il repasse à valider.</p><div class="row"><button class="btn primary" data-act="srsstart">Réviser (${Math.min(15, n)} questions)</button></div></section>` + html;
+    if (html.indexOf('data-act="closemod"') >= 0) return html;
+    if (!n) return html + examsPanelHTML();
+    return `<section class="panel nextstep"><span class="eyebrow">Révision espacée</span><h2>${n} notion${n > 1 ? 's' : ''} à revoir aujourd'hui</h2><p class="note">Les questions des modules que tu as maîtrisés reviennent après 1, 3, 7, 21 et 60 jours. Deux erreurs sur un module : il repasse à valider.</p><div class="row"><button class="btn primary" data-act="srsstart">Réviser (${Math.min(15, n)} questions)</button></div></section>` + html + examsPanelHTML();
   };
 
   // ---------------- Accueil : objectif, prochaine étape, série ----------------
@@ -195,6 +236,8 @@
   const BADGES = [
     ['Premier pas', 'Répondre à un premier spot', () => Object.values(prog().stats || {}).some((s) => s.n > 0)],
     ['Test passé', 'Faire le test de niveau', () => !!prog().placement],
+    ['Diplômé', 'Valider un examen de niveau', () => Object.values(prog().exams || {}).some((r) => r.passed)],
+    ['Cursus complet', 'Valider les 6 examens de niveau', () => K.LEVELS.every((L) => prog().exams?.[L.n]?.passed)],
     ['Trois jours', 'Série de 3 jours', () => streak() >= 3],
     ['Une semaine', 'Série de 7 jours', () => streak() >= 7],
     ['Un mois', 'Série de 30 jours', () => streak() >= 30],

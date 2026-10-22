@@ -1,3 +1,4 @@
+<meta charset="utf-8">
 <title>SIGMA 52</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -172,6 +173,7 @@ details summary { cursor: pointer; }
 :root { --act-f: #5B7EA6; --act-x: #3C9A63; --act-b1: #D9768E; --act-b2: #B23656; --act-b3: #851A33; --act-a: #3A0814; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --act-f: #6F93BD; --act-x: #47B176; --act-b1: #8E3550; --act-b2: #C24464; --act-b3: #EA6E8D; --act-a: #FFC2D0; } }
 :root[data-theme="dark"] { --act-f: #6F93BD; --act-x: #47B176; --act-b1: #8E3550; --act-b2: #C24464; --act-b3: #EA6E8D; --act-a: #FFC2D0; }
+.exams { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; } .exam { display: grid; gap: 6px; padding: 12px; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); } .exam.done { border-color: var(--good); } .exam .btn { justify-self: start; }
 .pbar { height: 8px; border-radius: 99px; background: var(--sunk); overflow: hidden; } .pbar i { display: block; height: 100%; background: var(--accent); transition: width .3s; }
 .sbar { display: flex; height: 14px; border-radius: 6px; overflow: hidden; background: var(--sunk); } .sbar.small { height: 10px; } .sbar i { display: block; height: 100%; }
 .crumbs { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; } .crumbs .chip { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; }
@@ -352,6 +354,8 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
 <script>/*__COURSEU__*/</script>
 <script>/*__COURSEP__*/</script>
 <script>/*__COURSED__*/</script>
+<script>/*__COURSED2__*/</script>
+<script>/*__COURSED3__*/</script>
 <script>/*__SPOTS__*/</script>
 <script>/*__BOARD__*/</script>
 <script>/*__HH__*/</script>
@@ -360,6 +364,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
 <script>/*__GUIDED__*/</script>
 <script>/*__PLAN__*/</script>
 <script>/*__TRACKS__*/</script>
+<script>/*__EXAMS__*/</script>
 <script>/*__APP__*/</script>
 <script>/*__POSTFLOP__*/</script>
 <script>/*__APPSIM__*/</script>
