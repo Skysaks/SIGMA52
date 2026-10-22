@@ -32,6 +32,11 @@
     elky: { label: 'Style ElkY', like: 'reg', vpip: 0.3, pfr: 0.27, cont: 0.7, three: 0.45, callF: 0.95, value: 0.85, bluff: 0.27, raise: 0.8, size: [0.5, 0.8], raiseBluff: 0.06, pos: 0.4, cbet: 0.8 },
     matusow: { label: 'Style Matusow', like: 'reg', vpip: 0.27, pfr: 0.21, cont: 0.65, three: 0.33, callF: 0.98, value: 0.8, bluff: 0.2, raise: 0.84, size: [0.5, 0.9], tilt: 1, cbet: 0.68 },
     sklansky: { label: 'Style Sklansky', like: 'reg', vpip: 0.2, pfr: 0.16, cont: 0.58, three: 0.3, callF: 1.05, value: 0.82, bluff: 0.16, raise: 0.86, size: [0.5, 0.8], trap: 0.2, xr: 0.08, cbet: 0.62 },
+    esfandiari: { label: 'Style Esfandiari', like: 'reg', vpip: 0.32, pfr: 0.27, cont: 0.7, three: 0.45, callF: 0.95, value: 0.85, bluff: 0.3, raise: 0.82, size: [0.5, 0.7], sizeLate: [0.6, 1.0], pos: 0.9, raiseBluff: 0.05, cbet: 0.82 },
+    cates: { label: 'Style Cates', like: 'reg', vpip: 0.27, pfr: 0.22, cont: 0.66, three: 0.32, callF: 1.05, value: 0.8, bluff: 0.13, raise: 0.85, size: [0.5, 0.75], bbDef: 2.6, adapt: 0.8, cbet: 0.62 },
+    adelstein: { label: 'Style Adelstein', like: 'maniaque', vpip: 0.34, pfr: 0.28, cont: 0.72, three: 0.4, callF: 0.93, value: 0.88, bluff: 0.28, raise: 0.8, size: [0.75, 1.2], over: 0.3, disc: 0.09, open: 3, cbet: 0.78 },
+    caro: { label: 'Style Caro', like: 'station', vpip: 0.44, pfr: 0.26, cont: 0.82, three: 0.25, callF: 0.85, value: 0.8, bluff: 0.18, raise: 0.86, size: [0.5, 0.9], loose: 1, wild: 0.05, cbet: 0.6 },
+    koon: { label: 'Style Koon', like: 'reg', vpip: 0.26, pfr: 0.23, cont: 0.66, three: 0.36, callF: 1.0, value: 0.82, bluff: 0.23, raise: 0.84, size: [0.33, 0.75], sizeLate: [0.66, 1.0], over: 0.2, xr: 0.2, adapt: 1, cbet: 0.66 },
     sigma: { label: 'Moteur SIGMA', like: 'reg', external: true, vpip: 0.25, pfr: 0.22, cont: 0.6, three: 0.3, callF: 1.0, value: 0.75, bluff: 0.18, raise: 0.85, size: [0.5, 0.75] },
     action: { label: 'Joueur d\'action live', like: 'station', vpip: 0.5, pfr: 0.2, cont: 0.85, three: 0.25, callF: 0.75, value: 0.7, bluff: 0.15, raise: 0.85, size: [0.5, 1.0], open: 4, loose: 1, cbet: 0.45 },
     prolive: { label: 'Pro de cash live', like: 'reg', vpip: 0.27, pfr: 0.22, cont: 0.62, three: 0.33, callF: 1.0, value: 0.8, bluff: 0.16, raise: 0.85, size: [0.5, 0.9], open: 3.5, adapt: 0.8, cbet: 0.62 },
@@ -43,6 +48,7 @@
     brunson: ['Style Brunson'], harrington: ['Style Harrington'], dwan: ['Style Dwan'],
     hansen: ['Style Hansen'], blom: ['Style Blom'], polk: ['Style Polk'], seidel: ['Style Seidel'], selbst: ['Style Selbst'], ungar: ['Style Ungar'],
     obrestad: ['Style Obrestad'], ferguson: ['Style Ferguson'], moneymaker: ['Style Moneymaker'], elky: ['Style ElkY'], matusow: ['Style Matusow'], sklansky: ['Style Sklansky'],
+    esfandiari: ['Style Esfandiari'], cates: ['Style Cates'], adelstein: ['Style Adelstein'], caro: ['Style Caro'], koon: ['Style Koon'],
     sigma: ['Sigma_A', 'Sigma_B', 'Sigma_C', 'Sigma_D'],
     action: ['Whale_Vegas', 'Straddle_Sam', 'Lucky_Lou'], prolive: ['Pro_Live', 'Reg_Bike'] };
 
@@ -226,16 +232,20 @@
         // Les styles élargissent leurs ranges à court effectif (3 joueurs et moins) ; les profils d'origine restent inchangés.
         const wid = pr.like ? ({ 2: 2.3, 3: 1.5, 4: 1.2 }[this.active().length] || 1) : 1;
         // Jeu de position (styles « position d'abord ») : plus large au bouton et au cut-off, plus serré en début de parole.
-        const pn = pr.pos ? posName(this, i) : '', posF = pr.pos ? ({ BTN: 1 + pr.pos, CO: 1 + pr.pos * 0.6, SB: 1 + pr.pos * 0.2, BB: 1 }[pn] || 1 - pr.pos * 0.5) : 1;
+        const pn = pr.pos || pr.bbDef ? posName(this, i) : '', posF = pr.pos ? ({ BTN: 1 + pr.pos, CO: 1 + pr.pos * 0.6, SB: 1 + pr.pos * 0.2, BB: 1 }[pn] || 1 - pr.pos * 0.5) : 1;
         const pct = handPct(p.cards) / wid / posF, facing = this.raises; // 1 = seulement la BB
         const S = this.effStack(i) / this.bb;
         if (S <= 15) return this.shortStackAct(i, pct, S);
+        // Image « folle » : relance parfois sans regarder ses cartes (premier à entrer).
+        if (pr.wild && facing <= 1 && r() < pr.wild) return this.act('raise', this.bb * (pr.open ?? 3) + this.bb * this.limpers());
         if (facing <= 1) {
           if (pct < pr.pfr) return this.act('raise', this.bb * (pr.open ?? (kind === 'maniaque' ? 3.5 : 2.5)) + this.bb * this.limpers());
           if (pct < pr.vpip && (kind === 'station' || pr.loose || pct < pr.pfr * (pr.flat ?? 1.3))) return this.act(L.canCheck ? 'check' : 'call');
           return this.act(L.canCheck ? 'check' : 'fold');
         }
         if (facing === 2) {
+          // Défense large de la grosse blinde face à une petite relance (style « défenseur »).
+          if (pr.bbDef && pn === 'BB' && L.toCall <= 2 * this.bb && pct < Math.min(0.75, pr.vpip * pr.cont * pr.bbDef)) return this.act(pct < pr.vpip * pr.cont * pr.three ? 'raise' : 'call', this.cur * 3);
           if (pct < pr.vpip * pr.cont * pr.three) return this.act('raise', this.cur * 3);
           if (pct < pr.vpip * pr.cont || (L.toCall <= this.bb && pct < pr.vpip)) return this.act('call');
           return this.act('fold');

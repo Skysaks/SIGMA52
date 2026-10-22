@@ -32,9 +32,9 @@ const SHOTS = process.env.SHOTS || '';
 
     // Cours : quelques modules et leurs quiz
     await tab('cours');
-    if ((await p.locator('.mod').count()) !== 70) errs.push(name + ' modules ' + (await p.locator('.mod').count()));
-    for (let i = 0; i < 70; i++) { await p.locator('.mod').nth(i).click(); await over('module ' + i); await p.click('[data-act=closemod]'); }
-    for (const i of [0, 5, 20, 30, 38, 69]) {
+    if ((await p.locator('.mod').count()) !== 88) errs.push(name + ' modules ' + (await p.locator('.mod').count()));
+    for (let i = 0; i < 88; i++) { await p.locator('.mod').nth(i).click(); await over('module ' + i); await p.click('[data-act=closemod]'); }
+    for (const i of [0, 5, 20, 30, 38, 87]) {
       await p.locator('.mod').nth(i).click(); await over('module ' + i);
       const nq = await p.locator('[data-act=qans][data-i="0"]').count();
       for (let q = 0; q < nq; q++) await p.click(`[data-act=qans][data-q="${q}"][data-i="0"]`);
@@ -140,7 +140,7 @@ const SHOTS = process.env.SHOTS || '';
     // Champions v12 : filtres, parcours, nouveaux styles
     await tab('champions'); await p.click('[data-act=chsub][data-s=styles]'); await p.click('[data-act=chlvl][data-v="Moyen"]');
     if ((await p.locator('.champ').count()) < 4) errs.push(name + ' filtre niveau'); await p.click('[data-act=chlvl][data-v=all]'); await p.click('[data-act=chera][data-v=moderne]'); await p.click('[data-act=chera][data-v=all]');
-    if ((await p.locator('.champ').count()) !== 22) errs.push(name + ' champions : ' + (await p.locator('.champ').count()));
+    if ((await p.locator('.champ').count()) !== 27) errs.push(name + ' champions : ' + (await p.locator('.champ').count()));
     for (const id of ['matusow', 'polk', 'elky']) { await p.click(`[data-act=chsel][data-id=${id}]`); await p.waitForSelector('.brief'); await over('champion-' + id); }
     await shot('champions-v12');
     await tab('champions'); await p.click('[data-act=chsub][data-s=mystery]'); await p.click('[data-act=chmyst]');

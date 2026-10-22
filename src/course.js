@@ -94,7 +94,47 @@
     ['Variance', 'Dispersion des résultats autour de l\'espérance.'],
     ['VPIP / PFR', '% des mains jouées volontairement / relancées préflop.'],
     ['WTSD', '% des fois où un joueur va à l\'abattage après avoir vu le flop.'],
-  ];
+    ['Alpha', 'Part de couchers qui rend un bluff pur rentable : mise ÷ (pot + mise).'],
+    ['Avantage de range', 'Le joueur dont la range entière est plus forte sur ce board.'],
+    ['Avantage de nuts', 'Le joueur qui a le plus de mains très fortes possibles sur ce board.'],
+    ['Backdoor (tirage arrière)', 'Tirage qui demande deux cartes favorables (turn et river).'],
+    ['Bad beat', 'Perdre une main où l\'on était très favori quand l\'argent est entré.'],
+    ['Big Blind Ante', 'Ante payée par la seule grosse blinde pour toute la table.'],
+    ['Bluff', 'Mise avec une main qui gagne rarement si l\'adversaire paie.'],
+    ['Brique', 'Carte qui ne change rien à la situation.'],
+    ['Button (bouton)', 'Le donneur fictif : dernière position après le flop.'],
+    ['Cap (range plafonnée)', 'Range sans les mains les plus fortes.'],
+    ['CFR', 'Minimisation du regret contrefactuel : l\'algorithme des solveurs.'],
+    ['Chip chop', 'Partage d\'un prize pool au prorata des jetons.'],
+    ['Cold call', 'Payer une relance sans avoir encore mis d\'argent dans le tour.'],
+    ['Coin flip', 'Situation proche de 50/50, souvent paire contre deux overcards.'],
+    ['Cooler', 'Deux mains très fortes qui s\'affrontent : la perte est presque inévitable.'],
+    ['Cutoff (CO)', 'La place juste à droite du bouton.'],
+    ['Deal', 'Accord de partage du prize pool en fin de tournoi.'],
+    ['Downswing', 'Série de pertes due en grande partie à la variance.'],
+    ['Float', 'Payer une mise pour prendre le pot plus tard.'],
+    ['Freeroll', 'Tournoi gratuit, ou situation où l\'on ne peut pas perdre (partage au minimum).'],
+    ['Gutshot (ventrale)', 'Tirage suite à 4 outs.'],
+    ['Hijack (HJ)', 'La place à droite du cutoff.'],
+    ['Hero call', 'Payer à la river avec une main faible en pensant que l\'adversaire bluffe.'],
+    ['Lead', 'Miser en premier sur une rue.'],
+    ['Merged (fusionnée)', 'Range de mise composée de mains fortes et moyennes, peu de bluffs.'],
+    ['Min-raise', 'Relance minimale autorisée.'],
+    ['Node locking', 'Fixer la stratégie d\'un joueur dans un solveur pour calculer la meilleure réponse.'],
+    ['OESD', 'Tirage suite par les deux bouts, 8 outs.'],
+    ['Probe bet', 'Mise hors de position au turn après que le relanceur a checké le flop.'],
+    ['Resteal', 'Sur-relance (souvent à tapis) contre un vol présumé.'],
+    ['Runner-runner', 'Toucher grâce aux deux dernières cartes.'],
+    ['Satellite', 'Tournoi dont le prix est une place dans un tournoi plus cher.'],
+    ['Short stack', 'Joueur avec peu de grosses blindes.'],
+    ['Slowplay', 'Jouer lentement une main très forte pour piéger.'],
+    ['Straddle', 'Mise aveugle volontaire, souvent 2 bb, avant la distribution.'],
+    ['Suited / offsuit', 'Assorties (même couleur) / dépareillées.'],
+    ['Thin value', 'Mise de valeur fine, payée de justesse par des mains moins bonnes.'],
+    ['Underpair', 'Paire en main plus basse que la plus petite carte du board.'],
+    ['Wrap', 'En Omaha, gros tirage suite utilisant plusieurs cartes de la main.'],
+    ['W$SD', 'Part des abattages gagnés.'],
+  ].sort((a, b) => a[0].localeCompare(b[0], 'fr'));
 
 
   // Mise en situation : QCM écrits à la main, vérifiés. cat ∈ Règles, Préflop, Maths, Postflop, Fish, Tournoi, Mental, Légal.
@@ -149,6 +189,6 @@
     r.total = r.read + r.exercises + r.drill + r.review + r.practice; r.exo = exo; return r;
   }
   const api = { MODULES: M, SITUATIONS: S, LEVELS, GLOSSARY, mod, extend, learn, mix };
-  if (typeof module !== 'undefined' && module.exports) { module.exports = api; ['l1', 'l2', 'l3', 'l4', 'elite', 'champions', 'live', 'extra', 'ultimate', 'paths', 'deep', 'deep2', 'deep3'].forEach((n) => require('./course_' + n + '.js')(api)); }
+  if (typeof module !== 'undefined' && module.exports) { module.exports = api; ['l1', 'l2', 'l3', 'l4', 'elite', 'champions', 'live', 'extra', 'ultimate', 'paths', 'more', 'deep', 'deep2', 'deep3'].forEach((n) => require('./course_' + n + '.js')(api)); }
   else root.Course = api;
 })(typeof window !== 'undefined' ? window : globalThis);
