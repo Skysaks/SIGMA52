@@ -17,10 +17,11 @@
   // ---------- Stockage ----------
   const DEF = {
     progress: { stats: {}, hist: {}, streak: 0, best: 0, read: {}, quiz: {}, daily: { date: '', done: 0, ok: 0 }, review: [], guided: {}, tableHands: 0, coach: {}, expresso: { games: 0, places: [0, 0, 0, 0] }, solves: 0, trainer: { n: 0, ok: 0, loss: 0, hist: [] }, days: [], seen: {}, track: null, placement: null, onboard: false },
-    settings: { bankroll0: 0, biRule: 40 },
+    settings: { bankroll0: 0, biRule: 40, expenses: 0, savings: 0, target: 0, hoursMonth: 80, handsHour: 200, proStake: '' },
     journal: { sessions: [] },
     notes: { opponents: {}, lastImport: null },
     library: { hands: [] },
+    mental: { triggers: [], custom: [], fiches: {}, zones: {}, stop: 'net', checkins: [] },
   };
   const state = JSON.parse(JSON.stringify(DEF));
   const Store = {
@@ -70,7 +71,7 @@
     return `<div class="rgrid" role="group" aria-label="Grille des 169 mains">${cells.join('')}</div>`;
   }
 
-  const TABS = [['jour', 'Aujourd\'hui'], ['parcours', 'Parcours'], ['cours', 'Cours'], ['spots', 'Spots'], ['sim', 'Simulateur'], ['champions', 'Champions'], ['live', 'Table live'], ['solveur', 'Solveur'], ['analyse', 'Analyse'], ['outils', 'Outils'], ['journal', 'Journal'], ['profil', 'Profil'], ['studio', 'Studio']];
+  const TABS = [['jour', 'Aujourd\'hui'], ['parcours', 'Parcours'], ['cours', 'Cours'], ['spots', 'Spots'], ['sim', 'Simulateur'], ['champions', 'Champions'], ['live', 'Table live'], ['solveur', 'Solveur'], ['analyse', 'Analyse'], ['outils', 'Outils'], ['journal', 'Journal'], ['carriere', 'Carrière'], ['mental', 'Mental'], ['profil', 'Profil'], ['studio', 'Studio']];
   // Espaces : la navigation principale regroupe les onglets ; le dernier onglet visité de chaque espace est mémorisé.
   const ICON = {
     jour: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5V20h-5v-5H9v5H4z"/></svg>',
@@ -79,7 +80,7 @@
     etudier: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16M6 16V9M10 16V5M14 16v-6M18 16v-9"/></svg>',
     suivre: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18 9 12l4 3 7-8"/><path d="M15 7h5v5"/></svg>',
   };
-  const GROUPS = [['jour', 'Aujourd\'hui', ['jour']], ['apprendre', 'Apprendre', ['parcours', 'cours', 'spots']], ['jouer', 'Jouer', ['sim', 'champions', 'live']], ['etudier', 'Étudier', ['solveur', 'analyse', 'outils']], ['suivre', 'Suivre', ['journal', 'profil', 'studio']]];
+  const GROUPS = [['jour', 'Aujourd\'hui', ['jour']], ['apprendre', 'Apprendre', ['parcours', 'cours', 'spots']], ['jouer', 'Jouer', ['sim', 'champions', 'live']], ['etudier', 'Étudier', ['solveur', 'analyse', 'outils']], ['suivre', 'Suivre', ['journal', 'carriere', 'mental', 'profil', 'studio']]];
   const groupOf = (t) => GROUPS.find((g) => g[2].includes(t)) || GROUPS[0];
   const lastIn = {};
   let tab = (location.hash || '').slice(1);
@@ -170,7 +171,7 @@
     }
     if (Object.keys(qAns).length === m.quiz.length) {
       const sc = m.quiz.filter((qq, k) => qAns[k] === qq.ok).length / m.quiz.length;
-      p.quiz = p.quiz || {}; p.quiz[m.id] = Math.max(p.quiz[m.id] || 0, sc); p.read[m.id] = true;
+      p.quiz = p.quiz || {}; if (sc >= 0.8 && !((p.quiz[m.id] || 0) >= 0.8)) window.__S52.award?.('module', null, true); p.quiz[m.id] = Math.max(p.quiz[m.id] || 0, sc); p.read[m.id] = true;
     }
     Store.save('progress'); render();
   }
@@ -238,6 +239,7 @@
     const key = spotKey(spot), idx = p.review.findIndex((r) => r.key === key);
     if (!ok) { const item = { key, spot: JSON.parse(JSON.stringify(spot)), iv: 1, due: addDays(1) }; if (idx >= 0) p.review[idx] = item; else p.review.push(item); if (p.review.length > 150) p.review.shift(); }
     else if (idx >= 0) { const r = p.review[idx]; r.iv = r.iv === 1 ? 3 : Math.round(r.iv * 2.5); r.due = addDays(r.iv); if (r.iv > 40) p.review.splice(idx, 1); }
+    window.__S52.award?.('spot', { type: spot.type, ok }, true);
     Store.save('progress'); render();
   }
   VIEWS.spots = () => {
@@ -436,6 +438,7 @@
         <div class="stat"><span>Abattage</span><b>${rate(me.sd, me.sawFlop)}</b><span>WTSD · gagné à l'abattage ${rate(me.wsd, me.sd)}</span></div>
         <div class="stat"><span>C-bet flop</span><b>${rate(me.cbet, me.cbetOpp)}</b><span>sur ${me.cbetOpp} occasions · fold face au c-bet ${rate(me.ftc, me.ftcOpp)}</span></div></div>
       <p class="note">Écart entre résultat et EV des all-in = ta chance sur les tapis : ${sgn(bb100 - r.ev100, 1)} bb/100 sur cet échantillon.</p>
+      ${luckHTML(me)}
       <section class="panel"><h2>Résultat par position</h2><div class="tw"><table class="t"><thead><tr><th>Position</th><th class="n">Mains</th><th class="n">bb gagnées</th><th class="n">bb/100</th></tr></thead><tbody>
         ${posOrder.filter((p) => me.byPos[p]).map((p) => { const x = me.byPos[p]; return `<tr><td>${p}</td><td class="n">${x.hands}</td><td class="n">${sgn(x.bb, 1)}</td><td class="n" style="color:var(${x.bb >= 0 ? '--good' : '--bad'})">${sgn(x.bb / x.hands * 100, 0)}</td></tr>`; }).join('')}</tbody></table></div>
         <p class="note">Les blindes perdent chez presque tous les joueurs. Le bouton et le cutoff doivent être tes positions les plus gagnantes.</p></section>
@@ -457,6 +460,29 @@
         <p class="note">Winamax enregistre tes historiques dans le dossier « history » de son répertoire d'installation. Parseur testé sur des historiques Winamax et sur ceux de la table d'entraînement. Si un fichier récent ne passe pas, envoie-moi une main d'exemple : le parseur s'ajuste.</p>
         ${anErr ? `<p class="pill bad" style="white-space:normal">${esc(anErr)}</p>` : ''}</section>${res}
       ${known.length ? `<section class="panel"><h2>Fiches adversaires cumulées</h2><div class="tw"><table class="t"><thead><tr><th>Joueur</th><th class="n">Mains</th><th class="n">VPIP</th><th class="n">PFR</th><th>Profil</th></tr></thead><tbody>${known.map(([n, o]) => `<tr><td>${esc(n)}</td><td class="n">${o.hands}</td><td class="n">${rate(o.vpip, o.hands)}</td><td class="n">${rate(o.pfr, o.hands)}</td><td>${HH.profileOf(o).label}</td></tr>`).join('')}</tbody></table></div><p class="note">Cumul de tous tes imports. Relis-les avant une session, jamais pendant.</p></section>` : ''}`;
+  };
+
+  // ---------- Indice de chance et courbe ajustée ----------
+  function luckHTML(me) {
+    const PR = window.Pro; if (!PR || !me.curve?.length) return '';
+    const L = PR.luck(me), z = (x) => (x >= 0 ? '+' : '−') + fr(Math.abs(x), 2);
+    const word = (zz) => (Math.abs(zz) < 1 ? 'variance normale' : Math.abs(zz) < 2 ? (zz > 0 ? 'plutôt chanceux' : 'plutôt malchanceux') : zz > 0 ? 'très chanceux (rare)' : 'très malchanceux (rare)');
+    const row = (l, x, txt) => (x ? `<div style="display:grid;gap:2px;padding:9px 0;border-top:1px solid var(--line)"><div class="row" style="justify-content:space-between;flex-wrap:nowrap;gap:10px"><strong>${l}</strong><span class="mono">${z(x.z)} σ · ${pct(x.pct)}</span></div><span class="note">${txt} · ${word(x.z)}</span></div>` : '');
+    return `<section class="panel"><div class="row" style="justify-content:space-between"><h2>Indice de chance</h2>${L.z !== undefined ? `<span class="pill ${Math.abs(L.z) < 1 ? '' : L.z > 0 ? 'good' : 'bad'}">${word(L.z)}</span>` : ''}</div>
+      ${L.z !== undefined ? `<p>Sur cet échantillon, tu as été plus chanceux que <strong>${pct(L.pct)}</strong> des joueurs qui auraient joué exactement les mêmes décisions (indice ${z(L.z)} écart-type).</p><div class="meter" aria-label="Percentile de chance"><i style="width:${L.pct * 100}%"></i></div>` : ''}
+      <div style="display:grid">
+        ${row('Tapis avant la river', L.allin, L.allin ? `${L.allin.n} tapis · ${sgn(L.allin.bb, 1)} bb contre l'équité (± ${fr(L.allin.sd, 1)})` : '')}
+        ${row('Mains premium reçues', L.prem, L.prem ? `${L.prem.k} QQ+ ou AK sur ${L.prem.n} mains (attendu ${fr(L.prem.exp, 1)})` : '')}
+        ${row('Sets floppés', L.sets, L.sets ? `${L.sets.k} sur ${L.sets.n} paires servies qui voient le flop (attendu ${fr(L.sets.exp, 1)})` : '')}</div>
+      <p class="note">Pour chaque mesure : écart à l'attendu en écart-types (σ) et percentile (part des joueurs moins chanceux sur le même nombre de mains).</p>
+      <canvas id="evc" height="220" aria-label="Résultat réel et résultat ajusté de la chance aux tapis"></canvas>
+      <p class="note"><span style="color:var(--accent)">■</span> Résultat réel en bb · <span style="color:var(--muted)">■</span> résultat si chaque tapis avait rapporté son équité. L'écart entre les deux courbes est ta chance aux tapis ; le reste de la variance (river payées, coolers sans tapis) n'est pas mesurable sans voir les cartes adverses.</p>
+      <p class="note">Entre −1 et +1 écart-type : rien d'anormal. Au-delà de ±2 : arrive environ 1 fois sur 20, sur un échantillon court ça reste fréquent. L'indice global pondère double les tapis, qui pèsent le plus sur le résultat.</p></section>`;
+  }
+  AFTER.analyse = () => {
+    const cv = $('#evc'), c = anRes?.me?.curve; if (!cv || !c?.length) return;
+    const step = Math.max(1, Math.ceil(c.length / 400)), pick = c.filter((_, i) => i % step === 0 || i === c.length - 1);
+    drawLines(cv, [{ pts: [0, ...pick.map((x) => x[1])], color: '--muted', width: 2 }, { pts: [0, ...pick.map((x) => x[0])] }], { fmt: (v) => fr(v, 0) + ' bb' });
   };
 
   // ---------- Journal ----------
@@ -484,6 +510,7 @@
         <label class="f">Mains jouées (cash)<input id="jhands" name="hands" inputmode="numeric" placeholder="600"></label>
         <label class="f">Durée (min)<input id="jmin" name="minutes" inputmode="numeric" placeholder="60"></label>
         <label class="f">Tilt ressenti<select id="jtilt" name="tilt"><option value="0">Aucun</option><option value="1">Léger</option><option value="2">Net</option><option value="3">Fort</option></select></label>
+        <label class="f">Déclencheur principal<select id="jtrig" name="trigger"><option value="">Aucun</option>${(window.__S52.tiltTriggers?.() || []).map((x) => `<option value="${esc(x.id)}">${esc(x.label)}</option>`).join('')}</select></label>
         <label class="f" style="grid-column:1/-1">Note (une main à revoir, une leçon)<input id="jnotes" name="notes" maxlength="200"></label>
         <div class="row" style="grid-column:1/-1"><button class="btn primary" type="submit">Enregistrer la session</button></div></form></section>
       <section class="panel"><span class="eyebrow">Courbe</span><h2>Bankroll</h2>${js.ss.length ? '<canvas id="bankc" height="220" aria-label="Courbe de bankroll"></canvas>' : '<p class="note">Aucune session pour l\'instant. Renseigne ta bankroll de départ ci-dessous, puis ta première session : la courbe apparaîtra ici.</p>'}</section>
@@ -648,7 +675,7 @@
     if (e.target.id !== 'jform') return;
     e.preventDefault();
     const f = new FormData(e.target), num = (k) => +String(f.get(k) || '').replace(/\s/g, '').replace(',', '.').replace('−', '-');
-    const s = { id: 's' + Date.now().toString(36), date: f.get('date'), room: f.get('room'), format: f.get('format'), stake: String(f.get('stake')).trim().toUpperCase().replace(/\s/g, ''), result: num('result'), hands: num('hands') || 0, minutes: num('minutes') || 0, tilt: +f.get('tilt'), notes: String(f.get('notes') || '').slice(0, 200) };
+    const s = { id: 's' + Date.now().toString(36), date: f.get('date'), room: f.get('room'), format: f.get('format'), stake: String(f.get('stake')).trim().toUpperCase().replace(/\s/g, ''), result: num('result'), hands: num('hands') || 0, minutes: num('minutes') || 0, tilt: +f.get('tilt'), trigger: String(f.get('trigger') || '').slice(0, 40), notes: String(f.get('notes') || '').slice(0, 200) };
     if (!Number.isFinite(s.result)) { jMsg = 'Résultat illisible : écris par exemple −4,20 ou 12.'; return render(); }
     state.journal.sessions.push(s); Store.save('journal');
     const bi = buyIn(s), lost = bi ? -s.result / bi : 0, ms = maxStake(journalStats().bank), bb = bbOf(s.stake);
@@ -662,7 +689,7 @@
   // ---------- Extension et démarrage ----------
   window.__S52 = {
     E, C, K, S, SV, B, HH, TS, $, esc, fr, eur, sgn, pct, today, addDays, rand, state, Store, render, go, head, heat, grid169,
-    cardHTML, backHTML, cardsHTML, mastery, drawLines, getAnRes: () => anRes, VIEWS, AFTER, TOOLVIEWS, TOOLS, ACT, ONCHANGE, ONINPUT, ONKEY, LINEUPS, runAnalysis,
+    cardHTML, backHTML, cardsHTML, mastery, drawLines, journalStats, maxStake, bbOf, getAnRes: () => anRes, VIEWS, AFTER, TOOLVIEWS, TOOLS, ACT, ONCHANGE, ONINPUT, ONKEY, LINEUPS, runAnalysis,
     getTab: () => tab, TABS, GROUPS, groupOf, setTool: (k) => { tool = k; }, setOpenMod: (id) => { openMod = id; qAns = {}; }, setSpotMode: (m) => { spotMode = m; daily = false; spot = null; },
     start() { render(); Store.init().then(render); },
   };

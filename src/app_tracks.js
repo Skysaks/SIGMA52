@@ -104,7 +104,7 @@
   ACT.exans = (t) => { const q = exm.qs[exm.i]; if (exm.ans[exm.i]) return; const i = +t.dataset.i; exm.ans[exm.i] = { i, ok: i === q.ok }; render(); };
   ACT.exnext = () => {
     exm.i++;
-    if (exm.i >= exm.qs.length) { const E = exams(), score = exm.ans.filter((x) => x.ok).length, r = E[exm.level] || { best: 0, n: 0 }; E[exm.level] = { best: Math.max(r.best, score), last: score, n: (r.n || 0) + 1, date: today(), passed: r.passed || score / exm.qs.length >= EXM.PASS }; Store.save('progress'); }
+    if (exm.i >= exm.qs.length) { const E = exams(), score = exm.ans.filter((x) => x.ok).length, r = E[exm.level] || { best: 0, n: 0 }; E[exm.level] = { best: Math.max(r.best, score), last: score, n: (r.n || 0) + 1, date: today(), passed: r.passed || score / exm.qs.length >= EXM.PASS }; if (!r.passed && E[exm.level].passed) X.award?.('exam', null, true); Store.save('progress'); }
     render();
   };
   ACT.exend = () => { exm = null; render(); };
@@ -180,6 +180,7 @@
       it.b = 0; it.due = addDays(1); p.srsMiss = p.srsMiss || {}; const lim = addDays(-30), miss = (p.srsMiss[m.id] || []).filter((d) => d >= lim).concat(today()); p.srsMiss[m.id] = miss;
       if (miss.length >= 2) { p.quiz[m.id] = Math.min(p.quiz[m.id] ?? 0, 0.6); Object.keys(p.srs).filter((x) => x.startsWith(m.id + '#')).forEach((x) => delete p.srs[x]); p.srsMiss[m.id] = []; if (!srs.decayed.includes(m.id)) srs.decayed.push(m.id); }
     }
+    X.award?.('srs', null, true);
     Store.save('progress'); render();
   };
   ONKEY.push((e, tab) => {
@@ -275,6 +276,7 @@
         <div class="row"><button class="btn" data-act="dataexp">Exporter une sauvegarde (JSON)</button><label class="btn">Importer une sauvegarde<input type="file" accept=".json,application/json" data-imp="1" hidden></label><button class="btn small" data-act="onbreset">Revoir l'accueil guidé</button></div>
         <p class="note" id="datamsg"></p></section>`;
   };
+  X.streak = streak; X.sigmaScore = score;
   ACT.onbreset = () => { const p = prog(); p.onboard = false; p.track = null; Store.save('progress'); go('jour'); };
   ACT.dataexp = async () => {
     const all = {}; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('sigma52.')) all[k] = localStorage.getItem(k); }

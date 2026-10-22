@@ -48,6 +48,31 @@
       ${a.ranges.length ? `<details><summary class="note">Ranges estimées des adversaires</summary><div class="tw"><table class="t"><thead><tr><th>Joueur</th><th>Profil</th><th class="n">Combos</th><th>Mains typiques</th></tr></thead><tbody>${a.ranges.map((r) => `<tr><td>${esc(r.name)}</td><td>${r.label}</td><td class="n">${r.n}</td><td class="mono note">${esc(r.desc)}</td></tr>`).join('')}</tbody></table></div>
         <p class="note">Estimation à partir du profil et des actions de la main. Contre de vrais joueurs, les profils restent des approximations.</p></details>` : ''}</section>`;
   }
+  // Conseiller par main : sur demande, l'action recommandée pour chacune des 169 mains au même moment de la main.
+  let ra = null;
+  const RA_COL = { raise: '--act-b2', call: '--act-x', check: '--act-x', fold: '--act-f' };
+  const raKey = (t) => t.handNo + ':' + t.seq.length + ':' + t.street;
+  function rangeAdvHTML(g) {
+    const t = g.tb;
+    if (!ra || ra.key !== raKey(t)) return `<section class="panel"><div class="row" style="justify-content:space-between"><div><span class="eyebrow">Conseiller par main</span><p class="note" style="margin:4px 0 0">Ce que le coach ferait ici avec chaque main de ta range, contre les mêmes adversaires.</p></div><button class="btn" data-act="rangeadv">Voir toute ma range</button></div></section>`;
+    const r = ra.res, name = { raise: t.cur > 0 ? 'Relancer' : 'Miser', call: 'Suivre', check: 'Parole', fold: 'Se coucher' };
+    const acts = ['raise', r.canCheck ? 'check' : 'call', ...(r.canCheck ? [] : ['fold'])];
+    const grid = X.grid169((h) => {
+      const c = r.cells[h];
+      if (!c) return `<span class="rc sv off" aria-label="${h} impossible">${h}</span>`;
+      const tip = `${h} : ${name[c.rec]}${c.eq !== null ? ' · équité ' + pct(c.eq, 0) : ''}${c.inR ? '' : ' · hors de ta range'}`;
+      return `<span class="rc sv${h === r.mine ? ' sel' : ''}" style="background:var(${RA_COL[c.rec]});${c.inR ? '' : 'opacity:.3;'}" title="${tip}" aria-label="${tip}">${h}</span>`;
+    });
+    const bars = acts.map((a) => { const f = r.nIn ? r.tot[a] / r.nIn : 0; return `<div class="typerow"><span><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(${RA_COL[a]});margin-right:6px"></i>${name[a]}</span><div class="meter"><i style="width:${f * 100}%;background:var(${RA_COL[a]})"></i></div><span class="mono">${pct(f)}</span></div>`; }).join('');
+    const mineC = r.cells[r.mine];
+    return `<section class="panel"><div class="row" style="justify-content:space-between"><span class="eyebrow">Conseiller par main · ${esc(r.label)}</span><button class="btn small" data-act="rangeadvclose">Masquer</button></div>
+      <div class="grid2"><div>${grid}</div><div style="display:grid;gap:8px;align-content:start"><p>Ta main <strong class="mono">${r.mine}</strong> : <strong>${mineC ? name[mineC.rec] : '—'}</strong>${mineC && !mineC.inR ? ' (elle n\'est pas dans ta range estimée)' : ''}.</p>${bars}
+        <p class="note">Répartition sur les ${r.nIn} combinaisons de ta range estimée (${esc(r.label)}). Les mains hors de cette range sont pâles. Survole une case pour l'équité.</p>
+        <p class="note">Le coach donne une seule action par main (pas de fréquences mixtes comme un solveur) : c'est un repère d'exploitation contre ces profils, pas un équilibre.</p></div></div></section>`;
+  }
+  ACT.rangeadv = () => { const g = cur(); if (!g?.tb) return; ra = { key: raKey(g.tb), res: Co.rangeAdvice(g.tb) }; render(); };
+  ACT.rangeadvclose = () => { ra = null; render(); };
+
   // Décision du héros : conseil calculé avant, puis noté.
   function decide(g, type, to) {
     const t = g.tb; if (!t || t.done || t.toAct !== 0) return;
@@ -58,6 +83,7 @@
         g.decisions.push({ hand: t.handNo, street: t.street, pos: a.pos, cards: hero.cards.slice(), board: t.board.slice(), act: type, rec: a.rec, recTxt: REC_FR(a, t), ok: gr.ok, note: gr.note, cats: a.cats, why: a.why, eq: a.eq, need: a.need });
         const cs = state.progress.coach;
         a.cats.forEach((c) => { const x = cs[c] || (cs[c] = { ok: 0, n: 0 }); x.n++; if (gr.ok) x.ok++; });
+        X.award?.('decision', { cats: a.cats, ok: gr.ok, champ: g.champ });
       }
     }
     t.act(type, to); t.runBots(); raiseTo = null; g.adv = null;
@@ -71,7 +97,7 @@
     g.adv = { key, a }; return a;
   }
   function afterHand(g) {
-    if (g.kind === 'cash') { state.progress.tableHands = (state.progress.tableHands || 0) + 1; }
+    if (g.kind === 'cash') { state.progress.tableHands = (state.progress.tableHands || 0) + 1; X.award?.('hand', null, true); }
     if (g.kind === 'xp' && g.tb.over && !g.counted && g.fmt && g.fmt !== 'expresso') {
       g.counted = true; const F = state.progress.formats || (state.progress.formats = {}), e = F[g.fmt] || (F[g.fmt] = { games: 0, places: [] });
       e.games++; e.places[g.tb.place] = (e.places[g.tb.place] || 0) + 1;
@@ -123,7 +149,7 @@
     let out = `<div class="row"><span class="pill acc">${cash.target ? `Main ${Math.min(t.session.hands + (t.done ? 0 : 1), cash.target)}/${cash.target}` : `Main ${t.session.hands + (t.done ? 0 : 1)}`}</span><span class="pill">${{ live: 'Coach en direct', exam: 'Mode examen', free: 'Sans aide' }[cash.mode]}</span>
       <label class="check"><input type="checkbox" id="showprof" data-act="showprof" ${showProfiles ? 'checked' : ''}><span class="note">Profils visibles</span></label><button class="btn small" data-act="cashstop" style="margin-left:auto">Terminer la session</button></div>
       ${cash.champ && X.champBanner ? X.champBanner(cash) : ''}${tableHTML(t, { showProfiles: showProfiles && !cash.champ?.hidden })}`;
-    if (L) out += `<section class="panel"><span class="eyebrow">À toi · ${TS.posName(t, 0)} · ${E.abstractOf(t.players[0].cards[0], t.players[0].cards[1])}</span>${actionsHTML(t)}</section>` + (cash.mode === 'live' ? coachHTML(adviceFor(cash), t) : '');
+    if (L) out += `<section class="panel"><span class="eyebrow">À toi · ${TS.posName(t, 0)} · ${E.abstractOf(t.players[0].cards[0], t.players[0].cards[1])}</span>${actionsHTML(t)}</section>` + (cash.mode === 'live' ? coachHTML(adviceFor(cash), t) + rangeAdvHTML(cash) : '');
     if (t.done && t.notes) {
       const n = t.notes, finished = sessionDone();
       out += `<section class="panel"><div class="row" style="justify-content:space-between"><h2>Débrief : ${n.net >= 0 ? '+' : '−'}${fr(Math.abs(n.net), 1)} bb</h2><div class="row"><button class="btn small" data-act="libtable">Sauvegarder la main</button><button class="btn small" data-act="rptable">Rejouer</button>${finished ? '' : '<button class="btn primary" data-act="cashnext">Main suivante <span style="opacity:.7">Entrée</span></button>'}</div></div>

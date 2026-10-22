@@ -260,6 +260,21 @@ const SHOTS = process.env.SHOTS || '';
     await p.fill('#jres', '−16,50'); await p.fill('#jhands', '700'); await p.click('#jform [type=submit]');
     if (!/Stop-loss/.test(await p.locator('[role=alert]').textContent())) errs.push(name + ' stop-loss');
     await over('journal');
+    // v15 : Carrière, Mental, Elo et ligue, conseiller par main, indice de chance
+    await tab('carriere'); for (const [k, v] of [['expenses', '1200'], ['savings', '8000'], ['target', '1500']]) { await p.fill(`#pf_${k}`, v); await p.press(`#pf_${k}`, 'Tab'); }
+    if (!(await has('text=Le plus court chemin')) || !(await has('#carc'))) errs.push(name + ' carrière'); await over('carriere'); await shot('carriere');
+    await tab('mental'); for (const k of ['sleep', 'energy', 'calm', 'focus']) await p.click(`[data-act=cisel][data-k=${k}][data-v="4"]`);
+    if (!(await has('text=Feu vert'))) errs.push(name + ' check-in'); await p.click('[data-act=cisave]'); await p.click('[data-act=trigtog][data-id=badbeat]');
+    if (!(await has('details[data-fid=badbeat]'))) errs.push(name + ' carte de tilt'); await over('mental'); await shot('mental');
+    await tab('journal'); if ((await p.locator('#jtrig option').count()) !== 2) errs.push(name + ' déclencheur du journal');
+    await tab('profil'); if (!(await has('text=Ligue de la semaine')) || !(await has('text=Classement Elo'))) errs.push(name + ' ligue / Elo');
+    const lg = await p.evaluate(() => JSON.parse(localStorage.getItem('sigma52.progress')).league); if (!(lg.xp > 100)) errs.push(name + ' XP de la ligue ' + lg.xp);
+    await tab('sim'); await p.click('[data-act=simsub][data-s=table]'); if (await has('[data-act=cashstop]')) await p.click('[data-act=cashstop]'); if (await has('[data-act=cashnew]')) await p.click('[data-act=cashnew]');
+    if (await has('[data-act=prepm][data-v=live]')) { await p.click('[data-act=prepm][data-v=live]'); await p.click('[data-act=cashstart]'); }
+    for (let g2 = 0; g2 < 60 && !(await has('[data-act=rangeadv]')); g2++) { if (await has('[data-act=hcall]')) await p.click('[data-act=hcall]'); else if (await has('[data-act=cashnext]')) await p.click('[data-act=cashnext]'); else break; }
+    if (await has('[data-act=rangeadv]')) { await p.click('[data-act=rangeadv]'); if ((await p.locator('.rc.sv').count()) !== 169) errs.push(name + ' conseiller par main'); await over('conseiller'); await shot('conseiller'); } else errs.push(name + ' conseiller absent');
+    await tab('analyse'); await p.click('[data-act=ansub][data-s=import]').catch(() => {}); await p.click('[data-act=ansample]'); await p.waitForTimeout(800);
+    if (!(await has('text=Indice de chance')) || !(await has('#evc'))) errs.push(name + ' indice de chance'); await over('chance'); await shot('chance');
     await tab('jour'); await over('jour-fin'); await shot('jour-fin');
     await p.close();
   }

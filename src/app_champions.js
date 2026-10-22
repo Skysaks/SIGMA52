@@ -136,7 +136,7 @@
     if (!g.recorded) {
       g.recorded = true;
       const key = c.legends ? 'legends' : c.id, r = P.by[key] || (P.by[key] = { sessions: 0, hands: 0, bb: 0 });
-      r.sessions++; r.hands += t.session.hands; r.bb += t.session.net; Store.save('progress');
+      r.sessions++; r.hands += t.session.hands; r.bb += t.session.net; X.award?.('champ', null, true); Store.save('progress');
     }
     const champs = t.players.filter((p, i) => i > 0 && TS.PROFILES[p.profile]?.like);
     const se = (p, n) => (n ? Math.sqrt(p * (1 - p) / n) : null);

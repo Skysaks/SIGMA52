@@ -20,8 +20,10 @@ Labo de poker personnel, utilisé **hors table** : avant et après les sessions,
 | Solveur | **Solveur postflop** (Discounted CFR, deux joueurs, rake en % plafonné) : river et turn exacts, flop approché par échantillon de tirages ; 16 scénarios préflop (pots simples et 3-bet), peintre de range pondérée, tailles configurables, estimation de l'arbre, exploitabilité, grille 13 × 13 par action, EV et équité par combo, « Ta main » (EV et perte de chaque action), rapport par catégorie, re-résolution exacte d'un turn ou d'une river à partir des ranges du solve précédent, import d'une main du replayer avec ses tailles réelles. **Rapport agrégé** : BTN contre BB sur un échantillon stratifié de flops résolus à l'avance, regroupé par texture, avec quoi il mise, réponse de BB. **Entraîneur** : décisions river tirées de mains complètes, notées en perte d'EV |
 | Outils | Rangés par catégorie. **Atlas préflop** (les 169 mains, ou les 81 du Short Deck, dans chaque situation : 2 à 10 joueurs, position, ouverture, limp, relance, 3-bet, type d'adversaire, tapis de 8 à 100 bb, ante, straddle ; décision et explication du moteur), **Variantes** (équité hold'em, Short Deck, Omaha 4 et 5 cartes, Omaha Hi-Lo, Stud à 7 cartes et Razz avec cartes mortes, avec la part des pots raflés), Équité, Board, Push/Fold & ICM, Ranges, **Calculs** (MDF, alpha, taille géométrique, SPR, cotes implicites, coût du rake), **Bloqueurs** (combos retirés par tes cartes), **PKO** (valeur d'une prime, range de call avec et sans prime), **Distribution** (courbe d'équité combo par combo de deux ranges sur un board : avantage de range et de nuts), **Deal ICM** (répartition d'un accord en table finale, ICM contre jetons), **Mémo** (fiche de préparation à relire avant la session, pas pendant), **Omaha** (équité PLO 2 à 4 mains, profil de main, relance pot-limit), **Probabilités** (les chiffres à connaître), **Partie maison** |
 | Analyse | Import d'historiques Winamax ou PokerStars : bb/100, EV des all-in, VPIP/PFR/3-bet/WTSD, résultat par position, fuites préflop, profil et plan d'exploitation par adversaire, plus gros pots, fiches cumulées, c-bet flop et fold to c-bet (toi et adversaires). **Replayer** pas à pas avec équité à chaque étape (flèches du clavier). **Bibliothèque** de 120 mains avec étiquettes et notes |
-| Journal | Sessions, bankroll, winrate avec intervalle de confiance (écart-type estimé sur tes propres sessions dès 15 sessions et 10 000 mains), stop-loss, limite autorisée, simulateur de variance et risque de ruine |
-| Profil | **Score SIGMA** sur 1 000 (préflop, maths, théorie, pratique, mental et discipline) avec le point le plus faible à travailler, 20 badges, régularité sur 28 jours, **export et import d'une sauvegarde** de toutes les données |
+| Journal | Sessions, bankroll, winrate avec intervalle de confiance (écart-type estimé sur tes propres sessions dès 15 sessions et 10 000 mains), stop-loss, limite autorisée, **déclencheur de tilt** par session, simulateur de variance et risque de ruine |
+| Carrière | **Tableau « passage pro »** : 10 critères calculés depuis le Journal et tes réglages (échantillon, winrate prouvé, gain horaire, caves, risque de ruine, fonds de vie, heures, discipline, examens, simulation), verdict et plus court chemin. **Simulateur de carrière** : 2 000 trajectoires sur 12 mois avec montées et descentes de limite, baisse du winrate en montant, retrait des dépenses ; risque de ruine, gain mensuel (10-50-90 %), objectif atteint, bankroll finale, limite finale |
+| Mental | **Check-in avant session** (sommeil, énergie, calme, concentration, pression de l'argent → feu vert, session courte ou pas de session). **Carte de tilt** : 9 déclencheurs proposés et les tiens, fiche de correction en 5 étapes par déclencheur (méthode de Jared Tendler), 3 niveaux de tilt (signes, réponse), règle d'arrêt, carte en bref à copier. **Coût du tilt** : résultats par niveau de tilt et par déclencheur |
+| Profil | **Classement Elo** (chaque spot et chaque décision notée au simulateur, difficulté fixe par exercice, bonus contre les champions difficiles ; niveau équivalent par exercice), **ligue de la semaine** (5 divisions de Bronze à Diamant, 20 joueurs dont 19 simulés, montée des 5 premiers, descente des 5 derniers), **médailles de série** (7, 30, 100 jours). **Score SIGMA** sur 1 000 (préflop, maths, théorie, pratique, mental et discipline) avec le point le plus faible à travailler, 20 badges, régularité sur 28 jours, **export et import d'une sauvegarde** de toutes les données |
 
 Navigation par espaces (Aujourd'hui, Apprendre, Jouer, Étudier, Suivre) avec barre du bas sur mobile, recherche globale (Ctrl+K ou /), thème automatique, clair ou sombre, aide des raccourcis (?).
 
@@ -51,7 +53,7 @@ src/spots.js      générateur d'exercices
 src/app.js        interface et stockage
 src/app_sim.js    simulateur, replayer, bibliothèque, nouveaux outils, programme
 src/champions.js  styles d'entraînement (sources), classement fourni ; src/app_champions.js onglet Champions
-src/app_studio.js Studio de contenus ; src/app_ui.js recherche globale, thème, raccourcis
+src/app_studio.js Studio de contenus ; src/pro.js calculs carrière, Elo, ligue, chance, check-in, carte de tilt ; src/app_pro.js onglets Carrière et Mental, Elo et ligue ; src/app_ui.js recherche globale, thème, raccourcis
 src/app_solver.js onglet Solveur ; src/app_trainer.js entraîneur ; src/app_tools.js outils Calculs, Bloqueurs, PKO, Omaha, Probabilités
 src/live.js       moteur de la Table live v2 (préflop, range pondérée, équité, EV, Omaha, ICM, structure, jetons, places) ; src/app_live.js onglet Table live
 src/live_model.js modèle appris (tools/train_live.js, lots cumulés par tools/merge_live.js dans tools/data/live_counts.json) ; src/exams.js banque des examens de niveau ; src/course_deep*.js exercices corrigés ; src/live_multi.js équité préflop multiway (tools/build_multi.js) ; src/aggregate_data.js rapport agrégé (tools/build_aggregate.js)
@@ -76,7 +78,7 @@ node tools/merge_live.js lotA.json lotB.json   # cumule les lots au modèle exis
 node tools/build_multi.js 8000      # ~1 min, équité préflop multiway
 node tools/build_aggregate.js 90 90 # ~1 h, rapport agrégé
 node tools/bench_live.js 4000 7     # ~5 min, banc d'essai du moteur live
-for t in engine solver postflop board spots table course guided hh live omaha variants coach; do   # coach : ~4 min
+for t in engine solver postflop board spots table course guided hh live omaha variants pro coach; do   # coach : ~4 min
   node test/$t.test.js; done
 NODE_PATH=$(npm root -g) node test/ui.test.js   # Playwright, 1280 px et 390 px
 ```
@@ -88,6 +90,7 @@ NODE_PATH=$(npm root -g) node test/ui.test.js   # Playwright, 1280 px et 390 px
 - Matrice préflop : AA contre KK 81,9 %, AKs contre QQ 46,2 %, 22 contre AKo 52,6 %.
 - Solveur : à 10 bb en tête-à-tête, la SB pousse 58,4 % des mains, valeur publiée de référence. Avec une seule place payée, l'ICM retombe exactement sur l'équilibre en jetons.
 - Parseur : sur des historiques Winamax réels, la somme des gains de tous les joueurs égale moins le rake.
+- Carrière et progression : simulateur de carrière exact sans variance (montées de limite comprises), Elo qui converge vers d + 400 log10(p ÷ (1 − p)), semaine ISO et montée/descente de ligue, fréquences de mains premium (2,56 %) et de sets (11,8 %) retrouvées sur 3 000 mains simulées.
 - Cours : chaque probabilité citée est recalculée par le moteur ; structure, balises et quiz de chaque module vérifiés par test.
 - Solveur postflop : jeu polarisé à solution connue (mise pot : 1/3 de bluffs, défense 50 % ; demi-pot : 1/4 de bluffs, défense 2/3) retrouvé à ±2 points ; somme des EV des deux ranges = pot à chaque nœud ; équité identique à l'énumération exacte du moteur ; exploitabilité < 0,5 % du pot sur une river réelle BTN contre BB.
 - Coach : ranges estimées calibrées à 99 % sur les vraies mains des bots ; un joueur qui suit le coach gagne entre ~114 et ~239 bb/100 selon les tirages (le coach calcule ses équités par Monte-Carlo non fixé ; 3 000 mains), contre ~−5 pour un bot régulier, mêmes cartes, même table ; en Expresso, 42 à 47 % de premières places selon les tirages, contre 37 % pour un bot régulier (250 parties) : avantage faible, proche de la marge d'erreur.
@@ -125,6 +128,12 @@ NODE_PATH=$(npm root -g) node test/ui.test.js   # Playwright, 1280 px et 390 px
 - Modèle de la Table live entraîné sur 4,3 fois plus de mains (7,8 millions, puis 12,6 millions en v13), avec plus de tailles de table (2, 3, 4, 5, 6, 8, 9), de profondeurs (25 à 200 bb), de politiques de héros et de compositions de table ; entraînement par lots cumulables.
 - 12 nouveaux styles Champions sourcés, comportements de tilt, de position et de piège.
 - Examens des 6 niveaux et test de niveau sur les 6 niveaux ; 200 exercices corrigés ; réponses mélangées.
+
+### Ajouté en v15
+- Onglet **Carrière** (critères de passage pro, simulateur de carrière sur 12 mois) et onglet **Mental** (check-in, carte de tilt, fiches de correction, coût du tilt).
+- **Elo**, **ligue de la semaine** et **médailles de série** (Profil, Aujourd'hui), alimentés par les spots, le simulateur, les modules, les examens, les Champions, le solveur, l'entraîneur river et les révisions.
+- Simulateur : **conseiller par main**, l'action du coach pour les 169 mains au même moment de la main, sur ta range préflop estimée.
+- Analyse : **indice de chance** (tapis, mains premium reçues, sets floppés, en écart-types et percentiles) et **courbe ajustée** de la chance aux tapis.
 
 ### Ajouté en v14
 - Table live : modèle par **texture de board** (sec, connecté, pairé, trois cartes d'une couleur) ; **apprentissage des vrais joueurs** (réactions à tes mises, abattages, VPIP/PFR réels dès 15 mains, estimation bayésienne tirée vers le type) ; **plan sur les rues suivantes** (taille géométrique, contrôle du pot, abandon de bluff) ; **décision préparée s'il relance** ; **cartes à venir** (celles qui t'aident, celles qui te font peur) ; taille effective de la range adverse.

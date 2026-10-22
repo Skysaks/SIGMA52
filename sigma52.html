@@ -5079,7 +5079,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
     const hands = split(text).map(parseHand).filter((h) => h.seats.length >= 2 && h.bb > 0);
     const heroCount = {}; hands.forEach((h) => h.hero && (heroCount[h.hero] = (heroCount[h.hero] || 0) + 1));
     const hero = Object.entries(heroCount).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
-    const opp = {}, me = { hands: 0, net: 0, netBB: 0, vpip: 0, pfr: 0, threeOpp: 0, three: 0, sawFlop: 0, sd: 0, wsd: 0, aggr: 0, calls: 0, cbetOpp: 0, cbet: 0, ftcOpp: 0, ftc: 0, byPos: {}, luck: 0, allins: [], rake: 0 };
+    const opp = {}, me = { hands: 0, net: 0, netBB: 0, vpip: 0, pfr: 0, threeOpp: 0, three: 0, sawFlop: 0, sd: 0, wsd: 0, aggr: 0, calls: 0, cbetOpp: 0, cbet: 0, ftcOpp: 0, ftc: 0, byPos: {}, luck: 0, allins: [], rake: 0, dealt: { n: 0, prem: 0 }, sets: { n: 0, hit: 0 }, curve: [] };
     const leaks = { tooLoose: [], tooTight: [], limps: [] }, pots = [];
     for (const h of hands) {
       const a = analyzeHand(h);
@@ -5104,6 +5104,14 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
         }
         const L = allinLuck(h, a);
         if (L) { me.luck += L.luck; me.allins.push({ id: h.id, ...L, bb: h.bb }); }
+        // Indice de chance : cartes reçues, sets floppés, courbe réelle et courbe ajustée de la chance aux tapis.
+        if (h.heroCards) {
+          const [c1, c2] = h.heroCards, r1 = c1 >> 2, r2 = c2 >> 2;
+          me.dealt.n++; if ((r1 === r2 && r1 >= 10) || (Math.min(r1, r2) === 11 && Math.max(r1, r2) === 12)) me.dealt.prem++;
+          if (r1 === r2 && a.facts[hero]?.sawFlop && h.board.length >= 3) { me.sets.n++; if (h.board.slice(0, 3).some((c) => c >> 2 === r1)) me.sets.hit++; }
+        }
+        const prev = me.curve[me.curve.length - 1] || [0, 0];
+        me.curve.push([prev[0] + nbb, prev[1] + nbb - (L ? L.luck / h.bb : 0)]);
       }
     }
     pots.sort((x, y) => Math.abs(y.bb) - Math.abs(x.bb));
@@ -5573,9 +5581,9 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
   };
   // Profil de base d'un joueur (les styles « champions » sont estimés comme leur profil le plus proche).
   const K = (p) => (TS.kindOf ? TS.kindOf(TS.PROFILES[p.profile], p.profile) : p.profile);
-  function villainRange(t, vi) {
+  function villainRange(t, vi, boardOnly) {
     const p = t.players[vi], pr = TS.PROFILES[p.profile];
-    const dead = [...t.players[0].cards, ...t.board];
+    const dead = boardOnly ? t.board.slice() : [...t.players[0].cards, ...t.board];
     let lo = 0, hi = 1, level = 1;
     for (const s of t.seq) {
       if (s.street !== 'pre') break;
@@ -5615,9 +5623,9 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
   const inRange = (str, h) => E.parseRange(str).has(h);
 
   function advise(t, opts = {}) {
-    const hero = t.players[0], L = t.legal(), pos = TS.posName(t, 0), hand = E.abstractOf(hero.cards[0], hero.cards[1]);
+    const hero = t.players[0], hc = opts.cards || hero.cards, L = t.legal(), pos = TS.posName(t, 0), hand = E.abstractOf(hc[0], hc[1]);
     const villains = t.players.map((p, i) => i).filter((i) => i > 0 && t.players[i].inHand);
-    const ranges = villains.map((vi) => ({ vi, name: t.players[vi].name, profile: K(t.players[vi]), real: t.players[vi].profile, ...villainRange(t, vi) }));
+    const ranges = opts.ranges || villains.map((vi) => ({ vi, name: t.players[vi].name, profile: K(t.players[vi]), real: t.players[vi].profile, ...villainRange(t, vi) }));
     const stationIn = ranges.some((r) => r.profile === 'station');
     const why = [], cats = [];
     let rec = L.canCheck ? 'check' : 'fold', to = 0, eq = null;
@@ -5669,10 +5677,10 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
         if (K(agg) === 'nit') why.push('Un nit ne sur-relance qu\'avec le haut de sa range : resserre-toi.');
       }
       // Équité préflop contre les ranges estimées (indicative).
-      if (ranges.length) eq = E.equity([{ hand: hero.cards }, ...ranges.map((r) => ({ combos: r.combos }))], [], { iterations: opts.iterations || 2500 }).equity[0];
+      if (ranges.length && !opts.fast) eq = E.equity([{ hand: hc }, ...ranges.map((r) => ({ combos: r.combos }))], [], { iterations: opts.iterations || 2500 }).equity[0];
     } else {
-      eq = E.equity([{ hand: hero.cards }, ...ranges.map((r) => ({ combos: r.combos }))], t.board, { iterations: opts.iterations || 3000 }).equity[0];
-      const k = B.classify(hero.cards, t.board), multi = ranges.length > 1, river = t.street === 'river';
+      eq = E.equity([{ hand: hc }, ...ranges.map((r) => ({ combos: r.combos }))], t.board, { iterations: opts.iterations || 3000 }).equity[0];
+      const k = B.classify(hc, t.board), multi = ranges.length > 1, river = t.street === 'river';
       const drawNote = k.draws.length ? ` Tirage : ${k.draws.map((d) => B.DRAWS[d].toLowerCase()).join(', ')}.` : '';
       why.push(`Ta main : ${B.MADE[k.made].toLowerCase()}.${drawNote} Équité contre ${multi ? 'les ranges estimées' : 'la range estimée'} : ${fmtP(eq)}.`);
       if (L.toCall > 0) {
@@ -5703,6 +5711,47 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
     return { pos, hand, rec, to, eq, need, toCall: L.toCall, pot: L.pot, cats, why, ranges: ranges.map((r) => ({ name: r.name, profile: r.profile, label: TS.PROFILES[r.real].label, n: r.combos.length, pct: r.pct, desc: describeRange(r) })) };
   }
 
+
+  // Conseiller par main : l'action que le coach recommanderait ici avec chacune des 169 mains, à ranges adverses identiques.
+  // La range du héros est estimée depuis ses actions préflop et les tableaux de référence (ouverture, défense, 3-bet).
+  function heroPreRange(t) {
+    const pre = t.seq.filter((s) => s.street === 'pre'), all = new Set(E.ALL169);
+    const k = pre.findIndex((s) => s.i === 0); if (k < 0) return { set: all, label: 'toutes les mains (première décision)' };
+    const before = pre.slice(0, k), act = pre[k].final, pos = TS.posName(t, 0), raises = before.filter((s) => s.final === 'raise');
+    const pick = (f) => new Set(E.ALL169.filter(f));
+    if (!raises.length && act === 'raise' && C.RFI[pos] && !before.some((s) => s.final === 'call')) return { set: E.parseRange(C.RFI[pos].range), label: `ouverture ${pos}` };
+    if (raises.length === 1 && before.filter((s) => s.final === 'call').length === 0) {
+      const oPos = TS.posName(t, raises[0].i), want = act === 'raise' ? '3bet' : act === 'call' ? 'call' : null;
+      if (want && C.FACING[oPos]?.[pos]) return { set: pick((h) => C.facingAction(oPos, pos, h) === want), label: `${want === '3bet' ? '3-bet' : 'défense'} ${pos} contre ${oPos}` };
+    }
+    if (act === 'check') return { set: all, label: 'toutes les mains (check en grosse blinde)' };
+    if (act === 'raise') return { set: pick((h) => pctOf(h) < (raises.length ? 0.06 : 0.2)), label: raises.length ? 'haut de range (sur-relance)' : 'isolation' };
+    if (act === 'call') return { set: pick((h) => pctOf(h) < (raises.length >= 2 ? 0.08 : 0.3)), label: 'mains qui suivent' };
+    return { set: all, label: 'toutes les mains' };
+  }
+  function rangeAdvice(t, opts = {}) {
+    const villains = t.players.map((p, i) => i).filter((i) => i > 0 && t.players[i].inHand);
+    const ranges = villains.map((vi) => ({ vi, name: t.players[vi].name, profile: K(t.players[vi]), real: t.players[vi].profile, ...villainRange(t, vi, true) }));
+    const hr = heroPreRange(t), board = new Set(t.board), pre = t.street === 'pre', mine = E.abstractOf(t.players[0].cards[0], t.players[0].cards[1]);
+    const canCheck = t.legal().canCheck, cells = {}, tot = { raise: 0, call: 0, check: 0, fold: 0 };
+    let nIn = 0;
+    for (const h of E.ALL169) {
+      const cs = E.combos(h).filter((c) => !board.has(c[0]) && !board.has(c[1]));
+      if (!cs.length) { cells[h] = null; continue; }
+      // Postflop, la couleur compte : jusqu'à 3 combinaisons par main, action majoritaire.
+      const sample = pre ? [cs[0]] : cs.length <= 3 ? cs : [cs[0], cs[Math.floor(cs.length / 2)], cs[cs.length - 1]];
+      const votes = {}; let eqs = 0, ne = 0;
+      for (const c of sample) {
+        let a; try { a = advise(t, { cards: c, ranges, fast: pre, iterations: opts.iterations || 260 }); } catch (e) { continue; }
+        const r = a.rec === 'check' && !canCheck ? 'fold' : a.rec; votes[r] = (votes[r] || 0) + 1;
+        if (a.eq !== null && a.eq !== undefined) { eqs += a.eq; ne++; }
+      }
+      const rec = Object.entries(votes).sort((x, y) => y[1] - x[1])[0]?.[0]; if (!rec) { cells[h] = null; continue; }
+      const inR = hr.set.has(h); cells[h] = { rec, eq: ne ? eqs / ne : null, inR, n: cs.length };
+      if (inR) { tot[rec] += cs.length; nIn += cs.length; }
+    }
+    return { cells, tot, nIn, label: hr.label, mine, street: t.street, canCheck };
+  }
 
   // Tapis courts (Expresso, fins de tournoi) : tapis ou couché.
   // Tête-à-tête SB contre BB : équilibre de Nash exact (solveur). À 3 joueurs : estimation contre les seuils connus des bots.
@@ -5759,7 +5808,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
   }
 
   const ACT_FR = { fold: 'se coucher', check: 'parole', call: 'suivre', raise: 'miser / relancer' };
-  const api = { CATS, ACT_FR, villainRange, advise, grade, describeRange, preflopInterval, pushFoldAdvice };
+  const api = { CATS, ACT_FR, villainRange, advise, grade, describeRange, preflopInterval, pushFoldAdvice, heroPreRange, rangeAdvice };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Coach = api;
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
@@ -6041,6 +6090,214 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Plan = api;
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
+<script>// Calculs sans interface pour la carrière et la progression : simulateur de carrière sur 12 mois, critères de passage pro,
+// classement Elo, ligue hebdomadaire, indice de chance, check-in avant session, carte de tilt (données par défaut).
+(function (root) {
+  // ---------- Hasard reproductible ----------
+  function rng(seed) { let a = seed >>> 0 || 1; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  const gauss = (r) => { let u = 0; while (!u) u = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * r()); };
+  const hash = (s) => { let h = 2166136261; for (const c of String(s)) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
+  // Fonction de répartition de la loi normale (Abramowitz et Stegun 26.2.17, erreur < 7,5e-8).
+  function normCdf(z) {
+    const t = 1 / (1 + 0.2316419 * Math.abs(z)), d = 0.3989422804014327 * Math.exp(-z * z / 2);
+    const p = d * t * (0.31938153 + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))));
+    return z >= 0 ? 1 - p : p;
+  }
+  const quant = (sorted, q) => sorted.length ? sorted[Math.min(sorted.length - 1, Math.max(0, Math.round(q * (sorted.length - 1))))] : 0;
+
+  // ---------- Limites ----------
+  const STAKES = [['NL2', 0.02], ['NL5', 0.05], ['NL10', 0.1], ['NL25', 0.25], ['NL50', 0.5], ['NL100', 1], ['NL200', 2], ['NL500', 5]];
+  const stakeIndex = (name) => Math.max(0, STAKES.findIndex(([n]) => n === String(name || '').toUpperCase()));
+
+  // ---------- Simulateur de carrière ----------
+  // Chaque mois : 4 blocs de mains (gain ~ loi normale de moyenne winrate × mains et d'écart-type σ × √(mains/100)),
+  // montée de limite dès que la bankroll couvre `rule` caves de la limite suivante, descente sous `down` caves de la limite jouée,
+  // le winrate baisse de `drop` bb/100 par limite au-dessus de la limite de départ (adversaires plus forts),
+  // puis retrait des dépenses du mois. Ruine : bankroll sous 10 caves de NL2 (20 €), la carrière s'arrête.
+  function careerSim(o) {
+    const P = { bank: 1000, stake: 2, wr: 5, sd: 90, hoursMonth: 80, handsHour: 200, months: 12, rule: 40, down: 25, drop: 1.5, expenses: 0, target: 0, paths: 2000, seed: 7, ...o };
+    const r = rng(P.seed), handsMonth = Math.max(0, P.hoursMonth * P.handsHour), step = handsMonth / 4, ruinAt = 10 * 100 * STAKES[0][1];
+    const fan = Array.from({ length: P.months + 1 }, () => []), finals = [], incomes = [], stakesEnd = new Array(STAKES.length).fill(0);
+    let ruined = 0, hitTarget = 0, losingMonths = 0, covered = 0, peakStake = 0;
+    for (let p = 0; p < P.paths; p++) {
+      let b = P.bank, k = Math.min(STAKES.length - 1, Math.max(0, P.stake)), dead = false, inc = 0, lm = 0, cov = 0, top = k;
+      fan[0].push(b);
+      for (let m = 1; m <= P.months; m++) {
+        if (dead) { fan[m].push(0); continue; }
+        const start = b;
+        for (let s = 0; s < 4 && step > 0; s++) {
+          const wr = P.wr - P.drop * Math.max(0, k - P.stake) + 0.5 * P.drop * Math.max(0, P.stake - k);
+          b += (wr * step / 100 + P.sd * Math.sqrt(step / 100) * gauss(r)) * STAKES[k][1];
+          if (k < STAKES.length - 1 && b >= P.rule * 100 * STAKES[k + 1][1]) k++;
+          else if (k > 0 && b < P.down * 100 * STAKES[k][1]) k--;
+          top = Math.max(top, k);
+        }
+        const won = b - start; inc += won; if (won < 0) lm++;
+        b -= P.expenses;
+        if (b < ruinAt) { dead = true; fan[m].push(Math.max(0, b)); continue; }
+        cov++; fan[m].push(b);
+      }
+      if (dead) ruined++; else stakesEnd[k]++;
+      if (cov === P.months) covered++;
+      finals.push(dead ? 0 : b); incomes.push(inc / P.months); losingMonths += lm; peakStake += top;
+      if (!dead && inc / P.months >= P.target) hitTarget++;
+    }
+    const sortN = (a) => a.slice().sort((x, y) => x - y);
+    const fs = sortN(finals), is = sortN(incomes);
+    return {
+      params: P, handsMonth,
+      pRuin: ruined / P.paths, pTarget: hitTarget / P.paths, pCovered: covered / P.paths,
+      final: { p10: quant(fs, 0.1), p50: quant(fs, 0.5), p90: quant(fs, 0.9) },
+      income: { p10: quant(is, 0.1), p50: quant(is, 0.5), p90: quant(is, 0.9), mean: is.reduce((a, x) => a + x, 0) / is.length },
+      losingMonths: losingMonths / P.paths, peakStake: peakStake / P.paths,
+      stakesEnd: stakesEnd.map((n) => n / P.paths),
+      fan: fan.map((col) => { const s = sortN(col); return [0.1, 0.25, 0.5, 0.75, 0.9].map((q) => quant(s, q)); }),
+    };
+  }
+  // Risque de ruine (formule de diffusion) : exp(−2 × winrate × bankroll en bb ÷ σ²), winrate et σ en bb/100.
+  const riskOfRuin = (wr, sd, bankBB) => (wr <= 0 ? 1 : Math.exp(-2 * wr * bankBB / (sd * sd)));
+
+  // ---------- Critères de passage pro ----------
+  // Repères courants, pas des lois : à adapter à ta situation. Chaque critère : ok, proche, non ou à renseigner.
+  function proCriteria(d) {
+    const out = [], add = (k, label, st, val, need, tip, critical) => out.push({ k, label, st, val, need, tip, critical: !!critical });
+    const lvl = (v, ok, near, higherIsBetter = true) => (v === null || v === undefined || Number.isNaN(v) ? 'na' : higherIsBetter ? (v >= ok ? 'ok' : v >= near ? 'near' : 'no') : (v <= ok ? 'ok' : v <= near ? 'near' : 'no'));
+    const bb = d.bbValue || null, hasWr = d.wr !== null && d.wr !== undefined && d.hands > 0;
+    add('volume', 'Échantillon de mains', lvl(d.hands || 0, 50000, 20000), d.hands || 0, '50 000 mains cash', 'Sous 50 000 mains, l\'intervalle de confiance du winrate reste trop large pour décider.', false);
+    add('proof', 'Winrate prouvé', hasWr ? (d.wr - d.ci > 0 ? 'ok' : d.wr > 0 ? 'near' : 'no') : 'na', hasWr ? d.wr - d.ci : null, 'borne basse de l\'intervalle à 95 % au-dessus de 0', 'Tant que l\'intervalle contient 0, tes résultats peuvent venir de la chance.', true);
+    const hourly = hasWr && bb ? d.wr / 100 * (d.handsHour || 0) * bb : null, needH = d.target && d.hoursMonth ? d.target / d.hoursMonth : null;
+    add('hourly', 'Gain horaire attendu', hourly === null || needH === null ? 'na' : lvl(hourly, needH, needH * 0.6), hourly, needH === null ? 'objectif de revenu et heures à renseigner' : `${needH.toFixed(2).replace('.', ',')} €/h pour ton objectif`, 'Winrate × mains par heure × valeur de la grosse blinde. Monte de limite ou de volume si tu es en dessous.', false);
+    const caves = bb ? d.bank / (100 * bb) : null;
+    add('caves', 'Bankroll en caves', lvl(caves, 50, 30), caves, '50 caves de ta limite', 'Un joueur qui vit du poker ne peut pas redéposer : il lui faut plus que les 40 caves d\'un amateur.', true);
+    const ror = hasWr && bb ? riskOfRuin(d.wr, d.sd || 90, d.bank / bb) : null;
+    add('ror', 'Risque de ruine', ror === null ? 'na' : lvl(ror, 0.01, 0.05, false), ror, '1 % au plus', 'Calculé avec ton winrate, ton écart-type et ta bankroll en bb, sans retraits.', false);
+    const months = d.expenses > 0 ? (d.savings || 0) / d.expenses : null;
+    add('fund', 'Fonds de vie hors bankroll', lvl(months, 6, 3), months, '6 mois de dépenses', 'Les dépenses ne doivent jamais être prélevées pendant un downswing : c\'est ce qui ruine les nouveaux pros.', true);
+    add('hours', 'Heures jouées et notées', lvl(d.hours || 0, 500, 200), d.hours || 0, '500 heures', 'Le volume dit si tu tiens le rythme d\'un temps plein, pas seulement si tu gagnes.', false);
+    const recent = (d.sessions || []).slice(-30), tiltShare = recent.length >= 10 ? recent.filter((s) => (s.tilt || 0) >= 2).length / recent.length : null;
+    add('tilt', 'Discipline (sessions en tilt net ou fort)', lvl(tiltShare, 0.1, 0.2, false), tiltShare, '10 % des 30 dernières sessions au plus', 'Le tilt coûte plus que n\'importe quelle fuite technique. Voir l\'onglet Mental.', false);
+    add('study', 'Formation (examens de niveau validés)', lvl(d.exams || 0, 4, 2), d.exams || 0, 'niveaux 1 à 4', 'Les examens des niveaux 1 à 4 couvrent ce qu\'un régulier gagnant doit maîtriser.', false);
+    const sim = d.sim;
+    add('sim', 'Simulation sur 12 mois', !sim ? 'na' : sim.pRuin <= 0.05 && sim.pTarget >= 0.5 ? 'ok' : sim.pRuin <= 0.15 ? 'near' : 'no', sim ? sim.pRuin : null, 'ruine ≤ 5 % et objectif atteint une fois sur deux', 'Avec tes chiffres, dépenses retirées chaque mois.', true);
+    const ok = out.filter((c) => c.st === 'ok').length, critNo = out.some((c) => c.critical && (c.st === 'no' || c.st === 'na'));
+    const verdict = ok === out.length ? 'ready' : ok >= 7 && !critNo ? 'close' : 'not';
+    return { list: out, ok, n: out.length, verdict };
+  }
+
+  // ---------- Elo ----------
+  // Difficulté fixe par type d'exercice : à l'équilibre, ton Elo vaut d + 400 × log10(réussite ÷ échec).
+  const SPOT_D = { rfi: 1000, vsopen: 1150, odds: 1100, tirage: 1150, pushfold: 1250, outs: 1050, meilleure: 1200, situations: 1300, mdf: 1250, combos: 1350, bounty: 1400 };
+  const DEC_D = { rfi: 1050, iso: 1150, pfdef: 1200, odds: 1200, value: 1250, nobluff: 1150, bluff: 1300, pushfold: 1250 };
+  const LEVEL_BONUS = { Facile: 0, Moyen: 50, Difficile: 150, 'Très difficile': 300 };
+  const ELO_TITLES = [[0, 'Débutant'], [1000, 'Amateur'], [1200, 'Régulier'], [1400, 'Fort'], [1600, 'Expert'], [1800, 'Élite']];
+  const eloTitle = (r) => ELO_TITLES.filter(([x]) => r >= x).pop()[1];
+  const expected = (r, d) => 1 / (1 + Math.pow(10, (d - r) / 400));
+  function eloUpdate(E, d, score, day) {
+    E.r = E.r ?? 1000; E.n = E.n || 0;
+    const K = E.n < 30 ? 40 : E.n < 200 ? 24 : 16, delta = K * (score - expected(E.r, d));
+    E.r = Math.round((E.r + delta) * 10) / 10; E.n++; E.best = Math.max(E.best || 0, E.r);
+    if (day) { E.hist = E.hist || []; const last = E.hist[E.hist.length - 1]; if (last && last[0] === day) last[1] = E.r; else E.hist.push([day, E.r]); if (E.hist.length > 120) E.hist.shift(); }
+    return delta;
+  }
+
+  // ---------- Ligue hebdomadaire ----------
+  const DIVS = ['Bronze', 'Argent', 'Or', 'Platine', 'Diamant'], DIV_MED = [250, 450, 700, 1000, 1400], PROMOTE = 5, DEMOTE = 5, SIZE = 20;
+  const XP = { spot: 10, spotOk: 5, decision: 4, decisionOk: 2, hand: 1, module: 40, exam: 120, champ: 30, solve: 15, trainer: 8, srs: 3 };
+  const RIVALS = ['Léa', 'Malik', 'Inès', 'Hugo', 'Sacha', 'Nora', 'Yanis', 'Camille', 'Théo', 'Jade', 'Rayan', 'Manon', 'Elias', 'Zoé', 'Adam', 'Lina', 'Noah', 'Chloé', 'Sami', 'Louise', 'Ilyes', 'Margaux', 'Nathan', 'Anaïs'];
+  // Semaine ISO « 2026-W43 » et fraction écoulée depuis lundi 0 h (heure locale).
+  function weekKey(d = new Date()) {
+    const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())), day = t.getUTCDay() || 7;
+    t.setUTCDate(t.getUTCDate() + 4 - day);
+    const y = t.getUTCFullYear(), w = Math.ceil(((t - Date.UTC(y, 0, 1)) / 864e5 + 1) / 7);
+    return `${y}-W${String(w).padStart(2, '0')}`;
+  }
+  function weekFrac(d = new Date()) { const day = (d.getDay() + 6) % 7; return Math.min(1, (day * 24 + d.getHours() + d.getMinutes() / 60) / 168); }
+  // Rivaux simulés (pas de vrais joueurs) : XP finale tirée autour de la médiane de la division, révélée au fil de la semaine.
+  function rivals(week, div) {
+    const r = rng(hash(week + ':' + div)), names = RIVALS.slice();
+    for (let i = names.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [names[i], names[j]] = [names[j], names[i]]; }
+    return names.slice(0, SIZE - 1).map((name) => ({ name, final: Math.round(DIV_MED[div] * Math.exp(0.55 * gauss(r))), curve: 0.7 + 0.6 * r() }));
+  }
+  function standings(L, now = new Date(), frac = weekFrac(now)) {
+    const rows = rivals(L.week, L.div).map((x) => ({ name: x.name, xp: Math.round(x.final * Math.pow(frac, x.curve)) }));
+    rows.push({ name: 'Toi', xp: L.xp || 0, me: true });
+    rows.sort((a, b) => b.xp - a.xp || (a.me ? -1 : b.me ? 1 : 0));
+    return rows.map((x, i) => ({ ...x, rank: i + 1 }));
+  }
+  // Clôture de la semaine stockée si une nouvelle semaine a commencé : montée (5 premiers), descente (5 derniers).
+  function leagueRoll(L, now = new Date()) {
+    const wk = weekKey(now);
+    if (!L.week) { L.week = wk; L.div = L.div || 0; L.xp = 0; L.hist = L.hist || []; return null; }
+    if (L.week === wk) return null;
+    const rank = standings(L, now, 1).find((x) => x.me).rank, from = L.div;
+    let move = 0;
+    if (rank <= PROMOTE && L.div < DIVS.length - 1) move = 1; else if (rank > SIZE - DEMOTE && L.div > 0) move = -1;
+    L.hist = L.hist || []; L.hist.push({ week: L.week, div: from, rank, xp: L.xp || 0, move }); if (L.hist.length > 52) L.hist.shift();
+    L.div = from + move; L.week = wk; L.xp = 0;
+    return { rank, move, from, to: L.div };
+  }
+  const MEDALS = [[7, 'Bronze'], [30, 'Argent'], [100, 'Or']];
+  const medalOf = (streak) => { const got = MEDALS.filter(([n]) => streak >= n).pop(), next = MEDALS.find(([n]) => streak < n); return { got: got ? got[1] : null, next: next ? { name: next[1], need: next[0], left: next[0] - streak } : null }; };
+
+  // ---------- Indice de chance ----------
+  // Trois mesures indépendantes, chacune en écart-types (z) et en percentile :
+  // tapis (gain réel moins équité × pot), mains premium reçues (QQ+, AK : 34 combinaisons sur 1 326), sets floppés avec une paire servie (≈ 11,8 %).
+  const P_PREM = 34 / 1326, P_SET = 1 - (48 * 47 * 46) / (50 * 49 * 48);
+  function luck(me) {
+    const out = {};
+    const al = me.allins || [];
+    if (al.length) {
+      let l = 0, v = 0; for (const a of al) { const pot = a.pot / a.bb; l += a.luck / a.bb; v += a.eq * (1 - a.eq) * pot * pot; }
+      const sd = Math.sqrt(v); out.allin = { n: al.length, bb: l, sd, z: sd ? l / sd : 0 }; out.allin.pct = normCdf(out.allin.z);
+    }
+    const bin = (k, n, p) => { if (!n) return null; const sd = Math.sqrt(n * p * (1 - p)), z = (k - n * p) / sd; return { n, k, exp: n * p, z, pct: normCdf(z) }; };
+    if (me.dealt) out.prem = bin(me.dealt.prem, me.dealt.n, P_PREM);
+    if (me.sets) out.sets = bin(me.sets.hit, me.sets.n, P_SET);
+    const zs = ['allin', 'prem', 'sets'].map((k) => out[k]).filter(Boolean);
+    // Indice global : moyenne pondérée des z (le tapis compte double, c'est lui qui pèse sur le résultat).
+    if (zs.length) { const w = (k) => (k === 'allin' ? 2 : 1); let sw = 0, sz = 0; for (const k of ['allin', 'prem', 'sets']) if (out[k]) { sw += w(k) * w(k); sz += w(k) * out[k].z; } out.z = sz / Math.sqrt(sw); out.pct = normCdf(out.z); }
+    return out;
+  }
+
+  // ---------- Check-in avant session ----------
+  // Quatre réponses de 1 à 5 (sommeil, énergie, calme, concentration) et l'état des dernières sessions.
+  function checkin(a, sessions = [], todayStr = '') {
+    const score = ['sleep', 'energy', 'calm', 'focus'].reduce((s, k) => s + (+a[k] || 0), 0), reasons = [];
+    let level = score >= 16 ? 'go' : score >= 12 ? 'short' : 'stop';
+    if (['sleep', 'energy', 'calm', 'focus'].some((k) => (+a[k] || 0) <= 1)) { level = 'stop'; reasons.push('Une réponse à 1 sur 5 suffit à rendre la session perdante d\'avance.'); }
+    const last = sessions.slice().sort((x, y) => (x.date || '').localeCompare(y.date || '')).slice(-3);
+    const lastOne = last[last.length - 1];
+    if (lastOne && lastOne.date === todayStr && (lastOne.tilt || 0) >= 2) { level = 'stop'; reasons.push('Tu as noté du tilt sur une session aujourd\'hui.'); }
+    if (last.length === 3 && last.every((s) => s.result < 0) && level === 'go') { level = 'short'; reasons.push('Trois sessions perdantes de suite : session courte, stop-loss à 2 caves.'); }
+    if (a.money && level === 'go') { level = 'short'; reasons.push('Tu as besoin de gagner aujourd\'hui : c\'est la pression qui fait forcer les spots.'); }
+    return { score, level, reasons };
+  }
+
+  // ---------- Carte de tilt : déclencheurs et fiches de correction par défaut ----------
+  // Fiche en 5 étapes inspirée de la méthode de Jared Tendler (The Mental Game of Poker) : le problème,
+  // pourquoi il est logique de le ressentir, pourquoi c'est faux, la correction, la logique qui la prouve.
+  const TRIGGERS = [
+    { id: 'badbeat', label: 'Bad beat ou cooler', fiche: ['« Je ne mérite pas de perdre ce coup, ce n\'est pas juste. »', 'Tu avais l\'avantage : perdre un pot que tu dominais fait mal.', 'Le résultat d\'un coup ne dit rien de ta décision. Avec 80 % d\'équité à tapis, tu as gagné 0,8 pot en espérance, quoi que dise la river.', '« J\'ai pris l\'EV. La river ne change pas la qualité de ma décision. »', 'Sur 100 tapis à 80 %, tu en perds 20 : c\'est dans le calcul. Les perdre est la condition pour gagner les 80 autres.'] },
+    { id: 'downswing', label: 'Série de pertes', fiche: ['« Je n\'arrive plus à gagner, quelque chose ne va pas. »', 'Plusieurs sessions perdantes de suite entament la confiance.', 'Avec un écart-type de 90 bb/100, un joueur qui gagne vraiment 5 bb/100 finit perdant sur 10 000 mains environ 3 fois sur 10.', '« Je juge mon jeu sur mes décisions, pas sur la courbe. »', 'Le simulateur de variance du Journal montre des joueurs gagnants sous zéro pendant des dizaines de milliers de mains.'] },
+    { id: 'joueur', label: 'Un adversaire qui m\'agace ou me cible', fiche: ['« Il me cherche, je vais lui montrer. »', 'L\'ego réagit quand on se sent provoqué ou visé.', 'Jouer pour battre une personne remplace « quelle action rapporte le plus ? » par « comment avoir raison ? ».', '« Je joue contre sa range, pas contre lui. »', 'Un joueur trop agressif s\'exploite en le laissant bluffer et en payant plus large, pas en relançant léger par fierté.'] },
+    { id: 'erreur', label: 'Ma propre erreur', fiche: ['« Comment j\'ai pu faire ça, je suis nul. »', 'Tu veux progresser : une erreur frustre parce que tu sais que tu pouvais mieux faire.', 'S\'en vouloir pendant la session ajoute des erreurs. Une erreur est une donnée pour l\'étude, pas un verdict.', '« Je la note, je la travaille après la session. »', 'Une erreur notée dans la bibliothèque devient un spot d\'étude : c\'est comme ça que le niveau monte.'] },
+    { id: 'gros', label: 'Perte d\'un gros pot', fiche: ['« Je dois récupérer ça tout de suite. »', 'Une perte d\'une cave ou plus donne envie de revenir immédiatement à l\'équilibre.', 'Chaque main est indépendante : la suivante n\'a aucun lien avec le pot perdu. Chercher à se refaire pousse à jouer des mains et des limites qu\'on ne jouerait pas.', '« Le pot est perdu. Mon stop-loss décide, pas mon envie. »', 'Ton Journal applique le stop-loss à 3 caves : les sessions où tu l\'as dépassé disent ce que coûte la poursuite.'] },
+    { id: 'fatigue', label: 'Session longue, fatigue', fiche: ['« Encore quelques mains, je vais finir sur une bonne note. »', 'L\'envie de finir sur un gain est naturelle.', 'La fatigue dégrade les décisions avant qu\'on la sente. Finir sur une bonne note n\'a aucune valeur : seule l\'EV compte.', '« Ma session a une durée fixée, je m\'arrête à l\'heure. »', 'Compare dans ton Journal tes résultats horaires des sessions longues et des sessions courtes.'] },
+    { id: 'ennui', label: 'Ennui, mains mortes', fiche: ['« Il ne se passe rien, je vais jouer celle-là pour m\'occuper. »', 'Attendre sans action est pénible.', 'Les mains jouées par ennui sont les mains marginales : celles qui perdent.', '« Le fold est une action rentable. »', 'Ta range d\'ouverture est calculée : chaque main en dehors perd de l\'argent, ennui ou pas.'] },
+    { id: 'argent', label: 'Pression de l\'argent', fiche: ['« Il faut que je gagne aujourd\'hui. »', 'Le loyer, un objectif ou une dette rendent le résultat important.', 'Le résultat d\'une session est surtout de la variance. Jouer pour un montant pousse à forcer les spots et à monter de limite.', '« Mon objectif du jour, c\'est le taux de bonnes décisions. »', 'La règle de bankroll et le fonds de vie (onglet Carrière) existent pour que l\'argent d\'une session ne compte pas.'] },
+    { id: 'euphorie', label: 'Après une grosse victoire', fiche: ['« Je suis en feu, je peux tout jouer. »', 'La réussite donne confiance.', 'La chance récente ne change pas ton avantage. L\'excès de confiance élargit les ranges et fait monter de limite trop tôt.', '« Même jeu, mêmes ranges, même limite. »', 'Le tilt de victoire existe : relis tes notes des sessions qui ont suivi tes plus gros gains.'] },
+  ];
+  const ZONES = [
+    { id: 'leger', label: 'Léger', signs: 'Je soupire, je repense au coup précédent.', resp: 'Respiration carrée (4 s par temps), puis je relis ma phrase de correction.' },
+    { id: 'net', label: 'Net', signs: 'Je joue plus vite, j\'ai envie de relancer pour me venger.', resp: 'Pause de 5 minutes loin de l\'écran, puis check-in : sommeil, calme, concentration.' },
+    { id: 'fort', label: 'Fort', signs: 'Je veux me refaire, j\'envisage de monter de limite ou d\'ajouter des tables.', resp: 'Fin de session immédiate, sans négociation.' },
+  ];
+  const FICHE_STEPS = ['Le problème : ce que je pense ou dis', 'Pourquoi c\'est logique de le ressentir', 'Pourquoi c\'est faux', 'La correction : la phrase à me dire', 'La logique qui la prouve'];
+
+  const api = { rng, normCdf, STAKES, stakeIndex, careerSim, riskOfRuin, proCriteria, SPOT_D, DEC_D, LEVEL_BONUS, eloTitle, expected, eloUpdate, DIVS, XP, weekKey, weekFrac, rivals, standings, leagueRoll, PROMOTE, DEMOTE, SIZE, MEDALS, medalOf, luck, P_PREM, P_SET, checkin, TRIGGERS, ZONES, FICHE_STEPS };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Pro = api;
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
 <script>// Parcours par objectif : la suite d'étapes la plus courte vers un résultat concret, construite sur les modules,
 // exercices et outils de SIGMA 52. Chaque étape se valide toute seule (mêmes règles que le programme de 17 semaines).
 (function (root) {
@@ -6273,10 +6530,11 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
   // ---------- Stockage ----------
   const DEF = {
     progress: { stats: {}, hist: {}, streak: 0, best: 0, read: {}, quiz: {}, daily: { date: '', done: 0, ok: 0 }, review: [], guided: {}, tableHands: 0, coach: {}, expresso: { games: 0, places: [0, 0, 0, 0] }, solves: 0, trainer: { n: 0, ok: 0, loss: 0, hist: [] }, days: [], seen: {}, track: null, placement: null, onboard: false },
-    settings: { bankroll0: 0, biRule: 40 },
+    settings: { bankroll0: 0, biRule: 40, expenses: 0, savings: 0, target: 0, hoursMonth: 80, handsHour: 200, proStake: '' },
     journal: { sessions: [] },
     notes: { opponents: {}, lastImport: null },
     library: { hands: [] },
+    mental: { triggers: [], custom: [], fiches: {}, zones: {}, stop: 'net', checkins: [] },
   };
   const state = JSON.parse(JSON.stringify(DEF));
   const Store = {
@@ -6326,7 +6584,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
     return `<div class="rgrid" role="group" aria-label="Grille des 169 mains">${cells.join('')}</div>`;
   }
 
-  const TABS = [['jour', 'Aujourd\'hui'], ['parcours', 'Parcours'], ['cours', 'Cours'], ['spots', 'Spots'], ['sim', 'Simulateur'], ['champions', 'Champions'], ['live', 'Table live'], ['solveur', 'Solveur'], ['analyse', 'Analyse'], ['outils', 'Outils'], ['journal', 'Journal'], ['profil', 'Profil'], ['studio', 'Studio']];
+  const TABS = [['jour', 'Aujourd\'hui'], ['parcours', 'Parcours'], ['cours', 'Cours'], ['spots', 'Spots'], ['sim', 'Simulateur'], ['champions', 'Champions'], ['live', 'Table live'], ['solveur', 'Solveur'], ['analyse', 'Analyse'], ['outils', 'Outils'], ['journal', 'Journal'], ['carriere', 'Carrière'], ['mental', 'Mental'], ['profil', 'Profil'], ['studio', 'Studio']];
   // Espaces : la navigation principale regroupe les onglets ; le dernier onglet visité de chaque espace est mémorisé.
   const ICON = {
     jour: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5V20h-5v-5H9v5H4z"/></svg>',
@@ -6335,7 +6593,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
     etudier: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16M6 16V9M10 16V5M14 16v-6M18 16v-9"/></svg>',
     suivre: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18 9 12l4 3 7-8"/><path d="M15 7h5v5"/></svg>',
   };
-  const GROUPS = [['jour', 'Aujourd\'hui', ['jour']], ['apprendre', 'Apprendre', ['parcours', 'cours', 'spots']], ['jouer', 'Jouer', ['sim', 'champions', 'live']], ['etudier', 'Étudier', ['solveur', 'analyse', 'outils']], ['suivre', 'Suivre', ['journal', 'profil', 'studio']]];
+  const GROUPS = [['jour', 'Aujourd\'hui', ['jour']], ['apprendre', 'Apprendre', ['parcours', 'cours', 'spots']], ['jouer', 'Jouer', ['sim', 'champions', 'live']], ['etudier', 'Étudier', ['solveur', 'analyse', 'outils']], ['suivre', 'Suivre', ['journal', 'carriere', 'mental', 'profil', 'studio']]];
   const groupOf = (t) => GROUPS.find((g) => g[2].includes(t)) || GROUPS[0];
   const lastIn = {};
   let tab = (location.hash || '').slice(1);
@@ -6426,7 +6684,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
     }
     if (Object.keys(qAns).length === m.quiz.length) {
       const sc = m.quiz.filter((qq, k) => qAns[k] === qq.ok).length / m.quiz.length;
-      p.quiz = p.quiz || {}; p.quiz[m.id] = Math.max(p.quiz[m.id] || 0, sc); p.read[m.id] = true;
+      p.quiz = p.quiz || {}; if (sc >= 0.8 && !((p.quiz[m.id] || 0) >= 0.8)) window.__S52.award?.('module', null, true); p.quiz[m.id] = Math.max(p.quiz[m.id] || 0, sc); p.read[m.id] = true;
     }
     Store.save('progress'); render();
   }
@@ -6494,6 +6752,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
     const key = spotKey(spot), idx = p.review.findIndex((r) => r.key === key);
     if (!ok) { const item = { key, spot: JSON.parse(JSON.stringify(spot)), iv: 1, due: addDays(1) }; if (idx >= 0) p.review[idx] = item; else p.review.push(item); if (p.review.length > 150) p.review.shift(); }
     else if (idx >= 0) { const r = p.review[idx]; r.iv = r.iv === 1 ? 3 : Math.round(r.iv * 2.5); r.due = addDays(r.iv); if (r.iv > 40) p.review.splice(idx, 1); }
+    window.__S52.award?.('spot', { type: spot.type, ok }, true);
     Store.save('progress'); render();
   }
   VIEWS.spots = () => {
@@ -6692,6 +6951,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
         <div class="stat"><span>Abattage</span><b>${rate(me.sd, me.sawFlop)}</b><span>WTSD · gagné à l'abattage ${rate(me.wsd, me.sd)}</span></div>
         <div class="stat"><span>C-bet flop</span><b>${rate(me.cbet, me.cbetOpp)}</b><span>sur ${me.cbetOpp} occasions · fold face au c-bet ${rate(me.ftc, me.ftcOpp)}</span></div></div>
       <p class="note">Écart entre résultat et EV des all-in = ta chance sur les tapis : ${sgn(bb100 - r.ev100, 1)} bb/100 sur cet échantillon.</p>
+      ${luckHTML(me)}
       <section class="panel"><h2>Résultat par position</h2><div class="tw"><table class="t"><thead><tr><th>Position</th><th class="n">Mains</th><th class="n">bb gagnées</th><th class="n">bb/100</th></tr></thead><tbody>
         ${posOrder.filter((p) => me.byPos[p]).map((p) => { const x = me.byPos[p]; return `<tr><td>${p}</td><td class="n">${x.hands}</td><td class="n">${sgn(x.bb, 1)}</td><td class="n" style="color:var(${x.bb >= 0 ? '--good' : '--bad'})">${sgn(x.bb / x.hands * 100, 0)}</td></tr>`; }).join('')}</tbody></table></div>
         <p class="note">Les blindes perdent chez presque tous les joueurs. Le bouton et le cutoff doivent être tes positions les plus gagnantes.</p></section>
@@ -6713,6 +6973,29 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
         <p class="note">Winamax enregistre tes historiques dans le dossier « history » de son répertoire d'installation. Parseur testé sur des historiques Winamax et sur ceux de la table d'entraînement. Si un fichier récent ne passe pas, envoie-moi une main d'exemple : le parseur s'ajuste.</p>
         ${anErr ? `<p class="pill bad" style="white-space:normal">${esc(anErr)}</p>` : ''}</section>${res}
       ${known.length ? `<section class="panel"><h2>Fiches adversaires cumulées</h2><div class="tw"><table class="t"><thead><tr><th>Joueur</th><th class="n">Mains</th><th class="n">VPIP</th><th class="n">PFR</th><th>Profil</th></tr></thead><tbody>${known.map(([n, o]) => `<tr><td>${esc(n)}</td><td class="n">${o.hands}</td><td class="n">${rate(o.vpip, o.hands)}</td><td class="n">${rate(o.pfr, o.hands)}</td><td>${HH.profileOf(o).label}</td></tr>`).join('')}</tbody></table></div><p class="note">Cumul de tous tes imports. Relis-les avant une session, jamais pendant.</p></section>` : ''}`;
+  };
+
+  // ---------- Indice de chance et courbe ajustée ----------
+  function luckHTML(me) {
+    const PR = window.Pro; if (!PR || !me.curve?.length) return '';
+    const L = PR.luck(me), z = (x) => (x >= 0 ? '+' : '−') + fr(Math.abs(x), 2);
+    const word = (zz) => (Math.abs(zz) < 1 ? 'variance normale' : Math.abs(zz) < 2 ? (zz > 0 ? 'plutôt chanceux' : 'plutôt malchanceux') : zz > 0 ? 'très chanceux (rare)' : 'très malchanceux (rare)');
+    const row = (l, x, txt) => (x ? `<div style="display:grid;gap:2px;padding:9px 0;border-top:1px solid var(--line)"><div class="row" style="justify-content:space-between;flex-wrap:nowrap;gap:10px"><strong>${l}</strong><span class="mono">${z(x.z)} σ · ${pct(x.pct)}</span></div><span class="note">${txt} · ${word(x.z)}</span></div>` : '');
+    return `<section class="panel"><div class="row" style="justify-content:space-between"><h2>Indice de chance</h2>${L.z !== undefined ? `<span class="pill ${Math.abs(L.z) < 1 ? '' : L.z > 0 ? 'good' : 'bad'}">${word(L.z)}</span>` : ''}</div>
+      ${L.z !== undefined ? `<p>Sur cet échantillon, tu as été plus chanceux que <strong>${pct(L.pct)}</strong> des joueurs qui auraient joué exactement les mêmes décisions (indice ${z(L.z)} écart-type).</p><div class="meter" aria-label="Percentile de chance"><i style="width:${L.pct * 100}%"></i></div>` : ''}
+      <div style="display:grid">
+        ${row('Tapis avant la river', L.allin, L.allin ? `${L.allin.n} tapis · ${sgn(L.allin.bb, 1)} bb contre l'équité (± ${fr(L.allin.sd, 1)})` : '')}
+        ${row('Mains premium reçues', L.prem, L.prem ? `${L.prem.k} QQ+ ou AK sur ${L.prem.n} mains (attendu ${fr(L.prem.exp, 1)})` : '')}
+        ${row('Sets floppés', L.sets, L.sets ? `${L.sets.k} sur ${L.sets.n} paires servies qui voient le flop (attendu ${fr(L.sets.exp, 1)})` : '')}</div>
+      <p class="note">Pour chaque mesure : écart à l'attendu en écart-types (σ) et percentile (part des joueurs moins chanceux sur le même nombre de mains).</p>
+      <canvas id="evc" height="220" aria-label="Résultat réel et résultat ajusté de la chance aux tapis"></canvas>
+      <p class="note"><span style="color:var(--accent)">■</span> Résultat réel en bb · <span style="color:var(--muted)">■</span> résultat si chaque tapis avait rapporté son équité. L'écart entre les deux courbes est ta chance aux tapis ; le reste de la variance (river payées, coolers sans tapis) n'est pas mesurable sans voir les cartes adverses.</p>
+      <p class="note">Entre −1 et +1 écart-type : rien d'anormal. Au-delà de ±2 : arrive environ 1 fois sur 20, sur un échantillon court ça reste fréquent. L'indice global pondère double les tapis, qui pèsent le plus sur le résultat.</p></section>`;
+  }
+  AFTER.analyse = () => {
+    const cv = $('#evc'), c = anRes?.me?.curve; if (!cv || !c?.length) return;
+    const step = Math.max(1, Math.ceil(c.length / 400)), pick = c.filter((_, i) => i % step === 0 || i === c.length - 1);
+    drawLines(cv, [{ pts: [0, ...pick.map((x) => x[1])], color: '--muted', width: 2 }, { pts: [0, ...pick.map((x) => x[0])] }], { fmt: (v) => fr(v, 0) + ' bb' });
   };
 
   // ---------- Journal ----------
@@ -6740,6 +7023,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
         <label class="f">Mains jouées (cash)<input id="jhands" name="hands" inputmode="numeric" placeholder="600"></label>
         <label class="f">Durée (min)<input id="jmin" name="minutes" inputmode="numeric" placeholder="60"></label>
         <label class="f">Tilt ressenti<select id="jtilt" name="tilt"><option value="0">Aucun</option><option value="1">Léger</option><option value="2">Net</option><option value="3">Fort</option></select></label>
+        <label class="f">Déclencheur principal<select id="jtrig" name="trigger"><option value="">Aucun</option>${(window.__S52.tiltTriggers?.() || []).map((x) => `<option value="${esc(x.id)}">${esc(x.label)}</option>`).join('')}</select></label>
         <label class="f" style="grid-column:1/-1">Note (une main à revoir, une leçon)<input id="jnotes" name="notes" maxlength="200"></label>
         <div class="row" style="grid-column:1/-1"><button class="btn primary" type="submit">Enregistrer la session</button></div></form></section>
       <section class="panel"><span class="eyebrow">Courbe</span><h2>Bankroll</h2>${js.ss.length ? '<canvas id="bankc" height="220" aria-label="Courbe de bankroll"></canvas>' : '<p class="note">Aucune session pour l\'instant. Renseigne ta bankroll de départ ci-dessous, puis ta première session : la courbe apparaîtra ici.</p>'}</section>
@@ -6904,7 +7188,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
     if (e.target.id !== 'jform') return;
     e.preventDefault();
     const f = new FormData(e.target), num = (k) => +String(f.get(k) || '').replace(/\s/g, '').replace(',', '.').replace('−', '-');
-    const s = { id: 's' + Date.now().toString(36), date: f.get('date'), room: f.get('room'), format: f.get('format'), stake: String(f.get('stake')).trim().toUpperCase().replace(/\s/g, ''), result: num('result'), hands: num('hands') || 0, minutes: num('minutes') || 0, tilt: +f.get('tilt'), notes: String(f.get('notes') || '').slice(0, 200) };
+    const s = { id: 's' + Date.now().toString(36), date: f.get('date'), room: f.get('room'), format: f.get('format'), stake: String(f.get('stake')).trim().toUpperCase().replace(/\s/g, ''), result: num('result'), hands: num('hands') || 0, minutes: num('minutes') || 0, tilt: +f.get('tilt'), trigger: String(f.get('trigger') || '').slice(0, 40), notes: String(f.get('notes') || '').slice(0, 200) };
     if (!Number.isFinite(s.result)) { jMsg = 'Résultat illisible : écris par exemple −4,20 ou 12.'; return render(); }
     state.journal.sessions.push(s); Store.save('journal');
     const bi = buyIn(s), lost = bi ? -s.result / bi : 0, ms = maxStake(journalStats().bank), bb = bbOf(s.stake);
@@ -6918,7 +7202,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
   // ---------- Extension et démarrage ----------
   window.__S52 = {
     E, C, K, S, SV, B, HH, TS, $, esc, fr, eur, sgn, pct, today, addDays, rand, state, Store, render, go, head, heat, grid169,
-    cardHTML, backHTML, cardsHTML, mastery, drawLines, getAnRes: () => anRes, VIEWS, AFTER, TOOLVIEWS, TOOLS, ACT, ONCHANGE, ONINPUT, ONKEY, LINEUPS, runAnalysis,
+    cardHTML, backHTML, cardsHTML, mastery, drawLines, journalStats, maxStake, bbOf, getAnRes: () => anRes, VIEWS, AFTER, TOOLVIEWS, TOOLS, ACT, ONCHANGE, ONINPUT, ONKEY, LINEUPS, runAnalysis,
     getTab: () => tab, TABS, GROUPS, groupOf, setTool: (k) => { tool = k; }, setOpenMod: (id) => { openMod = id; qAns = {}; }, setSpotMode: (m) => { spotMode = m; daily = false; spot = null; },
     start() { render(); Store.init().then(render); },
   };
@@ -7423,6 +7707,31 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
       ${a.ranges.length ? `<details><summary class="note">Ranges estimées des adversaires</summary><div class="tw"><table class="t"><thead><tr><th>Joueur</th><th>Profil</th><th class="n">Combos</th><th>Mains typiques</th></tr></thead><tbody>${a.ranges.map((r) => `<tr><td>${esc(r.name)}</td><td>${r.label}</td><td class="n">${r.n}</td><td class="mono note">${esc(r.desc)}</td></tr>`).join('')}</tbody></table></div>
         <p class="note">Estimation à partir du profil et des actions de la main. Contre de vrais joueurs, les profils restent des approximations.</p></details>` : ''}</section>`;
   }
+  // Conseiller par main : sur demande, l'action recommandée pour chacune des 169 mains au même moment de la main.
+  let ra = null;
+  const RA_COL = { raise: '--act-b2', call: '--act-x', check: '--act-x', fold: '--act-f' };
+  const raKey = (t) => t.handNo + ':' + t.seq.length + ':' + t.street;
+  function rangeAdvHTML(g) {
+    const t = g.tb;
+    if (!ra || ra.key !== raKey(t)) return `<section class="panel"><div class="row" style="justify-content:space-between"><div><span class="eyebrow">Conseiller par main</span><p class="note" style="margin:4px 0 0">Ce que le coach ferait ici avec chaque main de ta range, contre les mêmes adversaires.</p></div><button class="btn" data-act="rangeadv">Voir toute ma range</button></div></section>`;
+    const r = ra.res, name = { raise: t.cur > 0 ? 'Relancer' : 'Miser', call: 'Suivre', check: 'Parole', fold: 'Se coucher' };
+    const acts = ['raise', r.canCheck ? 'check' : 'call', ...(r.canCheck ? [] : ['fold'])];
+    const grid = X.grid169((h) => {
+      const c = r.cells[h];
+      if (!c) return `<span class="rc sv off" aria-label="${h} impossible">${h}</span>`;
+      const tip = `${h} : ${name[c.rec]}${c.eq !== null ? ' · équité ' + pct(c.eq, 0) : ''}${c.inR ? '' : ' · hors de ta range'}`;
+      return `<span class="rc sv${h === r.mine ? ' sel' : ''}" style="background:var(${RA_COL[c.rec]});${c.inR ? '' : 'opacity:.3;'}" title="${tip}" aria-label="${tip}">${h}</span>`;
+    });
+    const bars = acts.map((a) => { const f = r.nIn ? r.tot[a] / r.nIn : 0; return `<div class="typerow"><span><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(${RA_COL[a]});margin-right:6px"></i>${name[a]}</span><div class="meter"><i style="width:${f * 100}%;background:var(${RA_COL[a]})"></i></div><span class="mono">${pct(f)}</span></div>`; }).join('');
+    const mineC = r.cells[r.mine];
+    return `<section class="panel"><div class="row" style="justify-content:space-between"><span class="eyebrow">Conseiller par main · ${esc(r.label)}</span><button class="btn small" data-act="rangeadvclose">Masquer</button></div>
+      <div class="grid2"><div>${grid}</div><div style="display:grid;gap:8px;align-content:start"><p>Ta main <strong class="mono">${r.mine}</strong> : <strong>${mineC ? name[mineC.rec] : '—'}</strong>${mineC && !mineC.inR ? ' (elle n\'est pas dans ta range estimée)' : ''}.</p>${bars}
+        <p class="note">Répartition sur les ${r.nIn} combinaisons de ta range estimée (${esc(r.label)}). Les mains hors de cette range sont pâles. Survole une case pour l'équité.</p>
+        <p class="note">Le coach donne une seule action par main (pas de fréquences mixtes comme un solveur) : c'est un repère d'exploitation contre ces profils, pas un équilibre.</p></div></div></section>`;
+  }
+  ACT.rangeadv = () => { const g = cur(); if (!g?.tb) return; ra = { key: raKey(g.tb), res: Co.rangeAdvice(g.tb) }; render(); };
+  ACT.rangeadvclose = () => { ra = null; render(); };
+
   // Décision du héros : conseil calculé avant, puis noté.
   function decide(g, type, to) {
     const t = g.tb; if (!t || t.done || t.toAct !== 0) return;
@@ -7433,6 +7742,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
         g.decisions.push({ hand: t.handNo, street: t.street, pos: a.pos, cards: hero.cards.slice(), board: t.board.slice(), act: type, rec: a.rec, recTxt: REC_FR(a, t), ok: gr.ok, note: gr.note, cats: a.cats, why: a.why, eq: a.eq, need: a.need });
         const cs = state.progress.coach;
         a.cats.forEach((c) => { const x = cs[c] || (cs[c] = { ok: 0, n: 0 }); x.n++; if (gr.ok) x.ok++; });
+        X.award?.('decision', { cats: a.cats, ok: gr.ok, champ: g.champ });
       }
     }
     t.act(type, to); t.runBots(); raiseTo = null; g.adv = null;
@@ -7446,7 +7756,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
     g.adv = { key, a }; return a;
   }
   function afterHand(g) {
-    if (g.kind === 'cash') { state.progress.tableHands = (state.progress.tableHands || 0) + 1; }
+    if (g.kind === 'cash') { state.progress.tableHands = (state.progress.tableHands || 0) + 1; X.award?.('hand', null, true); }
     if (g.kind === 'xp' && g.tb.over && !g.counted && g.fmt && g.fmt !== 'expresso') {
       g.counted = true; const F = state.progress.formats || (state.progress.formats = {}), e = F[g.fmt] || (F[g.fmt] = { games: 0, places: [] });
       e.games++; e.places[g.tb.place] = (e.places[g.tb.place] || 0) + 1;
@@ -7498,7 +7808,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
     let out = `<div class="row"><span class="pill acc">${cash.target ? `Main ${Math.min(t.session.hands + (t.done ? 0 : 1), cash.target)}/${cash.target}` : `Main ${t.session.hands + (t.done ? 0 : 1)}`}</span><span class="pill">${{ live: 'Coach en direct', exam: 'Mode examen', free: 'Sans aide' }[cash.mode]}</span>
       <label class="check"><input type="checkbox" id="showprof" data-act="showprof" ${showProfiles ? 'checked' : ''}><span class="note">Profils visibles</span></label><button class="btn small" data-act="cashstop" style="margin-left:auto">Terminer la session</button></div>
       ${cash.champ && X.champBanner ? X.champBanner(cash) : ''}${tableHTML(t, { showProfiles: showProfiles && !cash.champ?.hidden })}`;
-    if (L) out += `<section class="panel"><span class="eyebrow">À toi · ${TS.posName(t, 0)} · ${E.abstractOf(t.players[0].cards[0], t.players[0].cards[1])}</span>${actionsHTML(t)}</section>` + (cash.mode === 'live' ? coachHTML(adviceFor(cash), t) : '');
+    if (L) out += `<section class="panel"><span class="eyebrow">À toi · ${TS.posName(t, 0)} · ${E.abstractOf(t.players[0].cards[0], t.players[0].cards[1])}</span>${actionsHTML(t)}</section>` + (cash.mode === 'live' ? coachHTML(adviceFor(cash), t) + rangeAdvHTML(cash) : '');
     if (t.done && t.notes) {
       const n = t.notes, finished = sessionDone();
       out += `<section class="panel"><div class="row" style="justify-content:space-between"><h2>Débrief : ${n.net >= 0 ? '+' : '−'}${fr(Math.abs(n.net), 1)} bb</h2><div class="row"><button class="btn small" data-act="libtable">Sauvegarder la main</button><button class="btn small" data-act="rptable">Rejouer</button>${finished ? '' : '<button class="btn primary" data-act="cashnext">Main suivante <span style="opacity:.7">Entrée</span></button>'}</div></div>
@@ -7930,7 +8240,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
   }
   function finish() {
     sv.running = false;
-    state.progress.solves = (state.progress.solves || 0) + 1; X.Store.save('progress');
+    state.progress.solves = (state.progress.solves || 0) + 1; X.award?.('solve', null, true); X.Store.save('progress');
     if (sv.target) { try { sv.path = sv.target.seq ? pathFor(sv.game, sv.target.seq) : (sv.target.path || []).slice(); } catch (e) { sv.path = []; } }
     refreshInfo(); render();
   }
@@ -8534,6 +8844,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
     const T = state.progress.trainer || (state.progress.trainer = { n: 0, ok: 0, loss: 0, hist: [] });
     T.n++; if (grade === 'Meilleure' || grade === 'Correcte') T.ok++; T.loss += lossPct;
     T.hist = [...(T.hist || []), Math.round(lossPct * 1000) / 1000].slice(-50);
+    X.award?.('trainer', null, true);
     Store.save('progress'); render();
   }
   const nm = (p) => esc(tr.spot.names[p]);
@@ -9010,7 +9321,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
     if (!g.recorded) {
       g.recorded = true;
       const key = c.legends ? 'legends' : c.id, r = P.by[key] || (P.by[key] = { sessions: 0, hands: 0, bb: 0 });
-      r.sessions++; r.hands += t.session.hands; r.bb += t.session.net; Store.save('progress');
+      r.sessions++; r.hands += t.session.hands; r.bb += t.session.net; X.award?.('champ', null, true); Store.save('progress');
     }
     const champs = t.players.filter((p, i) => i > 0 && TS.PROFILES[p.profile]?.like);
     const se = (p, n) => (n ? Math.sqrt(p * (1 - p) / n) : null);
@@ -10529,7 +10840,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
   ACT.exans = (t) => { const q = exm.qs[exm.i]; if (exm.ans[exm.i]) return; const i = +t.dataset.i; exm.ans[exm.i] = { i, ok: i === q.ok }; render(); };
   ACT.exnext = () => {
     exm.i++;
-    if (exm.i >= exm.qs.length) { const E = exams(), score = exm.ans.filter((x) => x.ok).length, r = E[exm.level] || { best: 0, n: 0 }; E[exm.level] = { best: Math.max(r.best, score), last: score, n: (r.n || 0) + 1, date: today(), passed: r.passed || score / exm.qs.length >= EXM.PASS }; Store.save('progress'); }
+    if (exm.i >= exm.qs.length) { const E = exams(), score = exm.ans.filter((x) => x.ok).length, r = E[exm.level] || { best: 0, n: 0 }; E[exm.level] = { best: Math.max(r.best, score), last: score, n: (r.n || 0) + 1, date: today(), passed: r.passed || score / exm.qs.length >= EXM.PASS }; if (!r.passed && E[exm.level].passed) X.award?.('exam', null, true); Store.save('progress'); }
     render();
   };
   ACT.exend = () => { exm = null; render(); };
@@ -10605,6 +10916,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
       it.b = 0; it.due = addDays(1); p.srsMiss = p.srsMiss || {}; const lim = addDays(-30), miss = (p.srsMiss[m.id] || []).filter((d) => d >= lim).concat(today()); p.srsMiss[m.id] = miss;
       if (miss.length >= 2) { p.quiz[m.id] = Math.min(p.quiz[m.id] ?? 0, 0.6); Object.keys(p.srs).filter((x) => x.startsWith(m.id + '#')).forEach((x) => delete p.srs[x]); p.srsMiss[m.id] = []; if (!srs.decayed.includes(m.id)) srs.decayed.push(m.id); }
     }
+    X.award?.('srs', null, true);
     Store.save('progress'); render();
   };
   ONKEY.push((e, tab) => {
@@ -10700,6 +11012,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
         <div class="row"><button class="btn" data-act="dataexp">Exporter une sauvegarde (JSON)</button><label class="btn">Importer une sauvegarde<input type="file" accept=".json,application/json" data-imp="1" hidden></label><button class="btn small" data-act="onbreset">Revoir l'accueil guidé</button></div>
         <p class="note" id="datamsg"></p></section>`;
   };
+  X.streak = streak; X.sigmaScore = score;
   ACT.onbreset = () => { const p = prog(); p.onboard = false; p.track = null; Store.save('progress'); go('jour'); };
   ACT.dataexp = async () => {
     const all = {}; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith('sigma52.')) all[k] = localStorage.getItem(k); }
@@ -11062,6 +11375,253 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
   };
 })();
 </script>
+<script>// Carrière (critères de passage pro, simulateur de carrière sur 12 mois), Mental (check-in, carte de tilt, fiches de correction,
+// coût du tilt), Elo et ligue de la semaine (Profil, Aujourd'hui). Les gains d'XP et d'Elo arrivent par X.award().
+(function () {
+  const X = window.__S52, PR = window.Pro, CH = window.Champions, S = window.Spots;
+  const { $, esc, fr, eur, sgn, pct, state, Store, render, go, head, VIEWS, AFTER, ACT, ONCHANGE, drawLines } = X;
+  const prog = () => state.progress;
+  const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  const num = (v) => { const x = +String(v ?? '').replace(/\s/g, '').replace(',', '.').replace('−', '-'); return Number.isFinite(x) ? x : 0; };
+  const mental = () => { const m = state.mental; m.triggers = m.triggers || []; m.custom = m.custom || []; m.fiches = m.fiches || {}; m.zones = m.zones || {}; m.checkins = m.checkins || []; m.stop = m.stop || 'net'; return m; };
+
+  // ================= Elo, ligue, XP =================
+  const elo = () => prog().elo || (prog().elo = { r: 1000, n: 0, hist: [] });
+  function league() {
+    const L = prog().league || (prog().league = { week: '', div: 0, xp: 0, hist: [] });
+    const res = PR.leagueRoll(L);
+    if (res) L.notice = { ...res, week: L.hist[L.hist.length - 1]?.week };
+    return L;
+  }
+  const levelOf = (champ) => { if (!champ) return null; if (champ.legends) return 'Difficile'; return CH?.STYLES?.find((s) => s.id === champ.id)?.level || null; };
+  X.award = (kind, d, noSave) => {
+    const L = league(), x = PR.XP, day = today(); d = d || {};
+    let xp = 0;
+    if (kind === 'spot') { xp = x.spot + (d.ok ? x.spotOk : 0); PR.eloUpdate(elo(), PR.SPOT_D[d.type] ?? 1200, d.ok ? 1 : 0, day); }
+    else if (kind === 'decision') { xp = x.decision + (d.ok ? x.decisionOk : 0); const c = d.cats?.[0]; if (c) PR.eloUpdate(elo(), (PR.DEC_D[c] ?? 1200) + (PR.LEVEL_BONUS[levelOf(d.champ)] || 0), d.ok ? 1 : 0, day); }
+    else xp = x[kind] || 0;
+    L.xp = (L.xp || 0) + xp;
+    if (!noSave) Store.save('progress');
+    return xp;
+  };
+  const DIV_COL = ['#A8714A', '#9AA3AD', '#C9A227', '#5FA3A8', '#7C6CD6'];
+  const divBadge = (div) => `<span class="pill" style="border-color:${DIV_COL[div]};color:${DIV_COL[div]};font-weight:600">${PR.DIVS[div]}</span>`;
+  function weekEnds() { const d = new Date(), left = (1 - PR.weekFrac(d)) * 168; return left >= 24 ? `${Math.floor(left / 24)} j ${Math.round(left % 24)} h` : `${Math.max(1, Math.round(left))} h`; }
+  function noticeHTML(L) {
+    const n = L.notice; if (!n) return '';
+    const txt = n.move > 0 ? `montée en ${PR.DIVS[n.to]}` : n.move < 0 ? `descente en ${PR.DIVS[n.to]}` : `maintien en ${PR.DIVS[n.to]}`;
+    return `<div class="warnbox" role="status"><strong>Semaine terminée :</strong> ${n.rank}<sup>e</sup> sur ${PR.SIZE}, ${txt}. <button class="btn small" data-act="lgok">OK</button></div>`;
+  }
+  ACT.lgok = () => { delete league().notice; Store.save('progress'); render(); };
+  function leagueHTML(full) {
+    const L = league(), st = PR.standings(L), me = st.find((r) => r.me), top = L.div < PR.DIVS.length - 1, bottom = L.div > 0;
+    const rows = st.map((r) => {
+      const zone = top && r.rank <= PR.PROMOTE ? 'var(--good-bg)' : bottom && r.rank > PR.SIZE - PR.DEMOTE ? 'var(--bad-bg)' : '';
+      return `<tr style="${zone ? 'background:' + zone + ';' : ''}${r.me ? 'font-weight:700' : ''}"><td class="n mono">${r.rank}</td><td>${esc(r.name)}${r.me ? '' : ' <span class="note">(simulé)</span>'}</td><td class="n mono">${r.xp}</td></tr>`;
+    }).join('');
+    return `<section class="panel"><div class="row" style="justify-content:space-between"><div><span class="eyebrow">Ligue de la semaine · se termine dans ${weekEnds()}</span><h2 style="margin-top:4px">${divBadge(L.div)} ${me.rank}<sup>e</sup> sur ${PR.SIZE} · ${L.xp || 0} XP</h2></div></div>
+      ${noticeHTML(L)}
+      <p class="note">Les ${PR.PROMOTE} premiers montent${top ? '' : ' (tu es dans la division la plus haute)'}, les ${PR.DEMOTE} derniers descendent${bottom ? '' : ' (le Bronze ne descend pas)'}. Les autres joueurs sont simulés : leur XP suit une progression réaliste de la semaine. La ligue entre amis réels viendra avec les parties en ligne.</p>
+      ${full ? `<div class="tw"><table class="t"><thead><tr><th class="n">#</th><th>Joueur</th><th class="n">XP</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <details><summary class="note">Gagner de l'XP</summary><p class="note">Spot 10 XP (+5 si juste) · décision notée au simulateur 4 (+2) · main jouée 1 · module validé 40 · examen réussi 120 · session Champions 30 · spot résolu au solveur 15 · entraîneur river 8 · révision 3.</p></details>
+      ${L.hist?.length ? `<p class="note">Semaines passées : ${L.hist.slice(-8).map((h) => `${PR.DIVS[h.div]} ${h.rank}<sup>e</sup>${h.move > 0 ? ' ↑' : h.move < 0 ? ' ↓' : ''}`).join(' · ')}</p>` : ''}` : ''}</section>`;
+  }
+  function eloHTML() {
+    const E = elo(), hist = prog().hist || {}, types = S?.TYPES || {};
+    const rows = Object.entries(types).filter(([k]) => (hist[k] || []).length >= 10).map(([k, l]) => {
+      const h = hist[k], acc = Math.min(0.97, Math.max(0.03, h.reduce((a, b) => a + b, 0) / h.length)), d = PR.SPOT_D[k] ?? 1200;
+      return { l, acc, lvl: Math.round(d + 400 * Math.log10(acc / (1 - acc))) };
+    }).sort((a, b) => a.lvl - b.lvl);
+    return `<section class="panel"><div class="row" style="justify-content:space-between"><div><span class="eyebrow">Classement Elo${E.n < 30 ? ' · provisoire' : ''}</span><h2 style="margin-top:4px">${Math.round(E.r)} · ${PR.eloTitle(E.r)}</h2></div><span class="note mono">record ${Math.round(E.best || E.r)} · ${E.n} résultats</span></div>
+      ${(E.hist || []).length >= 2 ? '<canvas id="eloc" height="150" aria-label="Évolution de ton Elo"></canvas>' : ''}
+      <p class="note">Chaque spot et chaque décision notée au simulateur est un match contre une difficulté fixe : tu gagnes plus de points sur les exercices difficiles (combinaisons, bounty, situations) et sur les décisions face aux champions difficiles. À l'équilibre, ton Elo reflète ton taux de réussite. Paliers : 1 000 Amateur, 1 200 Régulier, 1 400 Fort, 1 600 Expert, 1 800 Élite.</p>
+      ${rows.length ? `<div class="tw"><table class="t"><thead><tr><th>Exercice</th><th class="n">Réussite</th><th class="n">Niveau équivalent</th></tr></thead><tbody>${rows.map((r) => `<tr><td>${esc(r.l)}</td><td class="n">${pct(r.acc)}</td><td class="n mono">${r.lvl}</td></tr>`).join('')}</tbody></table></div><p class="note">Du plus faible au plus fort, sur tes 30 dernières réponses : le haut du tableau est ce qui freine ton Elo.</p>` : ''}</section>`;
+  }
+  function medalHTML() {
+    const s = X.streak ? X.streak() : 0, m = PR.medalOf(s);
+    const col = { Bronze: DIV_COL[0], Argent: DIV_COL[1], Or: DIV_COL[2] };
+    return `<span class="pill" ${m.got ? `style="border-color:${col[m.got]};color:${col[m.got]};font-weight:600"` : ''}>Série ${s} j${m.got ? ' · médaille ' + m.got : ''}</span>${m.next ? `<span class="note">${m.next.name} dans ${m.next.left} jour${m.next.left > 1 ? 's' : ''}</span>` : ''}`;
+  }
+  const baseProfil = VIEWS.profil;
+  VIEWS.profil = () => {
+    const html = baseProfil();
+    const add = `<section class="panel"><div class="row">${medalHTML()}</div><p class="note">Médailles de série : Bronze à 7 jours d'affilée, Argent à 30, Or à 100. Un jour compte dès que tu enregistres une progression.</p></section>` + leagueHTML(true) + eloHTML();
+    return html.replace('<section class="panel"><h2>Détail du score</h2>', add + '<section class="panel"><h2>Détail du score</h2>');
+  };
+  AFTER.profil = () => { const cv = $('#eloc'), h = elo().hist || []; if (cv && h.length >= 2) drawLines(cv, [{ pts: h.map((x) => x[1]) }], { zero: false, fmt: (v) => fr(v, 0) }); };
+  const baseJour = VIEWS.jour;
+  VIEWS.jour = () => {
+    const html = baseJour(), L = league(), st = PR.standings(L), me = st.find((r) => r.me), E = elo(), ci = mental().checkins.find((c) => c.date === today());
+    const card = `${noticeHTML(L)}<section class="panel"><div class="row" style="justify-content:space-between;align-items:center"><div class="row" style="gap:10px;align-items:center">${divBadge(L.div)}<strong>${me.rank}<sup>e</sup>/${PR.SIZE}</strong><span class="note mono">${L.xp || 0} XP</span><span class="note">·</span><strong>Elo ${Math.round(E.r)}</strong><span class="note">${PR.eloTitle(E.r)}</span>${medalHTML()}</div>
+      <div class="row"><button class="btn small${ci ? '' : ' primary'}" data-tab="mental">${ci ? 'Check-in : ' + { go: 'feu vert', short: 'session courte', stop: 'pas de session' }[ci.level] : 'Check-in avant session'}</button><button class="btn small" data-tab="profil">Classement</button></div></div></section>`;
+    return html.replace('<div class="warnbox"><strong>Fair-play.</strong>', card + '<div class="warnbox"><strong>Fair-play.</strong>');
+  };
+
+  // ================= Carrière =================
+  let csim = null, simCache = null;
+  function commonStake(ss) {
+    const n = {}; ss.filter((s) => s.format === 'Cash' && /^NL\d+$/.test(s.stake)).slice(-30).forEach((s) => (n[s.stake] = (n[s.stake] || 0) + (s.hands || 1)));
+    return Object.entries(n).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+  }
+  function stakeName() { const js = X.journalStats(); return state.settings.proStake || commonStake(js.ss) || 'NL10'; }
+  function simDefaults() {
+    const js = X.journalStats();
+    return { bank: Math.max(0, Math.round(js.bank)) || 1000, stake: PR.stakeIndex(stakeName()), wr: js.wr !== null ? Math.round(js.wr * 10) / 10 : 3, sd: Math.round(js.sd), rule: +state.settings.biRule || 40, down: 25, drop: 1.5 };
+  }
+  function runSim() {
+    csim = csim || simDefaults();
+    const st = state.settings, P = { ...csim, hoursMonth: num(st.hoursMonth), handsHour: num(st.handsHour), expenses: num(st.expenses), target: num(st.target), paths: 2000, seed: 11 };
+    const key = JSON.stringify(P);
+    if (!simCache || simCache.key !== key) simCache = { key, res: PR.careerSim(P) };
+    return simCache.res;
+  }
+  const STATUS = { ok: ['good', 'Atteint'], near: ['', 'Proche'], no: ['bad', 'Pas encore'], na: ['', 'À renseigner'] };
+  function fmtCrit(c) {
+    const v = c.val; if (v === null || v === undefined) return '—';
+    switch (c.k) {
+      case 'volume': return Math.round(v).toLocaleString('fr-FR') + ' mains';
+      case 'proof': return sgn(v, 1) + ' bb/100';
+      case 'hourly': return eur(v) + '/h';
+      case 'caves': return fr(v, 0) + ' caves';
+      case 'ror': return pct(v, v < 0.01 ? 2 : 1);
+      case 'fund': return fr(v, 1) + ' mois';
+      case 'hours': return fr(v, 0) + ' h';
+      case 'tilt': return pct(v);
+      case 'study': return v + '/6';
+      case 'sim': return 'ruine ' + pct(v, 1);
+      default: return String(v);
+    }
+  }
+  VIEWS.carriere = () => {
+    const js = X.journalStats(), st = state.settings, name = stakeName(), bbv = PR.STAKES[PR.stakeIndex(name)][1], sim = runSim();
+    const exams = Object.values(prog().exams || {}).filter((r) => r.passed).length;
+    const C = PR.proCriteria({ hands: js.hands, wr: js.wr, ci: js.ci, sd: js.sd, bank: js.bank, bbValue: bbv, handsHour: num(st.handsHour), hoursMonth: num(st.hoursMonth), target: num(st.target), expenses: num(st.expenses), savings: num(st.savings), hours: js.mins / 60, sessions: js.ss, exams, sim });
+    const verdict = { ready: ['good', 'Critères réunis'], close: ['acc', 'En approche'], not: ['bad', 'Pas encore prêt'] }[C.verdict];
+    const vtxt = C.verdict === 'ready' ? 'Tous les critères sont réunis. Un passage pro se tente d\'abord en essai de 3 mois, avec une règle de retour écrite à l\'avance (par exemple : winrate sous la borne basse ou bankroll sous 30 caves).'
+      : C.verdict === 'close' ? `${C.ok} critères sur ${C.n}, et aucun critère bloquant ne manque. Comble les derniers avant de quitter un revenu stable.`
+      : `${C.ok} critère${C.ok > 1 ? 's' : ''} sur ${C.n}. Les critères bloquants (★) passent en premier : sans eux, vivre du poker revient à parier son loyer sur la variance.`;
+    const todo = C.list.filter((c) => c.st !== 'ok').sort((a, b) => b.critical - a.critical);
+    const field = (k, l, ph) => `<label class="f">${l}<input id="pf_${k}" data-pset="${k}" inputmode="decimal" value="${st[k] || ''}" placeholder="${ph}"></label>`;
+    const sfield = (k, l) => `<label class="f">${l}<input id="cs_${k}" data-csim="${k}" inputmode="decimal" value="${csim[k]}"></label>`;
+    const endRows = sim.stakesEnd.map((f, i) => [PR.STAKES[i][0], f]).filter(([, f]) => f >= 0.005).concat(sim.pRuin >= 0.005 ? [['Ruiné', sim.pRuin]] : []);
+    return head('Carrière', 'Les critères pour vivre du poker, calculés depuis ton Journal, et 2 000 carrières simulées sur 12 mois avec tes chiffres.') + `
+      <section class="panel"><span class="eyebrow">Ta situation</span><div class="form">
+        ${field('expenses', 'Dépenses mensuelles (€)', '1 500')}${field('savings', 'Fonds de vie hors bankroll (€)', '9 000')}${field('target', 'Revenu mensuel visé (€)', '2 000')}
+        ${field('hoursMonth', 'Heures de jeu par mois', '120')}${field('handsHour', 'Mains par heure (toutes tables)', '300')}
+        <label class="f">Limite visée<select id="pf_stake" data-pset="proStake"><option value="">Auto (${esc(commonStake(js.ss) || 'NL10')})</option>${PR.STAKES.map(([n]) => `<option${st.proStake === n ? ' selected' : ''}>${n}</option>`).join('')}</select></label></div>
+        <p class="note">Bankroll, winrate, écart-type et heures viennent de ton Journal (${js.ss.length} sessions, ${js.hands.toLocaleString('fr-FR')} mains cash). Mains par heure : environ 75 par table en ligne en 6 joueurs, 30 en live.</p></section>
+      <section class="panel"><div class="row" style="justify-content:space-between"><div><span class="eyebrow">Passage pro · ${name}</span><h2 style="margin-top:4px">${C.ok}/${C.n} critère${C.ok > 1 ? 's' : ''}</h2></div><span class="pill ${verdict[0]}">${verdict[1]}</span></div>
+        <div class="meter"><i style="width:${C.ok / C.n * 100}%"></i></div><p>${vtxt}</p>
+        <div style="display:grid">${C.list.map((c) => `<div style="display:grid;gap:2px;padding:9px 0;border-top:1px solid var(--line)"><div class="row" style="justify-content:space-between;flex-wrap:nowrap;gap:10px"><strong>${esc(c.label)}${c.critical ? ' ★' : ''}</strong><span class="pill ${STATUS[c.st][0]}" style="white-space:nowrap">${STATUS[c.st][1]}</span></div><span class="note"><span class="mono" style="color:var(--ink)">${fmtCrit(c)}</span> · repère : ${esc(c.need)}</span></div>`).join('')}</div>
+        ${todo.length ? `<h3>Le plus court chemin</h3><ol class="note" style="margin:0;padding-left:1.3em;display:grid;gap:6px">${todo.map((c) => `<li><strong style="color:var(--ink)">${esc(c.label)}</strong> : ${esc(c.tip)}</li>`).join('')}</ol>` : ''}
+        <p class="note">★ critère bloquant. Ces repères sont des conventions prudentes de joueurs professionnels, pas des garanties : un winrate passé peut baisser quand le jeu se durcit.</p></section>
+      <section class="panel"><span class="eyebrow">Simulateur de carrière · 12 mois · 2 000 trajectoires</span><h2>${pct(1 - sim.pRuin, 1)} de carrières sans ruine, objectif atteint ${pct(sim.pTarget)}</h2>
+        <div class="form">${sfield('bank', 'Bankroll de départ (€)')}${sfield('wr', 'Winrate (bb/100)')}${sfield('sd', 'Écart-type (bb/100)')}
+          <label class="f">Limite de départ<select id="cs_stake" data-csim="stake">${PR.STAKES.map(([n], i) => `<option value="${i}"${+csim.stake === i ? ' selected' : ''}>${n}</option>`).join('')}</select></label>
+          ${sfield('rule', 'Monter à (caves de la limite suivante)')}${sfield('down', 'Redescendre sous (caves)')}${sfield('drop', 'Winrate perdu par limite montée (bb/100)')}</div>
+        <div class="row"><button class="btn small" data-act="csreset">Reprendre mes chiffres du Journal</button></div>
+        <div class="stats">
+          <div class="stat"><span>Risque de ruine</span><b style="color:var(${sim.pRuin > 0.15 ? '--bad' : sim.pRuin > 0.05 ? '--warn' : '--good'})">${pct(sim.pRuin, 1)}</b><span>bankroll sous 20 € avant 12 mois</span></div>
+          <div class="stat"><span>Gain mensuel médian</span><b>${eur(sim.income.p50)}</b><span>10 % des cas sous ${eur(sim.income.p10)}, 10 % au-dessus de ${eur(sim.income.p90)}</span></div>
+          <div class="stat"><span>Objectif ${eur(num(st.target))}/mois</span><b>${pct(sim.pTarget)}</b><span>des carrières l'atteignent en moyenne</span></div>
+          <div class="stat"><span>Bankroll à 12 mois</span><b>${eur(sim.final.p50)}</b><span>après retraits · ${eur(sim.final.p10)} à ${eur(sim.final.p90)}</span></div>
+          <div class="stat"><span>Mois perdants</span><b>${fr(sim.losingMonths, 1)}</b><span>sur 12 en moyenne</span></div></div>
+        <canvas id="carc" height="240" aria-label="Évolution de la bankroll simulée, du mois 0 au mois 12"></canvas>
+        <p class="note">Ligne épaisse : trajectoire médiane. Bandes : 25-75 % et 10-90 % des carrières, du mois 0 au mois 12, dépenses (${eur(num(st.expenses))}) retirées chaque mois. ${sim.handsMonth.toLocaleString('fr-FR')} mains par mois.</p>
+        <h3>Limite jouée au bout de 12 mois</h3>${endRows.map(([n, f]) => `<div class="typerow"><span>${n}</span><div class="meter"><i style="width:${f * 100}%;${n === 'Ruiné' ? 'background:var(--bad)' : ''}"></i></div><span class="mono">${pct(f)}</span></div>`).join('')}
+        <p class="note">Modèle : 4 blocs de mains par mois, gain tiré selon ton winrate et ton écart-type, montée dès que la bankroll couvre la règle de caves de la limite suivante, descente sous le seuil. Le winrate baisse quand tu montes (adversaires plus forts). Ce n'est pas une prévision : c'est la dispersion que ta variance rend possible.</p></section>`;
+  };
+  AFTER.carriere = () => {
+    const cv = $('#carc'); if (!cv || !simCache) return;
+    const f = simCache.res.fan, line = (q, o) => ({ pts: f.map((x) => x[q]), ...o });
+    drawLines(cv, [line(0, { alpha: 0.35, width: 1 }), line(4, { alpha: 0.35, width: 1 }), line(1, { alpha: 0.6, width: 1.5 }), line(3, { alpha: 0.6, width: 1.5 }), line(2, { width: 3 })], { fmt: (v) => fr(v, 0) + ' €' });
+  };
+  ACT.csreset = () => { csim = simDefaults(); render(); };
+  ONCHANGE.push((t) => {
+    if (t.dataset.pset) { const k = t.dataset.pset; state.settings[k] = k === 'proStake' ? t.value : num(t.value); Store.save('settings'); if (k === 'proStake') csim = null; render(); return true; }
+    if (t.dataset.csim) { csim = csim || simDefaults(); csim[t.dataset.csim] = num(t.value); render(); return true; }
+  });
+
+  // ================= Mental =================
+  const preset = (id) => PR.TRIGGERS.find((x) => x.id === id);
+  X.tiltTriggers = () => { const m = mental(); return [...m.triggers.map((id) => preset(id)).filter(Boolean).map((x) => ({ id: x.id, label: x.label })), ...m.custom]; };
+  const trigLabel = (id) => preset(id)?.label || mental().custom.find((c) => c.id === id)?.label || id;
+  const fiche = (id) => { const m = mental(), p = preset(id); return [0, 1, 2, 3, 4].map((k) => m.fiches[id]?.[k] ?? p?.fiche[k] ?? ''); };
+  const zone = (z) => { const m = mental(), d = PR.ZONES.find((x) => x.id === z); return { signs: m.zones[z]?.signs ?? d.signs, resp: m.zones[z]?.resp ?? d.resp }; };
+  const ci = { sleep: 0, energy: 0, calm: 0, focus: 0, money: false };
+  const CI_Q = [['sleep', 'Sommeil', 'mauvais', 'excellent'], ['energy', 'Énergie', 'à plat', 'en forme'], ['calm', 'Calme', 'énervé', 'serein'], ['focus', 'Concentration', 'dispersé', 'focalisé']];
+  const CI_LV = { go: ['good', 'Feu vert', 'Session normale : durée prévue à l\'avance, stop-loss à 3 caves, SIGMA 52 fermé pendant le jeu.'], short: ['acc', 'Session courte', '45 minutes au plus, une table de moins que d\'habitude, stop-loss à 2 caves.'], stop: ['bad', 'Pas de session aujourd\'hui', 'Travail hors table à la place : 20 minutes de spots, une main à revoir au solveur ou un module.'] };
+  function costHTML() {
+    const ss = state.journal.sessions;
+    if (ss.length < 3) return '<p class="note">Note le tilt ressenti et le déclencheur à chaque session dans le Journal : dès quelques sessions, ce tableau montre ce que le tilt te coûte.</p>';
+    const grp = (keyFn, labels) => {
+      const g = {}; ss.forEach((s) => { const k = keyFn(s); if (k === null) return; const x = g[k] || (g[k] = { n: 0, res: 0, bb: 0, hands: 0 }); x.n++; x.res += s.result; const bb = X.bbOf(s.stake); if (s.format === 'Cash' && bb && s.hands) { x.bb += s.result / bb; x.hands += s.hands; } });
+      return Object.entries(g).map(([k, x]) => `<tr><td>${esc(labels(k))}</td><td class="n">${x.n}</td><td class="n" style="color:var(${x.res >= 0 ? '--good' : '--bad'})">${eur(x.res / x.n)}</td><td class="n">${x.hands ? sgn(x.bb / x.hands * 100, 1) : '—'}</td></tr>`).join('');
+    };
+    const head2 = '<thead><tr><th></th><th class="n">Sessions</th><th class="n">Moyenne</th><th class="n">bb/100</th></tr></thead>';
+    const byTrig = grp((s) => s.trigger || null, trigLabel);
+    return `<div class="grid2"><div class="tw"><table class="t">${head2}<tbody>${grp((s) => String(s.tilt || 0), (k) => ['Sans tilt', 'Tilt léger', 'Tilt net', 'Tilt fort'][+k])}</tbody></table></div>
+      ${byTrig ? `<div class="tw"><table class="t">${head2}<tbody>${byTrig}</tbody></table></div>` : '<p class="note">Aucun déclencheur noté pour l\'instant : choisis-le dans le Journal à chaque session.</p>'}</div>
+      <p class="note">Résultat moyen par session et winrate cash selon le tilt noté. Sur peu de sessions, la variance domine : regarde la tendance, pas les centimes.</p>`;
+  }
+  const openF = new Set();
+  document.addEventListener('toggle', (e) => { const d = e.target; if (d?.dataset?.fid) { if (d.open) openF.add(d.dataset.fid); else openF.delete(d.dataset.fid); } }, true);
+  function cardInner() {
+    const sel = X.tiltTriggers(), m = mental();
+    return (sel.map((x) => `<div><strong>${esc(x.label)}</strong> → ${esc(fiche(x.id)[3])}</div>`).join('') || '<div>Choisis au moins un déclencheur.</div>') +
+      PR.ZONES.map((z) => `<div><strong>Tilt ${z.label.toLowerCase()}</strong> : ${esc(zone(z.id).signs)} → ${esc(zone(z.id).resp)}</div>`).join('') +
+      `<div><strong>Règle d'arrêt</strong> : fin de session dès le tilt ${m.stop === 'fort' ? 'fort' : 'net'}.</div>`;
+  }
+  VIEWS.mental = () => {
+    const m = mental(), sel = X.tiltTriggers(), done = CI_Q.every(([k]) => ci[k] > 0), res = done ? PR.checkin(ci, state.journal.sessions, today()) : null, todayCi = m.checkins.find((c) => c.date === today());
+    const ciRow = ([k, l, lo, hi]) => `<div style="display:grid;gap:4px"><span>${l} <span class="note">(1 = ${lo}, 5 = ${hi})</span></span><div class="row">${[1, 2, 3, 4, 5].map((v) => `<button class="chip" style="min-width:44px" aria-pressed="${ci[k] === v}" data-act="cisel" data-k="${k}" data-v="${v}" aria-label="${l} ${v} sur 5">${v}</button>`).join('')}</div></div>`;
+    const ficheHTML = (x) => { const f = fiche(x.id); return `<details class="panel" data-fid="${esc(x.id)}"${openF.has(x.id) ? ' open' : ''}><summary><strong>${esc(x.label)}</strong>${f[3] ? ` · <span class="note">${esc(f[3])}</span>` : ' · <span class="note">fiche à écrire</span>'}</summary>
+      <div style="display:grid;gap:8px;margin-top:10px">${PR.FICHE_STEPS.map((stp, k) => `<label class="f">${k + 1}. ${stp}<textarea rows="3" data-fiche="${esc(x.id)}:${k}" maxlength="400">${esc(f[k])}</textarea></label>`).join('')}
+      <div class="row">${preset(x.id) ? `<button class="btn small" data-act="ficreset" data-id="${esc(x.id)}">Revenir au texte proposé</button>` : ''}<button class="btn small" data-act="trigdel" data-id="${esc(x.id)}">Retirer ce déclencheur</button></div></div></details>`; };
+    const hist = m.checkins.slice(-14);
+    return head('Mental', 'Le check-in avant de jouer, ta carte de tilt et ce que le tilt te coûte. À préparer à froid : pendant une session, on ne fait qu\'appliquer.') + `
+      <section class="panel"><span class="eyebrow">Check-in avant session${todayCi ? ' · fait aujourd\'hui' : ''}</span><h2>Es-tu en état de jouer ?</h2>
+        ${CI_Q.map(ciRow).join('')}
+        <label class="check"><input type="checkbox" data-act="cimoney" ${ci.money ? 'checked' : ''}><span>J'ai besoin de gagner aujourd'hui (loyer, perte à rattraper, objectif)</span></label>
+        ${res ? `<div class="warnbox" style="border-color:var(--${CI_LV[res.level][0] === 'good' ? 'good' : CI_LV[res.level][0] === 'bad' ? 'bad' : 'accent'})"><strong>${CI_LV[res.level][1]}</strong> (${res.score}/20). ${CI_LV[res.level][2]}${res.reasons.length ? '<br>' + res.reasons.map(esc).join('<br>') : ''}${m.triggers.length || m.custom.length ? `<br><span class="note">Relis ta carte ci-dessous avant de lancer la session.</span>` : ''}</div>
+          <div class="row"><button class="btn primary" data-act="cisave">Enregistrer le check-in</button></div>` : '<p class="note">Réponds aux quatre questions : le verdict apparaît ici.</p>'}
+        ${hist.length ? `<div class="row" style="gap:4px;align-items:center"><span class="note">14 derniers :</span>${hist.map((c) => `<span title="${c.date} · ${c.score}/20" style="width:14px;height:14px;border-radius:3px;display:inline-block;background:var(--${c.level === 'go' ? 'good' : c.level === 'stop' ? 'bad' : 'warn'})"></span>`).join('')}</div>` : ''}</section>
+      <section class="panel"><span class="eyebrow">Ma carte de tilt · 1. Déclencheurs</span><h2>Qu'est-ce qui te fait sortir de ton jeu ?</h2>
+        <div class="row">${PR.TRIGGERS.map((x) => `<button class="chip" aria-pressed="${m.triggers.includes(x.id)}" data-act="trigtog" data-id="${x.id}">${esc(x.label)}</button>`).join('')}${m.custom.map((c) => `<button class="chip" aria-pressed="true" data-act="trigdel" data-id="${esc(c.id)}">${esc(c.label)} ×</button>`).join('')}</div>
+        <div class="row"><label class="f" style="flex:1;min-width:200px">Autre déclencheur<input id="newtrig" maxlength="60" placeholder="Ex. : jouer après le travail"></label><button class="btn" data-act="trigadd">Ajouter</button></div>
+        <p class="note">Pour chaque déclencheur, une fiche de correction en 5 étapes (méthode de Jared Tendler, The Mental Game of Poker). Les textes proposés sont un point de départ : réécris-les avec tes mots, c'est ce qui les rend efficaces.</p></section>
+      ${sel.length ? `<div style="display:grid;gap:10px">${sel.map(ficheHTML).join('')}</div>` : ''}
+      <section class="panel"><span class="eyebrow">2. Mes niveaux de tilt</span><h2>Ce que je remarque, ce que je fais</h2>
+        <div class="grid3">${PR.ZONES.map((z) => { const v = zone(z.id); return `<div style="display:grid;gap:8px;align-content:start"><h3>${z.label}</h3><label class="f">Signes<textarea rows="3" data-zone="${z.id}:signs" maxlength="300">${esc(v.signs)}</textarea></label><label class="f">Réponse<textarea rows="3" data-zone="${z.id}:resp" maxlength="300">${esc(v.resp)}</textarea></label></div>`; }).join('')}</div>
+        <div class="row"><span class="note">J'arrête la session dès le tilt :</span>${[['net', 'Net'], ['fort', 'Fort']].map(([k, l]) => `<button class="chip" aria-pressed="${m.stop === k}" data-act="tiltstop" data-v="${k}">${l}</button>`).join('')}</div></section>
+      <section class="panel"><span class="eyebrow">3. Ma carte en bref · à relire avant chaque session</span>
+        <div class="advice" id="tiltcard">${cardInner()}</div>
+        <div class="row"><button class="btn small" data-act="tiltcopy">Copier ma carte</button><span class="note" id="tiltmsg"></span></div></section>
+      <section class="panel"><span class="eyebrow">4. Ce que le tilt te coûte</span><h2>Résultats selon le tilt noté au Journal</h2>${costHTML()}
+        <div class="row"><button class="btn" data-tab="journal">Ouvrir le Journal</button><button class="btn" data-act="openmod" data-id="tilt2">Module Tilt</button><button class="btn" data-act="openmod" data-id="mental">Module Mental</button></div></section>`;
+  };
+  ACT.cisel = (t) => { ci[t.dataset.k] = +t.dataset.v; render(); };
+  ACT.cimoney = (t) => { ci.money = t.checked; render(); };
+  ACT.cisave = () => {
+    const r = PR.checkin(ci, state.journal.sessions, today()), m = mental();
+    m.checkins = m.checkins.filter((c) => c.date !== today()).concat({ date: today(), score: r.score, level: r.level }).slice(-60);
+    Store.save('mental'); render();
+  };
+  ACT.trigtog = (t) => { const m = mental(), id = t.dataset.id; m.triggers = m.triggers.includes(id) ? m.triggers.filter((x) => x !== id) : [...m.triggers, id]; Store.save('mental'); render(); };
+  ACT.trigadd = () => { const v = ($('#newtrig')?.value || '').trim().slice(0, 60); if (!v) return; const m = mental(); m.custom.push({ id: 'c' + Date.now().toString(36), label: v }); Store.save('mental'); render(); };
+  ACT.trigdel = (t) => { const m = mental(), id = t.dataset.id; m.triggers = m.triggers.filter((x) => x !== id); m.custom = m.custom.filter((c) => c.id !== id); Store.save('mental'); render(); };
+  ACT.ficreset = (t) => { delete mental().fiches[t.dataset.id]; Store.save('mental'); render(); };
+  ACT.tiltstop = (t) => { mental().stop = t.dataset.v; Store.save('mental'); render(); };
+  ACT.tiltcopy = async () => {
+    const txt = ($('#tiltcard')?.innerText || '').trim(), msg = $('#tiltmsg');
+    try { await navigator.clipboard.writeText('Ma carte de tilt\n' + txt); if (msg) msg.textContent = 'Copiée.'; } catch (e) { if (msg) msg.textContent = 'Copie impossible ici : sélectionne le texte à la main.'; }
+  };
+  ONCHANGE.push((t) => {
+    if (t.dataset.fiche) { const [id, k] = t.dataset.fiche.split(':'), m = mental(); m.fiches[id] = fiche(id); m.fiches[id][+k] = t.value.slice(0, 400); Store.save('mental'); const el = $('#tiltcard'); if (el) el.innerHTML = cardInner(); return true; }
+    if (t.dataset.zone) { const [z, k] = t.dataset.zone.split(':'), m = mental(); m.zones[z] = zone(z); m.zones[z][k] = t.value.slice(0, 300); Store.save('mental'); const el = $('#tiltcard'); if (el) el.innerHTML = cardInner(); return true; }
+  });
+})();
+</script>
 <script>// Confort d'utilisation : recherche globale (Ctrl+K ou /), thème clair/sombre/auto, aide des raccourcis (?).
 (function () {
   const X = window.__S52, K = window.Course, S = window.Spots, CH = window.Champions;
@@ -11087,7 +11647,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
   // ---------------- Recherche globale ----------------
   function entries() {
     const out = [];
-    const tabDesc = { jour: 'Programme, révisions, spots du jour', parcours: 'Objectif, test de niveau, chemin le plus court', profil: 'Score SIGMA, badges, série, sauvegarde des données', cours: '92 modules, 6 niveaux, examens de niveau, lexique de 100 termes', spots: 'Exercices corrigés', sim: 'Table avec coach, mains guidées, Expresso', champions: '27 styles inspirés de joueurs connus, parcours des champions', live: 'Décision éclair avec EV, range adverse, joueurs, soirée, entraînement, minuteur (parties amicales)', solveur: 'Équilibre postflop, rapport agrégé, entraîneur river', analyse: 'Historiques, replayer, bibliothèque', outils: 'Équité, board, push/fold, calculs', journal: 'Sessions, bankroll, variance', studio: 'Images et vidéos à partir de tes mains' };
+    const tabDesc = { jour: 'Programme, révisions, spots du jour', parcours: 'Objectif, test de niveau, chemin le plus court', profil: 'Score SIGMA, Elo, ligue de la semaine, médailles, badges, sauvegarde des données', cours: '92 modules, 6 niveaux, examens de niveau, lexique de 100 termes', spots: 'Exercices corrigés', sim: 'Table avec coach, mains guidées, Expresso', champions: '27 styles inspirés de joueurs connus, parcours des champions', live: 'Décision éclair avec EV, range adverse, joueurs, soirée, entraînement, minuteur (parties amicales)', solveur: 'Équilibre postflop, rapport agrégé, entraîneur river', analyse: 'Historiques, replayer, bibliothèque', outils: 'Équité, board, push/fold, calculs', journal: 'Sessions, bankroll, variance', carriere: 'Critères de passage pro, simulateur de carrière sur 12 mois', mental: 'Check-in avant session, carte de tilt, fiches de correction, coût du tilt', studio: 'Images et vidéos à partir de tes mains' };
     X.TABS.forEach(([k, l]) => out.push({ kind: 'Onglet', title: l, desc: tabDesc[k] || '', run: () => X.go(k) }));
     K.MODULES.forEach((m) => out.push({ kind: 'Module', title: m.title, desc: `Niveau ${m.level} · ${K.LEVELS[m.level - 1].title} · ${m.minutes} min`, extra: m.sections.map((s) => s[0]).join(' '), run: () => { X.setOpenMod(m.id); X.go('cours'); } }));
     Object.entries(S.TYPES).forEach(([k, l]) => out.push({ kind: 'Exercice', title: l, desc: 'Spots corrigés', run: () => { X.setSpotMode(k); X.go('spots'); } }));

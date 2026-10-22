@@ -161,7 +161,7 @@
     const hands = split(text).map(parseHand).filter((h) => h.seats.length >= 2 && h.bb > 0);
     const heroCount = {}; hands.forEach((h) => h.hero && (heroCount[h.hero] = (heroCount[h.hero] || 0) + 1));
     const hero = Object.entries(heroCount).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
-    const opp = {}, me = { hands: 0, net: 0, netBB: 0, vpip: 0, pfr: 0, threeOpp: 0, three: 0, sawFlop: 0, sd: 0, wsd: 0, aggr: 0, calls: 0, cbetOpp: 0, cbet: 0, ftcOpp: 0, ftc: 0, byPos: {}, luck: 0, allins: [], rake: 0 };
+    const opp = {}, me = { hands: 0, net: 0, netBB: 0, vpip: 0, pfr: 0, threeOpp: 0, three: 0, sawFlop: 0, sd: 0, wsd: 0, aggr: 0, calls: 0, cbetOpp: 0, cbet: 0, ftcOpp: 0, ftc: 0, byPos: {}, luck: 0, allins: [], rake: 0, dealt: { n: 0, prem: 0 }, sets: { n: 0, hit: 0 }, curve: [] };
     const leaks = { tooLoose: [], tooTight: [], limps: [] }, pots = [];
     for (const h of hands) {
       const a = analyzeHand(h);
@@ -186,6 +186,14 @@
         }
         const L = allinLuck(h, a);
         if (L) { me.luck += L.luck; me.allins.push({ id: h.id, ...L, bb: h.bb }); }
+        // Indice de chance : cartes reçues, sets floppés, courbe réelle et courbe ajustée de la chance aux tapis.
+        if (h.heroCards) {
+          const [c1, c2] = h.heroCards, r1 = c1 >> 2, r2 = c2 >> 2;
+          me.dealt.n++; if ((r1 === r2 && r1 >= 10) || (Math.min(r1, r2) === 11 && Math.max(r1, r2) === 12)) me.dealt.prem++;
+          if (r1 === r2 && a.facts[hero]?.sawFlop && h.board.length >= 3) { me.sets.n++; if (h.board.slice(0, 3).some((c) => c >> 2 === r1)) me.sets.hit++; }
+        }
+        const prev = me.curve[me.curve.length - 1] || [0, 0];
+        me.curve.push([prev[0] + nbb, prev[1] + nbb - (L ? L.luck / h.bb : 0)]);
       }
     }
     pots.sort((x, y) => Math.abs(y.bb) - Math.abs(x.bb));

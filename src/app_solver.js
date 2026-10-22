@@ -130,7 +130,7 @@
   }
   function finish() {
     sv.running = false;
-    state.progress.solves = (state.progress.solves || 0) + 1; X.Store.save('progress');
+    state.progress.solves = (state.progress.solves || 0) + 1; X.award?.('solve', null, true); X.Store.save('progress');
     if (sv.target) { try { sv.path = sv.target.seq ? pathFor(sv.game, sv.target.seq) : (sv.target.path || []).slice(); } catch (e) { sv.path = []; } }
     refreshInfo(); render();
   }

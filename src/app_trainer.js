@@ -51,6 +51,7 @@
     const T = state.progress.trainer || (state.progress.trainer = { n: 0, ok: 0, loss: 0, hist: [] });
     T.n++; if (grade === 'Meilleure' || grade === 'Correcte') T.ok++; T.loss += lossPct;
     T.hist = [...(T.hist || []), Math.round(lossPct * 1000) / 1000].slice(-50);
+    X.award?.('trainer', null, true);
     Store.save('progress'); render();
   }
   const nm = (p) => esc(tr.spot.names[p]);

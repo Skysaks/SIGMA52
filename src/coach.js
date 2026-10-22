@@ -42,9 +42,9 @@
   };
   // Profil de base d'un joueur (les styles « champions » sont estimés comme leur profil le plus proche).
   const K = (p) => (TS.kindOf ? TS.kindOf(TS.PROFILES[p.profile], p.profile) : p.profile);
-  function villainRange(t, vi) {
+  function villainRange(t, vi, boardOnly) {
     const p = t.players[vi], pr = TS.PROFILES[p.profile];
-    const dead = [...t.players[0].cards, ...t.board];
+    const dead = boardOnly ? t.board.slice() : [...t.players[0].cards, ...t.board];
     let lo = 0, hi = 1, level = 1;
     for (const s of t.seq) {
       if (s.street !== 'pre') break;
@@ -84,9 +84,9 @@
   const inRange = (str, h) => E.parseRange(str).has(h);
 
   function advise(t, opts = {}) {
-    const hero = t.players[0], L = t.legal(), pos = TS.posName(t, 0), hand = E.abstractOf(hero.cards[0], hero.cards[1]);
+    const hero = t.players[0], hc = opts.cards || hero.cards, L = t.legal(), pos = TS.posName(t, 0), hand = E.abstractOf(hc[0], hc[1]);
     const villains = t.players.map((p, i) => i).filter((i) => i > 0 && t.players[i].inHand);
-    const ranges = villains.map((vi) => ({ vi, name: t.players[vi].name, profile: K(t.players[vi]), real: t.players[vi].profile, ...villainRange(t, vi) }));
+    const ranges = opts.ranges || villains.map((vi) => ({ vi, name: t.players[vi].name, profile: K(t.players[vi]), real: t.players[vi].profile, ...villainRange(t, vi) }));
     const stationIn = ranges.some((r) => r.profile === 'station');
     const why = [], cats = [];
     let rec = L.canCheck ? 'check' : 'fold', to = 0, eq = null;
@@ -138,10 +138,10 @@
         if (K(agg) === 'nit') why.push('Un nit ne sur-relance qu\'avec le haut de sa range : resserre-toi.');
       }
       // Équité préflop contre les ranges estimées (indicative).
-      if (ranges.length) eq = E.equity([{ hand: hero.cards }, ...ranges.map((r) => ({ combos: r.combos }))], [], { iterations: opts.iterations || 2500 }).equity[0];
+      if (ranges.length && !opts.fast) eq = E.equity([{ hand: hc }, ...ranges.map((r) => ({ combos: r.combos }))], [], { iterations: opts.iterations || 2500 }).equity[0];
     } else {
-      eq = E.equity([{ hand: hero.cards }, ...ranges.map((r) => ({ combos: r.combos }))], t.board, { iterations: opts.iterations || 3000 }).equity[0];
-      const k = B.classify(hero.cards, t.board), multi = ranges.length > 1, river = t.street === 'river';
+      eq = E.equity([{ hand: hc }, ...ranges.map((r) => ({ combos: r.combos }))], t.board, { iterations: opts.iterations || 3000 }).equity[0];
+      const k = B.classify(hc, t.board), multi = ranges.length > 1, river = t.street === 'river';
       const drawNote = k.draws.length ? ` Tirage : ${k.draws.map((d) => B.DRAWS[d].toLowerCase()).join(', ')}.` : '';
       why.push(`Ta main : ${B.MADE[k.made].toLowerCase()}.${drawNote} Équité contre ${multi ? 'les ranges estimées' : 'la range estimée'} : ${fmtP(eq)}.`);
       if (L.toCall > 0) {
@@ -172,6 +172,47 @@
     return { pos, hand, rec, to, eq, need, toCall: L.toCall, pot: L.pot, cats, why, ranges: ranges.map((r) => ({ name: r.name, profile: r.profile, label: TS.PROFILES[r.real].label, n: r.combos.length, pct: r.pct, desc: describeRange(r) })) };
   }
 
+
+  // Conseiller par main : l'action que le coach recommanderait ici avec chacune des 169 mains, à ranges adverses identiques.
+  // La range du héros est estimée depuis ses actions préflop et les tableaux de référence (ouverture, défense, 3-bet).
+  function heroPreRange(t) {
+    const pre = t.seq.filter((s) => s.street === 'pre'), all = new Set(E.ALL169);
+    const k = pre.findIndex((s) => s.i === 0); if (k < 0) return { set: all, label: 'toutes les mains (première décision)' };
+    const before = pre.slice(0, k), act = pre[k].final, pos = TS.posName(t, 0), raises = before.filter((s) => s.final === 'raise');
+    const pick = (f) => new Set(E.ALL169.filter(f));
+    if (!raises.length && act === 'raise' && C.RFI[pos] && !before.some((s) => s.final === 'call')) return { set: E.parseRange(C.RFI[pos].range), label: `ouverture ${pos}` };
+    if (raises.length === 1 && before.filter((s) => s.final === 'call').length === 0) {
+      const oPos = TS.posName(t, raises[0].i), want = act === 'raise' ? '3bet' : act === 'call' ? 'call' : null;
+      if (want && C.FACING[oPos]?.[pos]) return { set: pick((h) => C.facingAction(oPos, pos, h) === want), label: `${want === '3bet' ? '3-bet' : 'défense'} ${pos} contre ${oPos}` };
+    }
+    if (act === 'check') return { set: all, label: 'toutes les mains (check en grosse blinde)' };
+    if (act === 'raise') return { set: pick((h) => pctOf(h) < (raises.length ? 0.06 : 0.2)), label: raises.length ? 'haut de range (sur-relance)' : 'isolation' };
+    if (act === 'call') return { set: pick((h) => pctOf(h) < (raises.length >= 2 ? 0.08 : 0.3)), label: 'mains qui suivent' };
+    return { set: all, label: 'toutes les mains' };
+  }
+  function rangeAdvice(t, opts = {}) {
+    const villains = t.players.map((p, i) => i).filter((i) => i > 0 && t.players[i].inHand);
+    const ranges = villains.map((vi) => ({ vi, name: t.players[vi].name, profile: K(t.players[vi]), real: t.players[vi].profile, ...villainRange(t, vi, true) }));
+    const hr = heroPreRange(t), board = new Set(t.board), pre = t.street === 'pre', mine = E.abstractOf(t.players[0].cards[0], t.players[0].cards[1]);
+    const canCheck = t.legal().canCheck, cells = {}, tot = { raise: 0, call: 0, check: 0, fold: 0 };
+    let nIn = 0;
+    for (const h of E.ALL169) {
+      const cs = E.combos(h).filter((c) => !board.has(c[0]) && !board.has(c[1]));
+      if (!cs.length) { cells[h] = null; continue; }
+      // Postflop, la couleur compte : jusqu'à 3 combinaisons par main, action majoritaire.
+      const sample = pre ? [cs[0]] : cs.length <= 3 ? cs : [cs[0], cs[Math.floor(cs.length / 2)], cs[cs.length - 1]];
+      const votes = {}; let eqs = 0, ne = 0;
+      for (const c of sample) {
+        let a; try { a = advise(t, { cards: c, ranges, fast: pre, iterations: opts.iterations || 260 }); } catch (e) { continue; }
+        const r = a.rec === 'check' && !canCheck ? 'fold' : a.rec; votes[r] = (votes[r] || 0) + 1;
+        if (a.eq !== null && a.eq !== undefined) { eqs += a.eq; ne++; }
+      }
+      const rec = Object.entries(votes).sort((x, y) => y[1] - x[1])[0]?.[0]; if (!rec) { cells[h] = null; continue; }
+      const inR = hr.set.has(h); cells[h] = { rec, eq: ne ? eqs / ne : null, inR, n: cs.length };
+      if (inR) { tot[rec] += cs.length; nIn += cs.length; }
+    }
+    return { cells, tot, nIn, label: hr.label, mine, street: t.street, canCheck };
+  }
 
   // Tapis courts (Expresso, fins de tournoi) : tapis ou couché.
   // Tête-à-tête SB contre BB : équilibre de Nash exact (solveur). À 3 joueurs : estimation contre les seuils connus des bots.
@@ -228,6 +269,6 @@
   }
 
   const ACT_FR = { fold: 'se coucher', check: 'parole', call: 'suivre', raise: 'miser / relancer' };
-  const api = { CATS, ACT_FR, villainRange, advise, grade, describeRange, preflopInterval, pushFoldAdvice };
+  const api = { CATS, ACT_FR, villainRange, advise, grade, describeRange, preflopInterval, pushFoldAdvice, heroPreRange, rangeAdvice };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Coach = api;
 })(typeof window !== 'undefined' ? window : globalThis);
