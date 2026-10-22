@@ -15,7 +15,14 @@
   // Durée calculée : lecture à 180 mots par minute + 40 secondes par question de quiz.
   const words = (m) => m.sections.map((s) => s[1]).concat(m.goals, m.mistakes, m.keys).join(' ').replace(/<[^>]+>/g, ' ').split(/\s+/).filter(Boolean).length;
   const minutes = (m) => Math.max(3, Math.round(words(m) / 180 + m.quiz.length * 0.7));
-  const qz = (l) => (l || []).map(([q, opts, ok, why]) => ({ q, opts, ok, why }));
+  // Ordre des réponses mélangé de façon stable (même ordre à chaque affichage) : la bonne réponse n'est pas toujours la première.
+  const hash = (s) => { let x = 2166136261; for (let i = 0; i < s.length; i++) x = Math.imul(x ^ s.charCodeAt(i), 16777619); return x >>> 0; };
+  const mix = (q, opts, ok) => {
+    const idx = opts.map((_, i) => i); let x = hash(q) || 1;
+    for (let i = idx.length - 1; i > 0; i--) { x ^= x << 13; x ^= x >>> 17; x ^= x << 5; x >>>= 0; const j = x % (i + 1); [idx[i], idx[j]] = [idx[j], idx[i]]; }
+    return { opts: idx.map((i) => opts[i]), ok: idx.indexOf(ok) };
+  };
+  const qz = (l) => (l || []).map(([q, opts, ok, why]) => ({ q, ...mix(q, opts, ok), why }));
   // Insertion triée par niveau (ordre de lecture), stable à l'intérieur d'un niveau.
   const mod = (m) => { m.quiz = qz(m.quiz); m.minutes = minutes(m); let i = M.length; while (i > 0 && M[i - 1].level > m.level) i--; M.splice(i, 0, m); };
   // Complète un module existant (sections, quiz, erreurs, points clés).
@@ -141,7 +148,7 @@
     const r = { read: m.minutes, exercises: exo * 3, drill: m.drill ? 22 : 0, review: 15, practice: m.level <= 4 ? 30 : 15 };
     r.total = r.read + r.exercises + r.drill + r.review + r.practice; r.exo = exo; return r;
   }
-  const api = { MODULES: M, SITUATIONS: S, LEVELS, GLOSSARY, mod, extend, learn };
+  const api = { MODULES: M, SITUATIONS: S, LEVELS, GLOSSARY, mod, extend, learn, mix };
   if (typeof module !== 'undefined' && module.exports) { module.exports = api; ['l1', 'l2', 'l3', 'l4', 'elite', 'champions', 'live', 'extra', 'ultimate', 'paths', 'deep', 'deep2', 'deep3'].forEach((n) => require('./course_' + n + '.js')(api)); }
   else root.Course = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -2,7 +2,14 @@
 // Un examen = 12 questions de cette banque + 8 questions des quiz du niveau, tirées au hasard ; validé à 80 %.
 // Équités citées : moteur SIGMA 52 ; ICM : calcul exact du moteur.
 (function (root) {
-  const Q = (level, mod, q, opts, ok, why) => ({ level, mod, q, opts, ok, why });
+  // Même mélange stable des réponses que les quiz des modules (la bonne réponse n'est pas toujours la première).
+  const hash = (s) => { let x = 2166136261; for (let i = 0; i < s.length; i++) x = Math.imul(x ^ s.charCodeAt(i), 16777619); return x >>> 0; };
+  const mix = (q, opts, ok) => {
+    const idx = opts.map((_, i) => i); let x = hash(q) || 1;
+    for (let i = idx.length - 1; i > 0; i--) { x ^= x << 13; x ^= x >>> 17; x ^= x << 5; x >>>= 0; const j = x % (i + 1); [idx[i], idx[j]] = [idx[j], idx[i]]; }
+    return { opts: idx.map((i) => opts[i]), ok: idx.indexOf(ok) };
+  };
+  const Q = (level, mod, q, opts, ok, why) => ({ level, mod, q, ...mix(q, opts, ok), why });
   const BANK = [
     // ---- Niveau 1 : Fondations
     Q(1, 'positions', 'Table à 6, tout le monde se couche jusqu\'à toi au CO. Tu as A♦9♠. Que fais-tu ?', ['Relancer', 'Payer la grosse blinde', 'Coucher'], 0, 'A9o fait partie de la range d\'ouverture du CO ; premier à entrer, on relance ou on se couche.'),
