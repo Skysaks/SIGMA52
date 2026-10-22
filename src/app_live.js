@@ -38,6 +38,8 @@
     for (const st of ['flop', 'turn']) { if ((st === 'flop' && b >= 4) || (st === 'turn' && b >= 5)) { const h = HIST[lv.hist[st]], z = SZ[(lv.histSize || {})[st] || 'm']; if (h) h[1].forEach((x) => out.push({ street: st, ...x, ...(x.size !== undefined ? { size: z } : {}) })); } }
     return out;
   }
+  // Statistiques préflop réelles de l'adversaire choisi (VPIP, PFR), utilisées dès 15 mains.
+  function vstats() { const p = lv.villain !== null ? lv.players[lv.villain] : null; if (!p || (p.hands || 0) < 15) return undefined; return { n: p.hands, vpip: (p.vpip || 0) / p.hands, pfr: (p.pfr || 0) / p.hands }; }
   // Agressivité observée de l'adversaire choisi (au moins 10 actions après le flop)
   function villainAF() { const p = lv.villain !== null ? lv.players[lv.villain] : null; if (!p || (p.agg || 0) + (p.cal || 0) < 10) return 0; return (p.agg || 0) / Math.max(1, p.cal || 0); }
   function icmInput() {
@@ -56,7 +58,7 @@
       const bb = bbNow();
       lv.res = L.decide({ game: lv.cfg.game, hero: h, board: b, players: lv.cfg.players, pos: lv.pos, nOpp: lv.nOpp, type: lv.type, pre: lv.pre, limpers: lv.limpers, raiseBB: lv.raiseBB, callers: lv.callers,
         straddle: lv.cfg.straddle, ante: lv.cfg.ante, stackBB: lv.stack ? num(lv.stack) / Math.max(1e-9, bb) : 100, live: true, pot: num(lv.pot), toCall: num(lv.toCall), stack: num(lv.stack),
-        vpre: lv.vpre, raised: lv.raised, ip: lv.ip === null ? undefined : lv.ip, history: history(), icm: icmInput(), openPos: lv.openPos || undefined, af: villainAF(), pl: lv.villain !== null && lv.players[lv.villain] ? lv.players[lv.villain].learn : undefined });
+        vpre: lv.vpre, raised: lv.raised, ip: lv.ip === null ? undefined : lv.ip, history: history(), icm: icmInput(), openPos: lv.openPos || undefined, af: villainAF(), pl: lv.villain !== null && lv.players[lv.villain] ? lv.players[lv.villain].learn : undefined, vstats: vstats() });
     } catch (e) { lv.res = { action: '?', tone: 'warn', lines: [e.message] }; }
     lv.ms = performance.now() - t0;
     if (lv.res && lv.cfg.vibrate && navigator.vibrate && lv.res.action !== lv.lastVib) { lv.lastVib = lv.res.action; navigator.vibrate({ COUCHE: [400], CHECK: [80], SUIS: [80], MISE: [80, 120, 80], RELANCE: [80, 120, 80], TAPIS: [80, 100, 80, 100, 80] }[lv.res.action] || 0); }
@@ -160,6 +162,24 @@
     lv.shown = ''; savePl(); render();
   };
 
+  // ---------------- v14 : cartes à venir ----------------
+  function nextHTML() {
+    const b = boardRaw().length; if (lv.discret || !lv.res || b < 3 || b > 4 || !['nlh', 'bomb'].includes(lv.cfg.game)) return '';
+    if (!lv.showNext) return `<div class="row"><button class="btn small" data-act="lvnext2">Cartes à venir : lesquelles t'aident, lesquelles te font peur</button></div>`;
+    const key = JSON.stringify([hero(), boardRaw(), lv.toCall, lv.pot, lv.type, lv.vpre, lv.hist, lv.villain]);
+    if (lv.nextKey !== key) {
+      lv.nextKey = key;
+      try { lv.next = L.nextCards({ hero: hero(), board: boardRaw(), pot: num(lv.pot), toCall: num(lv.toCall), type: lv.type, pos: lv.pos, nOpp: lv.nOpp, vpre: lv.vpre, raised: lv.raised, ip: lv.ip === null ? undefined : lv.ip, history: history(), af: villainAF(), pl: lv.villain !== null && lv.players[lv.villain] ? lv.players[lv.villain].learn : undefined, vstats: vstats() }); } catch (e) { lv.next = null; }
+    }
+    const r = lv.next; if (!r) return '';
+    const chip = (x, cls) => `<span class="lnc ${cls}">${cardHTML(x.c, true)}<i>${pct(x.eq, 0)}</i></span>`;
+    return `<div class="lnext"><span class="eyebrow">Prochaine carte · ton équité aujourd'hui ${pct(r.eq0, 0)} · en moyenne après la carte ${pct(r.avg, 0)}</span>
+      <div><span class="note">T'aident (+12 points ou plus) : ${r.good.length} carte${r.good.length > 1 ? 's' : ''}</span><div class="row">${r.good.slice(0, 14).map((x) => chip(x, 'good')).join('')}</div></div>
+      <div><span class="note">Te font peur (−12 points ou plus) : ${r.bad.length} carte${r.bad.length > 1 ? 's' : ''}</span><div class="row">${r.bad.slice(-14).reverse().map((x) => chip(x, 'bad')).join('')}</div></div>
+      <div class="row"><button class="btn small" data-act="lvnext2">Masquer</button></div></div>`;
+  }
+  ACT.lvnext2 = () => { lv.showNext = !lv.showNext; render(); };
+
   function decisionHTML() {
     compute();
     const b = boardRaw().length, post = b >= 3, plo = ['plo', 'plo5', 'plo8'].includes(lv.cfg.game), bomb = lv.cfg.game === 'bomb', st = STREET(b);
@@ -193,6 +213,7 @@
       ${lv.discret ? '' : situation + common}
       ${lv.discret ? '' : learnHTML()}
       ${rangeHTML()}
+      ${nextHTML()}
       <div class="row"><button class="btn primary" data-act="lvnew">Nouvelle main</button><button class="btn" data-act="lvnext">Main suivante (position +1)</button>
         <button class="btn" data-act="lvdiscret">${lv.discret ? 'Quitter le mode discret' : 'Mode discret'}</button>${'wakeLock' in navigator ? `<button class="btn" data-act="lvwake">${lv.wake ? 'Écran : reste allumé' : 'Garder l\'écran allumé'}</button>` : ''}</div>
       ${lv.discret ? '<p class="note">Mode discret : écran sombre, seule la décision s\'affiche. Les réglages de situation restent ceux choisis avant.</p>' : `<p class="note">${['plo', 'plo5', 'plo8', 'sd'].includes(lv.cfg.game) ? 'Variante : rang exact de la main de départ (PLO, Short Deck) ou estimé (Omaha 5, Hi-Lo), range adverse filtrée par ses actions, équité Monte-Carlo.' : 'Modèle : range adverse apprise sur des mains simulées de chaque type, mise à jour rue par rue selon ses actions ; équité exacte au turn et à la river ; EV de chaque option sur la rue en cours.'} Clavier : valeur + couleur (a s), Retour pour effacer, Entrée pour une nouvelle main.</p>`}

@@ -64,6 +64,19 @@
     const key = PRE_TXT[vpre] ? vpre : 'call', ck = key + '|' + T;
     return (PRE_CACHE[ck] = PRE_CACHE[ck] || PRE_TXT[key][T]()).slice();
   }
+  // v14 : range préflop tirée de ses statistiques réelles (VPIP, PFR notés à la table), mélangée à celle de son type
+  // selon le nombre de mains observées (poids n ÷ (n + 30)).
+  function personalPre(type, vpre, vs) {
+    if (!vs || !(vs.n >= 15) || !(vs.vpip > 0)) return null;
+    const base = preWeights(type, vpre), lam = vs.n / (vs.n + 30), vp = Math.min(0.95, vs.vpip), pf = Math.min(vp, Math.max(0.01, vs.pfr || 0));
+    let own;
+    if (vpre === 'raise') own = topFreq(pf);
+    else if (vpre === 'threebet') own = topFreq(Math.max(0.02, pf * 0.3));
+    else if (vpre === 'limp') { const a = topFreq(vp), b = topFreq(pf); own = a.map((x, i) => (x && !b[i] ? 1 : 0)); }
+    else if (vpre === 'call' || vpre === 'call3') { const a = topFreq(vp), b = topFreq(Math.min(0.06, pf * 0.25)); own = a.map((x, i) => (x && !b[i] ? 1 : 0)); }
+    else return null;
+    return base.map((x, i) => (1 - lam) * x + lam * own[i]);
+  }
   // Compatibilité v1 : ensemble des mains d'une range préflop (seuil à 50 % du poids maximal).
   function preRange(type, act) { const w = preWeights(type, act); return new Set(E.ALL169.filter((h, i) => w[i] >= 0.5)); }
 
@@ -168,7 +181,7 @@
   // ---------------- Range adverse pondérée ----------------
   // history : [{ street: 'flop'|'turn'|'river', a: 'check'|'bet'|'call'|'raise', size }] (actions de l'adversaire, dans l'ordre).
   function villainRange(o, board, dead) {
-    const type = o.type || 'normal', pw = preWeights(type, o.vpre || 'call'), deadSet = new Set(dead);
+    const type = o.type || 'normal', pw = personalPre(type, o.vpre || 'call', o.vstats) || preWeights(type, o.vpre || 'call'), deadSet = new Set(dead);
     const list = [];
     for (let a = 0; a < 52; a++) {
       if (deadSet.has(a)) continue;
@@ -490,11 +503,22 @@
       else if ((best.act === 'MISE' || best.act === 'RELANCE') && eq < 0.35) plan = { kind: 'bluff', text: toCome ? `Plan bluff : ${outs ? `si tu touches un de tes ${outs} outs, continue pour la valeur ; sinon ` : ''}abandonne au turn sauf carte qui améliore ta range.` : 'Plan bluff : une seule balle, n\'y reviens pas s\'il paie.' };
     }
     if (plan) lines.push(plan.text);
+    // Et s'il relance ? Décision préparée : équité contre sa range de relance face à ta mise, comparée à la cote.
+    let ifRaise = null;
+    if (n === 1 && (best.act === 'MISE') && best.amt > 0 && best.amt < stack) {
+      const Bt = best.amt, R = Math.min(stack, 3 * Bt), pr = resp(Bt / P0); let wr = 0, er = 0;
+      range.forEach((r, i) => { const q = r.w * pr[i][2]; wr += q; er += q * eqv[i]; });
+      if (wr > 1e-6) {
+        const eqR = er / wr, needR = (R - Bt) / (P0 + 2 * R), act = R >= stack ? (eqR >= needR ? 'paie le tapis' : 'couche') : eqR >= 0.6 ? 'relance à tapis' : eqR >= needR ? 'paie' : 'couche';
+        ifRaise = { eq: eqR, need: needR, act, to: R };
+        lines.push(`S'il relance (≈ ×3) : ${act}. Ton équité contre ses relances : ${pctS(eqR)}, il en faut ${pctS(needR)}.`);
+      }
+    }
     if (o.pl && (o.pl.sd || (o.pl.face && o.pl.face.reduce((a, b) => a + b, 0) >= 3))) lines.push(`Profil appris sur ce joueur : ${o.pl.sd ? o.pl.sd + ' abattage' + (o.pl.sd > 1 ? 's' : '') : ''}${o.pl.sd && o.pl.face ? ', ' : ''}${o.pl.face ? (o.pl.face.reduce((a, b) => a + b, 0)) + ' réactions à tes mises' : ''} pris en compte.`);
     const evScale = realPot ? 1 : 100 / P0;
     const tone = best.act === 'COUCHE' ? 'bad' : close || best.act === 'CHECK' ? 'warn' : best.ev > 0 ? 'good' : 'warn';
     return { street, hand: E.abstractOf(hero[0], hero[1]), cat, action: best.act, size: best.size, amount: best.amt, tone, eq, need: toCall > 0 ? toCall / (P0 + 2 * toCall) : 0, outs, spr, lines,
-      options: options.map((x) => ({ k: x.k, act: x.act, size: x.size, ev: x.ev * evScale, fold: x.fold })), evUnit: realPot ? 'jetons' : '% du pot', beats, grid, combos: range.length, effCombos: Math.round(effN), plan, tex: ctx.tex, ip, ms: Date.now() - t0, close: !!close };
+      options: options.map((x) => ({ k: x.k, act: x.act, size: x.size, ev: x.ev * evScale, fold: x.fold })), evUnit: realPot ? 'jetons' : '% du pot', beats, grid, combos: range.length, effCombos: Math.round(effN), plan, ifRaise, tex: ctx.tex, ip, ms: Date.now() - t0, close: !!close };
   }
 
   // ---------------- Omaha pot-limit ----------------
@@ -745,6 +769,28 @@
     return [40, 25, 16, 11, 8];
   }
 
-  const api = { texture, learnShowdown, personal, TYPES, POSITIONS, POS_BY_N, positions, BUCKETS, decide, preflop, postflop, preRange, preWeights, villainRange, equityVec, bucket, likelihood, ploScore, ploPct, structure, chips, payouts, variantDecide, ploTable, sdTable, vScore, fromTable, actTable };
+  // ---------------- v14 : cartes à venir ----------------
+  // Pour chaque carte possible de la prochaine rue : ton équité contre sa range (mise à jour par ses actions).
+  function nextCards(o) {
+    const hero = o.hero, board = o.board; if (!hero || hero.length !== 2 || board.length < 3 || board.length > 4) return null;
+    const type = TYPES[o.type] ? o.type : 'normal', n = Math.max(1, Math.min(6, o.nOpp || 1)), ip = o.ip ?? ['BTN', 'CO'].includes(o.pos);
+    const street = STREET_NAMES[board.length], toCall = Math.max(0, +o.toCall || 0), P0 = +o.pot > 0 ? +o.pot : toCall > 0 ? toCall / 0.6 : 100;
+    const hist = (o.history || []).slice(), last = hist[hist.length - 1];
+    if (toCall > 0 && !(last && last.street === street && (last.a === 'bet' || last.a === 'raise'))) hist.push({ street, a: o.raised ? 'raise' : 'bet', size: toCall / P0 });
+    const ctx = { mw: n > 1 ? 1 : 0, ip: ip ? 0 : 1, af: o.af || 0, pl: o.pl || null };
+    const range = villainRange({ ...o, type, history: hist, ctx }, board, [...hero, ...board]);
+    const cur = equityVec(hero, board, range, { runouts: 60 }), eq0 = range.reduce((a, r, i) => a + r.w * cur[i], 0);
+    const used = new Set([...hero, ...board]), out = [];
+    for (let c = 0; c < 52; c++) {
+      if (used.has(c)) continue;
+      const sub = range.filter((r) => r.c[0] !== c && r.c[1] !== c); const tw = sub.reduce((a, r) => a + r.w, 0); if (!(tw > 0)) continue;
+      const v = equityVec(hero, [...board, c], sub, { runouts: 1 }), eq = sub.reduce((a, r, i) => a + r.w * v[i], 0) / tw;
+      out.push({ c, eq });
+    }
+    out.sort((a, b) => b.eq - a.eq);
+    const good = out.filter((x) => x.eq >= eq0 + 0.12), bad = out.filter((x) => x.eq <= eq0 - 0.12);
+    return { eq0, cards: out, good, bad, avg: out.reduce((a, x) => a + x.eq, 0) / Math.max(1, out.length) };
+  }
+  const api = { nextCards, texture, learnShowdown, personal, TYPES, POSITIONS, POS_BY_N, positions, BUCKETS, decide, preflop, postflop, preRange, preWeights, villainRange, equityVec, bucket, likelihood, ploScore, ploPct, structure, chips, payouts, variantDecide, ploTable, sdTable, vScore, fromTable, actTable };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Live = api;
 })(typeof window !== 'undefined' ? window : globalThis);

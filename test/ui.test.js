@@ -182,6 +182,7 @@ const SHOTS = process.env.SHOTS || '';
     if (!(await has('[data-act=lplf]'))) errs.push(name + ' live v14 : apprentissage absent');
     else { await p.click('[data-act=lplf][data-k="0"]'); await p.fill('[data-lv=shown]', '4d3c'); await p.press('[data-lv=shown]', 'Tab'); await p.click('[data-act=lvsd]'); if (!(await has('text=Profil appris'))) errs.push(name + ' live v14 : profil appris'); await over('live-learn'); await shot('live-learn'); }
     await p.click('[data-act=lvvil][data-i="0"]');
+    if (await has('[data-act=lvnext2]')) { await p.click('[data-act=lvnext2]'); if (!(await has('.lnext'))) errs.push(name + ' live v14 : cartes à venir'); await over('live-next'); await shot('live-next'); await p.click('[data-act=lvnext2]'); } else errs.push(name + ' live v14 : bouton cartes à venir');
     await p.click('[data-act=lvsub][data-s=decision]'); await p.click('[data-act=lvcfgopen]').catch(() => {}); if (!(await has('[data-act=lvcfg][data-k=game][data-v=plo]'))) await p.click('[data-act=lvcfgopen]');
     await p.click('[data-act=lvcfg][data-k=game][data-v=plo]'); for (const c of [51, 47, 50, 46]) await p.click(`[data-act=lvpick][data-c="${c}"]`);
     if (!/RELANCE|SUIS|COUCHE/.test(await p.locator('.lres b').first().innerText())) errs.push(name + ' live v2 : Omaha'); await over('live-plo');

@@ -174,6 +174,7 @@ details summary { cursor: pointer; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --act-f: #6F93BD; --act-x: #47B176; --act-b1: #8E3550; --act-b2: #C24464; --act-b3: #EA6E8D; --act-a: #FFC2D0; } }
 :root[data-theme="dark"] { --act-f: #6F93BD; --act-x: #47B176; --act-b1: #8E3550; --act-b2: #C24464; --act-b3: #EA6E8D; --act-a: #FFC2D0; }
 .llearn { display: grid; gap: 6px; padding: 10px 12px; border: 1px dashed var(--line); border-radius: var(--r); }
+.lnext { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r); } .lnc { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px 2px 2px; border-radius: 6px; background: var(--sunk); } .lnc i { font-style: normal; font-family: var(--f-mono); font-size: 12px; } .lnc.good i { color: var(--good); } .lnc.bad i { color: var(--bad); }
 .exams { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; } .exam { display: grid; gap: 6px; padding: 12px; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); } .exam.done { border-color: var(--good); } .exam .btn { justify-self: start; }
 .pbar { height: 8px; border-radius: 99px; background: var(--sunk); overflow: hidden; } .pbar i { display: block; height: 100%; background: var(--accent); transition: width .3s; }
 .sbar { display: flex; height: 14px; border-radius: 6px; overflow: hidden; background: var(--sunk); } .sbar.small { height: 10px; } .sbar i { display: block; height: 100%; }

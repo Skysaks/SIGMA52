@@ -126,6 +126,11 @@ NODE_PATH=$(npm root -g) node test/ui.test.js   # Playwright, 1280 px et 390 px
 - 12 nouveaux styles Champions sourcés, comportements de tilt, de position et de piège.
 - Examens des 6 niveaux et test de niveau sur les 6 niveaux ; 200 exercices corrigés ; réponses mélangées.
 
+### Ajouté en v14
+- Table live : modèle par **texture de board** (sec, connecté, pairé, trois cartes d'une couleur) ; **apprentissage des vrais joueurs** (réactions à tes mises, abattages, VPIP/PFR réels dès 15 mains, estimation bayésienne tirée vers le type) ; **plan sur les rues suivantes** (taille géométrique, contrôle du pot, abandon de bluff) ; **décision préparée s'il relance** ; **cartes à venir** (celles qui t'aident, celles qui te font peur) ; taille effective de la range adverse.
+- Simulateur d'entraînement réécrit sans allocation (résultats identiques, ≈ 3 fois plus rapide) ; entraînement en lots reprenables.
+- Rapport agrégé du solveur : trois scénarios (BTN contre BB, UTG contre BB, pot 3-bet BB contre BTN).
+
 ### Ajouté en v13
 - 22 modules de plus (92), 266 exercices corrigés, 510 questions de quiz, 129 questions d'examen, 100 situations, lexique de 100 termes ; nouveaux modules intégrés aux parcours.
 - 6 styles Champions sourcés de plus (28 adversaires) ; joueurs écartés faute de description publique de leur style : Linus Loeliger, Phil Galfond, Sammy Farha, Johnny Chan, Maria Konnikova, Greg Raymer, Phil Laak, Fabrice Soulier, Justin Bonomo, Kristen Foxen, Bryn Kenney, Fedor Holz, Jennifer Harman.

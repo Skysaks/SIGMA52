@@ -119,4 +119,10 @@ t('v14 : texture du board, apprentissage d\'un joueur, plan multi-rues', () => {
   assert.ok(v.plan && v.plan.kind === 'valeur' && v.plan.geo > 0.3 && v.plan.geo < 1.2, JSON.stringify(v.plan));
   assert.ok(v.effCombos > 10);
 });
+t('v14 : range préflop tirée du VPIP réel', () => {
+  const spot = { hero: c('9h9c'), board: c('Kd7s2c'), pot: 10, toCall: 5, vpre: 'call' };
+  const loose = D({ ...spot, vstats: { n: 60, vpip: 0.6, pfr: 0.1 } }), tight = D({ ...spot, vstats: { n: 60, vpip: 0.12, pfr: 0.09 } });
+  assert.ok(loose.combos > tight.combos, loose.combos + ' / ' + tight.combos);
+  assert.strictEqual(D({ ...spot, vstats: { n: 5, vpip: 0.6, pfr: 0.1 } }).combos, D(spot).combos);
+});
 console.log(n + ' tests live ok');
