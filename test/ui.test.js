@@ -125,6 +125,7 @@ const SHOTS = process.env.SHOTS || '';
     if (trn !== 1) errs.push(name + ' compteur entraîneur ' + trn);
     await p.click('[data-act=svsub][data-s=help]'); await over('solveur-aide');
     await p.click('[data-act=svsub][data-s=agg]'); if (!(await has('text=Rapport agrégé'))) errs.push(name + ' rapport agrégé'); await p.click('[data-act=aggroup][data-v=suits]'); await over('agg'); await shot('agg');
+    for (const sc of ['3bp-BTN-BB', 'srp-UTG-BB', 'srp-BTN-BB']) { if (!(await has(`[data-act=agsc][data-v="${sc}"]`))) { errs.push(name + ' rapport agrégé : scénario ' + sc); continue; } await p.click(`[data-act=agsc][data-v="${sc}"]`); await over('agg-' + sc); } await shot('agg-3bp');
     await p.locator('[data-act=agload]').first().click(); if (!(await has('[data-act=svgo]'))) errs.push(name + ' agrégé : chargement du flop');
 
     // Champions : briefing, session de 25 mains en tête-à-tête, rapport ; défi mystère ; classement
