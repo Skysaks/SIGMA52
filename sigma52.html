@@ -3684,6 +3684,115 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
       ],
     });
 
+
+    K.mod({
+      id: 'tailles', level: 2, title: 'Les tailles préflop : ouvrir, 3-bet, 4-bet', drill: 'vsopen',
+      goals: ['Choisir sa taille d\'ouverture selon le format et la position', 'Dimensionner un 3-bet en et hors de position', 'Ajuster aux limpers et aux tables live'],
+      sections: [
+        ['Ouvrir', `<div class="tw"><table class="t"><thead><tr><th>Situation</th><th>Taille courante</th></tr></thead><tbody>
+          <tr><td>Cash en ligne, 6 joueurs</td><td>2 à 2,5 bb (3 bb depuis la SB)</td></tr><tr><td>Cash live</td><td>3 à 5 bb, plus selon la table</td></tr>
+          <tr><td>Par limper devant</td><td>+ 1 bb</td></tr><tr><td>Tournoi avec antes</td><td>2 à 2,2 bb</td></tr><tr><td>Tête-à-tête</td><td>2 à 2,5 bb</td></tr></tbody></table></div>
+          <p>Ce sont des repères courants, pas des lois : une taille plus grosse fait coucher plus de mains et se fait payer par des ranges plus fortes. Contre une table qui paie trop, ouvre plus gros.</p>`],
+        ['3-bet et 4-bet', `<ul><li><strong>3-bet en position</strong> : environ 3 fois l'ouverture.</li><li><strong>3-bet hors de position</strong> (blindes) : environ 4 fois l'ouverture, pour compenser le désavantage de position.</li><li><strong>Squeeze</strong> : ajoute environ une ouverture par joueur qui a payé.</li><li><strong>4-bet</strong> : environ 2,2 à 2,5 fois le 3-bet ; avec des tapis de moins de 40 bb, souvent directement tapis.</li></ul>`],
+        ['Une taille pour toute la range', `<p>Utilise la même taille pour toutes tes mains dans une situation donnée : sinon, ta taille révèle ta force. L'exception, ce sont les tables live faibles où l'on peut prendre plus de valeur en ouvrant plus gros avec toute sa range.</p>`],
+        ['Exercices corrigés', ex([
+          ["Cash en ligne, deux limpers, tu ouvres au bouton. Taille ?", "2,5 bb + 2 × 1 bb ≈ <strong>4,5 bb</strong>."],
+          ["Le CO ouvre à 2,5 bb, tu 3-bettes depuis la BB. Taille ?", "Environ 4 fois l'ouverture : <strong>10 bb</strong>."],
+          ["Le HJ ouvre à 2,5 bb, le CO paie, tu squeezes au bouton. Taille ?", "Environ 3 × 2,5 + 2,5 = <strong>10 bb</strong>."],
+        ])],
+      ],
+      mistakes: ['Changer de taille selon la force de sa main', '3-better petit hors de position', 'Ouvrir petit dans une partie live qui paie tout'],
+      keys: ['Ouverture 2-2,5 bb en ligne, plus en live', '3-bet ×3 en position, ×4 hors de position', 'Une taille par situation pour toute la range'],
+      quiz: [
+        ['3-bet hors de position face à 2,5 bb ?', ['≈ 10 bb', '≈ 5 bb', '≈ 25 bb'], 0, 'Environ 4 fois l\'ouverture.'],
+        ['Un limper devant toi : ta taille d\'ouverture…', ['+ 1 bb', 'Ne change pas', 'Se divise par deux'], 0, 'On isole plus gros.'],
+        ['4-bet face à un 3-bet de 9 bb ?', ['≈ 20 à 22 bb', '≈ 12 bb', 'Toujours tapis à 100 bb'], 0, '2,2 à 2,5 fois le 3-bet.'],
+        ['Pourquoi une seule taille par situation ?', ['Pour ne pas révéler sa force', 'C\'est une règle de la room', 'Pour gagner du temps'], 0, 'La taille ne doit pas trahir la main.'],
+        ['En live, contre une table qui paie trop, tu ouvres…', ['Plus gros', 'Plus petit', 'Seulement en limp'], 0, 'Plus de valeur avec les bonnes mains.'],
+      ],
+    });
+
+    K.mod({
+      id: 'variance', level: 2, title: 'Vivre la variance : downswings, chiffres et sang-froid', drill: 'situations',
+      goals: ['Savoir à quoi ressemble la variance d\'un joueur gagnant', 'Lire un résultat sur un échantillon', 'Traverser un downswing sans casser ses règles'],
+      sections: [
+        ['Ce que dit la statistique', `<p>Un joueur à +4 bb/100 avec un écart-type de 90 bb/100 (repère courant en cash 6 joueurs) :</p>
+          <div class="tw"><table class="t"><thead><tr><th>Mains</th><th class="n">Gain attendu</th><th class="n">Écart-type</th><th class="n">Chance d'être perdant</th></tr></thead><tbody>
+          <tr><td>10 000</td><td class="n mono">400 bb</td><td class="n mono">900 bb</td><td class="n mono">≈ 33 %</td></tr>
+          <tr><td>50 000</td><td class="n mono">2 000 bb</td><td class="n mono">≈ 2 010 bb</td><td class="n mono">≈ 16 %</td></tr>
+          <tr><td>100 000</td><td class="n mono">4 000 bb</td><td class="n mono">≈ 2 850 bb</td><td class="n mono">≈ 8 %</td></tr>
+          <tr><td>300 000</td><td class="n mono">12 000 bb</td><td class="n mono">≈ 4 930 bb</td><td class="n mono">≈ 0,7 %</td></tr></tbody></table></div>
+          <p>Un joueur réellement gagnant est perdant sur 10 000 mains une fois sur trois. Le simulateur de variance du Journal montre des courbes de ce type.</p>`],
+        ['Pendant un downswing', `<ol><li>Vérifie d'abord tes décisions : All-in EV (Analyse), revue de mains, spots.</li><li>Si les décisions sont bonnes : continue, en respectant la bankroll (descente de limite si la règle le dit).</li><li>Si elles se dégradent : c'est souvent le tilt qui transforme une mauvaise passe en vraie perte. Réduis le volume, reviens aux routines.</li></ol>`],
+        ['Ce qu\'il ne faut pas faire', `<ul><li>Changer toute sa stratégie après une semaine.</li><li>Monter de limite « pour se refaire ».</li><li>Juger son niveau sur 5 000 mains.</li></ul>`],
+        ['Exercices corrigés', ex([
+          ["Tu es à −300 bb sur 10 000 mains. Peux-tu conclure que tu es perdant ?", "Non : un joueur à +4 bb/100 est perdant sur 10 000 mains environ une fois sur trois. Regarde tes décisions et ton All-in EV."],
+          ["Sur 100 000 mains, quelle chance qu'un joueur à +4 bb/100 soit encore perdant ?", "Environ <strong>8 %</strong>."],
+          ["Ta bankroll passe sous 30 caves pendant un downswing. Que fais-tu ?", "Tu appliques la règle écrite : descente de limite, sans attendre que ça « remonte »."],
+        ])],
+      ],
+      mistakes: ['Conclure sur 10 000 mains', 'Monter de limite pour se refaire', 'Confondre mauvaise passe et mauvais jeu sans vérifier'],
+      keys: ['Perdant 1 fois sur 3 sur 10 000 mains, même gagnant', 'Vérifier les décisions avant les conclusions', 'La règle de bankroll ne se négocie pas'],
+      quiz: [
+        ['Joueur à +4 bb/100 sur 10 000 mains : chance d\'être perdant ?', ['≈ 33 %', '≈ 3 %', '≈ 70 %'], 0, '400 bb attendus pour 900 bb d\'écart-type.'],
+        ['Sur 300 000 mains ?', ['≈ 0,7 %', '≈ 16 %', '≈ 33 %'], 0, 'L\'échantillon écrase la variance.'],
+        ['Première chose à vérifier pendant un downswing ?', ['Tes décisions et ton All-in EV', 'Ta room', 'Ton horaire'], 0, 'Séparer chance et erreurs.'],
+        ['Sous le seuil de bankroll pendant un downswing…', ['Tu descends de limite', 'Tu montes pour te refaire', 'Tu ignores la règle'], 0, 'Règle écrite.'],
+        ['L\'écart-type grandit comme…', ['La racine du nombre de mains', 'Le nombre de mains', 'Il ne change pas'], 0, 'Alors que le gain attendu grandit linéairement.'],
+      ],
+    });
+
+    K.mod({
+      id: 'ev', level: 3, title: 'Calculer l\'EV d\'une décision', drill: 'odds',
+      goals: ['Écrire l\'EV d\'un call, d\'un bluff, d\'un semi-bluff', 'Comparer deux options par leur EV', 'Savoir quelles hypothèses pèsent le plus'],
+      sections: [
+        ['Les trois formules utiles', `<ul><li><strong>Call</strong> : EV = équité × pot final − montant payé.</li><li><strong>Bluff pur</strong> : EV = P(couche) × pot − P(paie) × mise.</li><li><strong>Semi-bluff</strong> : EV = P(couche) × pot + P(paie) × (équité × pot final − mise).</li></ul>
+          <p>On compare les EV des options à partir du même moment ; se coucher vaut 0.</p>`],
+        ['Exemples chiffrés', `<p><strong>Call</strong> : pot 100, il mise 50, tu as 30 % d'équité. EV = 0,30 × 200 − 50 = <strong>+10</strong>.</p>
+          <p><strong>Bluff</strong> : pot 100, tu mises 50, il couche 40 % du temps. EV = 0,4 × 100 − 0,6 × 50 = <strong>+10</strong>.</p>
+          <p><strong>Semi-bluff à tapis</strong> : pot 30, tapis 100, il couche 50 %, tu as 35 % quand il paie. EV = 0,5 × 30 + 0,5 × (0,35 × 230 − 100) = 15 − 9,75 = <strong>+5,25</strong>.</p>`],
+        ['Les hypothèses qui comptent', `<p>L'EV dépend surtout de deux estimations : la fréquence de couchers adverse et ton équité contre sa range quand il paie. Fais varier chacune de ±10 points : si la décision change, elle est serrée et le profil adverse doit trancher. La Table live de SIGMA 52 affiche ces EV option par option.</p>`],
+        ['Exercices corrigés', ex([
+          ["Pot 60, il mise 30, tu as 20 % d'équité. EV du call ?", "0,20 × 120 − 30 = <strong>−6</strong> : couche (sans cotes implicites)."],
+          ["Pot 80, tu bluffes 60. Il couche 45 %. EV ?", "0,45 × 80 − 0,55 × 60 = 36 − 33 = <strong>+3</strong> : légèrement rentable."],
+          ["Même bluff, il couche 35 %. EV ?", "0,35 × 80 − 0,65 × 60 = 28 − 39 = <strong>−11</strong> : 10 points de couchers changent tout."],
+        ])],
+      ],
+      mistakes: ['Oublier que se coucher vaut 0', 'Ignorer l\'équité quand on est payé avec un semi-bluff', 'Décider sans tester la sensibilité des hypothèses'],
+      keys: ['Call : équité × pot final − prix', 'Bluff : couchers × pot − paiements × mise', 'Tester ±10 points sur les hypothèses'],
+      quiz: [
+        ['Pot 100, mise 50, 30 % d\'équité : EV du call ?', ['+10', '−10', '+30'], 0, '0,3 × 200 − 50.'],
+        ['Bluff de 50 dans 100, il couche 40 % : EV ?', ['+10', '−10', '0'], 0, '40 − 30.'],
+        ['Se coucher vaut…', ['0', 'Le pot', 'La mise'], 0, 'On compare à partir du même moment.'],
+        ['Ce qui pèse le plus dans l\'EV d\'un bluff ?', ['La fréquence de couchers', 'La couleur des cartes', 'Le rake'], 0, 'Elle change tout.'],
+        ['Pot 60, mise 30, 20 % d\'équité : EV ?', ['−6', '+6', '0'], 0, '0,2 × 120 − 30.'],
+      ],
+    });
+
+    K.mod({
+      id: 'hu_final', level: 3, title: 'Le tête-à-tête de fin de tournoi', drill: 'pushfold',
+      goals: ['Jouer un tête-à-tête final de 10 à 40 bb', 'Utiliser les ranges de push à tapis courts', 'Discuter un deal en connaissance de cause'],
+      sections: [
+        ['Les profondeurs', `<ul><li><strong>Plus de 25 bb</strong> : petites ouvertures (2 bb) avec une très large part des mains au bouton, jeu après le flop.</li><li><strong>12 à 25 bb</strong> : ouvertures petites, 3-bet tapis fréquent en grosse blinde.</li><li><strong>Moins de 12 bb</strong> : tapis ou couché. À 10 bb, l'équilibre fait pousser environ <strong>58 %</strong> des mains au bouton (solveur SIGMA 52).</li></ul>`],
+        ['Ce qui change par rapport au cash', `<p>Il n'y a plus d'ICM à deux : chaque jeton vaut sa part du reste du prize pool (le deuxième prix est acquis). On joue donc en jetons, de façon très agressive. Les blindes montent vite : la position et les petites relances gagnent beaucoup de pots.</p>`],
+        ['Le deal', `<p>À deux, un accord ICM revient à partager au prorata des jetons ce qui reste au-delà du deuxième prix. Garde une part en jeu pour le titre si tu le souhaites, et vérifie avec l'outil Deal ICM.</p>`],
+        ['Exercices corrigés', ex([
+          ["Tête-à-tête, 10 bb, tu es au bouton avec Q♣6♦. ?", "Tapis : à 10 bb, l'équilibre pousse environ 58 % des mains au bouton, Q6o en fait partie (vérifie dans l'outil Push/Fold)."],
+          ["Premier prix 1 000 €, deuxième 600 €. Tu as 60 % des jetons. Partage au prorata de ce qui reste ?", "Il reste 400 € au-delà du deuxième prix : tu reçois 600 + 0,6 × 400 = <strong>840 €</strong>, l'adversaire 600 + 0,4 × 400 = 760 €."],
+          ["Pourquoi l'ICM ne compte plus à deux ?", "Le deuxième prix est acquis : le seul enjeu restant est l'écart entre premier et deuxième, partagé linéairement selon les jetons."],
+        ])],
+      ],
+      mistakes: ['Jouer serré par habitude de la bulle', 'Ouvrir trop gros à tapis courts', 'Accepter un deal sans calculer'],
+      keys: ['À deux : on joue en jetons', 'Moins de 12 bb : tapis ou couché', 'Deal : deuxième prix + part des jetons'],
+      quiz: [
+        ['À 10 bb en tête-à-tête, le bouton pousse environ…', ['58 % des mains', '15 %', '100 %'], 0, 'Solveur SIGMA 52.'],
+        ['L\'ICM à deux joueurs…', ['Revient au prorata des jetons au-delà du deuxième prix', 'Est extrême', 'Interdit les deals'], 0, 'Le deuxième prix est acquis.'],
+        ['60 % des jetons, 1 000 / 600 € : part au prorata ?', ['840 €', '960 €', '800 €'], 0, '600 + 0,6 × 400.'],
+        ['À 30 bb, l\'ouverture du bouton est…', ['Petite et très fréquente', 'Grosse et rare', 'Toujours tapis'], 0, 'Position et blindes.'],
+        ['La meilleure attitude en tête-à-tête final ?', ['Agressive', 'Très serrée', 'Passive'], 0, 'Les blindes montent vite.'],
+      ],
+    });
+
     // ================= 60 situations supplémentaires pour l'exercice « 40 situations » (devenu 100) =================
     const base = K.SITUATIONS.length;
     K.SITUATIONS.push(...[
@@ -5071,6 +5180,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
     adelstein: { label: 'Style Adelstein', like: 'maniaque', vpip: 0.34, pfr: 0.28, cont: 0.72, three: 0.4, callF: 0.93, value: 0.88, bluff: 0.28, raise: 0.8, size: [0.75, 1.2], over: 0.3, disc: 0.09, open: 3, cbet: 0.78 },
     caro: { label: 'Style Caro', like: 'station', vpip: 0.44, pfr: 0.26, cont: 0.82, three: 0.25, callF: 0.85, value: 0.8, bluff: 0.18, raise: 0.86, size: [0.5, 0.9], loose: 1, wild: 0.05, cbet: 0.6 },
     koon: { label: 'Style Koon', like: 'reg', vpip: 0.26, pfr: 0.23, cont: 0.66, three: 0.36, callF: 1.0, value: 0.82, bluff: 0.23, raise: 0.84, size: [0.33, 0.75], sizeLate: [0.66, 1.0], over: 0.2, xr: 0.2, adapt: 1, cbet: 0.66 },
+    reese: { label: 'Style Reese', like: 'reg', vpip: 0.24, pfr: 0.2, cont: 0.64, three: 0.32, callF: 1.0, value: 0.82, bluff: 0.18, raise: 0.85, size: [0.5, 0.75], adapt: 1.2, disc: 0.12, cbet: 0.62 },
     sigma: { label: 'Moteur SIGMA', like: 'reg', external: true, vpip: 0.25, pfr: 0.22, cont: 0.6, three: 0.3, callF: 1.0, value: 0.75, bluff: 0.18, raise: 0.85, size: [0.5, 0.75] },
     action: { label: 'Joueur d\'action live', like: 'station', vpip: 0.5, pfr: 0.2, cont: 0.85, three: 0.25, callF: 0.75, value: 0.7, bluff: 0.15, raise: 0.85, size: [0.5, 1.0], open: 4, loose: 1, cbet: 0.45 },
     prolive: { label: 'Pro de cash live', like: 'reg', vpip: 0.27, pfr: 0.22, cont: 0.62, three: 0.33, callF: 1.0, value: 0.8, bluff: 0.16, raise: 0.85, size: [0.5, 0.9], open: 3.5, adapt: 0.8, cbet: 0.62 },
@@ -5082,7 +5192,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
     brunson: ['Style Brunson'], harrington: ['Style Harrington'], dwan: ['Style Dwan'],
     hansen: ['Style Hansen'], blom: ['Style Blom'], polk: ['Style Polk'], seidel: ['Style Seidel'], selbst: ['Style Selbst'], ungar: ['Style Ungar'],
     obrestad: ['Style Obrestad'], ferguson: ['Style Ferguson'], moneymaker: ['Style Moneymaker'], elky: ['Style ElkY'], matusow: ['Style Matusow'], sklansky: ['Style Sklansky'],
-    esfandiari: ['Style Esfandiari'], cates: ['Style Cates'], adelstein: ['Style Adelstein'], caro: ['Style Caro'], koon: ['Style Koon'],
+    esfandiari: ['Style Esfandiari'], cates: ['Style Cates'], adelstein: ['Style Adelstein'], caro: ['Style Caro'], koon: ['Style Koon'], reese: ['Style Reese'],
     sigma: ['Sigma_A', 'Sigma_B', 'Sigma_C', 'Sigma_D'],
     action: ['Whale_Vegas', 'Straddle_Sam', 'Lucky_Lou'], prolive: ['Pro_Live', 'Reg_Bike'] };
 
@@ -5917,13 +6027,13 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
     { id: 'gagner', title: 'Gagner vite, en jouant pour le plaisir', who: 'Tu joues quelques heures par semaine et tu veux devenir gagnant sans y passer ta vie.', promise: 'En 4 à 6 semaines : préflop solide, maths de base, jeu exploitant contre les joueurs faibles, budget et règles en place.',
       steps: [['test'], ['mod', 'sprint'], ['mod', 'positions'], ['mod', 'preflop'], ['spot', 'rfi', 0.85, 30], ['mod', 'probas'], ['mod', 'maths'], ['spot', 'odds', 0.85, 30], ['mod', 'fish'], ['mod', 'blindes'], ['mod', 'textures'], ['mod', 'loisir'], ['mod', 'responsable'], ['table', 300], ['mod', 'biais'], ['mod', 'mental'], ['journal', 3]] },
     { id: 'salaire', title: 'Remplacer son salaire', who: 'Tu vises un revenu régulier du poker, à terme à la place ou à côté d\'un emploi.', promise: 'Une méthode de régulier : préflop complet, postflop, exploitation, mental et discipline de pro, économie et fiscalité, preuve par le volume.',
-      steps: [['test'], ['mod', 'sprint'], ['mod', 'bankroll'], ['bankroll'], ['mod', 'preflop2'], ['spot', 'vsopen', 0.8, 30], ['mod', 'postflop'], ['mod', 'textures'], ['mod', 'tirages'], ['mod', 'blindes'], ['mod', 'turnriver'], ['mod', 'fish'], ['mod', 'adversaires'], ['mod', 'decision'], ['mod', 'biais'], ['mod', 'pots3bet'], ['mod', 'tilt2'], ['mod', 'discipline'], ['mod', 'maths2'], ['mod', 'theorie'], ['mod', 'solveurs'], ['mod', 'mdf'], ['mod', 'exploitpop'], ['mod', 'economie'], ['mod', 'bankroll2'], ['mod', 'carriere'], ['mod', 'fiscal'], ['mod', 'salaire'], ['import'], ['table', 1000], ['journal', 10]] },
+      steps: [['test'], ['mod', 'sprint'], ['mod', 'bankroll'], ['bankroll'], ['mod', 'preflop2'], ['spot', 'vsopen', 0.8, 30], ['mod', 'postflop'], ['mod', 'textures'], ['mod', 'tirages'], ['mod', 'blindes'], ['mod', 'tailles'], ['mod', 'turnriver'], ['mod', 'fish'], ['mod', 'adversaires'], ['mod', 'decision'], ['mod', 'variance'], ['mod', 'biais'], ['mod', 'pots3bet'], ['mod', 'ev'], ['mod', 'tilt2'], ['mod', 'discipline'], ['mod', 'maths2'], ['mod', 'theorie'], ['mod', 'solveurs'], ['mod', 'mdf'], ['mod', 'exploitpop'], ['mod', 'economie'], ['mod', 'bankroll2'], ['mod', 'carriere'], ['mod', 'fiscal'], ['mod', 'salaire'], ['import'], ['table', 1000], ['journal', 10]] },
     { id: 'analyste', title: 'Analyser et comprendre le jeu en profondeur', who: 'Tu aimes comprendre pourquoi : ranges, équilibre, solveur, données.', promise: 'La boîte à outils de l\'analyste : théorie, solveur, rapport agrégé, méthode d\'étude par hypothèses, mesure statistique.',
       steps: [['test'], ['mod', 'sprint'], ['mod', 'theorie'], ['mod', 'ranges'], ['mod', 'maths2'], ['mod', 'decision'], ['mod', 'analyste'], ['mod', 'solveurs'], ['mod', 'mdf'], ['spot', 'mdf', 0.8, 30], ['mod', 'bloqueurs'], ['spot', 'combos', 0.8, 30], ['mod', 'avantage'], ['mod', 'polaris'], ['mod', 'bluffcatch'], ['mod', 'etudes'], ['visit', 'agg', 'Lire le rapport agrégé du solveur', ['agg', 1]], ['solver', 10], ['trainer', 60], ['import'], ['mod', 'etude']] },
     { id: 'amis', title: 'Dominer les parties entre amis et en live', who: 'Tu joues surtout en physique : parties maison, clubs, casinos.', promise: 'Décider vite à la table, lire les joueurs, organiser la partie, et t\'entraîner à te passer de l\'outil.',
       steps: [['test'], ['mod', 'sprint'], ['mod', 'eclair'], ['mod', 'home'], ['mod', 'fish'], ['mod', 'multiway'], ['mod', 'live_debut'], ['mod', 'live_strat'], ['mod', 'live_tells'], ['mod', 'notes_live'], ['drill', 10], ['mod', 'tilt2'], ['mod', 'responsable']] },
     { id: 'tournois', title: 'Gagner en tournois et Sit & Go', who: 'Tu joues des tournois, des Sit & Go ou des Expresso.', promise: 'Tapis courts, ICM, bulles, primes : les décisions qui font les places payées.',
-      steps: [['test'], ['mod', 'sprint'], ['mod', 'formats'], ['mod', 'icm'], ['spot', 'pushfold', 0.85, 30], ['mod', 'expresso'], ['expresso', 10], ['mod', 'mtt'], ['mod', 'tapiscourts'], ['mod', 'satellites'], ['mod', 'icm2'], ['spot', 'bounty', 0.8, 20], ['mod', 'perf'], ['mod', 'discipline']] },
+      steps: [['test'], ['mod', 'sprint'], ['mod', 'formats'], ['mod', 'icm'], ['spot', 'pushfold', 0.85, 30], ['mod', 'expresso'], ['expresso', 10], ['mod', 'mtt'], ['mod', 'tapiscourts'], ['mod', 'satellites'], ['mod', 'hu_final'], ['mod', 'icm2'], ['spot', 'bounty', 0.8, 20], ['mod', 'perf'], ['mod', 'discipline']] },
     { id: 'variantes', title: 'Omaha et autres variantes', who: 'Tu veux jouer PLO, Omaha 5 cartes, Hi-Lo ou Short Deck.', promise: 'Les règles qui piègent, les mains qui gagnent, et les outils pour vérifier.',
       steps: [['test'], ['mod', 'sprint'], ['mod', 'omaha'], ['mod', 'plo2'], ['mod', 'variantes2'], ['mod', 'shortdeck2'], ['mod', 'stud'], ['mod', 'limit'], ['visit', 'variantes', 'Calculer quelques équités dans l\'outil Variantes', ['tool', 'variantes']], ['mod', 'profondeur'], ['mod', 'hu']] },
   ];
@@ -6090,6 +6200,10 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
     Q(6, 'bankroll2', 'Bankroll de 2 600 € en NL50 : peux-tu tenter NL100 (essai à 50 caves) ?', ['Non, il faut 5 000 €', 'Oui', 'Oui, avec 10 caves'], 0, '50 caves de 100 €.'),
     Q(3, 'shortdeck2', 'Short Deck : outs d\'un tirage couleur au flop ?', ['5', '9', '8'], 0, '9 cartes par couleur moins 4 visibles.'),
     Q(3, 'limit', 'Limit, pot de 40 à la river, mise de 4. Équité requise ?', ['≈ 8 %', '≈ 25 %', '≈ 33 %'], 0, '4 ÷ 48.'),
+    Q(2, 'tailles', 'Tu 3-bettes depuis la BB face à une ouverture de 2,5 bb. Taille courante ?', ['≈ 10 bb', '≈ 5 bb', '≈ 25 bb'], 0, 'Environ 4 fois hors de position.'),
+    Q(2, 'variance', 'Joueur à +4 bb/100 (écart-type 90) : chance d\'être perdant sur 10 000 mains ?', ['≈ 33 %', '≈ 3 %', '≈ 70 %'], 0, '400 bb attendus, 900 bb d\'écart-type.'),
+    Q(3, 'ev', 'Pot 80, bluff de 60, il couche 45 %. EV ?', ['≈ +3', '≈ −11', '≈ +36'], 0, '36 − 33.'),
+    Q(3, 'hu_final', 'Tête-à-tête final, 1 000 / 600 €, tu as 60 % des jetons. Partage au prorata ?', ['840 €', '960 €', '800 €'], 0, '600 + 0,6 × 400.'),
   ];
 
   // Tirage sans remise.
@@ -8491,6 +8605,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
     adelW: { t: 'Wikipédia, Garrett Adelstein', u: 'https://en.wikipedia.org/wiki/Garrett_Adelstein' },
     caroP1: { t: 'Poker1 (Mike Caro), image et publicité à la table', u: 'https://www.poker1.com/?p=13009' },
     koonPN: { t: 'PokerNews / GTO Wizard, analyse d\'un bluff de Jason Koon (2026)', u: 'https://www.pokernews.com/strategy/is-pocket-kings-a-fold-here-on-the-turn-vs-jason-koon-51799.htm' },
+    reeseLV: { t: 'Las Vegas Sun, The people\'s poker pro (Chip Reese, 2007)', u: 'https://lasvegassun.com/news/2007/dec/06/the-peoples-poker-pro/' },
     holz: { t: 'Card Player, interview de Fedor Holz', u: 'https://www.cardplayer.com/?p=1037852' },
     yohW: { t: 'Wikipédia, Johan Guilbert', u: 'https://en.wikipedia.org/wiki/Johan_Guilbert' },
     yohPN: { t: 'PokerNews, fiche Johan Guilbert', u: 'https://www.pokernews.com/poker-players/johan-guilbert/' },
@@ -8679,6 +8794,13 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
       traits: ['Range serrée et solide', 'Check-raises fréquents au flop', 'Petites mises au flop, grosses au turn et à la river, overbets parfois', 'Lit tes tendances'],
       adapt: ['Peu de failles : joue solide et choisis tes spots', 'Ne c-bette pas automatiquement les boards bas et connectés : il check-raise', 'Face à ses grosses mises turn, pense en ranges : il a des bluffs (tirages)', 'Change de table si possible : c\'est le meilleur conseil contre plus fort'],
       stats: { vpip: 21, pfr: 16, three: 5, cbet: 59, ftc: 25 } },
+    { id: 'reese', profile: 'reese', name: 'Le joueur de cash complet', inspired: 'Chip Reese', flag: 'États-Unis', level: 'Difficile', format: 'hu6', era: 'classique',
+      tagline: 'Posé, solide partout, il s\'adapte sans jamais perdre son calme.',
+      facts: ['Diplômé de Dartmouth, arrivé à Las Vegas en 1974, il joue surtout les plus grosses parties de cash et délaisse longtemps le circuit des tournois. Mike Sexton le décrit comme le meilleur joueur complet, « surtout quand il s\'agissait de jouer plusieurs jeux » ; il gagne le H.O.R.S.E. 2006.', 'Ses pairs le décrivent comme courtois, respecté, toujours calme à la table : on avait envie de jouer contre lui.'],
+      sources: ['reeseLV'],
+      traits: ['Range solide, sans excès', 'Lit tes tendances et s\'y adapte', 'Peu de failles émotionnelles'],
+      adapt: ['Joue solide : peu de leviers', 'Varie tes lignes : il s\'adapte', 'Leçon : son calme est une arme, la constance rapporte plus que les coups d\'éclat'],
+      stats: { vpip: 19, pfr: 14, three: 5, cbet: 66, ftc: 20 } },
     { id: 'live', profile: null, name: 'La partie live à gros enjeux', inspired: 'type de partie fréquentée par YoH ViraL', flag: 'France', level: 'Moyen', format: 'live', era: 'moderne',
       tagline: 'Tapis profonds, joueurs d\'action, un pro à la table : la partie des diffusions live.',
       facts: ['Johan Guilbert, alias YoH ViraL, né en 1989 à Sarreguemines : joueur de cash game devenu régulier des high rollers et vlogueur. PokerNews le cite dans des parties diffusées comme Hustler Casino Live et Live at the Bike.', 'Premier bracelet WSOP en 2025 (WSOP Paradise, GGMillion$ Single Day Turbo, 1 534 645 $) ; deuxième de la WSOP Europe Main Event 2021 (près de 800 000 €).', 'Aucune description publique détaillée de son style de jeu n\'a été trouvée : SIGMA 52 reproduit le type de partie, pas son jeu.'],
@@ -8692,8 +8814,8 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
   const LEGENDS = ['ivey', 'negreanu', 'hellmuth', 'chidwick', 'mizrachi'];
   const CLASSICS = ['brunson', 'harrington', 'dwan', 'antonius', 'ivey'];
   // Types de partie : profondeur, structure et composition de table. Les tournois utilisent le moteur Expresso généralisé.
-  const ARCH = { mix: ['station', 'reg', 'maniaque', 'station', 'nit'], fish: ['station', 'action', 'station', 'reg', 'station'], regs: ['reg', 'chidwick', 'reg', 'harrington', 'nit'], agressifs: ['maniaque', 'dwan', 'mizrachi', 'reg', 'brunson'], legendes: ['ivey', 'negreanu', 'hellmuth', 'chidwick', 'mizrachi'], classiques: ['brunson', 'harrington', 'dwan', 'antonius', 'ivey'], modernes: ['blom', 'selbst', 'polk', 'elky', 'hansen'], ancienne: ['ungar', 'seidel', 'ferguson', 'moneymaker', 'sklansky'], volcan: ['matusow', 'station', 'obrestad', 'reg', 'moneymaker'], highstakes: ['koon', 'adelstein', 'esfandiari', 'cates', 'chidwick'], sigma: ['sigma', 'sigma', 'reg', 'sigma', 'nit'] };
-  const ARCH_LABEL = { mix: 'Table mixte (2 fish, régulier, maniaque, nit)', fish: 'Table de fish', regs: 'Table de réguliers', agressifs: 'Table agressive', legendes: 'Légendes', classiques: 'Classiques (Brunson, Harrington, Dwan…)', modernes: 'Agressifs modernes (Blom, Selbst, Polk, ElkY, Hansen)', ancienne: 'Vieille école (Ungar, Seidel, Ferguson, Moneymaker, Sklansky)', volcan: 'Table avec un joueur qui tilte (Matusow)', highstakes: 'Gros enjeux (Koon, Adelstein, Esfandiari, Cates, Chidwick)', sigma: 'Table difficile (moteur SIGMA)' };
+  const ARCH = { mix: ['station', 'reg', 'maniaque', 'station', 'nit'], fish: ['station', 'action', 'station', 'reg', 'station'], regs: ['reg', 'chidwick', 'reg', 'harrington', 'nit'], agressifs: ['maniaque', 'dwan', 'mizrachi', 'reg', 'brunson'], legendes: ['ivey', 'negreanu', 'hellmuth', 'chidwick', 'mizrachi'], classiques: ['brunson', 'harrington', 'dwan', 'antonius', 'ivey'], modernes: ['blom', 'selbst', 'polk', 'elky', 'hansen'], ancienne: ['ungar', 'seidel', 'ferguson', 'reese', 'sklansky'], volcan: ['matusow', 'station', 'obrestad', 'reg', 'moneymaker'], highstakes: ['koon', 'adelstein', 'esfandiari', 'cates', 'chidwick'], sigma: ['sigma', 'sigma', 'reg', 'sigma', 'nit'] };
+  const ARCH_LABEL = { mix: 'Table mixte (2 fish, régulier, maniaque, nit)', fish: 'Table de fish', regs: 'Table de réguliers', agressifs: 'Table agressive', legendes: 'Légendes', classiques: 'Classiques (Brunson, Harrington, Dwan…)', modernes: 'Agressifs modernes (Blom, Selbst, Polk, ElkY, Hansen)', ancienne: 'Vieille école (Ungar, Seidel, Ferguson, Reese, Sklansky)', volcan: 'Table avec un joueur qui tilte (Matusow)', highstakes: 'Gros enjeux (Koon, Adelstein, Esfandiari, Cates, Chidwick)', sigma: 'Table difficile (moteur SIGMA)' };
   const lv = (a) => a.map((x) => [x / 2, x]);
   const FORMATS = [
     { id: 'cash100', kind: 'cash', name: 'Cash 100 bb', stackBB: 100, desc: 'La référence du cash en ligne à 6 joueurs.', keys: ['Ouvertures selon les charts, 3-bet polarisé en position', 'SPR moyen : top paire bon kicker se joue souvent pour un pot moyen'], mods: ['positions', 'postflop'] },
@@ -10772,7 +10894,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
   // ---------------- Recherche globale ----------------
   function entries() {
     const out = [];
-    const tabDesc = { jour: 'Programme, révisions, spots du jour', parcours: 'Objectif, test de niveau, chemin le plus court', profil: 'Score SIGMA, badges, série, sauvegarde des données', cours: '88 modules, 6 niveaux, examens de niveau, lexique de 100 termes', spots: 'Exercices corrigés', sim: 'Table avec coach, mains guidées, Expresso', champions: '26 styles inspirés de joueurs connus, parcours des champions', live: 'Décision éclair avec EV, range adverse, joueurs, soirée, entraînement, minuteur (parties amicales)', solveur: 'Équilibre postflop, rapport agrégé, entraîneur river', analyse: 'Historiques, replayer, bibliothèque', outils: 'Équité, board, push/fold, calculs', journal: 'Sessions, bankroll, variance', studio: 'Images et vidéos à partir de tes mains' };
+    const tabDesc = { jour: 'Programme, révisions, spots du jour', parcours: 'Objectif, test de niveau, chemin le plus court', profil: 'Score SIGMA, badges, série, sauvegarde des données', cours: '92 modules, 6 niveaux, examens de niveau, lexique de 100 termes', spots: 'Exercices corrigés', sim: 'Table avec coach, mains guidées, Expresso', champions: '27 styles inspirés de joueurs connus, parcours des champions', live: 'Décision éclair avec EV, range adverse, joueurs, soirée, entraînement, minuteur (parties amicales)', solveur: 'Équilibre postflop, rapport agrégé, entraîneur river', analyse: 'Historiques, replayer, bibliothèque', outils: 'Équité, board, push/fold, calculs', journal: 'Sessions, bankroll, variance', studio: 'Images et vidéos à partir de tes mains' };
     X.TABS.forEach(([k, l]) => out.push({ kind: 'Onglet', title: l, desc: tabDesc[k] || '', run: () => X.go(k) }));
     K.MODULES.forEach((m) => out.push({ kind: 'Module', title: m.title, desc: `Niveau ${m.level} · ${K.LEVELS[m.level - 1].title} · ${m.minutes} min`, extra: m.sections.map((s) => s[0]).join(' '), run: () => { X.setOpenMod(m.id); X.go('cours'); } }));
     Object.entries(S.TYPES).forEach(([k, l]) => out.push({ kind: 'Exercice', title: l, desc: 'Spots corrigés', run: () => { X.setSpotMode(k); X.go('spots'); } }));

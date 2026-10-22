@@ -39,6 +39,7 @@
     adelW: { t: 'Wikipédia, Garrett Adelstein', u: 'https://en.wikipedia.org/wiki/Garrett_Adelstein' },
     caroP1: { t: 'Poker1 (Mike Caro), image et publicité à la table', u: 'https://www.poker1.com/?p=13009' },
     koonPN: { t: 'PokerNews / GTO Wizard, analyse d\'un bluff de Jason Koon (2026)', u: 'https://www.pokernews.com/strategy/is-pocket-kings-a-fold-here-on-the-turn-vs-jason-koon-51799.htm' },
+    reeseLV: { t: 'Las Vegas Sun, The people\'s poker pro (Chip Reese, 2007)', u: 'https://lasvegassun.com/news/2007/dec/06/the-peoples-poker-pro/' },
     holz: { t: 'Card Player, interview de Fedor Holz', u: 'https://www.cardplayer.com/?p=1037852' },
     yohW: { t: 'Wikipédia, Johan Guilbert', u: 'https://en.wikipedia.org/wiki/Johan_Guilbert' },
     yohPN: { t: 'PokerNews, fiche Johan Guilbert', u: 'https://www.pokernews.com/poker-players/johan-guilbert/' },
@@ -227,6 +228,13 @@
       traits: ['Range serrée et solide', 'Check-raises fréquents au flop', 'Petites mises au flop, grosses au turn et à la river, overbets parfois', 'Lit tes tendances'],
       adapt: ['Peu de failles : joue solide et choisis tes spots', 'Ne c-bette pas automatiquement les boards bas et connectés : il check-raise', 'Face à ses grosses mises turn, pense en ranges : il a des bluffs (tirages)', 'Change de table si possible : c\'est le meilleur conseil contre plus fort'],
       stats: { vpip: 21, pfr: 16, three: 5, cbet: 59, ftc: 25 } },
+    { id: 'reese', profile: 'reese', name: 'Le joueur de cash complet', inspired: 'Chip Reese', flag: 'États-Unis', level: 'Difficile', format: 'hu6', era: 'classique',
+      tagline: 'Posé, solide partout, il s\'adapte sans jamais perdre son calme.',
+      facts: ['Diplômé de Dartmouth, arrivé à Las Vegas en 1974, il joue surtout les plus grosses parties de cash et délaisse longtemps le circuit des tournois. Mike Sexton le décrit comme le meilleur joueur complet, « surtout quand il s\'agissait de jouer plusieurs jeux » ; il gagne le H.O.R.S.E. 2006.', 'Ses pairs le décrivent comme courtois, respecté, toujours calme à la table : on avait envie de jouer contre lui.'],
+      sources: ['reeseLV'],
+      traits: ['Range solide, sans excès', 'Lit tes tendances et s\'y adapte', 'Peu de failles émotionnelles'],
+      adapt: ['Joue solide : peu de leviers', 'Varie tes lignes : il s\'adapte', 'Leçon : son calme est une arme, la constance rapporte plus que les coups d\'éclat'],
+      stats: { vpip: 19, pfr: 14, three: 5, cbet: 66, ftc: 20 } },
     { id: 'live', profile: null, name: 'La partie live à gros enjeux', inspired: 'type de partie fréquentée par YoH ViraL', flag: 'France', level: 'Moyen', format: 'live', era: 'moderne',
       tagline: 'Tapis profonds, joueurs d\'action, un pro à la table : la partie des diffusions live.',
       facts: ['Johan Guilbert, alias YoH ViraL, né en 1989 à Sarreguemines : joueur de cash game devenu régulier des high rollers et vlogueur. PokerNews le cite dans des parties diffusées comme Hustler Casino Live et Live at the Bike.', 'Premier bracelet WSOP en 2025 (WSOP Paradise, GGMillion$ Single Day Turbo, 1 534 645 $) ; deuxième de la WSOP Europe Main Event 2021 (près de 800 000 €).', 'Aucune description publique détaillée de son style de jeu n\'a été trouvée : SIGMA 52 reproduit le type de partie, pas son jeu.'],
@@ -240,8 +248,8 @@
   const LEGENDS = ['ivey', 'negreanu', 'hellmuth', 'chidwick', 'mizrachi'];
   const CLASSICS = ['brunson', 'harrington', 'dwan', 'antonius', 'ivey'];
   // Types de partie : profondeur, structure et composition de table. Les tournois utilisent le moteur Expresso généralisé.
-  const ARCH = { mix: ['station', 'reg', 'maniaque', 'station', 'nit'], fish: ['station', 'action', 'station', 'reg', 'station'], regs: ['reg', 'chidwick', 'reg', 'harrington', 'nit'], agressifs: ['maniaque', 'dwan', 'mizrachi', 'reg', 'brunson'], legendes: ['ivey', 'negreanu', 'hellmuth', 'chidwick', 'mizrachi'], classiques: ['brunson', 'harrington', 'dwan', 'antonius', 'ivey'], modernes: ['blom', 'selbst', 'polk', 'elky', 'hansen'], ancienne: ['ungar', 'seidel', 'ferguson', 'moneymaker', 'sklansky'], volcan: ['matusow', 'station', 'obrestad', 'reg', 'moneymaker'], highstakes: ['koon', 'adelstein', 'esfandiari', 'cates', 'chidwick'], sigma: ['sigma', 'sigma', 'reg', 'sigma', 'nit'] };
-  const ARCH_LABEL = { mix: 'Table mixte (2 fish, régulier, maniaque, nit)', fish: 'Table de fish', regs: 'Table de réguliers', agressifs: 'Table agressive', legendes: 'Légendes', classiques: 'Classiques (Brunson, Harrington, Dwan…)', modernes: 'Agressifs modernes (Blom, Selbst, Polk, ElkY, Hansen)', ancienne: 'Vieille école (Ungar, Seidel, Ferguson, Moneymaker, Sklansky)', volcan: 'Table avec un joueur qui tilte (Matusow)', highstakes: 'Gros enjeux (Koon, Adelstein, Esfandiari, Cates, Chidwick)', sigma: 'Table difficile (moteur SIGMA)' };
+  const ARCH = { mix: ['station', 'reg', 'maniaque', 'station', 'nit'], fish: ['station', 'action', 'station', 'reg', 'station'], regs: ['reg', 'chidwick', 'reg', 'harrington', 'nit'], agressifs: ['maniaque', 'dwan', 'mizrachi', 'reg', 'brunson'], legendes: ['ivey', 'negreanu', 'hellmuth', 'chidwick', 'mizrachi'], classiques: ['brunson', 'harrington', 'dwan', 'antonius', 'ivey'], modernes: ['blom', 'selbst', 'polk', 'elky', 'hansen'], ancienne: ['ungar', 'seidel', 'ferguson', 'reese', 'sklansky'], volcan: ['matusow', 'station', 'obrestad', 'reg', 'moneymaker'], highstakes: ['koon', 'adelstein', 'esfandiari', 'cates', 'chidwick'], sigma: ['sigma', 'sigma', 'reg', 'sigma', 'nit'] };
+  const ARCH_LABEL = { mix: 'Table mixte (2 fish, régulier, maniaque, nit)', fish: 'Table de fish', regs: 'Table de réguliers', agressifs: 'Table agressive', legendes: 'Légendes', classiques: 'Classiques (Brunson, Harrington, Dwan…)', modernes: 'Agressifs modernes (Blom, Selbst, Polk, ElkY, Hansen)', ancienne: 'Vieille école (Ungar, Seidel, Ferguson, Reese, Sklansky)', volcan: 'Table avec un joueur qui tilte (Matusow)', highstakes: 'Gros enjeux (Koon, Adelstein, Esfandiari, Cates, Chidwick)', sigma: 'Table difficile (moteur SIGMA)' };
   const lv = (a) => a.map((x) => [x / 2, x]);
   const FORMATS = [
     { id: 'cash100', kind: 'cash', name: 'Cash 100 bb', stackBB: 100, desc: 'La référence du cash en ligne à 6 joueurs.', keys: ['Ouvertures selon les charts, 3-bet polarisé en position', 'SPR moyen : top paire bon kicker se joue souvent pour un pot moyen'], mods: ['positions', 'postflop'] },

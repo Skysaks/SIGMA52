@@ -502,6 +502,115 @@
       ],
     });
 
+
+    K.mod({
+      id: 'tailles', level: 2, title: 'Les tailles préflop : ouvrir, 3-bet, 4-bet', drill: 'vsopen',
+      goals: ['Choisir sa taille d\'ouverture selon le format et la position', 'Dimensionner un 3-bet en et hors de position', 'Ajuster aux limpers et aux tables live'],
+      sections: [
+        ['Ouvrir', `<div class="tw"><table class="t"><thead><tr><th>Situation</th><th>Taille courante</th></tr></thead><tbody>
+          <tr><td>Cash en ligne, 6 joueurs</td><td>2 à 2,5 bb (3 bb depuis la SB)</td></tr><tr><td>Cash live</td><td>3 à 5 bb, plus selon la table</td></tr>
+          <tr><td>Par limper devant</td><td>+ 1 bb</td></tr><tr><td>Tournoi avec antes</td><td>2 à 2,2 bb</td></tr><tr><td>Tête-à-tête</td><td>2 à 2,5 bb</td></tr></tbody></table></div>
+          <p>Ce sont des repères courants, pas des lois : une taille plus grosse fait coucher plus de mains et se fait payer par des ranges plus fortes. Contre une table qui paie trop, ouvre plus gros.</p>`],
+        ['3-bet et 4-bet', `<ul><li><strong>3-bet en position</strong> : environ 3 fois l'ouverture.</li><li><strong>3-bet hors de position</strong> (blindes) : environ 4 fois l'ouverture, pour compenser le désavantage de position.</li><li><strong>Squeeze</strong> : ajoute environ une ouverture par joueur qui a payé.</li><li><strong>4-bet</strong> : environ 2,2 à 2,5 fois le 3-bet ; avec des tapis de moins de 40 bb, souvent directement tapis.</li></ul>`],
+        ['Une taille pour toute la range', `<p>Utilise la même taille pour toutes tes mains dans une situation donnée : sinon, ta taille révèle ta force. L'exception, ce sont les tables live faibles où l'on peut prendre plus de valeur en ouvrant plus gros avec toute sa range.</p>`],
+        ['Exercices corrigés', ex([
+          ["Cash en ligne, deux limpers, tu ouvres au bouton. Taille ?", "2,5 bb + 2 × 1 bb ≈ <strong>4,5 bb</strong>."],
+          ["Le CO ouvre à 2,5 bb, tu 3-bettes depuis la BB. Taille ?", "Environ 4 fois l'ouverture : <strong>10 bb</strong>."],
+          ["Le HJ ouvre à 2,5 bb, le CO paie, tu squeezes au bouton. Taille ?", "Environ 3 × 2,5 + 2,5 = <strong>10 bb</strong>."],
+        ])],
+      ],
+      mistakes: ['Changer de taille selon la force de sa main', '3-better petit hors de position', 'Ouvrir petit dans une partie live qui paie tout'],
+      keys: ['Ouverture 2-2,5 bb en ligne, plus en live', '3-bet ×3 en position, ×4 hors de position', 'Une taille par situation pour toute la range'],
+      quiz: [
+        ['3-bet hors de position face à 2,5 bb ?', ['≈ 10 bb', '≈ 5 bb', '≈ 25 bb'], 0, 'Environ 4 fois l\'ouverture.'],
+        ['Un limper devant toi : ta taille d\'ouverture…', ['+ 1 bb', 'Ne change pas', 'Se divise par deux'], 0, 'On isole plus gros.'],
+        ['4-bet face à un 3-bet de 9 bb ?', ['≈ 20 à 22 bb', '≈ 12 bb', 'Toujours tapis à 100 bb'], 0, '2,2 à 2,5 fois le 3-bet.'],
+        ['Pourquoi une seule taille par situation ?', ['Pour ne pas révéler sa force', 'C\'est une règle de la room', 'Pour gagner du temps'], 0, 'La taille ne doit pas trahir la main.'],
+        ['En live, contre une table qui paie trop, tu ouvres…', ['Plus gros', 'Plus petit', 'Seulement en limp'], 0, 'Plus de valeur avec les bonnes mains.'],
+      ],
+    });
+
+    K.mod({
+      id: 'variance', level: 2, title: 'Vivre la variance : downswings, chiffres et sang-froid', drill: 'situations',
+      goals: ['Savoir à quoi ressemble la variance d\'un joueur gagnant', 'Lire un résultat sur un échantillon', 'Traverser un downswing sans casser ses règles'],
+      sections: [
+        ['Ce que dit la statistique', `<p>Un joueur à +4 bb/100 avec un écart-type de 90 bb/100 (repère courant en cash 6 joueurs) :</p>
+          <div class="tw"><table class="t"><thead><tr><th>Mains</th><th class="n">Gain attendu</th><th class="n">Écart-type</th><th class="n">Chance d'être perdant</th></tr></thead><tbody>
+          <tr><td>10 000</td><td class="n mono">400 bb</td><td class="n mono">900 bb</td><td class="n mono">≈ 33 %</td></tr>
+          <tr><td>50 000</td><td class="n mono">2 000 bb</td><td class="n mono">≈ 2 010 bb</td><td class="n mono">≈ 16 %</td></tr>
+          <tr><td>100 000</td><td class="n mono">4 000 bb</td><td class="n mono">≈ 2 850 bb</td><td class="n mono">≈ 8 %</td></tr>
+          <tr><td>300 000</td><td class="n mono">12 000 bb</td><td class="n mono">≈ 4 930 bb</td><td class="n mono">≈ 0,7 %</td></tr></tbody></table></div>
+          <p>Un joueur réellement gagnant est perdant sur 10 000 mains une fois sur trois. Le simulateur de variance du Journal montre des courbes de ce type.</p>`],
+        ['Pendant un downswing', `<ol><li>Vérifie d'abord tes décisions : All-in EV (Analyse), revue de mains, spots.</li><li>Si les décisions sont bonnes : continue, en respectant la bankroll (descente de limite si la règle le dit).</li><li>Si elles se dégradent : c'est souvent le tilt qui transforme une mauvaise passe en vraie perte. Réduis le volume, reviens aux routines.</li></ol>`],
+        ['Ce qu\'il ne faut pas faire', `<ul><li>Changer toute sa stratégie après une semaine.</li><li>Monter de limite « pour se refaire ».</li><li>Juger son niveau sur 5 000 mains.</li></ul>`],
+        ['Exercices corrigés', ex([
+          ["Tu es à −300 bb sur 10 000 mains. Peux-tu conclure que tu es perdant ?", "Non : un joueur à +4 bb/100 est perdant sur 10 000 mains environ une fois sur trois. Regarde tes décisions et ton All-in EV."],
+          ["Sur 100 000 mains, quelle chance qu'un joueur à +4 bb/100 soit encore perdant ?", "Environ <strong>8 %</strong>."],
+          ["Ta bankroll passe sous 30 caves pendant un downswing. Que fais-tu ?", "Tu appliques la règle écrite : descente de limite, sans attendre que ça « remonte »."],
+        ])],
+      ],
+      mistakes: ['Conclure sur 10 000 mains', 'Monter de limite pour se refaire', 'Confondre mauvaise passe et mauvais jeu sans vérifier'],
+      keys: ['Perdant 1 fois sur 3 sur 10 000 mains, même gagnant', 'Vérifier les décisions avant les conclusions', 'La règle de bankroll ne se négocie pas'],
+      quiz: [
+        ['Joueur à +4 bb/100 sur 10 000 mains : chance d\'être perdant ?', ['≈ 33 %', '≈ 3 %', '≈ 70 %'], 0, '400 bb attendus pour 900 bb d\'écart-type.'],
+        ['Sur 300 000 mains ?', ['≈ 0,7 %', '≈ 16 %', '≈ 33 %'], 0, 'L\'échantillon écrase la variance.'],
+        ['Première chose à vérifier pendant un downswing ?', ['Tes décisions et ton All-in EV', 'Ta room', 'Ton horaire'], 0, 'Séparer chance et erreurs.'],
+        ['Sous le seuil de bankroll pendant un downswing…', ['Tu descends de limite', 'Tu montes pour te refaire', 'Tu ignores la règle'], 0, 'Règle écrite.'],
+        ['L\'écart-type grandit comme…', ['La racine du nombre de mains', 'Le nombre de mains', 'Il ne change pas'], 0, 'Alors que le gain attendu grandit linéairement.'],
+      ],
+    });
+
+    K.mod({
+      id: 'ev', level: 3, title: 'Calculer l\'EV d\'une décision', drill: 'odds',
+      goals: ['Écrire l\'EV d\'un call, d\'un bluff, d\'un semi-bluff', 'Comparer deux options par leur EV', 'Savoir quelles hypothèses pèsent le plus'],
+      sections: [
+        ['Les trois formules utiles', `<ul><li><strong>Call</strong> : EV = équité × pot final − montant payé.</li><li><strong>Bluff pur</strong> : EV = P(couche) × pot − P(paie) × mise.</li><li><strong>Semi-bluff</strong> : EV = P(couche) × pot + P(paie) × (équité × pot final − mise).</li></ul>
+          <p>On compare les EV des options à partir du même moment ; se coucher vaut 0.</p>`],
+        ['Exemples chiffrés', `<p><strong>Call</strong> : pot 100, il mise 50, tu as 30 % d'équité. EV = 0,30 × 200 − 50 = <strong>+10</strong>.</p>
+          <p><strong>Bluff</strong> : pot 100, tu mises 50, il couche 40 % du temps. EV = 0,4 × 100 − 0,6 × 50 = <strong>+10</strong>.</p>
+          <p><strong>Semi-bluff à tapis</strong> : pot 30, tapis 100, il couche 50 %, tu as 35 % quand il paie. EV = 0,5 × 30 + 0,5 × (0,35 × 230 − 100) = 15 − 9,75 = <strong>+5,25</strong>.</p>`],
+        ['Les hypothèses qui comptent', `<p>L'EV dépend surtout de deux estimations : la fréquence de couchers adverse et ton équité contre sa range quand il paie. Fais varier chacune de ±10 points : si la décision change, elle est serrée et le profil adverse doit trancher. La Table live de SIGMA 52 affiche ces EV option par option.</p>`],
+        ['Exercices corrigés', ex([
+          ["Pot 60, il mise 30, tu as 20 % d'équité. EV du call ?", "0,20 × 120 − 30 = <strong>−6</strong> : couche (sans cotes implicites)."],
+          ["Pot 80, tu bluffes 60. Il couche 45 %. EV ?", "0,45 × 80 − 0,55 × 60 = 36 − 33 = <strong>+3</strong> : légèrement rentable."],
+          ["Même bluff, il couche 35 %. EV ?", "0,35 × 80 − 0,65 × 60 = 28 − 39 = <strong>−11</strong> : 10 points de couchers changent tout."],
+        ])],
+      ],
+      mistakes: ['Oublier que se coucher vaut 0', 'Ignorer l\'équité quand on est payé avec un semi-bluff', 'Décider sans tester la sensibilité des hypothèses'],
+      keys: ['Call : équité × pot final − prix', 'Bluff : couchers × pot − paiements × mise', 'Tester ±10 points sur les hypothèses'],
+      quiz: [
+        ['Pot 100, mise 50, 30 % d\'équité : EV du call ?', ['+10', '−10', '+30'], 0, '0,3 × 200 − 50.'],
+        ['Bluff de 50 dans 100, il couche 40 % : EV ?', ['+10', '−10', '0'], 0, '40 − 30.'],
+        ['Se coucher vaut…', ['0', 'Le pot', 'La mise'], 0, 'On compare à partir du même moment.'],
+        ['Ce qui pèse le plus dans l\'EV d\'un bluff ?', ['La fréquence de couchers', 'La couleur des cartes', 'Le rake'], 0, 'Elle change tout.'],
+        ['Pot 60, mise 30, 20 % d\'équité : EV ?', ['−6', '+6', '0'], 0, '0,2 × 120 − 30.'],
+      ],
+    });
+
+    K.mod({
+      id: 'hu_final', level: 3, title: 'Le tête-à-tête de fin de tournoi', drill: 'pushfold',
+      goals: ['Jouer un tête-à-tête final de 10 à 40 bb', 'Utiliser les ranges de push à tapis courts', 'Discuter un deal en connaissance de cause'],
+      sections: [
+        ['Les profondeurs', `<ul><li><strong>Plus de 25 bb</strong> : petites ouvertures (2 bb) avec une très large part des mains au bouton, jeu après le flop.</li><li><strong>12 à 25 bb</strong> : ouvertures petites, 3-bet tapis fréquent en grosse blinde.</li><li><strong>Moins de 12 bb</strong> : tapis ou couché. À 10 bb, l'équilibre fait pousser environ <strong>58 %</strong> des mains au bouton (solveur SIGMA 52).</li></ul>`],
+        ['Ce qui change par rapport au cash', `<p>Il n'y a plus d'ICM à deux : chaque jeton vaut sa part du reste du prize pool (le deuxième prix est acquis). On joue donc en jetons, de façon très agressive. Les blindes montent vite : la position et les petites relances gagnent beaucoup de pots.</p>`],
+        ['Le deal', `<p>À deux, un accord ICM revient à partager au prorata des jetons ce qui reste au-delà du deuxième prix. Garde une part en jeu pour le titre si tu le souhaites, et vérifie avec l'outil Deal ICM.</p>`],
+        ['Exercices corrigés', ex([
+          ["Tête-à-tête, 10 bb, tu es au bouton avec Q♣6♦. ?", "Tapis : à 10 bb, l'équilibre pousse environ 58 % des mains au bouton, Q6o en fait partie (vérifie dans l'outil Push/Fold)."],
+          ["Premier prix 1 000 €, deuxième 600 €. Tu as 60 % des jetons. Partage au prorata de ce qui reste ?", "Il reste 400 € au-delà du deuxième prix : tu reçois 600 + 0,6 × 400 = <strong>840 €</strong>, l'adversaire 600 + 0,4 × 400 = 760 €."],
+          ["Pourquoi l'ICM ne compte plus à deux ?", "Le deuxième prix est acquis : le seul enjeu restant est l'écart entre premier et deuxième, partagé linéairement selon les jetons."],
+        ])],
+      ],
+      mistakes: ['Jouer serré par habitude de la bulle', 'Ouvrir trop gros à tapis courts', 'Accepter un deal sans calculer'],
+      keys: ['À deux : on joue en jetons', 'Moins de 12 bb : tapis ou couché', 'Deal : deuxième prix + part des jetons'],
+      quiz: [
+        ['À 10 bb en tête-à-tête, le bouton pousse environ…', ['58 % des mains', '15 %', '100 %'], 0, 'Solveur SIGMA 52.'],
+        ['L\'ICM à deux joueurs…', ['Revient au prorata des jetons au-delà du deuxième prix', 'Est extrême', 'Interdit les deals'], 0, 'Le deuxième prix est acquis.'],
+        ['60 % des jetons, 1 000 / 600 € : part au prorata ?', ['840 €', '960 €', '800 €'], 0, '600 + 0,6 × 400.'],
+        ['À 30 bb, l\'ouverture du bouton est…', ['Petite et très fréquente', 'Grosse et rare', 'Toujours tapis'], 0, 'Position et blindes.'],
+        ['La meilleure attitude en tête-à-tête final ?', ['Agressive', 'Très serrée', 'Passive'], 0, 'Les blindes montent vite.'],
+      ],
+    });
+
     // ================= 60 situations supplémentaires pour l'exercice « 40 situations » (devenu 100) =================
     const base = K.SITUATIONS.length;
     K.SITUATIONS.push(...[

@@ -37,6 +37,7 @@
     adelstein: { label: 'Style Adelstein', like: 'maniaque', vpip: 0.34, pfr: 0.28, cont: 0.72, three: 0.4, callF: 0.93, value: 0.88, bluff: 0.28, raise: 0.8, size: [0.75, 1.2], over: 0.3, disc: 0.09, open: 3, cbet: 0.78 },
     caro: { label: 'Style Caro', like: 'station', vpip: 0.44, pfr: 0.26, cont: 0.82, three: 0.25, callF: 0.85, value: 0.8, bluff: 0.18, raise: 0.86, size: [0.5, 0.9], loose: 1, wild: 0.05, cbet: 0.6 },
     koon: { label: 'Style Koon', like: 'reg', vpip: 0.26, pfr: 0.23, cont: 0.66, three: 0.36, callF: 1.0, value: 0.82, bluff: 0.23, raise: 0.84, size: [0.33, 0.75], sizeLate: [0.66, 1.0], over: 0.2, xr: 0.2, adapt: 1, cbet: 0.66 },
+    reese: { label: 'Style Reese', like: 'reg', vpip: 0.24, pfr: 0.2, cont: 0.64, three: 0.32, callF: 1.0, value: 0.82, bluff: 0.18, raise: 0.85, size: [0.5, 0.75], adapt: 1.2, disc: 0.12, cbet: 0.62 },
     sigma: { label: 'Moteur SIGMA', like: 'reg', external: true, vpip: 0.25, pfr: 0.22, cont: 0.6, three: 0.3, callF: 1.0, value: 0.75, bluff: 0.18, raise: 0.85, size: [0.5, 0.75] },
     action: { label: 'Joueur d\'action live', like: 'station', vpip: 0.5, pfr: 0.2, cont: 0.85, three: 0.25, callF: 0.75, value: 0.7, bluff: 0.15, raise: 0.85, size: [0.5, 1.0], open: 4, loose: 1, cbet: 0.45 },
     prolive: { label: 'Pro de cash live', like: 'reg', vpip: 0.27, pfr: 0.22, cont: 0.62, three: 0.33, callF: 1.0, value: 0.8, bluff: 0.16, raise: 0.85, size: [0.5, 0.9], open: 3.5, adapt: 0.8, cbet: 0.62 },
@@ -48,7 +49,7 @@
     brunson: ['Style Brunson'], harrington: ['Style Harrington'], dwan: ['Style Dwan'],
     hansen: ['Style Hansen'], blom: ['Style Blom'], polk: ['Style Polk'], seidel: ['Style Seidel'], selbst: ['Style Selbst'], ungar: ['Style Ungar'],
     obrestad: ['Style Obrestad'], ferguson: ['Style Ferguson'], moneymaker: ['Style Moneymaker'], elky: ['Style ElkY'], matusow: ['Style Matusow'], sklansky: ['Style Sklansky'],
-    esfandiari: ['Style Esfandiari'], cates: ['Style Cates'], adelstein: ['Style Adelstein'], caro: ['Style Caro'], koon: ['Style Koon'],
+    esfandiari: ['Style Esfandiari'], cates: ['Style Cates'], adelstein: ['Style Adelstein'], caro: ['Style Caro'], koon: ['Style Koon'], reese: ['Style Reese'],
     sigma: ['Sigma_A', 'Sigma_B', 'Sigma_C', 'Sigma_D'],
     action: ['Whale_Vegas', 'Straddle_Sam', 'Lucky_Lou'], prolive: ['Pro_Live', 'Reg_Bike'] };
 

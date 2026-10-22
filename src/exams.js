@@ -143,6 +143,10 @@
     Q(6, 'bankroll2', 'Bankroll de 2 600 € en NL50 : peux-tu tenter NL100 (essai à 50 caves) ?', ['Non, il faut 5 000 €', 'Oui', 'Oui, avec 10 caves'], 0, '50 caves de 100 €.'),
     Q(3, 'shortdeck2', 'Short Deck : outs d\'un tirage couleur au flop ?', ['5', '9', '8'], 0, '9 cartes par couleur moins 4 visibles.'),
     Q(3, 'limit', 'Limit, pot de 40 à la river, mise de 4. Équité requise ?', ['≈ 8 %', '≈ 25 %', '≈ 33 %'], 0, '4 ÷ 48.'),
+    Q(2, 'tailles', 'Tu 3-bettes depuis la BB face à une ouverture de 2,5 bb. Taille courante ?', ['≈ 10 bb', '≈ 5 bb', '≈ 25 bb'], 0, 'Environ 4 fois hors de position.'),
+    Q(2, 'variance', 'Joueur à +4 bb/100 (écart-type 90) : chance d\'être perdant sur 10 000 mains ?', ['≈ 33 %', '≈ 3 %', '≈ 70 %'], 0, '400 bb attendus, 900 bb d\'écart-type.'),
+    Q(3, 'ev', 'Pot 80, bluff de 60, il couche 45 %. EV ?', ['≈ +3', '≈ −11', '≈ +36'], 0, '36 − 33.'),
+    Q(3, 'hu_final', 'Tête-à-tête final, 1 000 / 600 €, tu as 60 % des jetons. Partage au prorata ?', ['840 €', '960 €', '800 €'], 0, '600 + 0,6 × 400.'),
   ];
 
   // Tirage sans remise.
