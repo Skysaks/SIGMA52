@@ -689,7 +689,7 @@
     const aggr = [...tb.seq].reverse().find((x) => x.final === 'raise' && x.i !== i);
     const vi = aggr && tb.players[aggr.i].inHand ? aggr.i : opps.length ? opps[0][1] : (i + 1) % tb.n;
     const vp = tb.players[vi], vt = vp.hero ? 'normal' : BOT_TYPE[vp.profile] || BOT_TYPE[TS.kindOf(TS.PROFILES[vp.profile] || {}, vp.profile)] || 'normal';
-    const o = { hero: me.cards, board: tb.board.slice(), players: tb.active().length, pos, nOpp: Math.max(1, opps.length), type: vt, stackBB: tb.effStack(i) / bb };
+    const o = { hero: me.cards, board: tb.board.slice(), players: tb.active().length, pos, nOpp: Math.max(1, opps.length), type: vt, stackBB: tb.effStack(i) / bb, vi };
     if (fast) { o.runouts = 40; o.iterations = 500; }
     if (tb.street === 'pre') {
       const pre = tb.seq.filter((x) => x.street === 'pre'), before = pre.filter((x) => x.i !== i), raises = before.filter((x) => x.final === 'raise').length, heroRaised = pre.some((x) => x.i === i && x.final === 'raise');
@@ -716,8 +716,12 @@
   }
   // Joue l'action conseillée sur la table. Retourne true si une action a été jouée.
   function actTable(tb, i) {
-    const L0 = tb.legal(), bb = tb.bb; let r = null;
+    let r = null;
     try { r = decide(fromTable(tb, i)); } catch (e) { r = null; }
+    return applyDecision(tb, r);
+  }
+  function applyDecision(tb, r) {
+    const L0 = tb.legal(), bb = tb.bb;
     if (!r || !r.action || r.action === '?') return false;
     const a = r.action;
     if (a === 'COUCHE' || a === 'CHECK') tb.act(L0.canCheck ? 'check' : 'fold');
@@ -791,6 +795,6 @@
     const good = out.filter((x) => x.eq >= eq0 + 0.12), bad = out.filter((x) => x.eq <= eq0 - 0.12);
     return { eq0, cards: out, good, bad, avg: out.reduce((a, x) => a + x.eq, 0) / Math.max(1, out.length) };
   }
-  const api = { nextCards, texture, learnShowdown, personal, TYPES, POSITIONS, POS_BY_N, positions, BUCKETS, decide, preflop, postflop, preRange, preWeights, villainRange, equityVec, bucket, likelihood, ploScore, ploPct, structure, chips, payouts, variantDecide, ploTable, sdTable, vScore, fromTable, actTable };
+  const api = { applyDecision, nextCards, texture, learnShowdown, personal, TYPES, POSITIONS, POS_BY_N, positions, BUCKETS, decide, preflop, postflop, preRange, preWeights, villainRange, equityVec, bucket, likelihood, ploScore, ploPct, structure, chips, payouts, variantDecide, ploTable, sdTable, vScore, fromTable, actTable };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Live = api;
 })(typeof window !== 'undefined' ? window : globalThis);
