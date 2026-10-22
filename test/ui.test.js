@@ -176,6 +176,12 @@ const SHOTS = process.env.SHOTS || '';
     await p.click('[data-act=lvsub][data-s=table]'); await p.click('[data-act=lpadd]'); await p.click('[data-act=lpadd]'); await p.click('[data-act=lpv][data-i="0"]'); await p.click('[data-act=lpr][data-i="0"]'); await over('live-joueurs'); await shot('live-joueurs');
     await p.click('[data-act=lvsub][data-s=soiree]'); if (!(await has('text=Décisions notées'))) errs.push(name + ' live v2 : soirée'); await over('live-soiree');
     await p.click('[data-act=lvsub][data-s=drill]'); await p.click('[data-act=lvdstart]'); await p.click('[data-act=lvdans][data-i="0"]'); if (!(await has('.verdict'))) errs.push(name + ' live v2 : entraînement'); await over('live-drill'); await shot('live-drill');
+    // v14 : la Table live apprend un joueur (réactions, abattage)
+    await p.click('[data-act=lvsub][data-s=decision]'); await p.click('[data-act=lvnew]'); for (const c of [48, 45, 35, 23, 2]) await p.click(`[data-act=lvpick][data-c="${c}"]`);
+    await p.click('[data-act=lvvil][data-i="0"]');
+    if (!(await has('[data-act=lplf]'))) errs.push(name + ' live v14 : apprentissage absent');
+    else { await p.click('[data-act=lplf][data-k="0"]'); await p.fill('[data-lv=shown]', '4d3c'); await p.press('[data-lv=shown]', 'Tab'); await p.click('[data-act=lvsd]'); if (!(await has('text=Profil appris'))) errs.push(name + ' live v14 : profil appris'); await over('live-learn'); await shot('live-learn'); }
+    await p.click('[data-act=lvvil][data-i="0"]');
     await p.click('[data-act=lvsub][data-s=decision]'); await p.click('[data-act=lvcfgopen]').catch(() => {}); if (!(await has('[data-act=lvcfg][data-k=game][data-v=plo]'))) await p.click('[data-act=lvcfgopen]');
     await p.click('[data-act=lvcfg][data-k=game][data-v=plo]'); for (const c of [51, 47, 50, 46]) await p.click(`[data-act=lvpick][data-c="${c}"]`);
     if (!/RELANCE|SUIS|COUCHE/.test(await p.locator('.lres b').first().innerText())) errs.push(name + ' live v2 : Omaha'); await over('live-plo');

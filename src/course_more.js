@@ -611,6 +611,19 @@
       ],
     });
 
+
+    // ================= v14 : la Table live apprend tes adversaires =================
+    if (K.MODULES.some((m) => m.id === 'eclair')) K.extend('eclair', { sections: [['La Table live apprend tes adversaires (v14)', `<p>Au départ, la Table live estime la range d'un adversaire à partir de son <strong>type</strong> (serré, régulier, large, fish, maniaque, joueur d'action) et d'un modèle appris sur des millions de mains simulées, désormais <strong>par texture de board</strong> (sec, connecté, pairé, trois cartes d'une couleur).</p>
+      <p>Ensuite, elle se rapproche du <strong>joueur réel</strong> :</p>
+      <ul><li><strong>Ses réactions à tes mises</strong> (« s'est couché », « a payé », « a relancé ») : s'il couche plus que son type, tes bluffs et tes petites mises rapportent plus ; s'il paie tout, la Table live ne te conseille plus de bluffer.</li>
+        <li><strong>Ses abattages</strong> : quand il montre ses cartes, chaque action de la main est relue. Une mise avec rien est un bluff vu ; un call avec une petite paire ou rien est un call faible. Ses bluffs vus augmentent la part de bluffs dans ses mises suivantes, donc l'équité de tes bluff-catchers.</li></ul>
+      <p>Le calcul est bayésien : quelques observations bougent peu l'estimation (elle reste proche de son type), beaucoup d'observations la rapprochent de ce qu'il fait vraiment. La Table live affiche aussi la taille effective de sa range (combien ses actions l'ont resserrée) et un <strong>plan sur les rues suivantes</strong> : taille géométrique pour finir à tapis à la river avec une main de valeur, contrôle du pot avec une main moyenne, abandon prévu avec un bluff raté.</p>`]],
+      quiz: [
+        ['Deux abattages montrent qu\'il bluffe : la Table live…', ['Augmente un peu la part de bluffs dans ses mises', 'Le classe aussitôt bluffeur pur', 'Ne change rien'], 0, 'Estimation bayésienne : peu d\'observations, petit ajustement.'],
+        ['Un joueur qui couche beaucoup face à tes mises rend…', ['Tes bluffs plus rentables', 'Tes bluffs inutiles', 'Ses calls plus forts seulement'], 0, 'Plus de couchers, plus de fold equity.'],
+        ['Le plan de valeur multi-rues utilise…', ['Une taille géométrique pour finir à tapis à la river', 'Toujours le pot', 'Une seule grosse mise'], 0, 'Même fraction du pot à chaque rue.'],
+      ] });
+
     // ================= 60 situations supplémentaires pour l'exercice « 40 situations » (devenu 100) =================
     const base = K.SITUATIONS.length;
     K.SITUATIONS.push(...[

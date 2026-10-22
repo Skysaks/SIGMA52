@@ -56,7 +56,7 @@
       const bb = bbNow();
       lv.res = L.decide({ game: lv.cfg.game, hero: h, board: b, players: lv.cfg.players, pos: lv.pos, nOpp: lv.nOpp, type: lv.type, pre: lv.pre, limpers: lv.limpers, raiseBB: lv.raiseBB, callers: lv.callers,
         straddle: lv.cfg.straddle, ante: lv.cfg.ante, stackBB: lv.stack ? num(lv.stack) / Math.max(1e-9, bb) : 100, live: true, pot: num(lv.pot), toCall: num(lv.toCall), stack: num(lv.stack),
-        vpre: lv.vpre, raised: lv.raised, ip: lv.ip === null ? undefined : lv.ip, history: history(), icm: icmInput(), openPos: lv.openPos || undefined, af: villainAF() });
+        vpre: lv.vpre, raised: lv.raised, ip: lv.ip === null ? undefined : lv.ip, history: history(), icm: icmInput(), openPos: lv.openPos || undefined, af: villainAF(), pl: lv.villain !== null && lv.players[lv.villain] ? lv.players[lv.villain].learn : undefined });
     } catch (e) { lv.res = { action: '?', tone: 'warn', lines: [e.message] }; }
     lv.ms = performance.now() - t0;
     if (lv.res && lv.cfg.vibrate && navigator.vibrate && lv.res.action !== lv.lastVib) { lv.lastVib = lv.res.action; navigator.vibrate({ COUCHE: [400], CHECK: [80], SUIS: [80], MISE: [80, 120, 80], RELANCE: [80, 120, 80], TAPIS: [80, 100, 80, 100, 80] }[lv.res.action] || 0); }
@@ -96,7 +96,7 @@
     const r = lv.res; if (!r || !r.grid || lv.discret) return '';
     if (!lv.showRange) return `<div class="row"><button class="btn small" data-act="lvrange">Voir sa range estimée et ce qui te bat</button></div>`;
     const beats = (r.beats || []).map((b) => `<tr><td>${esc(b.label)}</td><td class="n mono">${pct(b.p, 0)}</td><td class="n mono">${b.eq === null ? '–' : pct(b.eq, 0)}</td><td>${b.eq === null ? '' : b.eq < 0.35 ? '<span class="pill bad">il te bat</span>' : b.eq > 0.65 ? '<span class="pill good">tu bats</span>' : '<span class="pill">partagé</span>'}</td></tr>`).join('');
-    return `<div class="lrange"><div><span class="eyebrow">Sa range estimée (poids)</span>${grid169((h, i) => { const w = r.grid[i]; return `<span class="rc${w > 0.02 ? ' on' : ''}" style="${w > 0.02 ? `background:color-mix(in srgb, var(--accent) ${Math.round(15 + 85 * w)}%, var(--sunk))` : ''}" title="${h} : ${Math.round(w * 100)} %">${h}</span>`; })}</div>
+    return `<div class="lrange"><div><span class="eyebrow">Sa range estimée (poids)${r.effCombos ? ` · ≈ ${r.effCombos} combos effectifs sur ${r.combos}` : ''}</span>${grid169((h, i) => { const w = r.grid[i]; return `<span class="rc${w > 0.02 ? ' on' : ''}" style="${w > 0.02 ? `background:color-mix(in srgb, var(--accent) ${Math.round(15 + 85 * w)}%, var(--sunk))` : ''}" title="${h} : ${Math.round(w * 100)} %">${h}</span>`; })}</div>
       <div><span class="eyebrow">Ce qu'il a, et ton équité contre</span><div class="tw"><table class="t"><thead><tr><th>Catégorie</th><th class="n">Part</th><th class="n">Ton équité</th><th></th></tr></thead><tbody>${beats}</tbody></table></div>
       <div class="row"><button class="btn small" data-act="lvrange">Masquer</button><button class="btn small" data-act="lvsolve">Étudier ce spot au solveur</button></div></div></div>`;
   }
@@ -128,6 +128,38 @@
     if (!act.length) return '';
     return `<div class="row"><span class="note">Adversaire :</span>${act.map(([p, i]) => `<button class="chip" aria-pressed="${lv.villain === i}" data-act="lvvil" data-i="${i}">${esc(p.name)} <small>${esc(L.TYPES[typeOf(p)]?.label.split(' ')[0] || '')}</small></button>`).join('')}</div>`;
   }
+  // ---------------- v14 : apprendre un vrai joueur (réactions à tes mises, abattages) ----------------
+  const learnOf = (p) => (p.learn = p.learn || { face: [0, 0, 0], bets: [0, 0], calls: [0, 0], sd: 0 });
+  function learnSummary(p) {
+    const l = p.learn; if (!l) return '';
+    const f = l.face || [0, 0, 0], nf = f[0] + f[1] + f[2], R = (window.LiveModel?.ref || {})[typeOf(p)] || {};
+    const parts = [];
+    if (nf) parts.push(`couche ${f[0]}/${nf} face à tes mises${R.fold ? ` (type : ${pct(R.fold, 0)})` : ''}`);
+    if (l.bets && l.bets[0]) parts.push(`bluffs vus ${l.bets[1]}/${l.bets[0]} mises${R.bluff ? ` (type : ${pct(R.bluff, 0)})` : ''}`);
+    if (l.calls && l.calls[0]) parts.push(`calls faibles ${l.calls[1]}/${l.calls[0]}${R.weakCall ? ` (type : ${pct(R.weakCall, 0)})` : ''}`);
+    return parts.length ? `Profil appris : ${parts.join(' · ')}${l.sd ? ` · ${l.sd} abattage${l.sd > 1 ? 's' : ''}` : ''}.` : '';
+  }
+  function learnHTML() {
+    if (lv.villain === null || !lv.players[lv.villain] || boardRaw().length < 3) return '';
+    const p = lv.players[lv.villain], sum = learnSummary(p);
+    return `<div class="llearn"><div class="row"><span class="note">${esc(p.name)} face à ta mise :</span><button class="chip" data-act="lplf" data-k="0">s'est couché</button><button class="chip" data-act="lplf" data-k="1">a payé</button><button class="chip" data-act="lplf" data-k="2">a relancé</button></div>
+      <div class="row"><label class="f" style="flex:1;min-width:160px">À l'abattage, il montre<input data-lv="shown" value="${esc(lv.shown || '')}" placeholder="ex. Ah Kd" spellcheck="false"></label><button class="btn small" data-act="lvsd">Apprendre de cette main</button></div>
+      ${lv.learnMsg ? `<p class="pill bad" style="white-space:normal">${esc(lv.learnMsg)}</p>` : ''}<p class="note">${sum ? esc(sum) + ' ' : ''}Chaque réaction et chaque main montrée ajuste sa range quand tu le choisis comme adversaire : la Table live part de son type, puis se rapproche de ce qu'il fait vraiment.</p></div>`;
+  }
+  ACT.lplf = (t) => { if (lv.villain === null) return; const l = learnOf(lv.players[lv.villain]); l.face[+t.dataset.k]++; savePl(); render(); };
+  ACT.lvsd = () => {
+    if (lv.villain === null) return; const p = lv.players[lv.villain];
+    let shown; try { shown = E.parseCards((lv.shown || '').replace(/[\s,]+/g, '')); } catch (e) { shown = []; }
+    const board = boardRaw();
+    if (!shown || shown.length !== 2 || shown.some((c) => board.includes(c) || hero().includes(c))) { lv.learnMsg = 'Saisis ses deux cartes, par exemple « Ah Kd ».'; render(); return; }
+    const hist = history().slice(), st = STREET(board.length);
+    if (num(lv.toCall) > 0) hist.push({ street: st, a: lv.raised ? 'raise' : 'bet', size: num(lv.toCall) / Math.max(1e-9, num(lv.pot) || 1) });
+    L.learnShowdown(learnOf(p), shown, board, hist); lv.learnMsg = '';
+    const note = `${new Date().toLocaleDateString('fr-FR')} : montre ${shown.map(E.cardStr).join(' ')} sur ${board.map(E.cardStr).join(' ')}`;
+    p.note = p.note ? p.note + ' · ' + note : note;
+    lv.shown = ''; savePl(); render();
+  };
+
   function decisionHTML() {
     compute();
     const b = boardRaw().length, post = b >= 3, plo = ['plo', 'plo5', 'plo8'].includes(lv.cfg.game), bomb = lv.cfg.game === 'bomb', st = STREET(b);
@@ -159,6 +191,7 @@
         <div><span class="note">Board</span><div class="row">${slotHTML(bs, 'Flop')}${slotHTML(bs + 1, 'Flop')}${slotHTML(bs + 2, 'Flop')}${slotHTML(bs + 3, 'Turn')}${slotHTML(bs + 4, 'River')}</div></div></div>
       ${pickerHTML()}
       ${lv.discret ? '' : situation + common}
+      ${lv.discret ? '' : learnHTML()}
       ${rangeHTML()}
       <div class="row"><button class="btn primary" data-act="lvnew">Nouvelle main</button><button class="btn" data-act="lvnext">Main suivante (position +1)</button>
         <button class="btn" data-act="lvdiscret">${lv.discret ? 'Quitter le mode discret' : 'Mode discret'}</button>${'wakeLock' in navigator ? `<button class="btn" data-act="lvwake">${lv.wake ? 'Écran : reste allumé' : 'Garder l\'écran allumé'}</button>` : ''}</div>
@@ -236,7 +269,7 @@
         <span class="mono note">${n} mains · VPIP ${n ? pct((p.vpip || 0) / n, 0) : '–'} · PFR ${n ? pct((p.pfr || 0) / n, 0) : '–'} · AF ${(p.agg || 0) + (p.cal || 0) >= 10 ? fr((p.agg || 0) / Math.max(1, p.cal || 0), 1) : '–'}</span>
         <select data-lpt="${i}" aria-label="Type"><option value="">Auto : ${esc(L.TYPES[typeOf({ ...p, force: '' })].label)}${n < 8 ? ' (peu de mains)' : ''}</option>${Object.entries(L.TYPES).map(([k, x]) => `<option value="${k}"${p.force === k ? ' selected' : ''}>${esc(x.label)}</option>`).join('')}</select></div>
         <div class="lpc2"><button class="btn small" data-act="lpv" data-i="${i}" title="Il est entré dans le pot (paie ou relance)">Joue</button><button class="btn small" data-act="lpr" data-i="${i}" title="Il a relancé préflop">Relance</button><button class="btn small" data-act="lpa" data-i="${i}" title="Après le flop : il mise ou relance">Mise</button><button class="btn small" data-act="lpc" data-i="${i}" title="Après le flop : il suit une mise">Suit</button><button class="btn small" data-act="lpon" data-i="${i}">${p.on === false ? 'Revient' : 'Absent'}</button><button class="btn small" data-act="lpdel" data-i="${i}" aria-label="Supprimer">✕</button>
-        <input class="lin lnote" data-lpo="${i}" value="${esc(p.note || '')}" placeholder="Notes : tells, mains montrées, tendances" aria-label="Notes sur ${esc(p.name)}"></div></div>`;
+        <input class="lin lnote" data-lpo="${i}" value="${esc(p.note || '')}" placeholder="Notes : tells, mains montrées, tendances" aria-label="Notes sur ${esc(p.name)}">${learnSummary(p) ? `<span class="note">${esc(learnSummary(p))}</span>` : ''}</div></div>`;
     }).join('');
     return `<section class="panel"><h2>Joueurs de la table</h2>
       <p class="note">Pendant la partie : touche « Joue » quand un joueur entre dans le pot et « Relance » quand il relance avant le flop (une fois par main). « Nouvelle main » compte une main pour chaque joueur présent. Le type se déduit après 8 mains : VPIP (entrées dans le pot) et PFR (relances). Après le flop, « Mise » et « Suit » mesurent son agressivité (AF) : dès 10 actions, la Table live adapte sa range à ce joueur précis quand tu le choisis comme adversaire.</p>
@@ -252,7 +285,7 @@
   ACT.lpr = (t) => { const p = lv.players[+t.dataset.i]; p.pfr = (p.pfr || 0) + 1; if ((p.vpip || 0) < p.pfr) p.vpip = p.pfr; if ((p.hands || 0) < p.vpip) p.hands = p.vpip; savePl(); render(); };
   ACT.lpon = (t) => { const p = lv.players[+t.dataset.i]; p.on = p.on === false; savePl(); render(); };
   ACT.lpdel = (t) => { lv.players.splice(+t.dataset.i, 1); lv.villain = null; savePl(); render(); };
-  ACT.lpreset = () => { lv.players.forEach((p) => { p.hands = 0; p.vpip = 0; p.pfr = 0; p.agg = 0; p.cal = 0; }); savePl(); render(); };
+  ACT.lpreset = () => { lv.players.forEach((p) => { p.hands = 0; p.vpip = 0; p.pfr = 0; p.agg = 0; p.cal = 0; delete p.learn; }); savePl(); render(); };
   ONCHANGE.push((t) => {
     const d = t.dataset;
     if (d.lpn !== undefined) { lv.players[+d.lpn].name = t.value || 'Joueur'; savePl(); render(); return true; }

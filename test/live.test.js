@@ -100,4 +100,23 @@ t('v2 : ICM, payer un tapis demande plus d\'équité près de la bulle', () => {
   assert.ok(icm.need > chip.need + 0.03, chip.need + ' / ' + icm.need);
 });
 t('v2 : vitesse, flop tête-à-tête < 150 ms', () => { const t0 = Date.now(); for (let i = 0; i < 10; i++) D({ hero: c('AhQh'), board: c('Jh8c3h'), pot: 12, toCall: 6 }); assert.ok((Date.now() - t0) / 10 < 150); });
+t('v14 : texture du board, apprentissage d\'un joueur, plan multi-rues', () => {
+  assert.strictEqual(L.texture(c('Ks7d2c')), 0); assert.strictEqual(L.texture(c('9h8c7d')), 1); assert.strictEqual(L.texture(c('KsKd4c')), 2); assert.strictEqual(L.texture(c('Qs8s3s')), 3);
+  // Abattage : il a misé flop et turn avec rien -> deux mises dont deux « rien ».
+  const pl = L.learnShowdown({}, c('4d3c'), c('As9h7cKdQs'), [{ street: 'flop', a: 'bet', size: 0.6 }, { street: 'turn', a: 'bet', size: 0.6 }]);
+  assert.deepStrictEqual(pl.bets, [2, 2]); assert.strictEqual(pl.sd, 1);
+  // Un joueur qui bluffe beaucoup : face à sa mise river, ton bluff-catcher a plus d'équité qu'avec son type seul.
+  const spot = { hero: c('KhJc'), board: c('Kd8s4c7h2d'), pot: 40, toCall: 30, history: [{ street: 'flop', a: 'bet', size: 0.6 }, { street: 'turn', a: 'check' }] };
+  const plain = D(spot), bluffer = D({ ...spot, pl: { bets: [12, 9], calls: [0, 0], sd: 6 } }), honest = D({ ...spot, pl: { bets: [12, 0], calls: [0, 0], sd: 6 } });
+  assert.ok(bluffer.eq > plain.eq + 0.02 && honest.eq < plain.eq - 0.01, plain.eq + ' / ' + bluffer.eq + ' / ' + honest.eq);
+  // Un joueur qui couche beaucoup face aux mises : un bluff devient plus rentable.
+  const sb = { hero: c('6c5c'), board: c('AsKd9h'), pot: 20, toCall: 0, ip: true };
+  const fo = D({ ...sb, pl: { face: [18, 2, 0] } }), ca = D({ ...sb, pl: { face: [1, 19, 0] } });
+  const evb = (r) => Math.max(...r.options.filter((x) => x.act === 'MISE').map((x) => x.ev));
+  assert.ok(evb(fo) > evb(ca), evb(fo) + ' / ' + evb(ca));
+  // Main très forte au flop : plan de valeur avec une taille géométrique.
+  const v = D({ hero: c('7h7d'), board: c('7c8s2d'), pot: 10, stack: 100, toCall: 0, ip: true });
+  assert.ok(v.plan && v.plan.kind === 'valeur' && v.plan.geo > 0.3 && v.plan.geo < 1.2, JSON.stringify(v.plan));
+  assert.ok(v.effCombos > 10);
+});
 console.log(n + ' tests live ok');

@@ -65,14 +65,20 @@
   }
   const handPct = (cards) => preflopPct()[E.ALL169.indexOf(E.abstractOf(cards[0], cards[1]))];
 
+  // Force d'une main (équité Monte-Carlo contre nOpp mains au hasard). Version sans allocation : mêmes tirages, mêmes résultats
+  // que la version d'origine (même consommation du générateur aléatoire), environ deux fois plus rapide.
+  const S_MARK = new Uint8Array(52), S_ME = new Array(7), S_OPP = new Array(7), S_FULL = new Array(5), S_OC = [];
   function strength(cards, board, nOpp, r, sims = 250) {
-    const used = new Set([...cards, ...board]); let eq = 0;
+    let eq = 0; const nb = board.length;
     for (let s = 0; s < sims; s++) {
-      const u = new Set(used), draw = () => { let c; do { c = (r() * 52) | 0; } while (u.has(c)); u.add(c); return c; };
-      const opp = []; for (let k = 0; k < nOpp; k++) opp.push([draw(), draw()]);
-      const full = board.slice(); while (full.length < 5) full.push(draw());
-      const me = E.evaluate([...cards, ...full]); let best = true, tie = 1;
-      for (const o of opp) { const v = E.evaluate([...o, ...full]); if (v > me) { best = false; break; } if (v === me) tie++; }
+      S_MARK.fill(0); for (const c of cards) S_MARK[c] = 1; for (const c of board) S_MARK[c] = 1;
+      const draw = () => { let c; do { c = (r() * 52) | 0; } while (S_MARK[c]); S_MARK[c] = 1; return c; };
+      for (let k = 0; k < nOpp; k++) { const a = draw(), b = draw(); S_OC[2 * k] = a; S_OC[2 * k + 1] = b; }
+      for (let i = 0; i < nb; i++) S_FULL[i] = board[i];
+      for (let i = nb; i < 5; i++) S_FULL[i] = draw();
+      S_ME[0] = cards[0]; S_ME[1] = cards[1]; for (let i = 0; i < 5; i++) { S_ME[2 + i] = S_FULL[i]; S_OPP[2 + i] = S_FULL[i]; }
+      const me = E.evaluate(S_ME); let best = true, tie = 1;
+      for (let k = 0; k < nOpp; k++) { S_OPP[0] = S_OC[2 * k]; S_OPP[1] = S_OC[2 * k + 1]; const v = E.evaluate(S_OPP); if (v > me) { best = false; break; } if (v === me) tie++; }
       if (best) eq += 1 / tie;
     }
     return eq / sims;

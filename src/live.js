@@ -85,13 +85,63 @@
   // Agressivité de référence (mises et relances ÷ calls après le flop) de chaque type, pour personnaliser avec l'AF observé.
   const AF_REF = { serre: 1.5, normal: 2, large: 2.5, fish: 0.7, maniaque: 4, action: 1.5 };
   function likelihood(type, street, facing, sc, b, ctx) {
-    const base = likelihood0(type, street, facing, sc, b, ctx);
-    if (!ctx || !(ctx.af > 0)) return base;
-    const f = Math.max(0.4, Math.min(2.5, ctx.af / (AF_REF[type] || 2)));
-    const q = facing ? [base[0], base[1] / Math.sqrt(f), base[2] * f] : [base[0], base[1] * f, base[2] * f, base[3] * f];
+    let q = likelihood0(type, street, facing, sc, b, ctx);
+    if (ctx && ctx.af > 0) {
+      const f = Math.max(0.4, Math.min(2.5, ctx.af / (AF_REF[type] || 2)));
+      q = facing ? [q[0], q[1] / Math.sqrt(f), q[2] * f] : [q[0], q[1] * f, q[2] * f, q[3] * f];
+    }
+    if (ctx && ctx.pl) q = personal(type, facing, b, q, ctx.pl);
     const t = q.reduce((x, y) => x + y, 0); return q.map((x) => x / t);
   }
+  // ---------------- Apprentissage d'un vrai joueur (v14) ----------------
+  // pl = { face: [couchers, calls, relances] face à tes mises, bets: [mises vues à l'abattage, dont « rien »],
+  //        calls: [calls vus à l'abattage, dont mains faibles] }. Estimation bayésienne : ses fréquences observées,
+  // tirées vers celles de son type (référence apprise sur les bots) par un a priori de quelques observations.
+  const REF_DEFAULT = { bluff: 0.25, weakCall: 0.3, fold: 0.4 };
+  const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+  function personal(type, facing, b, q, pl) {
+    const R = MODEL?.ref?.[type] || REF_DEFAULT; q = q.slice();
+    if (facing) {
+      const f = pl.face || [0, 0, 0], n = f[0] + f[1] + f[2];
+      if (n >= 3 && R.fold > 0) { const fh = (f[0] + 12 * R.fold) / (n + 12); q[0] *= clamp(fh / R.fold, 0.4, 2.5); }
+      const c = pl.calls || [0, 0];
+      if (c[0] >= 1 && (b === 4 || b === 7) && R.weakCall > 0) { const wh = (c[1] + 8 * R.weakCall) / (c[0] + 8); q[1] *= clamp(wh / R.weakCall, 0.3, 3); }
+    } else {
+      const k = pl.bets || [0, 0];
+      if (k[0] >= 1 && R.bluff > 0 && (b === 7 || b === 5 || b === 6)) { const bh = (k[1] + 8 * R.bluff) / (k[0] + 8), r = clamp(bh / R.bluff, 0.3, 3), m = b === 7 ? r : Math.sqrt(r); q[1] *= m; q[2] *= m; q[3] *= m; }
+    }
+    return q;
+  }
+  // Ce que l'abattage d'un joueur apprend : pour chacune de ses actions de la main, la catégorie de la main montrée.
+  function learnShowdown(pl, shown, board, hist) {
+    pl = pl || {}; pl.bets = pl.bets || [0, 0]; pl.calls = pl.calls || [0, 0]; pl.sd = (pl.sd || 0) + 1;
+    for (const x of hist || []) {
+      const len = STREET_NAMES.indexOf(x.street); if (len < 3 || len > board.length) continue;
+      const bk = bucket(shown, board.slice(0, len));
+      if (x.a === 'bet' || x.a === 'raise') { pl.bets[0]++; if (bk === 7) pl.bets[1]++; }
+      else if (x.a === 'call') { pl.calls[0]++; if (bk === 4 || bk === 7) pl.calls[1]++; }
+    }
+    return pl;
+  }
+  // Texture du board (identique à l'entraînement) : 0 sec, 1 connecté, 2 pairé, 3 trois cartes d'une couleur.
+  function texture(board) {
+    const suits = [0, 0, 0, 0], ranks = new Set(); let paired = false;
+    for (const c of board) { suits[c & 3]++; const r = c >> 2; if (ranks.has(r)) paired = true; ranks.add(r); }
+    if (Math.max(...suits) >= 3) return 3; if (paired) return 2;
+    const rs = [...ranks].concat(ranks.has(12) ? [-1] : []);
+    for (let lo = -1; lo <= 8; lo++) if (rs.filter((r) => r >= lo && r <= lo + 4).length >= 3) return 1;
+    return 0;
+  }
+  // v14 : table fine par texture (lots entraînés avec la texture du board), mélangée à la table v2 selon le nombre d'observations.
   function likelihood0(type, street, facing, sc, b, ctx) {
+    const base = likelihood00(type, street, facing, sc, b, ctx), M3 = MODEL?.post3?.[type];
+    if (!M3 || !ctx || ctx.tex === undefined || ctx.mw === undefined || ctx.ip === undefined) return base;
+    const leaf = M3[street]?.[facing]?.[facing ? sc : 0]?.[ctx.mw ? 1 : 0]?.[ctx.ip ? 1 : 0]?.[ctx.tex]?.[b];
+    if (!leaf || leaf[0] < 20) return base;
+    const n = leaf[0], K = facing && sc === 2 ? 150 : 60;
+    return base.map((x, i) => (n * (leaf[i + 1] / 1000) + K * x) / (n + K));
+  }
+  function likelihood00(type, street, facing, sc, b, ctx) {
     const M = MODEL?.post?.[type], M2 = MODEL?.post2?.[type];
     const prior = facing ? FALLBACK.face[b] : FALLBACK.bet[b];
     if (M2 && ctx && ctx.mw !== undefined && ctx.ip !== undefined) {
@@ -133,7 +183,8 @@
     for (const x of hist) {
       const ai = actIndex(x); if (!ai) continue;
       const len = STREET_NAMES.indexOf(x.street), bd = board.slice(0, len), si = len - 3;
-      for (const r of list) { if (r.w <= 0) continue; r.w *= Math.max(0.001, likelihood(type, si, ai.facing, ai.sc, bucket(r.c, bd), o.ctx)[ai.a]); }
+      const cx = o.ctx ? { ...o.ctx, tex: texture(bd) } : o.ctx;
+      for (const r of list) { if (r.w <= 0) continue; r.w *= Math.max(0.001, likelihood(type, si, ai.facing, ai.sc, bucket(r.c, bd), cx)[ai.a]); }
     }
     let tot = list.reduce((s, r) => s + r.w, 0);
     if (!(tot > 0)) { list.forEach((r) => (r.w = 1)); tot = list.length; }
@@ -334,7 +385,7 @@
     const hist = (o.history || []).slice();
     const last = hist[hist.length - 1];
     if (toCall > 0 && !(last && last.street === street && (last.a === 'bet' || last.a === 'raise'))) hist.push({ street, a: o.raised ? 'raise' : 'bet', size: toCall / P0 });
-    const ctx = { mw: n > 1 ? 1 : 0, ip: ip ? 0 : 1, af: o.af || 0 };
+    const ctx = { mw: n > 1 ? 1 : 0, ip: ip ? 0 : 1, af: o.af || 0, tex: texture(board), pl: o.pl || null };
     const range = villainRange({ ...o, type, history: hist, ctx }, board, [...hero, ...board]);
     const vb = range.map((r) => bucket(r.c, board));
     const eqv = equityVec(hero, board, range, { random: o.random, runouts: o.runouts });
@@ -426,10 +477,24 @@
     else if (best.act === 'CHECK') lines.push(n > 1 ? 'À plusieurs, check : trop de joueurs pour qu\'une mise passe.' : 'Check : aucune mise ne rapporte plus (trop de mains meilleures paient, les moins bonnes se couchent).' + (best.betAfter ? ` Après ton check, il mise ≈ ${pctS(best.betAfter)} du temps : décide à l'avance si tu paieras.` : ''));
     else lines.push(T.keep === 'strong' || hist.some((x) => x.a === 'raise') ? 'Ses actions montrent une main forte chez ce profil : couche sans regret.' : 'Ton équité ne couvre pas la cote : couche.');
     if (close) lines.push(`Décision serrée : « ${second.k.toLowerCase()} » est presque aussi bon.`);
+    // Taille effective de sa range (combos « pleins » équivalents) : montre combien ses actions l'ont resserrée.
+    const sw = range.reduce((a, r) => a + r.w, 0), sw2 = range.reduce((a, r) => a + r.w * r.w, 0), effN = sw2 > 0 ? (sw * sw) / sw2 : range.length;
+    // Plan sur les rues suivantes (v14) : taille géométrique pour finir à tapis à la river avec une main de valeur,
+    // contrôle du pot avec une main moyenne, abandon prévu avec un bluff sans équité.
+    let plan = null;
+    if (toCome >= 0 && n === 1) {
+      const streets = toCome + 1, potNow = toCall > 0 ? P0 + 2 * toCall : P0, stk = Math.max(0, stack - (toCall > 0 && best.act === 'SUIS' ? toCall : 0));
+      const geo = stk > 0 ? (Math.pow(1 + (2 * stk) / potNow, 1 / streets) - 1) / 2 : 0;
+      if (eq >= 0.7 && stk > 0) plan = { kind: 'valeur', geo, text: streets > 1 ? `Plan valeur : environ ${Math.round(geo * 100)} % du pot à chaque rue (${streets} rues) met ton tapis au milieu à la river.` : `Plan valeur : à la river, la mise qui engage tout le tapis fait ${Math.round(geo * 100)} % du pot.` };
+      else if (eq >= 0.45 && eq < 0.7) plan = { kind: 'controle', text: 'Plan : contrôle du pot. Une mise de valeur fine ou un check, puis paie une mise raisonnable et couche face à une grosse relance d\'un joueur passif.' };
+      else if ((best.act === 'MISE' || best.act === 'RELANCE') && eq < 0.35) plan = { kind: 'bluff', text: toCome ? `Plan bluff : ${outs ? `si tu touches un de tes ${outs} outs, continue pour la valeur ; sinon ` : ''}abandonne au turn sauf carte qui améliore ta range.` : 'Plan bluff : une seule balle, n\'y reviens pas s\'il paie.' };
+    }
+    if (plan) lines.push(plan.text);
+    if (o.pl && (o.pl.sd || (o.pl.face && o.pl.face.reduce((a, b) => a + b, 0) >= 3))) lines.push(`Profil appris sur ce joueur : ${o.pl.sd ? o.pl.sd + ' abattage' + (o.pl.sd > 1 ? 's' : '') : ''}${o.pl.sd && o.pl.face ? ', ' : ''}${o.pl.face ? (o.pl.face.reduce((a, b) => a + b, 0)) + ' réactions à tes mises' : ''} pris en compte.`);
     const evScale = realPot ? 1 : 100 / P0;
     const tone = best.act === 'COUCHE' ? 'bad' : close || best.act === 'CHECK' ? 'warn' : best.ev > 0 ? 'good' : 'warn';
     return { street, hand: E.abstractOf(hero[0], hero[1]), cat, action: best.act, size: best.size, amount: best.amt, tone, eq, need: toCall > 0 ? toCall / (P0 + 2 * toCall) : 0, outs, spr, lines,
-      options: options.map((x) => ({ k: x.k, act: x.act, size: x.size, ev: x.ev * evScale, fold: x.fold })), evUnit: realPot ? 'jetons' : '% du pot', beats, grid, combos: range.length, ip, ms: Date.now() - t0, close: !!close };
+      options: options.map((x) => ({ k: x.k, act: x.act, size: x.size, ev: x.ev * evScale, fold: x.fold })), evUnit: realPot ? 'jetons' : '% du pot', beats, grid, combos: range.length, effCombos: Math.round(effN), plan, tex: ctx.tex, ip, ms: Date.now() - t0, close: !!close };
   }
 
   // ---------------- Omaha pot-limit ----------------
@@ -680,6 +745,6 @@
     return [40, 25, 16, 11, 8];
   }
 
-  const api = { TYPES, POSITIONS, POS_BY_N, positions, BUCKETS, decide, preflop, postflop, preRange, preWeights, villainRange, equityVec, bucket, likelihood, ploScore, ploPct, structure, chips, payouts, variantDecide, ploTable, sdTable, vScore, fromTable, actTable };
+  const api = { texture, learnShowdown, personal, TYPES, POSITIONS, POS_BY_N, positions, BUCKETS, decide, preflop, postflop, preRange, preWeights, villainRange, equityVec, bucket, likelihood, ploScore, ploPct, structure, chips, payouts, variantDecide, ploTable, sdTable, vScore, fromTable, actTable };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Live = api;
 })(typeof window !== 'undefined' ? window : globalThis);
