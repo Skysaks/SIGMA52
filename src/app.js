@@ -185,7 +185,7 @@
           ${a !== undefined ? `<div class="verdict ${a === q.ok ? 'good' : 'bad'}"><b>${a === q.ok ? 'Juste.' : 'Non : ' + esc(q.opts[q.ok]) + '.'}</b><span>${esc(q.why)}</span></div>` : ''}</div>`;
       }).join('');
       const lt = K.learn(m), hm = (x) => (x >= 60 ? `${Math.floor(x / 60)} h ${String(Math.round(x % 60)).padStart(2, '0')}` : `${Math.round(x)} min`);
-      return `<div class="row"><button class="btn small" data-act="closemod">← Tous les modules</button><span class="eyebrow">Niveau ${m.level} · ${L.title} · module ${i + 1} sur ${K.MODULES.length} · ${hm(lt.total)} d'apprentissage réel</span></div>
+      return `<div class="row"><button class="btn small" data-act="closemod">← Tous les modules</button><button class="btn small" data-act="stmodvid" data-id="${m.id}">Vidéo du module</button><span class="eyebrow">Niveau ${m.level} · ${L.title} · module ${i + 1} sur ${K.MODULES.length} · ${hm(lt.total)} d'apprentissage réel</span></div>
       <div class="learnbar"><span><b>${m.minutes} min</b> lecture et quiz</span>${lt.exercises ? `<span><b>${lt.exercises} min</b> exercices corrigés</span>` : ''}${lt.drill ? `<span><b>${lt.drill} min</b> 30 spots ciblés</span>` : ''}<span><b>${lt.review} min</b> révisions espacées</span><span><b>${lt.practice} min</b> ${m.level <= 4 ? 'pratique au simulateur' : 'mise en application'}</span></div>
       <article class="panel prose"><h1>${esc(m.title)}</h1>
         <div class="warnbox"><strong>À la fin de ce module, tu sauras :</strong><ul>${m.goals.map((g) => `<li>${esc(g)}</li>`).join('')}</ul></div>

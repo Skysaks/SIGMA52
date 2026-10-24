@@ -146,15 +146,33 @@
       if (k) text(g, pretty(q.why), pad, y + 40, { size: land ? 28 : 32, color: T.muted, maxW: F.w - pad * 2, lh: 1.32, maxLines: land ? 3 : 6 });
       footer(g, F, T); return 2;
     },
-    lecon(g, F, T) {
+    // Leçon animée : titre, une image par notion clé, question du quiz, réponse, conclusion. p = avancement de l'animation (0 à 1).
+    lecon(g, F, T, k = 0, p = 1) {
       const m = K.MODULES.find((x) => x.id === st.mod) || K.MODULES[0], pad = F.w > F.h ? 90 : 70, land = F.w > F.h;
-      let y = header(g, F, T, `Leçon · niveau ${m.level} · ${K.LEVELS[m.level - 1].title}`, st.hook || m.title);
-      y += 30;
-      for (const kx of m.keys.slice(0, 5)) {
-        g.fillStyle = T.acc; g.beginPath(); g.arc(pad + 14, y + 6, 10, 0, Math.PI * 2); g.fill();
-        y = text(g, kx, pad + 50, y + 18, { size: land ? 36 : 42, color: T.ink, maxW: F.w - pad * 2 - 50, lh: 1.25, maxLines: 3 }) + 26;
+      const keys = m.keys.slice(0, 5), q = (m.quiz || [])[0], n = keys.length + (q ? 2 : 0) + 2, a = Math.min(1, p * 3), ease = 1 - Math.pow(1 - a, 3);
+      const kick = `Leçon · niveau ${m.level} · ${K.LEVELS[m.level - 1].title}`;
+      g.save(); g.globalAlpha = 0.25 + 0.75 * ease; g.translate(0, (1 - ease) * 40);
+      if (k === 0) {
+        let y = header(g, F, T, kick, st.hook || m.title);
+        y = text(g, `${m.minutes} min · ${keys.length} notions clés${q ? ' · une question pour finir' : ''}`, pad, y + 40, { size: land ? 34 : 40, color: T.muted, maxW: F.w - pad * 2 });
+        keys.forEach((kx, i) => { g.fillStyle = T.acc; g.beginPath(); g.arc(pad + 14, y + 56 + i * (land ? 56 : 70), 9, 0, Math.PI * 2); g.fill(); text(g, kx, pad + 44, y + 66 + i * (land ? 56 : 70), { size: land ? 26 : 30, color: T.ink, maxW: F.w - pad * 2 - 44, maxLines: 1 }); });
+      } else if (k <= keys.length) {
+        let y = header(g, F, T, `${kick} · notion ${k}/${keys.length}`, m.title);
+        g.fillStyle = T.acc; g.font = `800 ${land ? 120 : 150}px ${FD}`; g.textAlign = 'left'; g.fillText(String(k), pad, y + (land ? 130 : 170));
+        text(g, keys[k - 1], pad, y + (land ? 220 : 290), { size: land ? 46 : 54, weight: 600, color: T.ink, maxW: F.w - pad * 2, lh: 1.25, maxLines: land ? 4 : 7 });
+        rr(g, pad, F.h - F.safeB - 70, F.w - pad * 2, 10, 5); g.fillStyle = T.panel; g.fill(); rr(g, pad, F.h - F.safeB - 70, (F.w - pad * 2) * (k / keys.length) * Math.min(1, 0.6 + 0.4 * p), 10, 5); g.fillStyle = T.acc; g.fill();
+      } else if (q && k <= keys.length + 2) {
+        const ans = k === keys.length + 2;
+        let y = header(g, F, T, kick, ans ? 'La réponse' : 'À toi');
+        y = text(g, pretty(q.q), pad, y + 40, { size: land ? 34 : 40, color: T.ink, maxW: F.w - pad * 2, lh: 1.3, maxLines: 4 }) + 20;
+        q.opts.forEach((o, i) => { const good = ans && i === q.ok, h = land ? 64 : 84; rr(g, pad, y, F.w - pad * 2, h, 16); g.fillStyle = good ? T.acc : T.panel; g.fill(); text(g, `${'ABCD'[i]}  ${o}`, pad + 26, y + h * 0.64, { size: land ? 28 : 33, weight: 600, color: good ? (st.theme === 'creme' ? '#fff' : '#2B1608') : T.ink, maxW: F.w - pad * 2 - 52, maxLines: 1 }); y += h + 14; });
+        if (ans) text(g, pretty(q.why), pad, y + 30, { size: land ? 26 : 30, color: T.muted, maxW: F.w - pad * 2, lh: 1.3, maxLines: land ? 3 : 5 });
+      } else {
+        let y = header(g, F, T, kick, 'À retenir');
+        y = text(g, keys[0] || m.title, pad, y + 50, { size: land ? 40 : 46, weight: 600, color: T.ink, maxW: F.w - pad * 2, lh: 1.25, maxLines: 4 });
+        text(g, 'Le module complet, ses exercices et 30 spots corrigés sont dans SIGMA 52.', pad, y + 70, { size: land ? 28 : 32, color: T.muted, maxW: F.w - pad * 2, lh: 1.3, maxLines: 3 });
       }
-      footer(g, F, T); return 1;
+      g.restore(); footer(g, F, T); return n;
     },
     solveur(g, F, T) {
       const sv = X.solverState, info = sv?.info;
@@ -204,10 +222,10 @@
     },
   };
   function emptyFrame(g, F, T, t, d) { const pad = 70; header(g, F, T, 'Studio', t); text(g, d, pad, F.h / 2, { size: 38, color: T.muted, maxW: F.w - pad * 2, lh: 1.3 }); footer(g, F, T); return 1; }
-  function draw(canvas, k) {
-    const F = FORMATS[st.fmt], T = THEMES[st.theme]; canvas.width = F.w; canvas.height = F.h;
-    const g = canvas.getContext('2d'); frame(g, F, T);
-    return FRAMES[st.tpl](g, F, T, k ?? st.frame) || 1;
+  function draw(canvas, k, p = 1) {
+    const F = FORMATS[st.fmt], T = THEMES[st.theme]; if (canvas.width !== F.w) canvas.width = F.w; if (canvas.height !== F.h) canvas.height = F.h;
+    const g = canvas.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; frame(g, F, T);
+    return FRAMES[st.tpl](g, F, T, k ?? st.frame, p) || 1;
   }
 
   // ---------------- Légende ----------------
@@ -264,11 +282,14 @@
     };
     const draw0 = () => {
       const n = draw(cv); if (st.frame >= n) { st.frame = n - 1; draw(cv); } fit();
-      const fr0 = $('#stframes'); if (fr0) fr0.innerHTML = n > 1 ? Array.from({ length: n }, (_, i) => `<button class="chip" aria-pressed="${st.frame === i}" data-act="stframe" data-v="${i}">${st.tpl === 'quiz' ? ['Question', 'Réponse'][i] : (handFrames((handSources().find((x) => x[0] === st.handSrc) || handSources()[0])?.[2] || '')?.frames[i]?.label || i + 1)}</button>`).join('') : '';
+      const fr0 = $('#stframes'); if (fr0) fr0.innerHTML = n > 1 ? Array.from({ length: n }, (_, i) => `<button class="chip" aria-pressed="${st.frame === i}" data-act="stframe" data-v="${i}">${st.tpl === 'quiz' ? ['Question', 'Réponse'][i] : st.tpl === 'lecon' ? (i === 0 ? 'Titre' : i === n - 1 ? 'Fin' : String(i)) : (handFrames((handSources().find((x) => x[0] === st.handSrc) || handSources()[0])?.[2] || '')?.frames[i]?.label || i + 1)}</button>`).join('') : '';
     };
     if (document.fonts?.ready) document.fonts.ready.then(draw0); else draw0();
     draw0();
   };
+  // Depuis un module du cours : ouvre le Studio sur la leçon animée de ce module.
+  X.studioLesson = (id) => { st.tpl = 'lecon'; st.mod = id; st.frame = 0; st.msg = 'Leçon animée prête : choisis le format, puis « Vidéo ».'; X.go('studio'); };
+  ACT.stmodvid = (t) => X.studioLesson(t.dataset.id);
   ACT.sttpl = (t) => { st.tpl = t.dataset.v; st.frame = 0; st.msg = ''; render(); };
   ACT.stfmt = (t) => { st.fmt = t.dataset.v; render(); };
   ACT.sttheme = (t) => { st.theme = t.dataset.v; render(); };
@@ -325,14 +346,16 @@
     if (n === 1) imgs.push(imgs[0]);
     const stream = cv.captureStream(30), rec = new MediaRecorder(stream, type ? { mimeType: type, videoBitsPerSecond: 6e6 } : undefined), chunks = [];
     rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
-    rec.onstop = () => { const ext = (rec.mimeType || '').includes('mp4') ? 'mp4' : 'webm'; download(new Blob(chunks, { type: rec.mimeType || 'video/webm' }), fname() + '.' + ext); st.rec = null; st.msg = `Vidéo prête (${ext.toUpperCase()}, ${fr(imgs.length * 2.4, 1)} s).`; render(); };
-    const g = cv.getContext('2d'), per = 2400, fade = 450, t0 = performance.now(), total = imgs.length * per;
+    rec.onstop = () => { const ext = (rec.mimeType || '').includes('mp4') ? 'mp4' : 'webm'; download(new Blob(chunks, { type: rec.mimeType || 'video/webm' }), fname() + '.' + ext); st.rec = null; st.msg = `Vidéo prête (${ext.toUpperCase()}, ${fr(imgs.length * per / 1000, 1)} s).`; render(); };
+    const anim = st.tpl === 'lecon', buf = document.createElement('canvas'), per = anim ? 3200 : 2400;
+    const g = cv.getContext('2d'), fade = 450, t0 = performance.now(), total = imgs.length * per;
     st.rec = rec; st.msg = 'Enregistrement en cours…'; $('#stframes').insertAdjacentHTML('afterend', '<p class="note" id="strec">Enregistrement en cours…</p>');
     rec.start(200);
     const step = (now) => {
       const t = now - t0; if (t >= total) { rec.stop(); return; }
       const i = Math.floor(t / per), local = t - i * per;
-      g.globalAlpha = 1; g.drawImage(imgs[i], 0, 0);
+      g.globalAlpha = 1;
+      if (anim) { draw(buf, i, Math.min(1, local / per)); g.drawImage(buf, 0, 0); } else g.drawImage(imgs[i], 0, 0);
       if (local < fade && i > 0) { g.globalAlpha = 1 - local / fade; g.drawImage(imgs[i - 1], 0, 0); g.globalAlpha = 1; }
       requestAnimationFrame(step);
     };
