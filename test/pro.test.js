@@ -72,4 +72,11 @@ t('check-in : feu vert, session courte, pas de session', () => {
 t('carte de tilt : 9 déclencheurs, fiches complètes', () => {
   assert(P.TRIGGERS.length === 9 && P.TRIGGERS.every((x) => x.fiche.length === 5 && x.fiche.every((s) => s.length > 10)) && P.ZONES.length === 3);
 });
+t('Spin & Go : table publiée (10 millions), rake 7 %, partage au-delà de ×20, seuil de rentabilité', () => {
+  assert.strictEqual(P.SPIN.rows.reduce((a, r) => a + r[1], 0), 1e7);
+  assert(Math.abs(P.spinRake() - 0.07) < 0.001, P.spinRake());
+  assert(P.spinPrize(2, 1) === 10 && P.spinPrize(2, 2) === 0 && P.spinPrize(100, 1) === 400 && P.spinPrize(100, 3) === 40);
+  const be = 1 / (3 * (1 - P.spinRake())), lo = P.spinSim(be - 0.05, 0.33, 300, 400), hi = P.spinSim(be + 0.05, 0.33, 300, 400);
+  assert(lo.p50 < 0 && hi.p50 > 0 && hi.pWin > lo.pWin);
+});
 console.log(n + ' tests réussis');

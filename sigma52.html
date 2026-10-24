@@ -4916,7 +4916,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Board = api;
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
-<script>// Import d'historiques de mains (Winamax, PokerStars) : parsing, statistiques, fuites préflop, EV des all-in, profils adversaires.
+<script>// Import d'historiques de mains (Winamax, PokerStars, GGPoker et ses skins) : parsing, statistiques, fuites préflop, EV des all-in, profils adversaires.
 // Uniquement des mains que tu as jouées, analysées après la session.
 (function (root) {
   const E = root.Engine || require('./engine.js');
@@ -4927,25 +4927,29 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
   const ACT = new RegExp(`^(.+?):? (folds|checks|calls|bets|raises)(?: (${AMT}))?(?: to (${AMT}))?(.*all-in.*)?$`);
 
   function split(text) {
-    return text.replace(/\r/g, '').replace(/^﻿/, '').split(/\n(?=(?:Winamax Poker|PokerStars (?:Hand|Zoom Hand|Game)) )/).map((s) => s.trim()).filter((s) => /^(Winamax Poker|PokerStars)/.test(s));
+    return text.replace(/\r/g, '').replace(/^﻿/, '').split(/\n(?=(?:Winamax Poker |PokerStars (?:Hand|Zoom Hand|Game) |Poker Hand #))/).map((s) => s.trim()).filter((s) => /^(Winamax Poker|PokerStars|Poker Hand #)/.test(s));
   }
 
   function parseHand(txt) {
     const L = txt.split('\n').map((l) => l.trim()).filter(Boolean);
-    const site = /^Winamax/.test(L[0]) ? 'Winamax' : 'PokerStars';
+    const site = /^Winamax/.test(L[0]) ? 'Winamax' : /^Poker Hand #/.test(L[0]) ? 'GGPoker' : 'PokerStars';
     const h = { site, raw: txt, id: (L[0].match(/(?:HandId: #|Hand #)([\w-]+)/) || [])[1] || '', tournament: /Tournament|Tournoi/i.test(L[0]),
       seats: [], button: 0, hero: null, heroCards: null, actions: [], board: [], shown: {}, collected: {}, returned: {}, posts: {}, rake: 0, sb: 0, bb: 0 };
     const bl = [...L[0].matchAll(/\(([^()]*\/[^()]*)\)/g)].pop();
     if (bl) { const p = bl[1].split('/').map(num).filter((x) => !isNaN(x)); h.bb = p[p.length - 1]; h.sb = p[p.length - 2]; }
+    // GGPoker tournoi : « Level10(150/300(40)) » (blindes et ante imbriqués).
+    const lv = L[0].match(/Level\s*\d+\s*\(([\d.,]+)\/([\d.,]+)(?:\(([\d.,]+)\))?\)/); if (lv) { h.sb = num(lv[1]); h.bb = num(lv[2]); }
     const date = L[0].match(/(\d{4})[/-](\d{2})[/-](\d{2})/); h.date = date ? `${date[1]}-${date[2]}-${date[3]}` : '';
     const btn = txt.match(/Seat #(\d+) is the button/); h.button = btn ? +btn[1] : 0;
     let street = 'pre', summary = false;
     for (const l of L.slice(1)) {
       if (/^\*\*\* SUMMARY/.test(l)) { summary = true; continue; }
-      const st = l.match(/^\*\*\* (PRE-FLOP|HOLE CARDS|FLOP|TURN|RIVER|SHOW ?DOWN)/);
+      const st = l.match(/^\*\*\* (FIRST |SECOND |THIRD )?(PRE-FLOP|HOLE CARDS|FLOP|TURN|RIVER|SHOW ?DOWN)/);
       if (st) {
-        street = { 'PRE-FLOP': 'pre', 'HOLE CARDS': 'pre', FLOP: 'flop', TURN: 'turn', RIVER: 'river' }[st[1]] || 'sd';
+        street = { 'PRE-FLOP': 'pre', 'HOLE CARDS': 'pre', FLOP: 'flop', TURN: 'turn', RIVER: 'river' }[st[2]] || 'sd';
         const cards = [...l.matchAll(/\[([^\]]+)\]/g)].map((m) => m[1]).join(' ');
+        // Run it twice (GGPoker) : on garde le premier board, le second ne sert qu'au partage du pot.
+        if (st[1] && st[1] !== 'FIRST ') { h.rit = true; continue; }
         if (street !== 'pre' && street !== 'sd') h.board = E.parseCards(cards);
         continue;
       }
@@ -6295,7 +6299,23 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
   ];
   const FICHE_STEPS = ['Le problème : ce que je pense ou dis', 'Pourquoi c\'est logique de le ressentir', 'Pourquoi c\'est faux', 'La correction : la phrase à me dire', 'La logique qui la prouve'];
 
-  const api = { rng, normCdf, STAKES, stakeIndex, careerSim, riskOfRuin, proCriteria, SPOT_D, DEC_D, LEVEL_BONUS, eloTitle, expected, eloUpdate, DIVS, XP, weekKey, weekFrac, rivals, standings, leagueRoll, PROMOTE, DEMOTE, SIZE, MEDALS, medalOf, luck, P_PREM, P_SET, checkin, TRIGGERS, ZONES, FICHE_STEPS };
+  // ---------- Spin & Go (Expresso) ----------
+  // Table de multiplicateurs de l'Expresso à 5 € publiée par CardPlayer France (fréquences sur 10 millions de parties).
+  // Au-delà de ×20, le prix est partagé entre les trois joueurs (80 / 12 / 8 %) ; sinon le vainqueur prend tout.
+  const SPIN = { buyin: 5, rows: [[200000, 2], [1000, 100], [100, 2000], [50, 10000], [10, 150000], [5, 400000], [4, 825000], [3, 2674204], [2, 5938694]], total: 1e7 };
+  function spinDraw(r = Math.random) { let x = r() * SPIN.total; for (const [m, f] of SPIN.rows) { x -= f; if (x <= 0) return m; } return 2; }
+  function spinPrize(mult, place) { const pool = mult * SPIN.buyin; if (mult > 20) return pool * ([0, 0.8, 0.12, 0.08][place] || 0); return place === 1 ? pool : 0; }
+  const spinRake = () => { let paid = 0; for (const [m, f] of SPIN.rows) paid += f * m * SPIN.buyin; return 1 - paid / SPIN.total / (3 * SPIN.buyin); };
+  // Variance : N parties avec des probabilités de finir 1er / 2e données ; ROI médian, déciles, part de sessions gagnantes.
+  function spinSim(p1, p2, n, paths = 2000, seed = 3) {
+    const r = rng(seed), out = [];
+    for (let k = 0; k < paths; k++) { let won = 0; for (let g = 0; g < n; g++) { const m = spinDraw(r), u = r(), place = u < p1 ? 1 : u < p1 + p2 ? 2 : 3; won += spinPrize(m, place); } out.push(won / (n * SPIN.buyin) - 1); }
+    out.sort((a, b) => a - b);
+    const q = (x) => out[Math.min(out.length - 1, Math.round(x * (out.length - 1)))];
+    return { p10: q(0.1), p50: q(0.5), p90: q(0.9), mean: out.reduce((a, b) => a + b, 0) / out.length, pWin: out.filter((x) => x > 0).length / out.length };
+  }
+
+  const api = { SPIN, spinDraw, spinPrize, spinRake, spinSim, rng, normCdf, STAKES, stakeIndex, careerSim, riskOfRuin, proCriteria, SPOT_D, DEC_D, LEVEL_BONUS, eloTitle, expected, eloUpdate, DIVS, XP, weekKey, weekFrac, rivals, standings, leagueRoll, PROMOTE, DEMOTE, SIZE, MEDALS, medalOf, luck, P_PREM, P_SET, checkin, TRIGGERS, ZONES, FICHE_STEPS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Pro = api;
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
@@ -6920,7 +6940,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
   function runAnalysis(text, kind) {
     try {
       const r = HH.analyze(text);
-      if (!r.hands) throw new Error('Aucune main reconnue. Colle le texte brut des historiques Winamax ou PokerStars (une main commence par « Winamax Poker - » ou « PokerStars Hand »).');
+      if (!r.hands) throw new Error('Aucune main reconnue. Colle le texte brut des historiques Winamax, PokerStars ou GGPoker (une main commence par « Winamax Poker - », « PokerStars Hand » ou « Poker Hand # »).');
       if (!r.hero) throw new Error('Mains reconnues, mais aucune ligne « Dealt to … » : impossible de savoir qui tu es.');
       const me = r.me;
       r.ev100 = me.hands ? (me.netBB - me.allins.reduce((a, x) => a + x.luck / x.bb, 0)) / me.hands * 100 : 0;
@@ -6967,11 +6987,11 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
       <section class="panel"><h2>Plus gros pots</h2>${r.pots.map((p, i) => `<details><summary><span class="mono">${sgn(p.bb, 1)} bb</span> · main ${esc(p.id)}${p.hand.heroCards ? ' · ' + p.hand.heroCards.map(E.cardStr).join(' ') : ''}</summary><div class="row" style="margin:8px 0"><button class="btn small" data-act="rppot" data-i="${i}">Rejouer pas à pas</button><button class="btn small" data-act="libpot" data-i="${i}">Sauvegarder dans la bibliothèque</button></div><pre class="hh">${esc(p.hand.raw)}</pre></details>`).join('')}</section>`;
     }
     const known = Object.entries(state.notes.opponents).filter(([, o]) => o.hands >= 15).sort((a, b) => b[1].hands - a[1].hands).slice(0, 30);
-    return head('Analyse de tes mains', 'Après la session, colle tes historiques Winamax ou PokerStars : résultat, chance aux all-in, fuites préflop, profil de chaque adversaire. Uniquement tes propres mains : analyser des mains achetées ou partagées est interdit par les rooms.') +
+    return head('Analyse de tes mains', 'Après la session, colle tes historiques Winamax, PokerStars ou GGPoker : résultat, chance aux all-in, fuites préflop, profil de chaque adversaire. Uniquement tes propres mains : analyser des mains achetées ou partagées est interdit par les rooms.') +
       `<section class="panel"><label class="f">Historiques (texte brut)<textarea id="antext" class="f mono" rows="7" style="font-size:12px" placeholder="Winamax Poker - CashGame - HandId: #…">${esc(anText)}</textarea></label>
         <div class="row"><button class="btn primary" data-act="analyze">Analyser</button><label class="btn" for="anfile">Charger des fichiers .txt</label><input type="file" id="anfile" accept=".txt,text/plain" multiple hidden>
         <button class="btn" data-act="ansample">Exemple : 300 mains simulées</button></div>
-        <p class="note">Winamax enregistre tes historiques dans le dossier « history » de son répertoire d'installation. Parseur testé sur des historiques Winamax et sur ceux de la table d'entraînement. Si un fichier récent ne passe pas, envoie-moi une main d'exemple : le parseur s'ajuste.</p>
+        <p class="note">Winamax enregistre tes historiques dans le dossier « history » de son répertoire d'installation. GGPoker : télécharge tes mains depuis PokerCraft (le héros s'appelle « Hero », les adversaires sont anonymisés, le run it twice est reconnu). Parseur testé sur des historiques Winamax réels, sur le format GGPoker et sur la table d'entraînement. Si un fichier récent ne passe pas, envoie-moi une main d'exemple : le parseur s'ajuste.</p>
         ${anErr ? `<p class="pill bad" style="white-space:normal">${esc(anErr)}</p>` : ''}</section>${res}
       ${known.length ? `<section class="panel"><h2>Fiches adversaires cumulées</h2><div class="tw"><table class="t"><thead><tr><th>Joueur</th><th class="n">Mains</th><th class="n">VPIP</th><th class="n">PFR</th><th>Profil</th></tr></thead><tbody>${known.map(([n, o]) => `<tr><td>${esc(n)}</td><td class="n">${o.hands}</td><td class="n">${rate(o.vpip, o.hands)}</td><td class="n">${rate(o.pfr, o.hands)}</td><td>${HH.profileOf(o).label}</td></tr>`).join('')}</tbody></table></div><p class="note">Cumul de tous tes imports. Relis-les avant une session, jamais pendant.</p></section>` : ''}`;
   };
@@ -8719,6 +8739,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
     }
     if (g.kind === 'xp' && g.tb.over && !g.counted) {
       g.counted = true; const e = state.progress.expresso; e.games = (e.games || 0) + 1; e.places = e.places || [0, 0, 0, 0]; e.places[g.tb.place] = (e.places[g.tb.place] || 0) + 1;
+      if (g.spin && PR) { const S = spinStats(), won = PR.spinPrize(g.spin.mult, g.tb.place); S.games++; S.spent += 5; S.won += won; S.mults[g.spin.mult] = (S.mults[g.spin.mult] || 0) + 1; g.spin.won = won; }
     }
     save('progress');
   }
@@ -8824,7 +8845,9 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
   // ---- Expresso ----
   const XP_LEVELS = [[10, 20], [15, 30], [20, 40], [30, 60], [40, 80], [50, 100], [60, 120], [80, 160], [100, 200], [150, 300], [200, 400]];
   const XP_LINEUPS = { mix: ['reg', 'station'], agressifs: ['maniaque', 'reg'], serres: ['nit', 'reg'] };
-  const xprep = { lineup: 'mix', mode: 'live' };
+  const xprep = { lineup: 'mix', mode: 'live', fmt: 'spin', p1: 40, p2: 30, n: 500 };
+  const PR = window.Pro;
+  const spinStats = () => state.progress.spin || (state.progress.spin = { games: 0, spent: 0, won: 0, mults: {} });
   let xp = null;
   SIMVIEWS.expresso = () => {
     const e = state.progress.expresso || { games: 0, places: [0, 0, 0, 0] };
@@ -8835,21 +8858,45 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
         <p class="note">Structure hyper-turbo inspirée du format, pas la structure officielle d'une room. Le gagnant prend tout : l'équilibre en jetons s'applique. Sous 15 bb, le coach utilise le solveur de Nash en tête-à-tête et une estimation à 3 joueurs.</p>
         <div class="row"><span class="note">Adversaires :</span>${Object.entries({ mix: 'Régulier + fish', agressifs: 'Maniaque + régulier', serres: 'Nit + régulier' }).map(([k, l]) => `<button class="chip" aria-pressed="${xprep.lineup === k}" data-act="xpl" data-v="${k}">${l}</button>`).join('')}</div>
         <div class="row"><span class="note">Coach :</span>${[['live', 'En direct'], ['exam', 'Examen'], ['free', 'Sans aide']].map(([k, l]) => `<button class="chip" aria-pressed="${xprep.mode === k}" data-act="xpm" data-v="${k}">${l}</button>`).join('')}</div>
+        <div class="row"><span class="note">Format :</span>${[['spin', 'Spin & Go (multiplicateur tiré au sort, 5 €)'], ['classic', 'Gagnant prend tout, sans tirage']].map(([k, l]) => `<button class="chip" aria-pressed="${xprep.fmt === k}" data-act="xpfmt" data-v="${k}">${l}</button>`).join('')}</div>
         <div class="warnbox">Avant de jouer : <button class="btn small" data-act="openmod" data-id="expresso">Module Expresso</button> <button class="btn small" data-act="openmod" data-id="icm">Module Tapis courts</button> <button class="btn small" data-act="drill" data-type="pushfold">Spots tapis ou couché</button></div>
-        <div class="row"><button class="btn primary" data-act="xpstart">Lancer une partie</button></div></section>${record}`;
+        <div class="row"><button class="btn primary" data-act="xpstart">Lancer une partie</button></div></section>${record}${spinHTML()}`;
     }
     const t = xp.tb, L = !t.done && t.toAct === 0 && !t.players[0].out ? t.legal() : null, handDec = xp.decisions.filter((d) => d.hand === t.handNo);
-    let out = `<div class="row"><span class="pill acc">Main ${t.handNo} · blindes ${t.sb}/${t.bb}</span><span class="pill">${t.active().length} joueurs</span>${xp.fmt && xp.fmt !== 'expresso' ? `<span class="pill">${esc(xp.name)}</span>` : ''}<button class="btn small" data-act="xpquit" style="margin-left:auto">Abandonner la partie</button></div>${tableHTML(t, { chips: true, showProfiles: true })}`;
+    let out = (xp.spin ? `<div class="warnbox" style="text-align:center"><span class="eyebrow">Multiplicateur tiré</span><div style="font:800 34px var(--f-display);color:var(--accent)">×${xp.spin.mult.toLocaleString('fr-FR')}</div><span class="note">${xp.spin.mult > 20 ? `Prix de ${fr(xp.spin.mult * 5, 0)} € partagé : 80 % au 1er, 12 % au 2e, 8 % au 3e` : `Le vainqueur gagne ${fr(xp.spin.mult * 5, 0)} € (mise 5 €)`}</span></div>` : '') + `<div class="row"><span class="pill acc">Main ${t.handNo} · blindes ${t.sb}/${t.bb}</span><span class="pill">${t.active().length} joueurs</span>${xp.fmt && xp.fmt !== 'expresso' ? `<span class="pill">${esc(xp.name)}</span>` : ''}<button class="btn small" data-act="xpquit" style="margin-left:auto">Abandonner la partie</button></div>${tableHTML(t, { chips: true, showProfiles: true })}`;
     if (L) out += `<section class="panel"><span class="eyebrow">À toi · ${TS.posName(t, 0)} · ${E.abstractOf(t.players[0].cards[0], t.players[0].cards[1])} · ${fr(t.effStack(0) / t.bb, 1)} bb effectifs</span>${actionsHTML(t)}</section>` + (xp.mode === 'live' ? coachHTML(adviceFor(xp), t) : '');
     if (t.done) {
-      out += `<section class="panel"><div class="row" style="justify-content:space-between"><h2>${t.over ? (t.place === 1 ? `Victoire : tu remportes ${xp.name || 'l\'Expresso'}` : `Partie terminée : ${t.place}e place`) : 'Fin de la main'}</h2><div class="row"><button class="btn small" data-act="libtable">Sauvegarder la main</button><button class="btn small" data-act="rptable">Rejouer</button>${t.over ? '<button class="btn primary" data-act="xpnew">Nouvelle partie</button>' : '<button class="btn primary" data-act="xpnext">Main suivante <span style="opacity:.7">Entrée</span></button>'}</div></div>
+      out += `<section class="panel"><div class="row" style="justify-content:space-between"><h2>${t.over ? (t.place === 1 ? `Victoire : tu remportes ${xp.name || 'l\'Expresso'}` : `Partie terminée : ${t.place}e place`) + (xp.spin && xp.spin.won !== undefined ? ` · ${xp.spin.won > 0 ? '+' + fr(xp.spin.won, 0) + ' €' : '0 €'} (mise 5 €)` : '') : 'Fin de la main'}</h2><div class="row"><button class="btn small" data-act="libtable">Sauvegarder la main</button><button class="btn small" data-act="rptable">Rejouer</button>${t.over ? '<button class="btn primary" data-act="xpnew">Nouvelle partie</button>' : '<button class="btn primary" data-act="xpnext">Main suivante <span style="opacity:.7">Entrée</span></button>'}</div></div>
         ${decisionsHTML(handDec, xp.mode)}${t.over ? `<h3>Ta partie</h3>${catTable(xp.decisions)}` : ''}</section>`;
     }
     return out + (xp.fmt === 'expresso' ? record : '');
   };
   ACT.xpl = (t) => { xprep.lineup = t.dataset.v; render(); };
   ACT.xpm = (t) => { xprep.mode = t.dataset.v; render(); };
-  ACT.xpstart = () => { xp = { kind: 'xp', fmt: 'expresso', name: 'l\'Expresso', tb: new TS.Table({ lineup: XP_LINEUPS[xprep.lineup], stack: 500, rebuy: false, levels: XP_LEVELS, handsPerLevel: 6 }), mode: xprep.mode, decisions: [], adv: null }; nextHand(xp); };
+  ACT.xpstart = () => {
+    xp = { kind: 'xp', fmt: 'expresso', name: 'l\'Expresso', tb: new TS.Table({ lineup: XP_LINEUPS[xprep.lineup], stack: 500, rebuy: false, levels: XP_LEVELS, handsPerLevel: 6 }), mode: xprep.mode, decisions: [], adv: null };
+    if (xprep.fmt === 'spin' && PR) xp.spin = { mult: PR.spinDraw() };
+    nextHand(xp);
+  };
+  ACT.xpfmt = (t) => { xprep.fmt = t.dataset.v; render(); };
+  ONCHANGE.push((t) => { if (t.dataset.spn) { xprep[t.dataset.spn] = Math.max(0, +String(t.value).replace(',', '.') || 0); render(); return true; } });
+  function spinHTML() {
+    if (!PR) return '';
+    const S = spinStats(), n = Math.min(5000, Math.max(10, Math.round(xprep.n))), p1 = Math.min(1, xprep.p1 / 100), p2 = Math.min(1 - p1, xprep.p2 / 100), sim = PR.spinSim(p1, p2, n, 1500);
+    const ev = (() => { let e = 0; for (const [m, f] of PR.SPIN.rows) e += (f / PR.SPIN.total) * (PR.spinPrize(m, 1) * p1 + PR.spinPrize(m, 2) * p2 + PR.spinPrize(m, 3) * (1 - p1 - p2)); return e / 5 - 1; })();
+    const be = 1 / (3 * (1 - PR.spinRake()));
+    return `<section class="panel"><span class="eyebrow">Spin & Go · tes résultats simulés et la variance réelle du format</span>
+      <div class="stats"><div class="stat hero"><span>Spins joués</span><b>${S.games}</b><span>${fr(S.spent, 0)} € misés · ${fr(S.won, 0)} € gagnés</span></div>
+        <div class="stat"><span>ROI simulé</span><b>${S.spent ? pct(S.won / S.spent - 1, 1) : '—'}</b><span>sur tes parties de SIGMA 52</span></div>
+        <div class="stat"><span>Rake implicite</span><b>${pct(PR.spinRake(), 1)}</b><span>de la table de multiplicateurs</span></div></div>
+      <h3>Ce que donnent ${n.toLocaleString('fr-FR')} parties</h3>
+      <div class="form"><label class="f">Tu finis 1er (%)<input data-spn="p1" inputmode="decimal" value="${xprep.p1}"></label><label class="f">Tu finis 2e (%)<input data-spn="p2" inputmode="decimal" value="${xprep.p2}"></label><label class="f">Nombre de parties<input data-spn="n" inputmode="numeric" value="${n}"></label></div>
+      <div class="stats"><div class="stat"><span>ROI attendu</span><b style="color:var(${ev >= 0 ? '--good' : '--bad'})">${pct(ev, 1)}</b><span>en moyenne, jackpots compris</span></div>
+        <div class="stat"><span>ROI médian sur ${n.toLocaleString('fr-FR')} parties</span><b>${pct(sim.p50, 1)}</b><span>10 % des cas sous ${pct(sim.p10, 0)}, 10 % au-dessus de ${pct(sim.p90, 0)}</span></div>
+        <div class="stat"><span>Sessions gagnantes</span><b>${pct(sim.pWin, 0)}</b><span>part des séries de ${n.toLocaleString('fr-FR')} parties qui finissent en positif</span></div></div>
+      <p class="note">Seuil de rentabilité : environ ${pct(be, 1)} de victoires (hors 2e place, qui ne paie qu'aux gros multiplicateurs). Le ROI moyen inclut des jackpots très rares : le ROI médian est ce que vit la plupart des joueurs. Table de l'Expresso à 5 € publiée par CardPlayer France (×2 dans 59 % des parties, ×200 000 deux fois sur dix millions).</p>
+      ${Object.keys(S.mults).length ? `<p class="note">Tes tirages : ${Object.entries(S.mults).sort((a, b) => +a[0] - +b[0]).map(([m, c]) => `×${(+m).toLocaleString('fr-FR')} : ${c}`).join(' · ')}</p>` : ''}</section>`;
+  }
   // Tournoi lancé depuis Champions › Types de partie : Sit & Go, table finale, Expresso, avec la table choisie.
   X.startTourney = (o) => {
     xp = { kind: 'xp', fmt: o.id, name: o.title || 'le tournoi', tb: new TS.Table({ lineup: o.lineup, stack: o.stack, rebuy: false, levels: o.levels, handsPerLevel: o.hpl || 6 }), mode: o.mode || 'live', decisions: [], adv: null };

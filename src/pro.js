@@ -202,6 +202,22 @@
   ];
   const FICHE_STEPS = ['Le problème : ce que je pense ou dis', 'Pourquoi c\'est logique de le ressentir', 'Pourquoi c\'est faux', 'La correction : la phrase à me dire', 'La logique qui la prouve'];
 
-  const api = { rng, normCdf, STAKES, stakeIndex, careerSim, riskOfRuin, proCriteria, SPOT_D, DEC_D, LEVEL_BONUS, eloTitle, expected, eloUpdate, DIVS, XP, weekKey, weekFrac, rivals, standings, leagueRoll, PROMOTE, DEMOTE, SIZE, MEDALS, medalOf, luck, P_PREM, P_SET, checkin, TRIGGERS, ZONES, FICHE_STEPS };
+  // ---------- Spin & Go (Expresso) ----------
+  // Table de multiplicateurs de l'Expresso à 5 € publiée par CardPlayer France (fréquences sur 10 millions de parties).
+  // Au-delà de ×20, le prix est partagé entre les trois joueurs (80 / 12 / 8 %) ; sinon le vainqueur prend tout.
+  const SPIN = { buyin: 5, rows: [[200000, 2], [1000, 100], [100, 2000], [50, 10000], [10, 150000], [5, 400000], [4, 825000], [3, 2674204], [2, 5938694]], total: 1e7 };
+  function spinDraw(r = Math.random) { let x = r() * SPIN.total; for (const [m, f] of SPIN.rows) { x -= f; if (x <= 0) return m; } return 2; }
+  function spinPrize(mult, place) { const pool = mult * SPIN.buyin; if (mult > 20) return pool * ([0, 0.8, 0.12, 0.08][place] || 0); return place === 1 ? pool : 0; }
+  const spinRake = () => { let paid = 0; for (const [m, f] of SPIN.rows) paid += f * m * SPIN.buyin; return 1 - paid / SPIN.total / (3 * SPIN.buyin); };
+  // Variance : N parties avec des probabilités de finir 1er / 2e données ; ROI médian, déciles, part de sessions gagnantes.
+  function spinSim(p1, p2, n, paths = 2000, seed = 3) {
+    const r = rng(seed), out = [];
+    for (let k = 0; k < paths; k++) { let won = 0; for (let g = 0; g < n; g++) { const m = spinDraw(r), u = r(), place = u < p1 ? 1 : u < p1 + p2 ? 2 : 3; won += spinPrize(m, place); } out.push(won / (n * SPIN.buyin) - 1); }
+    out.sort((a, b) => a - b);
+    const q = (x) => out[Math.min(out.length - 1, Math.round(x * (out.length - 1)))];
+    return { p10: q(0.1), p50: q(0.5), p90: q(0.9), mean: out.reduce((a, b) => a + b, 0) / out.length, pWin: out.filter((x) => x > 0).length / out.length };
+  }
+
+  const api = { SPIN, spinDraw, spinPrize, spinRake, spinSim, rng, normCdf, STAKES, stakeIndex, careerSim, riskOfRuin, proCriteria, SPOT_D, DEC_D, LEVEL_BONUS, eloTitle, expected, eloUpdate, DIVS, XP, weekKey, weekFrac, rivals, standings, leagueRoll, PROMOTE, DEMOTE, SIZE, MEDALS, medalOf, luck, P_PREM, P_SET, checkin, TRIGGERS, ZONES, FICHE_STEPS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Pro = api;
 })(typeof window !== 'undefined' ? window : globalThis);

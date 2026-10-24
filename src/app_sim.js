@@ -106,6 +106,7 @@
     }
     if (g.kind === 'xp' && g.tb.over && !g.counted) {
       g.counted = true; const e = state.progress.expresso; e.games = (e.games || 0) + 1; e.places = e.places || [0, 0, 0, 0]; e.places[g.tb.place] = (e.places[g.tb.place] || 0) + 1;
+      if (g.spin && PR) { const S = spinStats(), won = PR.spinPrize(g.spin.mult, g.tb.place); S.games++; S.spent += 5; S.won += won; S.mults[g.spin.mult] = (S.mults[g.spin.mult] || 0) + 1; g.spin.won = won; }
     }
     save('progress');
   }
@@ -211,7 +212,9 @@
   // ---- Expresso ----
   const XP_LEVELS = [[10, 20], [15, 30], [20, 40], [30, 60], [40, 80], [50, 100], [60, 120], [80, 160], [100, 200], [150, 300], [200, 400]];
   const XP_LINEUPS = { mix: ['reg', 'station'], agressifs: ['maniaque', 'reg'], serres: ['nit', 'reg'] };
-  const xprep = { lineup: 'mix', mode: 'live' };
+  const xprep = { lineup: 'mix', mode: 'live', fmt: 'spin', p1: 40, p2: 30, n: 500 };
+  const PR = window.Pro;
+  const spinStats = () => state.progress.spin || (state.progress.spin = { games: 0, spent: 0, won: 0, mults: {} });
   let xp = null;
   SIMVIEWS.expresso = () => {
     const e = state.progress.expresso || { games: 0, places: [0, 0, 0, 0] };
@@ -222,21 +225,45 @@
         <p class="note">Structure hyper-turbo inspirée du format, pas la structure officielle d'une room. Le gagnant prend tout : l'équilibre en jetons s'applique. Sous 15 bb, le coach utilise le solveur de Nash en tête-à-tête et une estimation à 3 joueurs.</p>
         <div class="row"><span class="note">Adversaires :</span>${Object.entries({ mix: 'Régulier + fish', agressifs: 'Maniaque + régulier', serres: 'Nit + régulier' }).map(([k, l]) => `<button class="chip" aria-pressed="${xprep.lineup === k}" data-act="xpl" data-v="${k}">${l}</button>`).join('')}</div>
         <div class="row"><span class="note">Coach :</span>${[['live', 'En direct'], ['exam', 'Examen'], ['free', 'Sans aide']].map(([k, l]) => `<button class="chip" aria-pressed="${xprep.mode === k}" data-act="xpm" data-v="${k}">${l}</button>`).join('')}</div>
+        <div class="row"><span class="note">Format :</span>${[['spin', 'Spin & Go (multiplicateur tiré au sort, 5 €)'], ['classic', 'Gagnant prend tout, sans tirage']].map(([k, l]) => `<button class="chip" aria-pressed="${xprep.fmt === k}" data-act="xpfmt" data-v="${k}">${l}</button>`).join('')}</div>
         <div class="warnbox">Avant de jouer : <button class="btn small" data-act="openmod" data-id="expresso">Module Expresso</button> <button class="btn small" data-act="openmod" data-id="icm">Module Tapis courts</button> <button class="btn small" data-act="drill" data-type="pushfold">Spots tapis ou couché</button></div>
-        <div class="row"><button class="btn primary" data-act="xpstart">Lancer une partie</button></div></section>${record}`;
+        <div class="row"><button class="btn primary" data-act="xpstart">Lancer une partie</button></div></section>${record}${spinHTML()}`;
     }
     const t = xp.tb, L = !t.done && t.toAct === 0 && !t.players[0].out ? t.legal() : null, handDec = xp.decisions.filter((d) => d.hand === t.handNo);
-    let out = `<div class="row"><span class="pill acc">Main ${t.handNo} · blindes ${t.sb}/${t.bb}</span><span class="pill">${t.active().length} joueurs</span>${xp.fmt && xp.fmt !== 'expresso' ? `<span class="pill">${esc(xp.name)}</span>` : ''}<button class="btn small" data-act="xpquit" style="margin-left:auto">Abandonner la partie</button></div>${tableHTML(t, { chips: true, showProfiles: true })}`;
+    let out = (xp.spin ? `<div class="warnbox" style="text-align:center"><span class="eyebrow">Multiplicateur tiré</span><div style="font:800 34px var(--f-display);color:var(--accent)">×${xp.spin.mult.toLocaleString('fr-FR')}</div><span class="note">${xp.spin.mult > 20 ? `Prix de ${fr(xp.spin.mult * 5, 0)} € partagé : 80 % au 1er, 12 % au 2e, 8 % au 3e` : `Le vainqueur gagne ${fr(xp.spin.mult * 5, 0)} € (mise 5 €)`}</span></div>` : '') + `<div class="row"><span class="pill acc">Main ${t.handNo} · blindes ${t.sb}/${t.bb}</span><span class="pill">${t.active().length} joueurs</span>${xp.fmt && xp.fmt !== 'expresso' ? `<span class="pill">${esc(xp.name)}</span>` : ''}<button class="btn small" data-act="xpquit" style="margin-left:auto">Abandonner la partie</button></div>${tableHTML(t, { chips: true, showProfiles: true })}`;
     if (L) out += `<section class="panel"><span class="eyebrow">À toi · ${TS.posName(t, 0)} · ${E.abstractOf(t.players[0].cards[0], t.players[0].cards[1])} · ${fr(t.effStack(0) / t.bb, 1)} bb effectifs</span>${actionsHTML(t)}</section>` + (xp.mode === 'live' ? coachHTML(adviceFor(xp), t) : '');
     if (t.done) {
-      out += `<section class="panel"><div class="row" style="justify-content:space-between"><h2>${t.over ? (t.place === 1 ? `Victoire : tu remportes ${xp.name || 'l\'Expresso'}` : `Partie terminée : ${t.place}e place`) : 'Fin de la main'}</h2><div class="row"><button class="btn small" data-act="libtable">Sauvegarder la main</button><button class="btn small" data-act="rptable">Rejouer</button>${t.over ? '<button class="btn primary" data-act="xpnew">Nouvelle partie</button>' : '<button class="btn primary" data-act="xpnext">Main suivante <span style="opacity:.7">Entrée</span></button>'}</div></div>
+      out += `<section class="panel"><div class="row" style="justify-content:space-between"><h2>${t.over ? (t.place === 1 ? `Victoire : tu remportes ${xp.name || 'l\'Expresso'}` : `Partie terminée : ${t.place}e place`) + (xp.spin && xp.spin.won !== undefined ? ` · ${xp.spin.won > 0 ? '+' + fr(xp.spin.won, 0) + ' €' : '0 €'} (mise 5 €)` : '') : 'Fin de la main'}</h2><div class="row"><button class="btn small" data-act="libtable">Sauvegarder la main</button><button class="btn small" data-act="rptable">Rejouer</button>${t.over ? '<button class="btn primary" data-act="xpnew">Nouvelle partie</button>' : '<button class="btn primary" data-act="xpnext">Main suivante <span style="opacity:.7">Entrée</span></button>'}</div></div>
         ${decisionsHTML(handDec, xp.mode)}${t.over ? `<h3>Ta partie</h3>${catTable(xp.decisions)}` : ''}</section>`;
     }
     return out + (xp.fmt === 'expresso' ? record : '');
   };
   ACT.xpl = (t) => { xprep.lineup = t.dataset.v; render(); };
   ACT.xpm = (t) => { xprep.mode = t.dataset.v; render(); };
-  ACT.xpstart = () => { xp = { kind: 'xp', fmt: 'expresso', name: 'l\'Expresso', tb: new TS.Table({ lineup: XP_LINEUPS[xprep.lineup], stack: 500, rebuy: false, levels: XP_LEVELS, handsPerLevel: 6 }), mode: xprep.mode, decisions: [], adv: null }; nextHand(xp); };
+  ACT.xpstart = () => {
+    xp = { kind: 'xp', fmt: 'expresso', name: 'l\'Expresso', tb: new TS.Table({ lineup: XP_LINEUPS[xprep.lineup], stack: 500, rebuy: false, levels: XP_LEVELS, handsPerLevel: 6 }), mode: xprep.mode, decisions: [], adv: null };
+    if (xprep.fmt === 'spin' && PR) xp.spin = { mult: PR.spinDraw() };
+    nextHand(xp);
+  };
+  ACT.xpfmt = (t) => { xprep.fmt = t.dataset.v; render(); };
+  ONCHANGE.push((t) => { if (t.dataset.spn) { xprep[t.dataset.spn] = Math.max(0, +String(t.value).replace(',', '.') || 0); render(); return true; } });
+  function spinHTML() {
+    if (!PR) return '';
+    const S = spinStats(), n = Math.min(5000, Math.max(10, Math.round(xprep.n))), p1 = Math.min(1, xprep.p1 / 100), p2 = Math.min(1 - p1, xprep.p2 / 100), sim = PR.spinSim(p1, p2, n, 1500);
+    const ev = (() => { let e = 0; for (const [m, f] of PR.SPIN.rows) e += (f / PR.SPIN.total) * (PR.spinPrize(m, 1) * p1 + PR.spinPrize(m, 2) * p2 + PR.spinPrize(m, 3) * (1 - p1 - p2)); return e / 5 - 1; })();
+    const be = 1 / (3 * (1 - PR.spinRake()));
+    return `<section class="panel"><span class="eyebrow">Spin & Go · tes résultats simulés et la variance réelle du format</span>
+      <div class="stats"><div class="stat hero"><span>Spins joués</span><b>${S.games}</b><span>${fr(S.spent, 0)} € misés · ${fr(S.won, 0)} € gagnés</span></div>
+        <div class="stat"><span>ROI simulé</span><b>${S.spent ? pct(S.won / S.spent - 1, 1) : '—'}</b><span>sur tes parties de SIGMA 52</span></div>
+        <div class="stat"><span>Rake implicite</span><b>${pct(PR.spinRake(), 1)}</b><span>de la table de multiplicateurs</span></div></div>
+      <h3>Ce que donnent ${n.toLocaleString('fr-FR')} parties</h3>
+      <div class="form"><label class="f">Tu finis 1er (%)<input data-spn="p1" inputmode="decimal" value="${xprep.p1}"></label><label class="f">Tu finis 2e (%)<input data-spn="p2" inputmode="decimal" value="${xprep.p2}"></label><label class="f">Nombre de parties<input data-spn="n" inputmode="numeric" value="${n}"></label></div>
+      <div class="stats"><div class="stat"><span>ROI attendu</span><b style="color:var(${ev >= 0 ? '--good' : '--bad'})">${pct(ev, 1)}</b><span>en moyenne, jackpots compris</span></div>
+        <div class="stat"><span>ROI médian sur ${n.toLocaleString('fr-FR')} parties</span><b>${pct(sim.p50, 1)}</b><span>10 % des cas sous ${pct(sim.p10, 0)}, 10 % au-dessus de ${pct(sim.p90, 0)}</span></div>
+        <div class="stat"><span>Sessions gagnantes</span><b>${pct(sim.pWin, 0)}</b><span>part des séries de ${n.toLocaleString('fr-FR')} parties qui finissent en positif</span></div></div>
+      <p class="note">Seuil de rentabilité : environ ${pct(be, 1)} de victoires (hors 2e place, qui ne paie qu'aux gros multiplicateurs). Le ROI moyen inclut des jackpots très rares : le ROI médian est ce que vit la plupart des joueurs. Table de l'Expresso à 5 € publiée par CardPlayer France (×2 dans 59 % des parties, ×200 000 deux fois sur dix millions).</p>
+      ${Object.keys(S.mults).length ? `<p class="note">Tes tirages : ${Object.entries(S.mults).sort((a, b) => +a[0] - +b[0]).map(([m, c]) => `×${(+m).toLocaleString('fr-FR')} : ${c}`).join(' · ')}</p>` : ''}</section>`;
+  }
   // Tournoi lancé depuis Champions › Types de partie : Sit & Go, table finale, Expresso, avec la table choisie.
   X.startTourney = (o) => {
     xp = { kind: 'xp', fmt: o.id, name: o.title || 'le tournoi', tb: new TS.Table({ lineup: o.lineup, stack: o.stack, rebuy: false, levels: o.levels, handsPerLevel: o.hpl || 6 }), mode: o.mode || 'live', decisions: [], adv: null };
