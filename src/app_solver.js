@@ -149,11 +149,12 @@
   };
 
   // ---------------- Vue ----------------
-  const SUBS = [['solve', 'Résoudre un spot'], ['preflop', 'Préflop'], ['agg', 'Rapport agrégé'], ['train', 'Entraîneur'], ['help', 'Mode d\'emploi']];
+  const SUBS = [['solve', 'Résoudre un spot'], ['preflop', 'Préflop'], ['agg', 'Rapport agrégé'], ['three', 'À trois joueurs'], ['plo', 'PLO'], ['train', 'Entraîneur'], ['help', 'Mode d\'emploi']];
   VIEWS.solveur = () => head('Solveur', 'Calcule l\'équilibre (GTO) d\'un spot à deux joueurs après le flop : quelle action, à quelle fréquence, avec quelle main. Outil d\'étude hors table : l\'utiliser pendant une main en cours est de l\'aide en temps réel, interdite par toutes les rooms.') +
     `<div class="subtabs" role="tablist">${SUBS.map(([k, l]) => `<button class="chip" aria-pressed="${sv.sub === k}" data-act="svsub" data-s="${k}">${l}</button>`).join('')}</div>` +
-    (sv.sub === 'solve' ? solveHTML() : sv.sub === 'preflop' ? preflopHTML() : sv.sub === 'agg' ? aggHTML() : sv.sub === 'train' ? X.trainerHTML() : helpHTML());
+    (sv.sub === 'solve' ? solveHTML() : sv.sub === 'preflop' ? preflopHTML() : sv.sub === 'plo' ? X.ploHTML() : sv.sub === 'three' ? X.threeHTML() : sv.sub === 'agg' ? aggHTML() : sv.sub === 'train' ? X.trainerHTML() : helpHTML());
   ACT.svsub = (t) => { sv.sub = t.dataset.s; render(); };
+  X.svSub = () => sv.sub;
 
   function rangeStat(txt) {
     try { const h = Array.isArray(txt) ? txt : PF.parseWeighted(txt); const w = h.reduce((a, x) => a + x[2], 0); return `${fr(w, w % 1 ? 1 : 0)} combos · ${fr(w / 1326 * 100, 1)} %`; } catch (e) { return `<span style="color:var(--bad)">${esc(e.message)}</span>`; }
@@ -552,7 +553,7 @@
       <ul><li><strong>River</strong> : exact, en une seconde environ.</li><li><strong>Turn</strong> : exact (les 46 rivers sont calculées), de quelques secondes à une minute selon les tailles.</li>
       <li><strong>Flop</strong> : un arbre complet ne tient pas dans un navigateur. Le solveur calcule un échantillon représentatif de turns et de rivers. La stratégie du flop est fiable en tendance ; pour un turn précis, ouvre la branche puis « Re-résoudre exactement d'ici » : les ranges arrivent pondérées par le solve du flop, et le turn est recalculé en entier.</li></ul>
       <h2>Ce que le solveur ne sait pas</h2>
-      <ul><li>Il ne connaît que les ranges et les tailles que tu lui donnes. Ranges fausses = réponse fausse.</li><li>Il ne joue pas de pots à trois joueurs ou plus.</li><li>Il ignore le rake (léger biais : en vrai, payer est un peu moins rentable).</li><li>Il suppose un adversaire parfait. Contre un fish, la meilleure action s'écarte de l'équilibre : le module Élite « Exploitation » explique comment.</li></ul>
+      <ul><li>Il ne connaît que les ranges et les tailles que tu lui donnes. Ranges fausses = réponse fausse.</li><li>Cet onglet est à deux joueurs. Les pots à trois ont leur onglet « À trois joueurs » (simplifié : une taille de mise par rue), l'Omaha l'onglet « PLO ».</li><li>Il ignore le rake (léger biais : en vrai, payer est un peu moins rentable).</li><li>Il suppose un adversaire parfait. Contre un fish, la meilleure action s'écarte de l'équilibre : le module Élite « Exploitation » explique comment.</li></ul>
       <h2>Méthode pour retravailler une main</h2>
       <ol><li>Dans Analyse › Replayer, place-toi sur ta décision et clique « Retravailler au solveur ».</li><li>Vérifie les ranges préflop proposées, puis résous.</li><li>Le solveur s'ouvre au nœud de ta décision. Lis « Ta main » : fréquences, EV de chaque action, perte en % du pot.</li><li>Ne retiens pas « le solveur mise 62 % » : retiens <em>pourquoi</em>. Regarde quelles catégories misent, quelles mains servent de bluffs, quels bloqueurs elles ont.</li><li>Note la leçon dans ta bibliothèque (étiquette « à revoir »).</li></ol></section>`;
   }

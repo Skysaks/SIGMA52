@@ -290,6 +290,22 @@ const SHOTS = process.env.SHOTS || '';
       for (let g = 0; g < 8; g++) { const tb = new T.Table({ lineup: ['reg', 'station'], stack: 500, rebuy: false, levels: L, handsPerLevel: 6 }); for (let h = 0; h < 80 && !tb.over; h++) { tb.newHand(); let k = 0; while (!tb.done && k++ < 300) { tb.runBots(); if (!tb.done) tb.autoHero('reg'); } } parts.push(tb.exportHH()); }
       window.__S52.runAnalysis(parts.join('\n\n\n'), 'table'); window.__S52.setAnSub('review'); window.__S52.go('analyse'); });
     if (!(await has('text=Tapis ou couché · tournois'))) errs.push(name + ' tapis ou couché'); await over('revue'); await shot('revue');
+    // v17 : solveur (préflop, node locking, rapport à la demande, à trois, PLO), Spin, légendes, tournoi 100 joueurs, vidéo de module
+    await tab('solveur'); await p.click('[data-act=svsub][data-s=preflop]'); await p.locator('[data-act=pflcell]').first().click(); await p.click('[data-act=pffmt][data-v=mtt]'); await over('preflop'); await shot('preflop');
+    await p.click('[data-act=svsub][data-s=agg]'); if (await has('[data-act=odn]')) { await p.locator('[data-act=odn]').first().click(); await p.click('[data-act=odgo]'); await p.waitForTimeout(4000); if (await has('[data-act=odstop]')) await p.click('[data-act=odstop]'); await p.waitForTimeout(500); await over('agg-demande'); } else errs.push(name + ' rapport à la demande absent');
+    await p.click('[data-act=svsub][data-s=solve]'); if (await has('[data-act=svreset]')) await p.click('[data-act=svreset]');
+    await p.fill('[data-svf=board]', 'Ks7d2c5h9s'); await p.press('[data-svf=board]', 'Tab'); await p.click('[data-act=svgo]'); await p.waitForSelector('[data-act=lkedit]', { timeout: 60000 });
+    await p.click('[data-act=lkedit]'); await p.locator('[data-act=lkpreset]').first().click(); await p.click('[data-act=lkgo]'); await p.waitForSelector('text=Exploitation chiffrée', { timeout: 60000 }).catch(() => errs.push(name + ' node locking sans résultat')); await over('lock'); await shot('lock');
+    await p.click('[data-act=svsub][data-s=three]'); await p.fill('[data-thf=board]', 'Ks7d2c5h9s'); await p.press('[data-thf=board]', 'Tab'); await p.click('[data-act=mxgo][data-k=three]');
+    await p.waitForSelector('[data-act=mxact]', { timeout: 60000 }); if ((await p.locator('.stats.svs .stat').count()) !== 3) errs.push(name + ' à trois : 3 joueurs attendus');
+    await p.click('[data-act=mxquiz]'); await p.click('[data-act=mxans] >> nth=0'); await over('trois'); await shot('trois');
+    await p.click('[data-act=svsub][data-s=plo]'); await p.fill('[data-plf=board]', 'Ks7d2c5h9s'); await p.press('[data-plf=board]', 'Tab'); await p.fill('[data-plf=hero]', 'AsAhJdTd'); await p.press('[data-plf=hero]', 'Tab');
+    await p.click('[data-act=mxgo][data-k=plo]'); await p.waitForSelector('[data-act=mxact]', { timeout: 60000 }); if (!(await has('text=Ta main'))) errs.push(name + ' PLO : ta main');
+    await p.click('[data-act=mxquiz]'); await p.click('[data-act=mxans] >> nth=0'); if (!(await has('text=Score PLO'))) errs.push(name + ' PLO : entraîneur'); await p.locator('[data-act=mxfilter]').first().click(); await over('plo'); await shot('plo');
+    await tab('sim'); await p.click('[data-act=simsub][data-s=expresso]'); if (!(await has('[data-spn=p1]'))) errs.push(name + ' Spin : simulateur de variance'); await p.click('[data-act=xpstart]'); await p.waitForTimeout(150); await over('spin'); await shot('spin');
+    await tab('sim'); await p.click('[data-act=simsub][data-s=legends]'); await p.locator('[data-act=lgopen]').first().click(); await p.locator('[data-act=lgans]').first().click(); if (!(await has('text=Le choix réel'))) errs.push(name + ' légendes'); await over('legende'); await shot('legende');
+    await tab('sim'); await p.click('[data-act=simsub][data-s=mtt]'); await p.click('[data-act=mtstart]'); await p.waitForTimeout(150); if (await has('[data-act=mtauto]')) { await p.click('[data-act=mtauto]'); await p.waitForTimeout(800); } else errs.push(name + ' tournoi : pas de jeu auto'); await over('mtt'); await shot('mtt');
+    await tab('cours'); await p.locator('.mod').first().click(); if (!(await has('[data-act=stmodvid]'))) errs.push(name + ' vidéo du module absente'); await p.click('[data-act=closemod]');
     await tab('jour'); await over('jour-fin'); await shot('jour-fin');
     await p.close();
   }

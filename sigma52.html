@@ -7753,6 +7753,616 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Postflop = api;
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
+<script>// Solveur PLO SIGMA 52 — Discounted CFR à deux joueurs, mains de 4 cartes, mises pot-limit.
+// Même convention que le solveur Hold'em (postflop.js) : pot de départ mort, EV en jetons, exploitabilité en % du pot.
+// Différence clé : une range PLO compte 270 725 mains possibles. On résout sur un échantillon de mains (quelques centaines par joueur),
+// tiré dans la range par rang préflop ; les cartes partagées sont retirées exactement par inclusion-exclusion
+// (cartes seules, paires et triplets de cartes, main identique), ce qui garde des abattages en O(n log n).
+(function (root) {
+  const E = root.Engine || require('./engine.js');
+  const O = root.Omaha || require('./omaha.js');
+  const PF = root.Postflop || require('./postflop.js');
+  const OOP = 0, IP = 1, ACT = 0, CHANCE = 1, FOLD = 2, SHOW = 3, K = 4;
+  const STREET = ['flop', 'turn', 'river'];
+  const DEFAULT_SIZES = { flop: [{ bet: [50], raise: [] }, { bet: [50, 100], raise: [100] }], turn: [{ bet: [66], raise: [] }, { bet: [66], raise: [100] }], river: [{ bet: [66], raise: [] }, { bet: [66], raise: [100] }] };
+  const handKey = (h) => h.slice(0, K).sort((a, b) => a - b).join('.');
+  const P2 = [[0, 1], [0, 2], [0, 3], [1, 2], [1, 3], [2, 3]], P3 = [[0, 1, 2], [0, 1, 3], [0, 2, 3], [1, 2, 3]];
+
+  function create(cfg) {
+    const board = (Array.isArray(cfg.board) ? cfg.board : E.parseCards(cfg.board)).slice();
+    if (board.length < 3 || board.length > 5) throw new Error('Board de 3 à 5 cartes');
+    if (new Set(board).size !== board.length) throw new Error('Carte du board en double');
+    const P0 = +cfg.pot, S = +cfg.stack;
+    if (!(P0 > 0)) throw new Error('Pot invalide');
+    if (!(S >= 0)) throw new Error('Tapis invalide');
+    const thr = cfg.allinThreshold ?? 0.67, maxRaises = cfg.maxRaises ?? 1, sample = cfg.sample || null;
+    // Pot-limit : aucune mise au-delà du pot (100 %), « p » = pot.
+    const lim = (l) => PF.parseSizes(l).map((x) => (x === 'a' ? 'a' : Math.min(100, x)));
+    const sizes = {};
+    for (const st of STREET) sizes[st] = [0, 1].map((p) => { const s = cfg.sizes?.[st]?.[p] || DEFAULT_SIZES[st][p]; return { bet: lim(s.bet), raise: lim(s.raise) }; });
+    const hands = [0, 1].map((p) => {
+      const seen = new Set();
+      return cfg.ranges[p].map((h) => { const c = h.slice(0, K), w = h.length > K ? +h[K] : 1; return [...c, w]; })
+        .filter((h) => { const k = handKey(h); if (seen.has(k) || new Set(h.slice(0, K)).size < K || h.slice(0, K).some((c) => board.includes(c))) return false; seen.add(k); return h[K] > 0; });
+    });
+    if (!hands[0].length || !hands[1].length) throw new Error('Range vide après retrait des cartes du board');
+    const N = [hands[0].length, hands[1].length];
+    const cards = hands.map((l) => { const a = new Uint8Array(l.length * K); l.forEach((h, i) => { const s = h.slice(0, K).sort((x, y) => x - y); for (let k = 0; k < K; k++) a[i * K + k] = s[k]; }); return a; });
+    // Index des paires (52²) et triplets (52³) de cartes de chaque main, triés.
+    const pairs = cards.map((a, p) => { const o = new Int32Array(N[p] * 6); for (let i = 0; i < N[p]; i++) P2.forEach(([x, y], t) => { o[i * 6 + t] = a[i * K + x] * 52 + a[i * K + y]; }); return o; });
+    const trips = cards.map((a, p) => { const o = new Int32Array(N[p] * 4); for (let i = 0; i < N[p]; i++) P3.forEach(([x, y, z], t) => { o[i * 4 + t] = (a[i * K + x] * 52 + a[i * K + y]) * 52 + a[i * K + z]; }); return o; });
+    const w0 = hands.map((l) => Float64Array.from(l, (h) => h[K]));
+    const same = [0, 1].map((p) => { const idx = new Map(); hands[1 - p].forEach((h, i) => idx.set(handKey(h), i)); return Int32Array.from(hands[p], (h) => idx.get(handKey(h)) ?? -1); });
+    const withCard = [0, 1].map((p) => { const l = Array.from({ length: 52 }, () => []); for (let i = 0; i < N[p]; i++) for (let k = 0; k < K; k++) l[cards[p][i * K + k]].push(i); return l.map((x) => Int32Array.from(x)); });
+    const holeOf = (p, i) => Array.from(cards[p].subarray(i * K, i * K + K));
+
+    // ---- Tables d'inclusion-exclusion ----
+    const T1 = new Float64Array(52), T2 = new Float64Array(52 * 52), T3 = new Float64Array(52 * 52 * 52);
+    function add(p, j, r) { const a = cards[p], pr = pairs[p], tr = trips[p]; for (let k = 0; k < K; k++) T1[a[j * K + k]] += r; for (let t = 0; t < 6; t++) T2[pr[j * 6 + t]] += r; for (let t = 0; t < 4; t++) T3[tr[j * 4 + t]] += r; }
+    function clear(p, j) { const a = cards[p], pr = pairs[p], tr = trips[p]; for (let k = 0; k < K; k++) T1[a[j * K + k]] = 0; for (let t = 0; t < 6; t++) T2[pr[j * 6 + t]] = 0; for (let t = 0; t < 4; t++) T3[tr[j * 4 + t]] = 0; }
+    // Masse adverse insérée qui partage au moins une carte avec la main i de p (hors main identique).
+    function shared(p, i) { const a = cards[p], pr = pairs[p], tr = trips[p]; let s = 0; for (let k = 0; k < K; k++) s += T1[a[i * K + k]]; for (let t = 0; t < 6; t++) s -= T2[pr[i * 6 + t]]; for (let t = 0; t < 4; t++) s += T3[tr[i * 4 + t]]; return s; }
+
+    // ---- Boards de river ----
+    const boards = [], boardId = new Map();
+    function boardOf(bc) {
+      const k = bc.slice().sort((a, b) => a - b).join('.');
+      if (boardId.has(k)) return boardId.get(k);
+      const id = boards.length, str = [], ord = [];
+      for (let p = 0; p < 2; p++) {
+        const s = new Int32Array(N[p]);
+        for (let i = 0; i < N[p]; i++) { const h = holeOf(p, i); s[i] = h.some((c) => bc.includes(c)) ? -1 : O.evaluate(h, bc); }
+        str.push(s); ord.push(Int32Array.from([...Array(N[p]).keys()].sort((x, y) => s[x] - s[y])));
+      }
+      boards.push({ cards: bc.slice(), str, ord }); boardId.set(k, id); return id;
+    }
+    const nextCards = new Map();
+    function dealCards(cur) {
+      const k = cur.slice().sort((a, b) => a - b).join('.');
+      if (nextCards.has(k)) return nextCards.get(k);
+      const deck = []; for (let c = 51; c >= 0; c--) if (!cur.includes(c)) deck.push(c);
+      const kk = cur.length === 3 ? sample?.turn : sample?.river;
+      let h = 2166136261; for (let i = 0; i < k.length; i++) { h ^= k.charCodeAt(i); h = Math.imul(h, 16777619); }
+      const dc = PF.sampleCards(deck, cur, kk, (h >>> 0) ^ (cfg.seed || 7), cfg.include || []);
+      // Une paire de mains disjointes laisse D − 8 cartes possibles : poids par main normalisé sur les cartes tirées qu'elle ne bloque pas.
+      const D = deck.length, set = new Set(dc), w = [0, 1].map((p) => {
+        const out = new Float64Array(N[p]);
+        for (let i = 0; i < N[p]; i++) { let inS = 0; for (let q = 0; q < K; q++) if (set.has(cards[p][i * K + q])) inS++; const n = dc.length - inS; out[i] = n > 0 ? (D - K) / ((D - 2 * K) * n) : 0; }
+        return out;
+      });
+      const r = { cards: dc, w, exact: dc.length === deck.length }; nextCards.set(k, r); return r;
+    }
+
+    // ---- Arbre (pot-limit) ----
+    const nodes = []; let approx = false;
+    const mk = (n) => { n.id = nodes.length; nodes.push(n); return n; };
+    const r2 = (x) => Math.round(x * 100) / 100;
+    function actNode(st) {
+      const { p, street, cards: bc, C, bets, nr } = st, o = 1 - p, pot = P0 + C[0] + C[1], left = S - C[p], toCall = bets[o] - bets[p];
+      const acts = [], push = (a) => { if (!acts.some((x) => x.k === a.k && Math.abs(x.to - a.to) < 1e-6)) acts.push(a); };
+      const sz = sizes[STREET[street]][p];
+      if (toCall <= 1e-9) {
+        push({ k: 'x', to: bets[p] });
+        if (left > 1e-9) for (const s of sz.bet) {
+          let amt = s === 'a' ? Math.min(left, pot) : Math.max(Math.min(1, left), r2((s / 100) * pot));
+          if (amt >= thr * left || amt > left) amt = left;
+          amt = Math.min(amt, pot, left);
+          push({ k: amt >= left - 1e-9 ? 'a' : 'b', to: bets[p] + amt, pct: Math.round((amt / pot) * 100) });
+        }
+      } else {
+        push({ k: 'f', to: bets[p] }); push({ k: 'c', to: Math.min(bets[o], bets[p] + left) });
+        const oLeft = S - C[o];
+        if (nr < maxRaises && oLeft > 1e-9 && left > toCall + 1e-9) for (const s of sz.raise) {
+          const potMax = bets[o] + (pot + toCall); // relance du pot : payer, puis relancer de la taille du pot obtenu
+          let to = s === 'a' ? potMax : r2(bets[o] + (s / 100) * (pot + toCall));
+          to = Math.min(Math.max(to, bets[o] + toCall), potMax);
+          if (to - bets[p] >= thr * left || to - bets[p] > left) to = bets[p] + left;
+          push({ k: to - bets[p] >= left - 1e-9 ? 'a' : 'r', to });
+        }
+      }
+      const rank = { f: 0, x: 1, c: 2, b: 3, r: 3, a: 4 };
+      acts.sort((a, b) => rank[a.k] - rank[b.k] || a.to - b.to);
+      const node = mk({ t: ACT, p, street, board: bc, C: C.slice(), bets: bets.slice(), pot, acts, ch: [] });
+      for (const a of acts) node.ch.push(after(st, a));
+      node.reg = new Float32Array(acts.length * N[p]); node.sum = new Float32Array(acts.length * N[p]);
+      return node;
+    }
+    function after(st, a) {
+      const { p, street, cards: bc, C, bets, nr } = st, o = 1 - p;
+      if (a.k === 'f') return mk({ t: FOLD, winner: o, C: C.slice(), board: bc });
+      if (a.k === 'x') return p === OOP ? actNode({ ...st, p: IP }) : endStreet(st, C);
+      const C2 = C.slice(), b2 = bets.slice(); C2[p] += a.to - bets[p]; b2[p] = a.to;
+      if (a.k === 'c') return endStreet(st, C2);
+      return actNode({ p: o, street, cards: bc, C: C2, bets: b2, nr: a.k === 'b' || (a.k === 'a' && bets[o] === 0) ? nr : nr + 1 });
+    }
+    function endStreet(st, C) {
+      if (st.street === 2) return mk({ t: SHOW, C: C.slice(), bid: boardOf(st.cards), board: st.cards });
+      return chanceNode(st.cards, C, S - C[0] <= 1e-9 || S - C[1] <= 1e-9);
+    }
+    function chanceNode(cur, C, allin) {
+      const d = dealCards(cur); if (!d.exact) approx = true;
+      const node = mk({ t: CHANCE, board: cur, C: C.slice(), cards: d.cards, w: d.w, ch: [], street: cur.length - 2 });
+      for (const k of d.cards) {
+        const nb = [...cur, k];
+        if (allin) node.ch.push(nb.length === 5 ? mk({ t: SHOW, C: C.slice(), bid: boardOf(nb), board: nb }) : chanceNode(nb, C, true));
+        else node.ch.push(actNode({ p: OOP, street: nb.length - 3, cards: nb, C: C.slice(), bets: [0, 0], nr: 0 }));
+      }
+      return node;
+    }
+    const rootNode = S <= 1e-9 ? (board.length === 5 ? mk({ t: SHOW, C: [0, 0], bid: boardOf(board), board }) : chanceNode(board, [0, 0], true))
+      : actNode({ p: OOP, street: board.length - 3, cards: board, C: [0, 0], bets: [0, 0], nr: 0 });
+
+    const pool = [[], []], get = (p) => pool[p].pop() || new Float64Array(N[p]), rel = (p, b) => pool[p].push(b);
+    function compat(p, ro, out) {
+      const o = 1 - p; let tot = 0;
+      for (let j = 0; j < N[o]; j++) { const r = ro[j]; if (r) { tot += r; add(o, j, r); } }
+      const sm = same[p];
+      for (let i = 0; i < N[p]; i++) out[i] = tot - shared(p, i) + (sm[i] >= 0 ? ro[sm[i]] : 0);
+      for (let j = 0; j < N[o]; j++) if (ro[j]) clear(o, j);
+      return out;
+    }
+    // Les mains identiques chez l'adversaire ont la même force : jamais comptées comme battues ni gagnantes, pas de correction.
+    function showMass(node, p, ro, win, lose) {
+      const o = 1 - p, B = boards[node.bid], op = B.ord[p], oo = B.ord[o], sp = B.str[p], so = B.str[o], np = N[p], no = N[o];
+      let cum = 0, j = 0;
+      for (let ii = 0; ii < np; ii++) {
+        const i = op[ii], s = sp[i];
+        while (j < no && so[oo[j]] < s) { const jj = oo[j], r = ro[jj]; if (r !== 0) { cum += r; add(o, jj, r); } j++; }
+        win[i] = cum - shared(p, i);
+      }
+      for (let q = 0; q < j; q++) if (ro[oo[q]]) clear(o, oo[q]);
+      cum = 0; j = no - 1; const lo = j;
+      for (let ii = np - 1; ii >= 0; ii--) {
+        const i = op[ii], s = sp[i];
+        while (j >= 0 && so[oo[j]] > s) { const jj = oo[j], r = ro[jj]; if (r !== 0) { cum += r; add(o, jj, r); } j--; }
+        lose[i] = cum - shared(p, i);
+      }
+      for (let q = lo; q > j; q--) if (ro[oo[q]]) clear(o, oo[q]);
+    }
+    function foldVal(node, p, ro) { const out = compat(p, ro, get(p)), v = node.winner === p ? P0 + node.C[1 - p] : -node.C[p]; for (let i = 0; i < N[p]; i++) out[i] *= v; return out; }
+    function showVal(node, p, ro) {
+      const out = compat(p, ro, get(p)), win = get(p), lose = get(p), c = node.C[p], vw = P0 + c, vl = -c, vt = P0 / 2;
+      showMass(node, p, ro, win, lose);
+      for (let i = 0; i < N[p]; i++) out[i] = vw * win[i] + vl * lose[i] + vt * (out[i] - win[i] - lose[i]);
+      rel(p, win); rel(p, lose); return out;
+    }
+    const tmpS = [new Float64Array(N[0]), new Float64Array(N[1])];
+    function current(node, out) {
+      const n = N[node.p], A = node.acts.length, reg = node.reg, s = tmpS[node.p]; s.fill(0);
+      for (let a = 0; a < A; a++) { const b = a * n; for (let i = 0; i < n; i++) { const r = reg[b + i]; if (r > 0) s[i] += r; } }
+      const u = 1 / A;
+      for (let a = 0; a < A; a++) { const b = a * n; for (let i = 0; i < n; i++) { const r = reg[b + i], t = s[i]; out[b + i] = t > 0 ? (r > 0 ? r / t : 0) : u; } }
+      return out;
+    }
+    function average(node, out) {
+      const n = N[node.p], A = node.acts.length;
+      for (let i = 0; i < n; i++) { let s = 0; for (let a = 0; a < A; a++) s += node.sum[a * n + i]; if (s > 0) for (let a = 0; a < A; a++) out[a * n + i] = node.sum[a * n + i] / s; else return current(node, out); }
+      return out;
+    }
+    const strat = new Map(), sbuf = (node) => { let b = strat.get(node.id); if (!b) { b = new Float64Array(node.acts.length * N[node.p]); strat.set(node.id, b); } return b; };
+    function maskCopy(p, src, k) { const b = get(p); b.set(src); const l = withCard[p][k]; for (let i = 0; i < l.length; i++) b[l[i]] = 0; return b; }
+    let it = 0, dPos = 1, dNeg = 1, dSum = 1;
+    function walk(node, p, rp, ro, mode) {
+      const o = 1 - p;
+      if (node.t === FOLD) return foldVal(node, p, ro);
+      if (node.t === SHOW) return showVal(node, p, ro);
+      if (node.t === CHANCE) {
+        const out = get(p); out.fill(0); const w = node.w[p];
+        for (let ci = 0; ci < node.cards.length; ci++) {
+          const k = node.cards[ci], rp2 = maskCopy(p, rp, k), ro2 = maskCopy(o, ro, k), v = walk(node.ch[ci], p, rp2, ro2, mode);
+          const l = withCard[p][k]; for (let i = 0; i < l.length; i++) v[l[i]] = 0;
+          for (let i = 0; i < N[p]; i++) out[i] += v[i] * w[i];
+          rel(p, v); rel(p, rp2); rel(o, ro2);
+        }
+        return out;
+      }
+      const q = node.p, A = node.acts.length, n = N[q], sg = mode === 0 ? current(node, sbuf(node)) : average(node, sbuf(node));
+      if (q === p) {
+        const out = get(p); out.fill(mode === 1 ? -Infinity : 0); const vals = mode === 0 ? [] : null;
+        for (let a = 0; a < A; a++) {
+          const rp2 = get(p); for (let i = 0; i < n; i++) rp2[i] = rp[i] * sg[a * n + i];
+          const v = walk(node.ch[a], p, rp2, ro, mode); rel(p, rp2);
+          if (mode === 1) { for (let i = 0; i < n; i++) if (v[i] > out[i]) out[i] = v[i]; rel(p, v); }
+          else { for (let i = 0; i < n; i++) out[i] += sg[a * n + i] * v[i]; if (vals) vals.push(v); else rel(p, v); }
+        }
+        if (mode === 0) {
+          const reg = node.reg, sum = node.sum;
+          for (let a = 0; a < A; a++) { const v = vals[a], b = a * n; for (let i = 0; i < n; i++) { const r = reg[b + i]; reg[b + i] = (r > 0 ? r * dPos : r * dNeg) + v[i] - out[i]; sum[b + i] = sum[b + i] * dSum + rp[i] * sg[b + i]; } rel(p, v); }
+        }
+        return out;
+      }
+      const out = get(p); out.fill(0);
+      for (let a = 0; a < A; a++) {
+        const ro2 = get(o); let any = false;
+        for (let i = 0; i < n; i++) { const r = ro[i] * sg[a * n + i]; ro2[i] = r; if (r) any = true; }
+        if (any || mode !== 0) { const v = walk(node.ch[a], p, rp, ro2, mode); for (let i = 0; i < N[p]; i++) out[i] += v[i]; rel(p, v); }
+        rel(o, ro2);
+      }
+      return out;
+    }
+    function iterate(k = 1) {
+      for (let s = 0; s < k; s++) {
+        it++; const ta = Math.pow(it, 1.5), tb = Math.pow(it, 0.5);
+        dPos = ta / (ta + 1); dNeg = tb / (tb + 1); dSum = Math.pow(it / (it + 1), 3);
+        for (let p = 0; p < 2; p++) rel(p, walk(rootNode, p, w0[p], w0[1 - p], 0));
+      }
+      return it;
+    }
+    function meanValue(p, v, rp, ro) { const cm = compat(p, ro, get(p)); let num = 0, den = 0; for (let i = 0; i < N[p]; i++) { num += rp[i] * v[i]; den += rp[i] * cm[i]; } rel(p, cm); return den > 0 ? num / den : 0; }
+    function exploitability() {
+      const br = []; for (let p = 0; p < 2; p++) { const v = walk(rootNode, p, w0[p], w0[1 - p], 1); br.push(meanValue(p, v, w0[p], w0[1 - p])); rel(p, v); }
+      const tot = (br[0] + br[1] - P0) / 2; return { chips: tot, pct: (tot / P0) * 100, br };
+    }
+    function locate(path) {
+      let node = rootNode; const rch = [w0[0].slice(), w0[1].slice()], steps = [];
+      for (const x of path) {
+        if (node.t === ACT) { const n = N[node.p], sg = average(node, new Float64Array(node.acts.length * n)); for (let i = 0; i < n; i++) rch[node.p][i] *= sg[x * n + i]; steps.push({ node, a: x }); node = node.ch[x]; }
+        else if (node.t === CHANCE) { const ci = node.cards.indexOf(x); if (ci < 0) throw new Error('Carte absente de l\'arbre'); for (let p = 0; p < 2; p++) for (const i of withCard[p][x]) rch[p][i] = 0; steps.push({ node, a: ci }); node = node.ch[ci]; }
+        else break;
+      }
+      return { node, reach: rch, steps };
+    }
+    function equityVec(bc, p, ro) {
+      const o = 1 - p;
+      if (bc.length === 5) {
+        const out = compat(p, ro, new Float64Array(N[p])), win = get(p), lose = get(p), tot = new Float64Array(N[p]);
+        showMass({ bid: boardOf(bc) }, p, ro, win, lose);
+        for (let i = 0; i < N[p]; i++) { tot[i] = out[i]; out[i] = win[i] + 0.5 * (out[i] - win[i] - lose[i]); }
+        rel(p, win); rel(p, lose); return { num: out, den: tot };
+      }
+      const d = dealCards(bc), num = new Float64Array(N[p]), den = new Float64Array(N[p]);
+      for (const k of d.cards) {
+        const ro2 = maskCopy(o, ro, k), r = equityVec([...bc, k], p, ro2), l = new Set(withCard[p][k]);
+        for (let i = 0; i < N[p]; i++) if (!l.has(i)) { num[i] += r.num[i] * d.w[p][i]; den[i] += r.den[i] * d.w[p][i]; }
+        rel(o, ro2);
+      }
+      return { num, den };
+    }
+    function info(path = []) {
+      const { node, reach, steps } = locate(path);
+      const res = { node, steps, reach, t: node.t, pot: P0 + node.C[0] + node.C[1], C: node.C.slice(), board: node.board, ev: [], eq: [], evMean: [], eqMean: [] };
+      for (let p = 0; p < 2; p++) {
+        const o = 1 - p, cm = compat(p, reach[o], new Float64Array(N[p])), v = walk(node, p, reach[p], reach[o], 2), ev = new Float64Array(N[p]); let num = 0, den = 0;
+        for (let i = 0; i < N[p]; i++) { ev[i] = cm[i] > 1e-12 ? v[i] / cm[i] + node.C[p] : NaN; num += reach[p][i] * v[i]; den += reach[p][i] * cm[i]; }
+        rel(p, v);
+        const eqr = (path.length && node.board.length < 5 && N[p] * N[o] > 3e5) ? null : equityVec(node.board, p, reach[o]), eq = new Float64Array(N[p]).fill(NaN); let en = 0, ed = 0;
+        if (eqr) for (let i = 0; i < N[p]; i++) { eq[i] = eqr.den[i] > 1e-12 ? eqr.num[i] / eqr.den[i] : NaN; en += reach[p][i] * eqr.num[i]; ed += reach[p][i] * eqr.den[i]; }
+        res.ev.push(ev); res.eq.push(eq); res.evMean.push(den > 0 ? num / den + node.C[p] : NaN); res.eqMean.push(ed > 0 ? en / ed : NaN);
+      }
+      if (node.t === ACT) {
+        const p = node.p, n = N[p], A = node.acts.length, sg = average(node, new Float64Array(A * n));
+        res.strategy = sg;
+        res.actEv = node.acts.map((_, a) => { const v = walk(node.ch[a], p, reach[p], reach[1 - p], 2), cm = compat(p, reach[1 - p], new Float64Array(n)), out = new Float64Array(n); for (let i = 0; i < n; i++) out[i] = cm[i] > 1e-12 ? v[i] / cm[i] + node.C[p] : NaN; rel(p, v); return out; });
+        res.freq = node.acts.map((_, a) => { let s = 0, t = 0; for (let i = 0; i < n; i++) { s += reach[p][i] * sg[a * n + i]; t += reach[p][i]; } return t > 0 ? s / t : 0; });
+      }
+      return res;
+    }
+    function label(node, a) {
+      const x = node.acts[a], add = x.to - node.bets[node.p], f = (v) => (Math.round(v * 10) / 10).toLocaleString('fr-FR');
+      if (x.k === 'x') return 'Check'; if (x.k === 'f') return 'Se coucher'; if (x.k === 'c') return `Suivre ${f(add)}`;
+      const potMax = node.bets[1 - node.p] - node.bets[node.p] > 0 ? node.bets[1 - node.p] + node.pot + (node.bets[1 - node.p] - node.bets[node.p]) : node.bets[node.p] + node.pot;
+      const isPot = Math.abs(x.to - potMax) < 0.02;
+      if (x.k === 'a') return `Tapis ${f(x.to)}${isPot ? ' (pot)' : ''}`;
+      if (x.k === 'b') return isPot ? `Miser le pot (${f(add)})` : `Miser ${f(add)} (${Math.round((add / node.pot) * 100)} %)`;
+      return isPot ? `Relancer le pot (à ${f(x.to)})` : `Relancer à ${f(x.to)}`;
+    }
+    const stats = () => { let acts = 0, mem = 0; for (const n of nodes) if (n.t === ACT) { acts++; mem += n.reg.length * 8; } return { nodes: nodes.length, acts, boards: boards.length, mb: mem / 1048576, approx, iterations: it }; };
+    return { game: 'plo', cfg, board, P0, S, N, hands, holeOf, w0, root: rootNode, nodes, iterate, exploitability, info, label, locate, stats, OOP, IP };
+  }
+
+  // ---- Ranges PLO : échantillon de mains tirées par rang préflop ----
+  // rank(h) -> rang préflop entre 0 (meilleure main) et 1 ; la range garde les mains de rang dans [lo, hi].
+  function sampleRange(rank, lo, hi, n, dead = [], seed = 1, must = []) {
+    const R = E.rng(seed), d = new Set(dead), deck = []; for (let c = 0; c < 52; c++) if (!d.has(c)) deck.push(c);
+    const out = [], seen = new Set();
+    for (const h of must) { if (h && h.length === K && !h.some((c) => d.has(c))) { const k = handKey(h); if (!seen.has(k)) { seen.add(k); out.push([...h, 1]); } } }
+    let tries = 0;
+    while (out.length < n && tries++ < n * 400) {
+      for (let k = 0; k < K; k++) { const j = k + Math.floor(R() * (deck.length - k)); const t = deck[k]; deck[k] = deck[j]; deck[j] = t; }
+      const h = deck.slice(0, K), key = handKey(h); if (seen.has(key)) continue;
+      const r = rank(h); if (r === null || r < lo || r > hi) continue;
+      seen.add(key); out.push([...h, 1]);
+    }
+    return out;
+  }
+  // Catégorie de la main faite (pour les résumés).
+  function madeCat(h, bc) {
+    const v = O.evaluate(h, bc), c = E.category(v);
+    return c >= 4 ? 0 : c === 3 ? 1 : c === 2 ? 2 : c === 1 ? 3 : 4; // 0 = quinte et mieux, 1 = brelan, 2 = deux paires, 3 = une paire, 4 = hauteur
+  }
+  // Tirages en Omaha : couleur (avec 2 cartes de la couleur en main) et quinte (au moins 8 outs approchés).
+  function draws(h, bc) {
+    if (bc.length >= 5) return { flush: false, nutFlush: false, wrap: false };
+    const bs = [0, 0, 0, 0]; bc.forEach((c) => bs[c & 3]++);
+    let flush = false, nutFlush = false;
+    for (let s = 0; s < 4; s++) if (bs[s] === 2) {
+      const mine = h.filter((c) => (c & 3) === s).map((c) => c >> 2); if (mine.length >= 2) { flush = true; const used = new Set(bc.filter((c) => (c & 3) === s).map((c) => c >> 2)); let top = 12; while (used.has(top)) top--; if (mine.includes(top)) nutFlush = true; }
+    }
+    // Outs de quinte : cartes qui donnent une quinte en combinant 2 cartes privatives et 3 du board.
+    const cur = O.evaluate(h, bc), hadStraight = E.category(cur) >= 4; let outs = 0;
+    if (!hadStraight) for (let r = 0; r < 13; r++) { const alt = [0, 1, 2, 3].map((s) => r << 2 | s).find((x) => !h.includes(x) && !bc.includes(x)); if (alt === undefined) continue; if (E.category(O.evaluate(h, [...bc, alt])) === 4) outs += 4 - [0, 1, 2, 3].filter((s) => h.includes(r << 2 | s) || bc.includes(r << 2 | s)).length; }
+    return { flush, nutFlush, wrap: outs >= 8, straightOuts: outs };
+  }
+  const CATS = ['Quinte et mieux', 'Brelan', 'Deux paires', 'Une paire', 'Rien'];
+  const api = { create, sampleRange, madeCat, draws, CATS, DEFAULT_SIZES, handKey, ACT, CHANCE, FOLD, SHOW, K };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.PLOSolver = api;
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+<script>// Solveur à trois joueurs SIGMA 52 (Hold'em, après le flop) — CFR vectorisé par main, mises simplifiées.
+// Simplification assumée : les cartes d'une main sont retirées exactement de chacune des deux ranges adverses,
+// mais les deux adversaires sont supposés indépendants entre eux (leurs blockers mutuels sont ignorés).
+// C'est l'approximation habituelle des solveurs multiway rapides : l'erreur est faible devant celle des ranges.
+// En jeu à trois, CFR ne garantit plus un équilibre de Nash : on mesure la qualité par le gain maximal
+// qu'un joueur obtiendrait en déviant seul (meilleure réponse contre les deux autres), en % du pot.
+(function (root) {
+  const E = root.Engine || require('./engine.js');
+  const PF = root.Postflop || require('./postflop.js');
+  const ACT = 0, CHANCE = 1, TERM = 2, NP = 3;
+  const STREET = ['flop', 'turn', 'river'];
+  const keyOf = (a, b) => (a > b ? a * 52 + b : b * 52 + a);
+  const DEFAULT_SIZES = { flop: { bet: [33], raise: [] }, turn: { bet: [66], raise: [] }, river: { bet: [66], raise: ['a'] } };
+
+  function create(cfg) {
+    const board = (Array.isArray(cfg.board) ? cfg.board : E.parseCards(cfg.board)).slice();
+    if (board.length < 3 || board.length > 5) throw new Error('Board de 3 à 5 cartes');
+    if (new Set(board).size !== board.length) throw new Error('Carte du board en double');
+    const P0 = +cfg.pot, S = +cfg.stack; if (!(P0 > 0)) throw new Error('Pot invalide'); if (!(S > 0)) throw new Error('Tapis invalide');
+    const thr = cfg.allinThreshold ?? 0.67, maxRaises = cfg.maxRaises ?? 1, sample = cfg.sample || null;
+    const sizes = {}; for (const st of STREET) { const s = cfg.sizes?.[st] || DEFAULT_SIZES[st]; sizes[st] = { bet: PF.parseSizes(s.bet), raise: PF.parseSizes(s.raise) }; }
+    const hands = [0, 1, 2].map((p) => { const r = cfg.ranges[p]; return Array.isArray(r) ? r.filter(([a, b]) => !board.includes(a) && !board.includes(b)) : PF.parseWeighted(r, board); });
+    if (hands.some((h) => !h.length)) throw new Error('Range vide après retrait des cartes du board');
+    const N = hands.map((l) => l.length), c1 = hands.map((l) => Uint8Array.from(l, (x) => x[0])), c2 = hands.map((l) => Uint8Array.from(l, (x) => x[1])), w0 = hands.map((l) => Float64Array.from(l, (x) => x[2]));
+    // same[p][o][i] : index de la même main chez o.
+    const same = [0, 1, 2].map((p) => [0, 1, 2].map((o) => { if (o === p) return null; const idx = new Map(); hands[o].forEach(([a, b], i) => idx.set(keyOf(a, b), i)); return Int32Array.from(hands[p], ([a, b]) => idx.get(keyOf(a, b)) ?? -1); }));
+    const withCard = [0, 1, 2].map((p) => { const l = Array.from({ length: 52 }, () => []); hands[p].forEach(([a, b], i) => { l[a].push(i); l[b].push(i); }); return l.map((x) => Int32Array.from(x)); });
+
+    const boards = [], boardId = new Map();
+    function boardOf(cards) {
+      const k = cards.slice().sort((a, b) => a - b).join('.'); if (boardId.has(k)) return boardId.get(k);
+      const str = [], ord = [];
+      for (let p = 0; p < NP; p++) { const s = new Int32Array(N[p]); for (let i = 0; i < N[p]; i++) { const a = c1[p][i], b = c2[p][i]; s[i] = cards.includes(a) || cards.includes(b) ? -1 : E.evaluate([a, b, ...cards]); } str.push(s); ord.push(Int32Array.from([...Array(N[p]).keys()].sort((x, y) => s[x] - s[y]))); }
+      boards.push({ cards: cards.slice(), str, ord }); boardId.set(k, boards.length - 1); return boards.length - 1;
+    }
+    const nextCards = new Map();
+    function dealCards(cur) {
+      const k = cur.slice().sort((a, b) => a - b).join('.'); if (nextCards.has(k)) return nextCards.get(k);
+      const deck = []; for (let c = 51; c >= 0; c--) if (!cur.includes(c)) deck.push(c);
+      let h = 2166136261; for (let i = 0; i < k.length; i++) { h ^= k.charCodeAt(i); h = Math.imul(h, 16777619); }
+      const cards = PF.sampleCards(deck, cur, cur.length === 3 ? sample?.turn : sample?.river, (h >>> 0) ^ (cfg.seed || 7), cfg.include || []);
+      const D = deck.length, set = new Set(cards);
+      const w = [0, 1, 2].map((p) => { const out = new Float64Array(N[p]); for (let i = 0; i < N[p]; i++) { const n = cards.length - (set.has(c1[p][i]) ? 1 : 0) - (set.has(c2[p][i]) ? 1 : 0); out[i] = n > 0 ? (D - 2) / ((D - 6) * n) : 0; } return out; });
+      const r = { cards, w, exact: cards.length === deck.length }; nextCards.set(k, r); return r;
+    }
+
+    // ---- Arbre : tour de mise à trois (ordre de parole 0, 1, 2) ----
+    const nodes = []; let approx = false;
+    const mk = (n) => { n.id = nodes.length; nodes.push(n); return n; };
+    const r2 = (x) => Math.round(x * 100) / 100;
+    const nextOf = (st, p) => { for (let d = 1; d <= NP; d++) { const q = (p + d) % NP; if (st.live[q]) return q; } return -1; };
+    // st : { p, street, cards, C, bets, live, pend, nr }
+    function actNode(st) {
+      const { p, street, cards, C, bets } = st, pot = P0 + C[0] + C[1] + C[2], left = S - C[p], top = Math.max(...bets), toCall = top - bets[p];
+      const acts = [], push = (a) => { if (!acts.some((x) => x.k === a.k && Math.abs(x.to - a.to) < 1e-6)) acts.push(a); };
+      const sz = sizes[STREET[street]];
+      if (toCall <= 1e-9) {
+        push({ k: 'x', to: bets[p] });
+        if (left > 1e-9) for (const s of sz.bet) { let amt = s === 'a' ? left : Math.max(Math.min(1, left), r2((s / 100) * pot)); if (amt >= thr * left || amt > left) amt = left; push({ k: amt >= left - 1e-9 ? 'a' : 'b', to: bets[p] + amt }); }
+      } else {
+        push({ k: 'f', to: bets[p] }); push({ k: 'c', to: Math.min(top, bets[p] + left) });
+        const others = [0, 1, 2].some((q) => q !== p && st.live[q] && S - C[q] > 1e-9);
+        if (st.nr < maxRaises && others && left > toCall + 1e-9) for (const s of sz.raise) {
+          let to = s === 'a' ? bets[p] + left : r2(top + (s / 100) * (pot + toCall)); to = Math.max(to, top + toCall);
+          if (to - bets[p] >= thr * left || to - bets[p] > left) to = bets[p] + left;
+          push({ k: to - bets[p] >= left - 1e-9 ? 'a' : 'r', to });
+        }
+      }
+      const rank = { f: 0, x: 1, c: 2, b: 3, r: 3, a: 4 }; acts.sort((a, b) => rank[a.k] - rank[b.k] || a.to - b.to);
+      const node = mk({ t: ACT, p, street, board: cards, C: C.slice(), bets: bets.slice(), live: st.live.slice(), pot, acts, ch: [] });
+      for (const a of acts) node.ch.push(after(st, a));
+      node.reg = new Float32Array(acts.length * N[p]); node.sum = new Float32Array(acts.length * N[p]);
+      return node;
+    }
+    // Tour de mise : pend[q] = q doit encore parler avant la clôture du tour (remis à tous les autres après une mise ou relance).
+    const canBet = (C, live, q) => live[q] && S - C[q] > 1e-9;
+    function after(st, a) {
+      const p = st.p, C = st.C.slice(), bets = st.bets.slice(), live = st.live.slice(), pend = st.pend.slice(), top0 = Math.max(...st.bets); let nr = st.nr;
+      pend[p] = false;
+      if (a.k === 'f') live[p] = false;
+      else {
+        C[p] += a.to - bets[p]; bets[p] = a.to;
+        if (a.to > top0 + 1e-9) { if (top0 > 1e-9) nr++; for (let q = 0; q < NP; q++) if (q !== p) pend[q] = canBet(C, live, q); }
+      }
+      if (live.filter(Boolean).length === 1) return mk({ t: TERM, C, live, board: st.cards, show: false });
+      for (let d = 1; d < NP; d++) { const q = (p + d) % NP; if (pend[q] && canBet(C, live, q)) return actNode({ p: q, street: st.street, cards: st.cards, C, bets, live, pend, nr }); }
+      return endStreet(st, C, live);
+    }
+    function endStreet(st, C, live) {
+      if (st.street === 2) return mk({ t: TERM, C, live, board: st.cards, show: true, bid: boardOf(st.cards) });
+      const allin = [0, 1, 2].filter((q) => canBet(C, live, q)).length <= 1;
+      return chanceNode(st.cards, C, live, allin);
+    }
+    function chanceNode(cur, C, live, allin) {
+      const d = dealCards(cur); if (!d.exact) approx = true;
+      const node = mk({ t: CHANCE, board: cur, C: C.slice(), live: live.slice(), cards: d.cards, w: d.w, ch: [] });
+      for (const k of d.cards) {
+        const nb = [...cur, k];
+        if (allin) node.ch.push(nb.length === 5 ? mk({ t: TERM, C: C.slice(), live: live.slice(), board: nb, show: true, bid: boardOf(nb) }) : chanceNode(nb, C, live, true));
+        else { const pend = [0, 1, 2].map((q) => canBet(C, live, q)), p = pend.indexOf(true); node.ch.push(actNode({ p, street: nb.length - 3, cards: nb, C: C.slice(), bets: [0, 0, 0], live: live.slice(), pend, nr: 0 })); }
+      }
+      return node;
+    }
+    const rootNode = actNode({ p: 0, street: board.length - 3, cards: board, C: [0, 0, 0], bets: [0, 0, 0], live: [true, true, true], pend: [true, true, true], nr: 0 });
+
+    // ---- Valeurs terminales ----
+    const pool = [[], [], []], get = (p) => pool[p].pop() || new Float64Array(N[p]), rel = (p, b) => pool[p].push(b);
+    const cardTot = new Float64Array(52);
+    function compat(p, o, ro, out) {
+      let tot = 0; cardTot.fill(0);
+      for (let j = 0; j < N[o]; j++) { const r = ro[j]; if (r) { tot += r; cardTot[c1[o][j]] += r; cardTot[c2[o][j]] += r; } }
+      const sm = same[p][o];
+      for (let i = 0; i < N[p]; i++) out[i] = tot - cardTot[c1[p][i]] - cardTot[c2[p][i]] + (sm[i] >= 0 ? ro[sm[i]] : 0);
+      return out;
+    }
+    // Masse adverse strictement plus faible (low) et strictement plus forte (high), cartes partagées retirées.
+    function sweep(bid, p, o, ro, low, high) {
+      const B = boards[bid], op = B.ord[p], oo = B.ord[o], sp = B.str[p], so = B.str[o], np = N[p], no = N[o];
+      let cum = 0, j = 0; cardTot.fill(0);
+      for (let ii = 0; ii < np; ii++) { const i = op[ii], s = sp[i]; while (j < no && so[oo[j]] < s) { const jj = oo[j], r = ro[jj]; if (r) { cum += r; cardTot[c1[o][jj]] += r; cardTot[c2[o][jj]] += r; } j++; } low[i] = cum - cardTot[c1[p][i]] - cardTot[c2[p][i]]; }
+      cum = 0; j = no - 1; cardTot.fill(0);
+      for (let ii = np - 1; ii >= 0; ii--) { const i = op[ii], s = sp[i]; while (j >= 0 && so[oo[j]] > s) { const jj = oo[j], r = ro[jj]; if (r) { cum += r; cardTot[c1[o][jj]] += r; cardTot[c2[o][jj]] += r; } j--; } high[i] = cum - cardTot[c1[p][i]] - cardTot[c2[p][i]]; }
+    }
+    function termVal(node, p, R) {
+      const [j, k] = [0, 1, 2].filter((q) => q !== p), C = node.C, pot = P0 + C[0] + C[1] + C[2], cp = C[p], out = get(p);
+      const Mj = compat(p, j, R[j], get(p)), Mk = compat(p, k, R[k], get(p));
+      if (!node.live[p]) { for (let i = 0; i < N[p]; i++) out[i] = -cp * Mj[i] * Mk[i]; }
+      else if (!node.show) { const v = pot - cp; for (let i = 0; i < N[p]; i++) out[i] = v * Mj[i] * Mk[i]; }
+      else {
+        const opp = [j, k].filter((q) => node.live[q]);
+        if (opp.length === 1) {
+          const o = opp[0], f = o === j ? Mk : Mj, M = o === j ? Mj : Mk, lo = get(p), hi = get(p);
+          sweep(node.bid, p, o, R[o], lo, hi);
+          for (let i = 0; i < N[p]; i++) { const t = M[i] - lo[i] - hi[i]; out[i] = f[i] * ((pot - cp) * lo[i] + (pot / 2 - cp) * t - cp * hi[i]); }
+          rel(p, lo); rel(p, hi);
+        } else {
+          const lj = get(p), hj = get(p), lk = get(p), hk = get(p);
+          sweep(node.bid, p, j, R[j], lj, hj); sweep(node.bid, p, k, R[k], lk, hk);
+          for (let i = 0; i < N[p]; i++) {
+            const tj = Mj[i] - lj[i] - hj[i], tk = Mk[i] - lk[i] - hk[i];
+            const win = lj[i] * lk[i], tie2 = tj * lk[i] + lj[i] * tk, tie3 = tj * tk, all = Mj[i] * Mk[i];
+            out[i] = (pot - cp) * win + (pot / 2 - cp) * tie2 + (pot / 3 - cp) * tie3 - cp * (all - win - tie2 - tie3);
+          }
+          rel(p, lj); rel(p, hj); rel(p, lk); rel(p, hk);
+        }
+      }
+      rel(p, Mj); rel(p, Mk); return out;
+    }
+
+    const tmp = N.map((n) => new Float64Array(n));
+    function current(node, out) {
+      const n = N[node.p], A = node.acts.length, reg = node.reg, s = tmp[node.p]; s.fill(0);
+      for (let a = 0; a < A; a++) for (let i = 0; i < n; i++) { const r = reg[a * n + i]; if (r > 0) s[i] += r; }
+      for (let a = 0; a < A; a++) for (let i = 0; i < n; i++) { const r = reg[a * n + i]; out[a * n + i] = s[i] > 0 ? (r > 0 ? r / s[i] : 0) : 1 / A; }
+      return out;
+    }
+    function average(node, out) {
+      const n = N[node.p], A = node.acts.length;
+      for (let i = 0; i < n; i++) { let s = 0; for (let a = 0; a < A; a++) s += node.sum[a * n + i]; if (s > 0) for (let a = 0; a < A; a++) out[a * n + i] = node.sum[a * n + i] / s; else return current(node, out); }
+      return out;
+    }
+    const strat = new Map(), sbuf = (node) => { let b = strat.get(node.id); if (!b) strat.set(node.id, b = new Float64Array(node.acts.length * N[node.p])); return b; };
+    function maskCopy(q, src, k) { const b = get(q); b.set(src); for (const i of withCard[q][k]) b[i] = 0; return b; }
+    let it = 0, dPos = 1, dNeg = 1, dSum = 1;
+    // mode : 0 = CFR, 1 = meilleure réponse de p, 2 = évaluation (stratégies moyennes).
+    function walk(node, p, R, mode) {
+      if (node.t === TERM) return termVal(node, p, R);
+      if (node.t === CHANCE) {
+        const out = get(p); out.fill(0); const w = node.w[p];
+        for (let ci = 0; ci < node.cards.length; ci++) {
+          const k = node.cards[ci], R2 = R.map((r, q) => maskCopy(q, r, k)), v = walk(node.ch[ci], p, R2, mode);
+          for (const i of withCard[p][k]) v[i] = 0;
+          for (let i = 0; i < N[p]; i++) out[i] += v[i] * w[i];
+          rel(p, v); R2.forEach((b, q) => rel(q, b));
+        }
+        return out;
+      }
+      const q = node.p, A = node.acts.length, n = N[q], sg = mode === 0 ? current(node, sbuf(node)) : average(node, sbuf(node));
+      if (q === p) {
+        const out = get(p); out.fill(mode === 1 ? -Infinity : 0); const vals = mode === 0 ? [] : null;
+        for (let a = 0; a < A; a++) {
+          const rp = get(p); for (let i = 0; i < n; i++) rp[i] = R[p][i] * sg[a * n + i];
+          const R2 = R.slice(); R2[p] = rp; const v = walk(node.ch[a], p, R2, mode); rel(p, rp);
+          if (mode === 1) { for (let i = 0; i < n; i++) if (v[i] > out[i]) out[i] = v[i]; rel(p, v); }
+          else { for (let i = 0; i < n; i++) out[i] += sg[a * n + i] * v[i]; if (vals) vals.push(v); else rel(p, v); }
+        }
+        if (mode === 0) for (let a = 0; a < A; a++) { const v = vals[a], b = a * n; for (let i = 0; i < n; i++) { const r = node.reg[b + i]; node.reg[b + i] = (r > 0 ? r * dPos : r * dNeg) + v[i] - out[i]; node.sum[b + i] = node.sum[b + i] * dSum + R[p][i] * sg[b + i]; } rel(p, v); }
+        return out;
+      }
+      const out = get(p); out.fill(0);
+      for (let a = 0; a < A; a++) {
+        const rq = get(q); let any = false; for (let i = 0; i < n; i++) { const r = R[q][i] * sg[a * n + i]; rq[i] = r; if (r) any = true; }
+        if (any || mode !== 0) { const R2 = R.slice(); R2[q] = rq; const v = walk(node.ch[a], p, R2, mode); for (let i = 0; i < N[p]; i++) out[i] += v[i]; rel(p, v); }
+        rel(q, rq);
+      }
+      return out;
+    }
+    function iterate(k = 1) {
+      for (let s = 0; s < k; s++) {
+        it++; const ta = Math.pow(it, 1.5), tb = Math.pow(it, 0.5); dPos = ta / (ta + 1); dNeg = tb / (tb + 1); dSum = Math.pow(it / (it + 1), 2);
+        for (let p = 0; p < NP; p++) rel(p, walk(rootNode, p, w0, 0));
+      }
+      return it;
+    }
+    // Valeur moyenne en jetons (part du pot de départ, mises de p rendues) pour une stratégie / meilleure réponse.
+    function mean(p, v, R) {
+      const [j, k] = [0, 1, 2].filter((q) => q !== p), Mj = compat(p, j, R[j], get(p)), Mk = compat(p, k, R[k], get(p)); let num = 0, den = 0;
+      for (let i = 0; i < N[p]; i++) { num += R[p][i] * v[i]; den += R[p][i] * Mj[i] * Mk[i]; }
+      rel(p, Mj); rel(p, Mk); return den > 0 ? num / den : 0;
+    }
+    // Gain d'une déviation unilatérale : pour chaque joueur, meilleure réponse − valeur actuelle ; on rapporte la moyenne et le maximum.
+    function exploitability() {
+      const gains = [];
+      for (let p = 0; p < NP; p++) { const b = walk(rootNode, p, w0, 1), e = walk(rootNode, p, w0, 2); gains.push(mean(p, b, w0) - mean(p, e, w0)); rel(p, b); rel(p, e); }
+      const avg = gains.reduce((a, x) => a + x, 0) / NP, mx = Math.max(...gains);
+      return { gains, chips: avg, pct: (avg / P0) * 100, maxPct: (mx / P0) * 100 };
+    }
+    function locate(path) {
+      let node = rootNode; const R = w0.map((r) => r.slice());
+      for (const x of path) {
+        if (node.t === ACT) { const n = N[node.p], sg = average(node, new Float64Array(node.acts.length * n)); for (let i = 0; i < n; i++) R[node.p][i] *= sg[x * n + i]; node = node.ch[x]; }
+        else if (node.t === CHANCE) { const ci = node.cards.indexOf(x); if (ci < 0) throw new Error('Carte absente de l\'arbre'); for (let q = 0; q < NP; q++) for (const i of withCard[q][x]) R[q][i] = 0; node = node.ch[ci]; }
+        else break;
+      }
+      return { node, reach: R };
+    }
+    // Équité à l'abattage immédiat (river) ou moyenne sur les cartes restantes de l'arbre : part de pot gagnée contre les deux autres.
+    function equityVec(cards, p, R) {
+      const [j, k] = [0, 1, 2].filter((q) => q !== p);
+      if (cards.length === 5) {
+        const bid = boardOf(cards), Mj = compat(p, j, R[j], new Float64Array(N[p])), Mk = compat(p, k, R[k], new Float64Array(N[p])), lj = get(p), hj = get(p), lk = get(p), hk = get(p), num = new Float64Array(N[p]), den = new Float64Array(N[p]);
+        sweep(bid, p, j, R[j], lj, hj); sweep(bid, p, k, R[k], lk, hk);
+        for (let i = 0; i < N[p]; i++) { const tj = Mj[i] - lj[i] - hj[i], tk = Mk[i] - lk[i] - hk[i]; num[i] = lj[i] * lk[i] + (tj * lk[i] + lj[i] * tk) / 2 + tj * tk / 3; den[i] = Mj[i] * Mk[i]; }
+        rel(p, lj); rel(p, hj); rel(p, lk); rel(p, hk); return { num, den };
+      }
+      const d = dealCards(cards), num = new Float64Array(N[p]), den = new Float64Array(N[p]);
+      for (const c of d.cards) {
+        const R2 = R.map((r, q) => maskCopy(q, r, c)), r = equityVec([...cards, c], p, R2), bl = new Set(withCard[p][c]);
+        for (let i = 0; i < N[p]; i++) if (!bl.has(i)) { num[i] += r.num[i] * d.w[p][i]; den[i] += r.den[i] * d.w[p][i]; }
+        R2.forEach((b, q) => rel(q, b));
+      }
+      return { num, den };
+    }
+    function info(path = []) {
+      const { node, reach } = locate(path), res = { node, reach, t: node.t, pot: P0 + node.C[0] + node.C[1] + node.C[2], C: node.C.slice(), board: node.board, ev: [], eq: [], evMean: [], eqMean: [] };
+      for (let p = 0; p < NP; p++) {
+        const [j, k] = [0, 1, 2].filter((q) => q !== p), Mj = compat(p, j, reach[j], new Float64Array(N[p])), Mk = compat(p, k, reach[k], new Float64Array(N[p]));
+        const v = walk(node, p, reach, 2), ev = new Float64Array(N[p]); let num = 0, den = 0;
+        for (let i = 0; i < N[p]; i++) { const m = Mj[i] * Mk[i]; ev[i] = m > 1e-12 ? v[i] / m + node.C[p] : NaN; num += reach[p][i] * v[i]; den += reach[p][i] * m; }
+        rel(p, v);
+        const eqr = equityVec(node.board, p, reach), eq = new Float64Array(N[p]); let en = 0, ed = 0;
+        for (let i = 0; i < N[p]; i++) { eq[i] = eqr.den[i] > 1e-12 ? eqr.num[i] / eqr.den[i] : NaN; en += reach[p][i] * eqr.num[i]; ed += reach[p][i] * eqr.den[i]; }
+        res.ev.push(ev); res.eq.push(eq); res.evMean.push(den > 0 ? num / den + node.C[p] : NaN); res.eqMean.push(ed > 0 ? en / ed : NaN);
+      }
+      if (node.t === ACT) {
+        const p = node.p, n = N[p], A = node.acts.length, sg = average(node, new Float64Array(A * n));
+        res.strategy = sg;
+        res.freq = node.acts.map((_, a) => { let s = 0, t = 0; for (let i = 0; i < n; i++) { s += reach[p][i] * sg[a * n + i]; t += reach[p][i]; } return t > 0 ? s / t : 0; });
+        const [j, k] = [0, 1, 2].filter((q) => q !== p), Mj = compat(p, j, reach[j], new Float64Array(n)), Mk = compat(p, k, reach[k], new Float64Array(n));
+        res.actEv = node.acts.map((_, a) => { const R2 = reach.slice(), v = walk(node.ch[a], p, R2, 2), out = new Float64Array(n); for (let i = 0; i < n; i++) { const m = Mj[i] * Mk[i]; out[i] = m > 1e-12 ? v[i] / m + node.C[p] : NaN; } rel(p, v); return out; });
+      }
+      return res;
+    }
+    function label(node, a) {
+      const x = node.acts[a], add = x.to - node.bets[node.p], f = (v) => (Math.round(v * 10) / 10).toLocaleString('fr-FR');
+      if (x.k === 'x') return 'Check'; if (x.k === 'f') return 'Se coucher'; if (x.k === 'c') return `Suivre ${f(add)}`; if (x.k === 'a') return `Tapis ${f(x.to)}`;
+      if (x.k === 'b') return `Miser ${f(add)} (${Math.round((add / node.pot) * 100)} %)`; return `Relancer à ${f(x.to)}`;
+    }
+    const stats = () => { let acts = 0; for (const n of nodes) if (n.t === ACT) acts++; return { nodes: nodes.length, acts, boards: boards.length, approx, iterations: it }; };
+    return { game: '3way', cfg, board, P0, S, N, hands, w0, root: rootNode, nodes, iterate, exploitability, info, label, locate, stats };
+  }
+  const api = { create, DEFAULT_SIZES, ACT, CHANCE, TERM };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Solver3 = api;
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
 <script>// Cœur de calcul du solveur postflop, partagé : dans un Web Worker (fil séparé, l'interface reste fluide)
 // ou sur le fil principal en repli (navigateur sans Worker). Messages : solve, node, ranges, free.
 // La résolution avance par tranches de ~40 ms : entre deux tranches, les requêtes « node » d'une main déjà résolue passent.
@@ -9384,11 +9994,12 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
   };
 
   // ---------------- Vue ----------------
-  const SUBS = [['solve', 'Résoudre un spot'], ['preflop', 'Préflop'], ['agg', 'Rapport agrégé'], ['train', 'Entraîneur'], ['help', 'Mode d\'emploi']];
+  const SUBS = [['solve', 'Résoudre un spot'], ['preflop', 'Préflop'], ['agg', 'Rapport agrégé'], ['three', 'À trois joueurs'], ['plo', 'PLO'], ['train', 'Entraîneur'], ['help', 'Mode d\'emploi']];
   VIEWS.solveur = () => head('Solveur', 'Calcule l\'équilibre (GTO) d\'un spot à deux joueurs après le flop : quelle action, à quelle fréquence, avec quelle main. Outil d\'étude hors table : l\'utiliser pendant une main en cours est de l\'aide en temps réel, interdite par toutes les rooms.') +
     `<div class="subtabs" role="tablist">${SUBS.map(([k, l]) => `<button class="chip" aria-pressed="${sv.sub === k}" data-act="svsub" data-s="${k}">${l}</button>`).join('')}</div>` +
-    (sv.sub === 'solve' ? solveHTML() : sv.sub === 'preflop' ? preflopHTML() : sv.sub === 'agg' ? aggHTML() : sv.sub === 'train' ? X.trainerHTML() : helpHTML());
+    (sv.sub === 'solve' ? solveHTML() : sv.sub === 'preflop' ? preflopHTML() : sv.sub === 'plo' ? X.ploHTML() : sv.sub === 'three' ? X.threeHTML() : sv.sub === 'agg' ? aggHTML() : sv.sub === 'train' ? X.trainerHTML() : helpHTML());
   ACT.svsub = (t) => { sv.sub = t.dataset.s; render(); };
+  X.svSub = () => sv.sub;
 
   function rangeStat(txt) {
     try { const h = Array.isArray(txt) ? txt : PF.parseWeighted(txt); const w = h.reduce((a, x) => a + x[2], 0); return `${fr(w, w % 1 ? 1 : 0)} combos · ${fr(w / 1326 * 100, 1)} %`; } catch (e) { return `<span style="color:var(--bad)">${esc(e.message)}</span>`; }
@@ -9787,7 +10398,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
       <ul><li><strong>River</strong> : exact, en une seconde environ.</li><li><strong>Turn</strong> : exact (les 46 rivers sont calculées), de quelques secondes à une minute selon les tailles.</li>
       <li><strong>Flop</strong> : un arbre complet ne tient pas dans un navigateur. Le solveur calcule un échantillon représentatif de turns et de rivers. La stratégie du flop est fiable en tendance ; pour un turn précis, ouvre la branche puis « Re-résoudre exactement d'ici » : les ranges arrivent pondérées par le solve du flop, et le turn est recalculé en entier.</li></ul>
       <h2>Ce que le solveur ne sait pas</h2>
-      <ul><li>Il ne connaît que les ranges et les tailles que tu lui donnes. Ranges fausses = réponse fausse.</li><li>Il ne joue pas de pots à trois joueurs ou plus.</li><li>Il ignore le rake (léger biais : en vrai, payer est un peu moins rentable).</li><li>Il suppose un adversaire parfait. Contre un fish, la meilleure action s'écarte de l'équilibre : le module Élite « Exploitation » explique comment.</li></ul>
+      <ul><li>Il ne connaît que les ranges et les tailles que tu lui donnes. Ranges fausses = réponse fausse.</li><li>Cet onglet est à deux joueurs. Les pots à trois ont leur onglet « À trois joueurs » (simplifié : une taille de mise par rue), l'Omaha l'onglet « PLO ».</li><li>Il ignore le rake (léger biais : en vrai, payer est un peu moins rentable).</li><li>Il suppose un adversaire parfait. Contre un fish, la meilleure action s'écarte de l'équilibre : le module Élite « Exploitation » explique comment.</li></ul>
       <h2>Méthode pour retravailler une main</h2>
       <ol><li>Dans Analyse › Replayer, place-toi sur ta décision et clique « Retravailler au solveur ».</li><li>Vérifie les ranges préflop proposées, puis résous.</li><li>Le solveur s'ouvre au nœud de ta décision. Lis « Ta main » : fréquences, EV de chaque action, perte en % du pot.</li><li>Ne retiens pas « le solveur mise 62 % » : retiens <em>pourquoi</em>. Regarde quelles catégories misent, quelles mains servent de bluffs, quels bloqueurs elles ont.</li><li>Note la leçon dans ta bibliothèque (étiquette « à revoir »).</li></ol></section>`;
   }
@@ -9945,6 +10556,307 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
     go('solveur');
   };
   X.trainerHTML = X.trainerHTML || (() => '<section class="panel"><p>Entraîneur en préparation.</p></section>');
+})();
+</script>
+<script>// Solveur › PLO (deux joueurs, mains de 4 cartes) et Solveur › À trois joueurs (Hold'em multiway simplifié).
+// Les deux solves tournent sur le fil principal par tranches (l'interface reste utilisable) et partagent le même explorateur d'arbre.
+(function () {
+  const X = window.__S52, E = window.Engine, B = window.Board, PS = window.PLOSolver, S3 = window.Solver3;
+  const { $, esc, fr, pct, state, render, cardHTML, cardsHTML, grid169, ACT, ONCHANGE } = X;
+  const prog = () => state.progress.multi || (state.progress.multi = { plo: { n: 0, ok: 0 }, three: { n: 0, ok: 0 } });
+
+  // ---------------- Réglages ----------------
+  const PLO_PRE = {
+    srp: { label: 'Pot relancé · BTN contre BB', names: ['BB', 'BTN'], pot: 7.5, stack: 96.5, lo: [0.08, 0], hi: [0.6, 0.45], note: 'BTN relance le pot (3,5 bb), BB paie. BTN : 45 % meilleures mains ; BB : 8 à 60 % (le top 8 % sur-relance).' },
+    '3bp': { label: 'Pot 3-bet · BB contre BTN', names: ['BB', 'BTN'], pot: 22.5, stack: 89, lo: [0, 0.03], hi: [0.12, 0.35], note: 'BB sur-relance le pot (11 bb), BTN paie. BB : 12 % meilleures mains ; BTN : 3 à 35 % (le top 3 %, AAxx, 4-bet).' },
+  };
+  const THREE_PRE = {
+    co: { label: 'CO ouvre, BTN et BB paient', names: ['BB', 'CO', 'BTN'], pot: 8, stack: 97.5, r: ['22-TT, A2s-AJs, K6s-KJs, Q8s-QJs, J8s+, T8s+, 97s+, 86s+, 75s+, 64s+, 54s, A9o-AJo, KTo-KQo, QTo+, JTo', '22+, A2s+, K5s+, Q8s+, J8s+, T8s+, 97s+, 86s+, 75s+, 65s, 54s, A9o+, KTo+, QTo+, JTo', '22-JJ, A9s-AQs, KTs-KQs, QTs+, JTs, T9s, 98s, 87s, 76s, 65s, AQo, KQo'] },
+    utg: { label: 'UTG ouvre, BTN et BB paient', names: ['BB', 'UTG', 'BTN'], pot: 8, stack: 97.5, r: ['22-JJ, A2s-AQs, K8s+, Q9s+, J9s+, T8s+, 97s+, 86s+, 75s+, 65s, 54s, ATo-AQo, KJo+, QJo', '22+, A2s+, K9s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, AJo+, KQo', '22-QQ, ATs-AQs, KTs+, QTs+, JTs, T9s, 98s, 87s, AQo'] },
+  };
+  const pl = { board: 'Kh8s4c2d', pre: 'srp', n: 200, sizes: 'simple', hero: '', lo: PLO_PRE.srp.lo.slice(), hi: PLO_PRE.srp.hi.slice() };
+  const th = { board: 'Ks7d2c5h', pre: 'co', sizes: 'simple', river: 'fast', hero: '', r: THREE_PRE.co.r.slice() };
+  const run = { plo: null, three: null }; // résolution en cours ou terminée, par outil
+
+  const rankPLO = (h) => { const t = window.Live?.ploTable(h); return t ? t.pct : null; };
+  function ploCfg() {
+    const board = E.parseCards(pl.board);
+    if (board.length < 3 || board.length > 5 || new Set(board).size !== board.length) throw new Error('Le board fait 3, 4 ou 5 cartes différentes.');
+    const P = PLO_PRE[pl.pre], hero = E.parseCards(pl.hero || '');
+    if (hero.length && (hero.length !== 4 || new Set(hero).size !== 4 || hero.some((c) => board.includes(c)))) throw new Error('Ta main PLO : 4 cartes différentes, absentes du board (ex. AsAhJdTd).');
+    const n = +pl.n, flop = board.length === 3;
+    const ranges = [0, 1].map((p) => PS.sampleRange(rankPLO, +pl.lo[p], +pl.hi[p], flop ? Math.min(n, 150) : n, board, 11 + p * 7, hero.length ? [hero] : []));
+    const rich = pl.sizes === 'riche';
+    const sizes = flop
+      ? { flop: [{ bet: rich ? [33, 66] : [50], raise: [] }, { bet: rich ? [33, 66, 100] : [50, 100], raise: [100] }], turn: [{ bet: [66], raise: [] }, { bet: [66], raise: [] }], river: [{ bet: [66], raise: [] }, { bet: [66], raise: [] }] }
+      : { flop: PS.DEFAULT_SIZES.flop, turn: [{ bet: rich ? [50, 100] : [66], raise: [] }, { bet: rich ? [50, 100] : [66], raise: [100] }], river: [{ bet: rich ? [50, 100] : [66], raise: [] }, { bet: rich ? [33, 66, 100] : [66], raise: [100] }] };
+    return { board, pot: P.pot, stack: P.stack, ranges, sizes, maxRaises: 1, sample: flop ? { turn: 6, river: 5 } : null, hero: hero.length ? hero : null };
+  }
+  function threeCfg() {
+    const board = E.parseCards(th.board);
+    if (board.length < 3 || board.length > 5 || new Set(board).size !== board.length) throw new Error('Le board fait 3, 4 ou 5 cartes différentes.');
+    const P = THREE_PRE[th.pre], hero = E.parseCards(th.hero || '');
+    if (hero.length && (hero.length !== 2 || hero[0] === hero[1] || hero.some((c) => board.includes(c)))) throw new Error('Ta main : 2 cartes absentes du board (ex. AhKd).');
+    const raise = th.sizes === 'raise';
+    const sizes = { flop: { bet: [33], raise: raise ? ['a'] : [] }, turn: { bet: [66], raise: raise ? ['a'] : [] }, river: { bet: [66], raise: raise ? ['a'] : [] } };
+    const sample = board.length === 3 ? { turn: 6, river: 5 } : board.length === 4 && th.river === 'fast' ? { river: 12 } : null;
+    return { board, pot: P.pot, stack: P.stack, ranges: th.r.slice(), sizes, maxRaises: 1, sample, hero: hero.length ? hero : null };
+  }
+
+  // ---------------- Résolution par tranches ----------------
+  function start(kind) {
+    const R = run[kind] = { kind, err: '', running: true, path: [], info: null, ex: null, t0: performance.now(), elapsed: 0, lastEx: 0, quiz: null, filter: null, more: false, cell: null };
+    try {
+      const cfg = kind === 'plo' ? ploCfg() : threeCfg();
+      R.cfg = cfg; R.names = (kind === 'plo' ? PLO_PRE[pl.pre] : THREE_PRE[th.pre]).names;
+      R.g = kind === 'plo' ? PS.create(cfg) : S3.create(cfg);
+      R.maxSec = cfg.board.length === 3 ? 90 : 60; R.target = kind === 'plo' ? 0.5 : 1;
+      if (R.g.stats().acts > 60000) throw new Error('Arbre trop gros pour le navigateur : choisis un turn ou une river, ou les tailles simples.');
+    } catch (e) { R.err = e.message; R.running = false; R.g = null; }
+    render(); if (R.g) setTimeout(() => chunk(R), 30);
+  }
+  const quality = (R) => (R.ex ? (R.kind === 'plo' ? R.ex.pct : R.ex.maxPct) : null);
+  function chunk(R) {
+    if (!R.running || run[R.kind] !== R) return;
+    const g = R.g, t0 = performance.now();
+    do g.iterate(1); while (performance.now() - t0 < 110);
+    R.elapsed = (performance.now() - R.t0) / 1000;
+    const it = g.stats().iterations;
+    if (it - R.lastEx >= Math.max(10, Math.round(it * 0.2)) || R.elapsed > R.maxSec) { R.ex = g.exploitability(); R.lastEx = it; }
+    const el = $('#mxprog'); if (el) el.innerHTML = progressHTML(R);
+    if ((R.ex && quality(R) <= R.target) || R.elapsed > R.maxSec) { finish(R); return; }
+    setTimeout(() => chunk(R), 0);
+  }
+  function finish(R) {
+    R.running = false; if (R.lastEx !== R.g.stats().iterations) R.ex = R.g.exploitability();
+    state.progress.solves = (state.progress.solves || 0) + 1; X.award?.('solve', null, true); X.Store.save('progress');
+    refresh(R); render();
+  }
+  function refresh(R) { try { R.info = R.g.info(R.path); } catch (e) { R.path = []; R.info = R.g.info([]); } R.quiz = null; }
+  function progressHTML(R) {
+    const st = R.g.stats(), q = quality(R), p = q === null ? 0.05 : Math.max(0.05, Math.min(1, Math.log(Math.max(q, R.target) / 40) / Math.log(R.target / 40)));
+    const lab = R.kind === 'plo' ? 'exploitabilité' : 'gain max d\'une déviation';
+    return `<div class="row" style="justify-content:space-between"><span class="eyebrow">${R.running ? 'Résolution en cours' : 'Résolu'}</span><span class="note mono">${st.iterations} itérations · ${fr(R.elapsed, 1)} s${q !== null ? ` · ${lab} ${fr(q, 2)} % du pot` : ''}</span></div><div class="pbar" aria-hidden="true"><i style="width:${Math.round(p * 100)}%"></i></div>`;
+  }
+
+  // ---------------- Couleurs et libellés ----------------
+  function actClasses(node) {
+    const bets = node.acts.map((a, i) => [a, i]).filter(([a]) => a.k === 'b' || a.k === 'r');
+    return node.acts.map((a, i) => (a.k === 'f' ? 'f' : a.k === 'x' || a.k === 'c' ? 'x' : a.k === 'a' ? 'a' : 'b' + Math.min(3, 1 + bets.findIndex(([, j]) => j === i) + (bets.length === 1 ? 1 : 0))));
+  }
+  const grad = (parts) => { let acc = 0; const seg = parts.filter(([, f]) => f > 0.001).map(([c, f]) => `var(--act-${c}) ${(acc * 100).toFixed(1)}% ${((acc += f) * 100).toFixed(1)}%`); return seg.length ? `linear-gradient(90deg, ${seg.join(', ')})` : ''; };
+  const bar = (node, f, cls, small) => `<div class="sbar${small ? ' small' : ''}">${f.map((x, a) => (x > 0.001 ? `<i style="width:${(x * 100).toFixed(2)}%;background:var(--act-${cls[a]})" title="${esc(lab(node, a))} ${pct(x, 0)}"></i>` : '')).join('')}</div>`;
+  let curR = null; const lab = (node, a) => curR.g.label(node, a);
+  const evTxt = (v) => (isFinite(v) ? fr(v, 2) + ' bb' : '–');
+  const isAct = (node) => node.t === 0, isChance = (node) => node.t === 1;
+  const handOf = (R, p, i) => (R.kind === 'plo' ? R.g.holeOf(p, i).sort((a, b) => b - a) : R.g.hands[p][i].slice(0, 2));
+  const handHTML = (cs) => cs.map((c) => cardHTML(c, true)).join('');
+
+  // Catégories de main (PLO : main faite + tirages ; Hold'em : classement du module Board).
+  const catCache = new Map();
+  function catOf(R, p, i, board) {
+    const k = R.kind + p + ':' + i + ':' + board.join('.'); if (catCache.has(k)) return catCache.get(k);
+    let out;
+    if (R.kind === 'plo') {
+      const h = R.g.holeOf(p, i), m = PS.madeCat(h, board), d = PS.draws(h, board);
+      const dr = m >= 2 ? (d.nutFlush ? ' + tirage couleur max' : d.flush ? ' + tirage couleur' : d.wrap ? ' + tirage quinte (wrap)' : '') : '';
+      out = { name: PS.CATS[m] + dr, order: m * 4 + (d.nutFlush ? 0 : d.flush ? 1 : d.wrap ? 2 : 3) };
+    } else {
+      const [a, b] = R.g.hands[p][i], c = B.classify([a, b], board);
+      out = { name: B.MADE[c.made] + (c.draws.length && c.made >= 7 ? ' + tirage' : ''), order: c.made * 2 + (c.draws.length ? 0 : 1) };
+    }
+    if (catCache.size > 20000) catCache.clear(); catCache.set(k, out); return out;
+  }
+
+  // ---------------- Explorateur ----------------
+  function crumbs(R) {
+    const g = R.g; let node = g.root;
+    const out = [`<button class="chip" data-act="mxpath" data-k="0">${g.board.map((c) => cardHTML(c, true)).join('')}</button>`];
+    R.path.forEach((x, i) => {
+      let txt;
+      if (isAct(node)) { txt = `${esc(R.names[node.p])} : ${esc(g.label(node, x))}`; node = node.ch[x]; }
+      else if (isChance(node)) { txt = `${node.board.length === 3 ? 'Turn' : 'River'} ${cardHTML(x, true)}`; node = node.ch[node.cards.indexOf(x)]; }
+      out.push(`<button class="chip" data-act="mxpath" data-k="${i + 1}">${txt}</button>`);
+    });
+    return `<div class="crumbs">${out.join('<span aria-hidden="true">›</span>')}</div>`;
+  }
+  function resultHTML(R) {
+    const g = R.g, r = R.info, node = r.node, np = R.kind === 'plo' ? 2 : 3;
+    const live = node.live || [true, true, true];
+    const st = g.stats(), q = quality(R);
+    const top = `<section class="panel"><div class="row" style="justify-content:space-between"><span class="eyebrow">${r.board.length === 3 ? 'Flop' : r.board.length === 4 ? 'Turn' : 'River'} · pot ${fr(r.pot, 1)} bb · tapis ${fr(g.S - Math.max(...r.C), 1)} bb</span><span class="note mono">${R.kind === 'plo' ? 'exploitabilité' : 'déviation max'} ${q !== null ? fr(q, 2) : '?'} % du pot</span></div>
+      ${crumbs(R)}
+      <div class="felt"><div class="row" style="justify-content:center">${cardsHTML(r.board)}</div>
+      <div class="stats svs">${Array.from({ length: np }, (_, p) => `<div class="stat${isAct(node) && node.p === p ? ' hero' : ''}"${live[p] ? '' : ' style="opacity:.45"'}><span>${esc(R.names[p])}${live[p] ? '' : ' · couché'}</span><b>${live[p] && isFinite(r.eqMean[p]) ? pct(r.eqMean[p], 1) : '–'}</b><span>équité · EV ${isFinite(r.evMean[p]) ? fr(r.evMean[p], 2) + ' bb' : '–'}</span></div>`).join('')}</div></div>
+      ${st.approx ? `<p class="note" style="color:var(--warn)">Approché : ${g.board.length === 3 ? `${R.cfg.sample.turn} turns × ${R.cfg.sample.river} rivers échantillonnés` : `${R.cfg.sample.river} rivers échantillonnées sur 48`}. Les fréquences sont une indication ; pour un spot précis, résous depuis la rue suivante.</p>` : ''}
+      ${R.kind === 'plo' ? `<p class="note">Ranges : ${g.N[0]} et ${g.N[1]} mains tirées au hasard dans la range (rang préflop exact). Chaque main représente environ ${fr(rangeSize(0) / g.N[0], 0)} et ${fr(rangeSize(1) / g.N[1], 0)} mains réelles : une main précise peut manquer, d'où « Ta main », toujours incluse.</p>` : ''}</section>`;
+    let body;
+    if (isAct(node)) body = actHTML(R, r);
+    else if (isChance(node)) {
+      const bySuit = [3, 2, 1, 0].map((s) => node.cards.filter((c) => (c & 3) === s).sort((a, b) => b - a));
+      body = `<section class="panel"><h2>Choisis la ${node.board.length === 3 ? 'turn' : 'river'}</h2>${bySuit.map((l) => (l.length ? `<div class="cards picks">${l.map((c) => `<button class="cardpick" data-act="mxcard" data-c="${c}" aria-label="${E.cardStr(c)}">${cardHTML(c, true)}</button>`).join('')}</div>` : '')).join('')}</section>`;
+    } else {
+      const w = live.map((x, p) => (x ? p : -1)).filter((p) => p >= 0);
+      body = `<section class="panel"><h2>${node.t === 2 && R.kind === 'plo' ? `${esc(R.names[1 - node.winner])} se couche : ${esc(R.names[node.winner])} remporte le pot` : node.show === false ? `${esc(R.names[w[0]])} remporte le pot` : 'Abattage'}</h2><p>Fin de la branche, pot final ${fr(r.pot, 1)} bb. Reviens en arrière avec le fil d'Ariane.</p></section>`;
+    }
+    return top + body;
+  }
+  const rangeSize = (p) => 270725 * Math.max(0.001, pl.hi[p] - pl.lo[p]);
+  function actHTML(R, r) {
+    curR = R;
+    const g = R.g, node = r.node, p = node.p, n = g.N[p], A = node.acts.length, cls = actClasses(node), reach = r.reach[p], tot = reach.reduce((a, b) => a + b, 0);
+    const btns = node.acts.map((_, a) => `<button class="btn actb" data-act="mxact" data-a="${a}"><i class="sw" style="background:var(--act-${cls[a]})"></i>${esc(g.label(node, a))} <span class="mono">${pct(r.freq[a], 1)}</span></button>`).join('');
+    // Catégories.
+    const cats = new Map();
+    for (let i = 0; i < n; i++) {
+      const w = reach[i]; if (w <= 1e-9) continue;
+      const c = catOf(R, p, i, node.board); let x = cats.get(c.name); if (!x) cats.set(c.name, x = { m: 0, f: new Array(A).fill(0), eq: 0, em: 0, order: c.order });
+      x.m += w; for (let a = 0; a < A; a++) x.f[a] += w * r.strategy[a * n + i]; if (isFinite(r.eq[p][i])) { x.eq += w * r.eq[p][i]; x.em += w; }
+    }
+    const catRows = [...cats].sort((a, b) => a[1].order - b[1].order).map(([name, x]) => `<tr${R.kind === 'plo' ? ` style="cursor:pointer" data-act="mxfilter" data-v="${esc(name)}" aria-pressed="${R.filter === name}"` : ''}><td>${esc(name)}${R.filter === name ? ' ✓' : ''}</td><td class="n mono">${pct(x.m / tot, 1)}</td><td class="n mono">${x.em ? pct(x.eq / x.em, 0) : '–'}</td><td style="min-width:140px">${bar(node, x.f.map((f) => f / x.m), cls, true)}</td></tr>`).join('');
+    let detail = '';
+    if (R.kind === 'three') {
+      // Grille 13 × 13 de la stratégie du joueur qui parle.
+      const agg = new Map();
+      for (let i = 0; i < n; i++) { const [a, b] = g.hands[p][i], h = E.abstractOf(a, b); let x = agg.get(h); if (!x) agg.set(h, x = { m: 0, f: new Array(A).fill(0) }); const w = reach[i]; if (w <= 0) continue; x.m += w; for (let k = 0; k < A; k++) x.f[k] += w * r.strategy[k * n + i]; }
+      const cell = (h) => { const x = agg.get(h); if (!x || x.m <= 1e-9) return `<button class="rc sv off" disabled>${h}</button>`; const op = Math.max(0.35, Math.min(1, x.m / E.combos(h).length)); return `<button class="rc sv${R.cell === h ? ' sel' : ''}" data-act="mxcell" data-h="${h}" style="background:${grad(node.acts.map((_, k) => [cls[k], x.f[k] / x.m]))};opacity:${op.toFixed(2)}" title="${h}">${h}</button>`; };
+      detail = `<div class="svgrid">${grid169(cell)}</div><p class="note">Couleur = mélange d'actions de la classe ; case pâle = peu de combos arrivent ici. Clique une case pour le détail.</p>${R.cell ? comboTable(R, r, (i) => E.abstractOf(...g.hands[p][i].slice(0, 2)) === R.cell) : ''}`;
+    } else {
+      const idx = []; for (let i = 0; i < n; i++) if (reach[i] > 1e-6 && (!R.filter || catOf(R, p, i, node.board).name === R.filter)) idx.push(i);
+      idx.sort((a, b) => (r.ev[p][b] || -1e9) - (r.ev[p][a] || -1e9));
+      const shown = R.more ? idx : idx.slice(0, 30);
+      detail = `<h3 style="margin:8px 0 0">Mains de la range${R.filter ? ` · ${esc(R.filter)}` : ''} (${idx.length}), par EV décroissante</h3>${comboTable(R, r, null, shown)}
+        ${idx.length > 30 ? `<button class="btn small" data-act="mxmore">${R.more ? 'Afficher moins' : `Afficher les ${idx.length} mains`}</button>` : ''}${R.filter ? '<button class="btn small" data-act="mxfilter" data-v="">Toutes les catégories</button>' : ''}`;
+    }
+    return `<section class="panel"><h2>${esc(R.names[p])} parle</h2>${bar(node, r.freq, cls)}<div class="row actrow">${btns}</div>
+        <div class="row"><button class="btn" data-act="mxquiz">${R.quiz ? 'Autre main' : 'Entraîne-toi sur ce nœud'}</button><span class="note">Une main tirée dans la range de ${esc(R.names[p])} : choisis l'action, le solveur corrige.</span></div>
+        ${R.quiz ? quizHTML(R, r) : ''}</section>
+      ${heroHTML(R, r)}
+      <section class="panel"><h2>Stratégie par catégorie de main</h2><div class="tw"><table class="t"><thead><tr><th>Catégorie</th><th class="n">Part</th><th class="n">Équité</th><th>Actions</th></tr></thead><tbody>${catRows}</tbody></table></div>
+        <div class="legend">${node.acts.map((_, a) => `<span><i style="background:var(--act-${cls[a]})"></i>${esc(g.label(node, a))}</span>`).join('')}</div>${R.kind === 'plo' ? '<p class="note">Clique une catégorie pour filtrer la liste des mains.</p>' : ''}
+        ${detail}</section>`;
+  }
+  function comboTable(R, r, test, list) {
+    const g = R.g, node = r.node, p = node.p, n = g.N[p], cls = actClasses(node);
+    const ids = list || [...Array(n).keys()].filter((i) => r.reach[p][i] > 1e-9 && test(i));
+    const rows = ids.map((i) => {
+      const best = Math.max(...r.actEv.map((v) => v[i]));
+      return `<tr><td style="white-space:nowrap">${handHTML(handOf(R, p, i))}</td><td class="n mono">${isFinite(r.eq[p][i]) ? pct(r.eq[p][i], 0) : '–'}</td><td class="n mono">${evTxt(r.ev[p][i])}</td>${node.acts.map((_, a) => { const f = r.strategy[a * n + i], v = r.actEv[a][i]; return `<td class="n"><span class="mini-sw" style="background:var(--act-${cls[a]})"></span><span class="mono">${pct(f, 0)}</span><br><span class="note mono${Math.abs(v - best) < 1e-6 ? ' bestev' : ''}">${evTxt(v)}</span></td>`; }).join('')}</tr>`;
+    }).join('');
+    return `<div class="tw"><table class="t combos"><thead><tr><th>Main</th><th class="n">Équité</th><th class="n">EV</th>${node.acts.map((_, a) => `<th class="n">${esc(g.label(node, a))}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
+  }
+  function heroIndex(R, p) {
+    const h = R.cfg.hero; if (!h) return -1; const k = h.slice().sort((a, b) => a - b).join('.');
+    for (let i = 0; i < R.g.N[p]; i++) if (handOf(R, p, i).slice().sort((a, b) => a - b).join('.') === k) return i;
+    return -1;
+  }
+  function heroHTML(R, r) {
+    if (!R.cfg.hero) return '';
+    const node = r.node, out = [];
+    for (let p = 0; p < R.g.N.length; p++) {
+      const i = heroIndex(R, p); if (i < 0) continue;
+      if (r.reach[p][i] <= 1e-9) { out.push(`<p>${handHTML(R.cfg.hero)} chez ${esc(R.names[p])} n'arrive pas à ce nœud : le solveur l'a jouée autrement avant.</p>`); continue; }
+      let line = `<p>${handHTML(R.cfg.hero)} chez ${esc(R.names[p])} : équité ${pct(r.eq[p][i], 1)}, EV ${evTxt(r.ev[p][i])}.</p>`;
+      if (node.p === p) {
+        const n = R.g.N[p], evs = r.actEv.map((v) => v[i]), best = Math.max(...evs), bi = evs.indexOf(best);
+        line += `<div class="advice">${node.acts.map((_, a) => `<div class="${a === bi ? 'good' : best - evs[a] > 0.05 * r.pot ? 'bad' : 'warn'}"><strong>${esc(R.g.label(node, a))}</strong> · fréquence ${pct(r.strategy[a * n + i], 0)} · EV ${evTxt(evs[a])}${a === bi ? ' · meilleure EV' : ` · perte ${fr(best - evs[a], 2)} bb`}</div>`).join('')}</div>`;
+      }
+      out.push(line);
+    }
+    return `<section class="panel"><h2>Ta main</h2>${out.join('') || `<p>${handHTML(R.cfg.hero)} n'est dans aucune range de ce spot (ou une carte du board la bloque).</p>`}</section>`;
+  }
+  // ---------------- Entraîneur ----------------
+  function drawQuiz(R) {
+    const r = R.info, p = r.node.p, reach = r.reach[p], tot = reach.reduce((a, b) => a + b, 0); let x = Math.random() * tot, i = 0;
+    for (; i < reach.length - 1; i++) { x -= reach[i]; if (x <= 0) break; }
+    R.quiz = { i, ans: null };
+  }
+  function quizHTML(R, r) {
+    const z = R.quiz, node = r.node, p = node.p, n = R.g.N[p], i = z.i, cls = actClasses(node);
+    const head = `<div class="row" style="gap:14px;align-items:center"><span class="cards">${handOf(R, p, i).map((c) => cardHTML(c)).join('')}</span><span class="note">${esc(R.names[p])} · board ${handHTML(node.board)} · pot ${fr(r.pot, 1)} bb</span></div>`;
+    if (z.ans === null) return `<div class="advice">${head}<div class="opts">${node.acts.map((_, a) => `<button class="opt" data-act="mxans" data-a="${a}">${esc(R.g.label(node, a))}</button>`).join('')}</div></div>`;
+    const evs = r.actEv.map((v) => v[i]), best = Math.max(...evs), loss = best - evs[z.ans], f = r.strategy[z.ans * n + i], ok = f >= 0.15 || loss <= 0.01 * r.pot;
+    return `<div class="advice">${head}<div class="${ok ? 'good' : 'bad'}"><strong>${ok ? 'Correct' : 'À revoir'}.</strong> Tu as choisi ${esc(R.g.label(node, z.ans).toLowerCase())} : le solveur la joue ${pct(f, 0)} du temps${loss > 1e-6 ? `, perte ${fr(loss, 2)} bb (${pct(loss / r.pot, 1)} du pot)` : ', meilleure EV'}.</div>
+      ${bar(node, node.acts.map((_, a) => r.strategy[a * n + i]), cls)}<div class="note">${node.acts.map((_, a) => `${esc(R.g.label(node, a))} ${pct(r.strategy[a * n + i], 0)} · EV ${evTxt(evs[a])}`).join(' · ')}</div>
+      <div class="note">Score ${R.kind === 'plo' ? 'PLO' : 'à trois'} : ${prog()[R.kind].ok} / ${prog()[R.kind].n}.</div></div>`;
+  }
+
+  // ---------------- Vues ----------------
+  const errHTML = (R) => (R && R.err ? `<p class="pill bad" style="white-space:normal">${esc(R.err)}</p>` : '');
+  function wrap(kind, setup) {
+    const R = run[kind];
+    const progress = R && R.g ? `<section class="panel" id="mxprog">${progressHTML(R)}</section>` : '';
+    const btn = R && R.running ? `<button class="btn" data-act="mxstop" data-k="${kind}">Arrêter et voir le résultat</button>` : `<button class="btn primary" data-act="mxgo" data-k="${kind}">Résoudre</button>`;
+    const box = `<section class="panel">${setup}${errHTML(R)}<div class="row">${btn}</div></section>`;
+    if (R && R.g && !R.running && R.info) return resultHTML(R) + progress + `<details class="panel"${R.open ? ' open' : ''}><summary data-act="mxsetup" data-k="${kind}"><strong>Modifier le spot</strong></summary>${box}</details>`;
+    return box + progress;
+  }
+  X.ploHTML = () => {
+    const P = PLO_PRE[pl.pre];
+    const setup = `<p class="lead">Équilibre d'un spot d'Omaha pot-limit à deux joueurs après le flop. Les ranges PLO comptent des dizaines de milliers de mains : le solveur en tire un échantillon par rang préflop exact, puis calcule l'équilibre exact sur cet échantillon (cartes partagées retirées exactement).</p>
+      <div class="row"><span class="note">Spot :</span>${Object.entries(PLO_PRE).map(([k, v]) => `<button class="chip" aria-pressed="${pl.pre === k}" data-act="plpre" data-v="${k}">${esc(v.label)}</button>`).join('')}</div>
+      <p class="note">${esc(P.note)} Pot ${fr(P.pot, 1)} bb, tapis ${fr(P.stack, 1)} bb.</p>
+      <div class="form">
+        <label class="f">Board (flop, turn ou river)<input data-plf="board" value="${esc(pl.board)}" spellcheck="false" autocomplete="off"></label>
+        <label class="f">Ta main (facultatif, 4 cartes)<input data-plf="hero" value="${esc(pl.hero)}" placeholder="AsAhJdTd" spellcheck="false" autocomplete="off"></label>
+        ${[0, 1].map((p) => `<label class="f">Range ${esc(P.names[p])} (${p ? 'IP' : 'OOP'}) : rang préflop de … à … %<span class="row" style="gap:6px"><input data-plf="lo${p}" inputmode="decimal" value="${fr(pl.lo[p] * 100, 0)}" style="width:5em" aria-label="Rang minimum ${esc(P.names[p])}"><input data-plf="hi${p}" inputmode="decimal" value="${fr(pl.hi[p] * 100, 0)}" style="width:5em" aria-label="Rang maximum ${esc(P.names[p])}"></span></label>`).join('')}
+      </div>
+      <div class="row"><button class="btn small" data-act="plrand" data-n="3">Flop au hasard</button><button class="btn small" data-act="plrand" data-n="4">Turn au hasard</button><button class="btn small" data-act="plrand" data-n="5">River au hasard</button></div>
+      <div class="row"><span class="note">Mains par range :</span>${[[120, '120 (rapide)'], [200, '200'], [300, '300 (précis)']].map(([v, l]) => `<button class="chip" aria-pressed="${+pl.n === v}" data-act="pln" data-v="${v}">${l}</button>`).join('')}</div>
+      <div class="row"><span class="note">Tailles :</span><button class="chip" aria-pressed="${pl.sizes === 'simple'}" data-act="plsz" data-v="simple">Simples (⅔ pot, relance du pot)</button><button class="chip" aria-pressed="${pl.sizes === 'riche'}" data-act="plsz" data-v="riche">Riches (½, pot, ⅓)</button></div>
+      <p class="note">${E.parseCards(pl.board).length === 3 ? 'Depuis le flop : 120 à 150 mains par range, 6 turns × 5 rivers échantillonnés, une seule taille au turn et à la river. Compte 30 à 90 s.' : E.parseCards(pl.board).length === 4 ? 'Turn exact (toutes les rivers) : 5 à 30 s selon le nombre de mains.' : 'River : quelques dixièmes de seconde.'}</p>`;
+    return wrap('plo', setup);
+  };
+  X.threeHTML = () => {
+    const P = THREE_PRE[th.pre], nb = E.parseCards(th.board).length;
+    const setup = `<p class="lead">Pot à trois joueurs après le flop (Hold'em). Ordre de parole : ${P.names.map(esc).join(', puis ')}. Simplifications : une taille de mise par rue, les blockers entre les deux adversaires sont ignorés (ceux de ta main sont retirés exactement).</p>
+      <div class="row"><span class="note">Spot :</span>${Object.entries(THREE_PRE).map(([k, v]) => `<button class="chip" aria-pressed="${th.pre === k}" data-act="thpre" data-v="${k}">${esc(v.label)}</button>`).join('')}</div>
+      <p class="note">Pot ${fr(P.pot, 1)} bb, tapis ${fr(P.stack, 1)} bb.</p>
+      <div class="form">
+        <label class="f">Board (flop, turn ou river)<input data-thf="board" value="${esc(th.board)}" spellcheck="false" autocomplete="off"></label>
+        <label class="f">Ta main (facultatif)<input data-thf="hero" value="${esc(th.hero)}" placeholder="AhKd" spellcheck="false" autocomplete="off"></label>
+      </div>
+      ${[0, 1, 2].map((p) => `<label class="f">Range ${esc(P.names[p])}<textarea class="mono" rows="2" data-thr="${p}" spellcheck="false" style="font-size:13px">${esc(th.r[p])}</textarea></label>`).join('')}
+      <div class="row"><button class="btn small" data-act="thrand" data-n="3">Flop au hasard</button><button class="btn small" data-act="thrand" data-n="4">Turn au hasard</button><button class="btn small" data-act="thrand" data-n="5">River au hasard</button></div>
+      <div class="row"><span class="note">Mises :</span><button class="chip" aria-pressed="${th.sizes === 'simple'}" data-act="thsz" data-v="simple">⅓ pot au flop, ⅔ ensuite</button><button class="chip" aria-pressed="${th.sizes === 'raise'}" data-act="thsz" data-v="raise">+ relance à tapis</button></div>
+      ${nb === 4 ? `<div class="row"><span class="note">Rivers :</span><button class="chip" aria-pressed="${th.river === 'fast'}" data-act="thriv" data-v="fast">12 échantillonnées (≈ 5 s)</button><button class="chip" aria-pressed="${th.river === 'exact'}" data-act="thriv" data-v="exact">Toutes (≈ 1 à 2 min)</button></div>` : ''}
+      <p class="note">${nb === 3 ? 'Depuis le flop : 6 turns × 5 rivers échantillonnés, environ une minute.' : nb === 5 ? 'River : moins d\'une seconde.' : ''} Qualité : à trois, on mesure ce qu'un joueur gagnerait en changeant seul de stratégie (sous 1 % du pot : solide pour l'étude).</p>`;
+    return wrap('three', setup);
+  };
+
+  // ---------------- Actions ----------------
+  const RR = (t) => run[t.dataset.k];
+  ACT.mxgo = (t) => start(t.dataset.k);
+  ACT.mxsetup = (t, e) => { e.preventDefault(); const R = RR(t); if (R) { R.open = !R.open; render(); } };
+  ACT.mxstop = (t) => { const R = RR(t); if (R && R.running) finish(R); };
+  const cur = () => { const s = X.svSub?.(); return run[s === 'three' ? 'three' : 'plo']; };
+  ACT.mxpath = (t) => { const R = cur(); if (!R) return; R.path = R.path.slice(0, +t.dataset.k); R.cell = null; R.filter = null; refresh(R); render(); };
+  ACT.mxact = (t) => { const R = cur(); R.path.push(+t.dataset.a); R.cell = null; R.filter = null; refresh(R); render(); };
+  ACT.mxcard = (t) => { const R = cur(); R.path.push(+t.dataset.c); refresh(R); render(); };
+  ACT.mxcell = (t) => { const R = cur(); R.cell = R.cell === t.dataset.h ? null : t.dataset.h; render(); };
+  ACT.mxfilter = (t) => { const R = cur(); R.filter = t.dataset.v && R.filter !== t.dataset.v ? t.dataset.v : null; R.more = false; render(); };
+  ACT.mxmore = () => { const R = cur(); R.more = !R.more; render(); };
+  ACT.mxquiz = () => { const R = cur(); drawQuiz(R); render(); };
+  ACT.mxans = (t) => {
+    const R = cur(), r = R.info, node = r.node, n = R.g.N[node.p], i = R.quiz.i, a = +t.dataset.a;
+    R.quiz.ans = a; const evs = r.actEv.map((v) => v[i]), loss = Math.max(...evs) - evs[a], ok = r.strategy[a * n + i] >= 0.15 || loss <= 0.01 * r.pot;
+    const P = prog()[R.kind]; P.n++; if (ok) P.ok++; X.Store.save('progress'); render();
+  };
+  const randBoard = (n) => { const d = E.shuffle ? E.shuffle([...Array(52).keys()]) : [...Array(52).keys()].sort(() => Math.random() - 0.5); return d.slice(0, n).map((c) => E.cardStr(c)).join(''); };
+  ACT.plpre = (t) => { pl.pre = t.dataset.v; pl.lo = PLO_PRE[pl.pre].lo.slice(); pl.hi = PLO_PRE[pl.pre].hi.slice(); render(); };
+  ACT.pln = (t) => { pl.n = +t.dataset.v; render(); };
+  ACT.plsz = (t) => { pl.sizes = t.dataset.v; render(); };
+  ACT.plrand = (t) => { pl.board = randBoard(+t.dataset.n); render(); };
+  ACT.thpre = (t) => { th.pre = t.dataset.v; th.r = THREE_PRE[th.pre].r.slice(); render(); };
+  ACT.thsz = (t) => { th.sizes = t.dataset.v; render(); };
+  ACT.thriv = (t) => { th.river = t.dataset.v; render(); };
+  ACT.thrand = (t) => { th.board = randBoard(+t.dataset.n); render(); };
+  ONCHANGE.push((t) => {
+    if (t.dataset.plf) { const k = t.dataset.plf, v = t.value.trim(); if (/^(lo|hi)\d$/.test(k)) { const x = Math.max(0, Math.min(100, +v.replace(',', '.') || 0)) / 100; pl[k.slice(0, 2)][+k[2]] = x; } else pl[k] = v; render(); return true; }
+    if (t.dataset.thf) { th[t.dataset.thf] = t.value.trim(); render(); return true; }
+    if (t.dataset.thr) { th.r[+t.dataset.thr] = t.value; return true; }
+  });
+  X.MULTI = { pl, th, run, PLO_PRE, THREE_PRE, start };
 })();
 </script>
 <script>// Outils ajoutés : Calculs (MDF, géométrique, SPR, cotes implicites, rake), Bloqueurs (effet de tes cartes sur une range),
