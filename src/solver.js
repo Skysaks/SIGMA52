@@ -137,6 +137,6 @@
     return stacks.map((s, i) => ({ stack: s, share: s / total, icm: icmV[i], chip: chip[i], diff: chip[i] - icmV[i] }));
   }
 
-  const api = { deal, init, eq, idx, eqVsRange, rangeVsRange, setToFreq, icm, solveOutcomes, chipOutcomes, solveChip, icmOutcomes, get W() { init(); return W; } };
+  const api = { deal, init, eq, idx, eqVsRange, rangeVsRange, setToFreq, icm, solveOutcomes, chipOutcomes, solveChip, icmOutcomes, get W() { init(); return W; }, get EQ() { init(); return EQ; }, get CNT() { init(); return CNT; } };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Solver = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -149,10 +149,10 @@
   };
 
   // ---------------- Vue ----------------
-  const SUBS = [['solve', 'Résoudre un spot'], ['agg', 'Rapport agrégé'], ['train', 'Entraîneur'], ['help', 'Mode d\'emploi']];
+  const SUBS = [['solve', 'Résoudre un spot'], ['preflop', 'Préflop'], ['agg', 'Rapport agrégé'], ['train', 'Entraîneur'], ['help', 'Mode d\'emploi']];
   VIEWS.solveur = () => head('Solveur', 'Calcule l\'équilibre (GTO) d\'un spot à deux joueurs après le flop : quelle action, à quelle fréquence, avec quelle main. Outil d\'étude hors table : l\'utiliser pendant une main en cours est de l\'aide en temps réel, interdite par toutes les rooms.') +
     `<div class="subtabs" role="tablist">${SUBS.map(([k, l]) => `<button class="chip" aria-pressed="${sv.sub === k}" data-act="svsub" data-s="${k}">${l}</button>`).join('')}</div>` +
-    (sv.sub === 'solve' ? solveHTML() : sv.sub === 'agg' ? aggHTML() : sv.sub === 'train' ? X.trainerHTML() : helpHTML());
+    (sv.sub === 'solve' ? solveHTML() : sv.sub === 'preflop' ? preflopHTML() : sv.sub === 'agg' ? aggHTML() : sv.sub === 'train' ? X.trainerHTML() : helpHTML());
   ACT.svsub = (t) => { sv.sub = t.dataset.s; render(); };
 
   function rangeStat(txt) {
@@ -560,6 +560,43 @@
 
   // ---------------- Rapport agrégé (précalculé par tools/build_aggregate.js) ----------------
   const ag = { group: 'high', sort: 'w', sc: 'srp-BTN-BB' };
+  // ---------------- Préflop : ranges calculées par le solveur préflop simplifié (tools/build_preflop.js) ----------------
+  const pf = { fmt: 'cash', id: 'cash100', key: 'rfi:CO', cell: null };
+  const PFCAT = [['rfi', 'Ouverture'], ['vo', 'Face à une ouverture'], ['vsh', 'Face à un tapis d\'ouverture'], ['v3', 'Face à un 3-bet'], ['v3a', 'Face à un 3-bet tapis'], ['v4', 'Face à un 4-bet'], ['v4a', 'Face à un 4-bet tapis'], ['v5', 'Face à un 5-bet tapis'], ['sq', 'Squeeze'], ['sqv', 'Ouvreur face au squeeze'], ['sqc', 'Caller face au squeeze'], ['sqo', 'Squeezer face au tapis de l\'ouvreur'], ['sqa', 'Squeezer face au tapis du caller']];
+  const PFK = { f: 'f', c: 'x', r: 'b2', a: 'a' };
+  function pfDecode(D, node) { return node.f.map((str) => Float64Array.from(str, (ch) => D.alph.indexOf(ch) / 63)); }
+  function preflopHTML() {
+    const D = window.PreflopData; if (!D) return '<section class="panel"><p>Données préflop absentes.</p></section>';
+    const cfgs = D.configs.filter((c) => c.fmt === pf.fmt), cfg = cfgs.find((c) => c.id === pf.id) || cfgs[0]; pf.id = cfg.id;
+    const node = cfg.nodes.find((n) => n.key === pf.key) || cfg.nodes.find((n) => n.key.startsWith('rfi:')); pf.key = node.key;
+    const F = pfDecode(D, node), W = E.ALL169.map((h) => E.combos(h).length), tot = node.acts.map((_, a) => F[a].reduce((s, x, i) => s + x * W[i], 0) / 1326);
+    const cls = node.acts.map((a) => PFK[a.k] || 'b2');
+    const cell = (h) => { const i = E.ALL169.indexOf(h), bg = grad(node.acts.map((_, a) => [cls[a], F[a][i]])); return `<button class="rc sv${pf.cell === h ? ' sel' : ''}" data-act="pflcell" data-h="${h}" style="background:${bg}" title="${h} : ${node.acts.map((a, k) => `${a.l} ${Math.round(F[k][i] * 100)} %`).join(', ')}">${h}</button>`; };
+    // Comparaison avec les tableaux de référence (cash 100 bb, ouvertures et réponses à une ouverture).
+    let cmp = '';
+    const [kind, o, q] = node.key.split(':');
+    const play = (i) => 1 - F[0][i];
+    if (cfg.fmt !== 'cash') { /* les tableaux de référence sont des ranges cash */ }
+    else if (kind === 'rfi' && C.RFI[o]) { const ref = E.parseRange(C.RFI[o].range); const more = E.ALL169.filter((h, i) => play(i) >= 0.5 && !ref.has(h)), less = E.ALL169.filter((h, i) => play(i) < 0.5 && ref.has(h)); cmp = [more, less]; }
+    else if (kind === 'vo' && C.FACING[o]?.[q]) { const f = C.FACING[o][q], ref = new Set([...E.parseRange(f.call), ...E.parseRange(f.threebet)]); const more = E.ALL169.filter((h, i) => play(i) >= 0.5 && !ref.has(h)), less = E.ALL169.filter((h, i) => play(i) < 0.5 && ref.has(h)); cmp = [more, less]; }
+    const opts = PFCAT.map(([k, l]) => { const L = cfg.nodes.filter((n) => n.key.split(':')[0] === k); return L.length ? `<optgroup label="${l}">${L.map((n) => `<option value="${n.key}"${n.key === node.key ? ' selected' : ''}>${esc(n.label)}</option>`).join('')}</optgroup>` : ''; }).join('');
+    const sel = pf.cell ? E.ALL169.indexOf(pf.cell) : -1;
+    return `<section class="panel"><span class="eyebrow">Ranges préflop calculées par le solveur</span><h2>${esc(cfg.label)} · ${esc(node.label)}</h2>
+      <div class="row"><span class="note">Format :</span>${[['cash', 'Cash'], ['mtt', 'Tournoi (ante de grosse blinde)']].map(([k, l]) => `<button class="chip" aria-pressed="${pf.fmt === k}" data-act="pffmt" data-v="${k}">${l}</button>`).join('')}</div>
+      <div class="row"><span class="note">Profondeur :</span>${cfgs.map((c) => `<button class="chip" aria-pressed="${c.id === cfg.id}" data-act="pfid" data-v="${c.id}">${c.stack} bb</button>`).join('')}</div>
+      <label class="f">Situation<select data-pfsel="1">${opts}</select></label>
+      <div class="sbar">${node.acts.map((_, a) => tot[a] > 0.001 ? `<i style="width:${(tot[a] * 100).toFixed(2)}%;background:var(--act-${cls[a]})"></i>` : '').join('')}</div>
+      <div class="row">${node.acts.map((a, k) => `<span class="pill"><i class="sw" style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--act-${cls[k]});margin-right:6px"></i>${esc(a.l)} ${pct(tot[k], 1)}</span>`).join('')}</div>
+      <div class="svgrid">${grid169(cell)}</div>
+      ${sel >= 0 ? `<p><strong class="mono">${pf.cell}</strong> : ${node.acts.map((a, k) => `${esc(a.l.toLowerCase())} ${pct(F[k][sel], 0)}`).join(' · ')}</p>` : '<p class="note">Touche une main pour ses fréquences exactes.</p>'}
+      ${cmp ? `<p class="note"><strong>Par rapport au tableau de référence (cash 100 bb) :</strong> joue en plus ${cmp[0].length ? cmp[0].join(' ') : 'rien'} ; laisse de côté ${cmp[1].length ? cmp[1].join(' ') : 'rien'}.</p>` : ''}
+      <p class="note">Modèle simplifié, à lire comme une tendance : six joueurs à tapis égaux, ouverture ${String(cfg.open).replace('.', ',')} bb, 3-bet 3 fois (4 fois depuis les blindes), squeezes, mais pas de limp ni de pot à trois. Après le flop, la valeur d'un pot payé est l'équité réalisée : 100 % en position, 72 % hors de position en pot simple (82 % en 3-bet, 90 % au-delà), modulée par la jouabilité de la main (paires et assorties connectées réalisent mieux). Tapis : équité exacte avec les blocages. Validé à 10 bb sans ante : la petite blinde pousse 58,9 % des mains contre 58,4 % pour l'équilibre tête-à-tête exact.</p></section>`;
+  }
+  ACT.pffmt = (t) => { pf.fmt = t.dataset.v; pf.id = t.dataset.v === 'cash' ? 'cash100' : 'mtt20'; pf.cell = null; render(); };
+  ACT.pfid = (t) => { pf.id = t.dataset.v; render(); };
+  ACT.pflcell = (t) => { pf.cell = pf.cell === t.dataset.h ? null : t.dataset.h; render(); };
+  ONCHANGE.push((t) => { if (t.dataset.pfsel) { pf.key = t.value; pf.cell = null; render(); return true; } });
+
   // ---------------- Rapport agrégé à la demande : échantillon stratifié de flops résolus dans les fils de calcul ----------------
   let FLOPS = null;
   function flopSet() {
