@@ -8,11 +8,13 @@
 
   // ================= Simulateur =================
   let sub = 'table';
-  const SUBS = [['table', 'Table cash + coach'], ['guided', 'Mains guidées'], ['expresso', 'Expresso']];
+  const SUBS = [['table', 'Table cash + coach'], ['practice', 'Mains notées (EV)'], ['guided', 'Mains guidées'], ['expresso', 'Expresso']];
   VIEWS.sim = () => head('Simulateur', 'S\'entraîner en conditions de jeu, avec un coach qui explique chaque décision. C\'est un simulateur : l\'aide y est permise. En room, rien de tout ça n\'est autorisé.') +
     `<div class="subtabs" role="tablist">${SUBS.map(([k, l]) => `<button class="chip" aria-pressed="${sub === k}" data-act="simsub" data-s="${k}">${l}</button>`).join('')}</div>` + SIMVIEWS[sub]();
   ACT.simsub = (t) => { sub = t.dataset.s; render(); };
   const SIMVIEWS = {};
+  SIMVIEWS.practice = () => (X.practiceHTML ? X.practiceHTML() : '');
+  X.getSimSub = () => sub; X.setSimSub = (v) => { sub = v; };
 
   // ---- Rendu commun d'une table (cash 6 joueurs ou Expresso 3 joueurs) ----
   function tableHTML(t, o = {}) {
@@ -295,12 +297,12 @@
 
   // ================= Analyse : replayer et bibliothèque =================
   let anSub = 'import', rp = null; // rp = { raw, h, steps, k }
-  X.getReplay = () => rp;
+  X.getReplay = () => rp; X.setAnSub = (v) => { anSub = v; }; X.openReplay = (raw) => openReplay(raw);
   const baseAnalyse = VIEWS.analyse;
   VIEWS.analyse = () => {
-    const tabs = `<div class="subtabs" role="tablist">${[['import', 'Import et statistiques'], ['replay', 'Replayer'], ['library', `Bibliothèque (${state.library.hands.length})`]].map(([k, l]) => `<button class="chip" aria-pressed="${anSub === k}" data-act="ansub" data-s="${k}">${l}</button>`).join('')}</div>`;
+    const tabs = `<div class="subtabs" role="tablist">${[['import', 'Import et statistiques'], ['review', 'Revue EV'], ['replay', 'Replayer'], ['library', `Bibliothèque (${state.library.hands.length})`]].map(([k, l]) => `<button class="chip" aria-pressed="${anSub === k}" data-act="ansub" data-s="${k}">${l}</button>`).join('')}</div>`;
     if (anSub === 'import') return baseAnalyse().replace('</section>', '</section>' + tabs);
-    return head('Analyse de tes mains', 'Après la session : rejoue tes mains rue par rue, garde les plus instructives dans ta bibliothèque.') + tabs + (anSub === 'replay' ? replayHTML() : libraryHTML());
+    return head('Analyse de tes mains', 'Après la session : rejoue tes mains rue par rue, garde les plus instructives dans ta bibliothèque.') + tabs + (anSub === 'replay' ? replayHTML() : anSub === 'review' ? (X.reviewHTML ? X.reviewHTML() : '') : libraryHTML());
   };
   ACT.ansub = (t) => { anSub = t.dataset.s; render(); };
   function openReplay(raw) {

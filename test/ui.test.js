@@ -275,6 +275,21 @@ const SHOTS = process.env.SHOTS || '';
     if (await has('[data-act=rangeadv]')) { await p.click('[data-act=rangeadv]'); if ((await p.locator('.rc.sv').count()) !== 169) errs.push(name + ' conseiller par main'); await over('conseiller'); await shot('conseiller'); } else errs.push(name + ' conseiller absent');
     await tab('analyse'); await p.click('[data-act=ansub][data-s=import]').catch(() => {}); await p.click('[data-act=ansample]'); await p.waitForTimeout(800);
     if (!(await has('text=Indice de chance')) || !(await has('#evc'))) errs.push(name + ' indice de chance'); await over('chance'); await shot('chance');
+    // v16 : mains notées (quiz instantanés + main complète), revue EV, tapis ou couché
+    await tab('sim'); await p.click('[data-act=simsub][data-s=practice]');
+    await p.click('[data-act=qzstart]'); for (let q = 0; q < 3; q++) { await p.click('[data-act=qzans] >> nth=0'); if (!(await has('text=Écart'))) errs.push(name + ' quiz : correction absente'); await p.click('[data-act=qznext]'); }
+    await over('quiz'); await shot('quiz'); await p.click('[data-act=qzend]');
+    await p.click('[data-act=prstart]'); await p.waitForSelector('[data-act=prchoose]', { timeout: 120000 }).catch(() => errs.push(name + ' main notée : pas de décision'));
+    if (await has('[data-act=prchoose]')) { await p.locator('[data-act=prchoose]').first().click(); await p.waitForSelector('text=Ta dernière décision', { timeout: 60000 }).catch(() => errs.push(name + ' main notée : pas de correction')); await over('practice'); await shot('practice'); }
+    await p.click('[data-act=prend]');
+    await tab('analyse'); await p.click('[data-act=ansub][data-s=import]').catch(() => {}); await p.click('[data-act=ansample]'); await p.waitForTimeout(600);
+    await p.click('[data-act=ansub][data-s=review]'); await p.click('[data-act=rvn][data-v="5"]'); await p.click('[data-act=rvstart]');
+    await p.waitForSelector('text=/[1-5]\\/5 mains/', { timeout: 120000 }).catch(() => errs.push(name + ' revue EV : aucune main calculée'));
+    if (await has('[data-act=rvstop]')) await p.click('[data-act=rvstop]');
+    await p.evaluate(() => { const T = window.TableSim, L = [[10, 20], [15, 30], [20, 40], [30, 60], [40, 80], [50, 100], [60, 120], [80, 160], [100, 200]], parts = [];
+      for (let g = 0; g < 8; g++) { const tb = new T.Table({ lineup: ['reg', 'station'], stack: 500, rebuy: false, levels: L, handsPerLevel: 6 }); for (let h = 0; h < 80 && !tb.over; h++) { tb.newHand(); let k = 0; while (!tb.done && k++ < 300) { tb.runBots(); if (!tb.done) tb.autoHero('reg'); } } parts.push(tb.exportHH()); }
+      window.__S52.runAnalysis(parts.join('\n\n\n'), 'table'); window.__S52.setAnSub('review'); window.__S52.go('analyse'); });
+    if (!(await has('text=Tapis ou couché · tournois'))) errs.push(name + ' tapis ou couché'); await over('revue'); await shot('revue');
     await tab('jour'); await over('jour-fin'); await shot('jour-fin');
     await p.close();
   }

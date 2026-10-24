@@ -50,7 +50,7 @@ t('Expresso : un héros guidé par le conseil tapis/couché finit plus souvent 1
         tb.newHand(); let k = 0;
         while (!tb.done && k++ < 300) {
           tb.runBots(); if (tb.done) break;
-          if (useCoach) { const a = Co.pushFoldAdvice(tb) || Co.advise(tb, { iterations: 300 }); tb.act(a.rec === 'fold' && tb.legal().canCheck ? 'check' : a.rec, a.to); }
+          if (useCoach) { const a = Co.pushFoldAdvice(tb) || Co.advise(tb, { iterations: 300, random: R }); tb.act(a.rec === 'fold' && tb.legal().canCheck ? 'check' : a.rec, a.to); }
           else tb.autoHero('reg');
         }
       }

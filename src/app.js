@@ -410,7 +410,7 @@
       if (!r.hero) throw new Error('Mains reconnues, mais aucune ligne « Dealt to … » : impossible de savoir qui tu es.');
       const me = r.me;
       r.ev100 = me.hands ? (me.netBB - me.allins.reduce((a, x) => a + x.luck / x.bb, 0)) / me.hands * 100 : 0;
-      r.kind = kind; anRes = r; anErr = ''; anOpen = null;
+      r.kind = kind; anRes = r; anErr = ''; anOpen = null; window.__S52.lastAnText = text; window.__S52.lastAnKind = kind;
       if (kind === 'real') {
         state.notes.lastImport = { hands: r.hands, bb100: me.hands ? me.netBB / me.hands * 100 : 0, ev100: r.ev100, from: r.from, to: r.to, leaks: r.leaks.limps.length + r.leaks.tooLoose.length + r.leaks.tooTight.length, at: today() };
         for (const o of r.opponents) {

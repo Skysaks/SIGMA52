@@ -121,7 +121,8 @@
       // Tête-à-tête : le bouton est la petite blinde.
       const [sbi, bbi] = order.length === 2 ? [this.button, order[0]] : [order[0], order[1]];
       this.sbi = sbi; this.bbi = bbi;
-      this.lines = [`Winamax Poker - CashGame - HandId: #${900000 + this.handNo}-1-${Date.now()} - Holdem no limit (0.05€/0.10€) - ${new Date().toISOString().slice(0, 19).replace('T', ' ').replace(/-/g, '/')} UTC`,
+      const hd = this.levels ? `Winamax Poker - Tournament "SIGMA Expresso" buyIn: 0€ level: ${Math.floor((this.handNo - 1) / this.handsPerLevel) + 1} - HandId: #${900000 + this.handNo}-1-${Date.now()} - Holdem no limit (${+this.sb.toFixed(2)}/${+this.bb.toFixed(2)})` : `Winamax Poker - CashGame - HandId: #${900000 + this.handNo}-1-${Date.now()} - Holdem no limit (0.05€/0.10€)`;
+      this.lines = [`${hd} - ${new Date().toISOString().slice(0, 19).replace('T', ' ').replace(/-/g, '/')} UTC`,
         `Table: 'SIGMA Entraînement' ${this.n}-max (real money) Seat #${this.button + 1} is the button`,
         ...this.players.map((p, i) => (p.out ? null : `Seat ${i + 1}: ${p.name} (${p.stack.toFixed(2)}€)`)).filter(Boolean), '*** ANTE/BLINDS ***'];
       this.post(sbi, this.sb, 'small blind'); this.post(bbi, this.bb, 'big blind');

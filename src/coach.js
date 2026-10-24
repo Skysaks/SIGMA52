@@ -138,9 +138,9 @@
         if (K(agg) === 'nit') why.push('Un nit ne sur-relance qu\'avec le haut de sa range : resserre-toi.');
       }
       // Équité préflop contre les ranges estimées (indicative).
-      if (ranges.length && !opts.fast) eq = E.equity([{ hand: hc }, ...ranges.map((r) => ({ combos: r.combos }))], [], { iterations: opts.iterations || 2500 }).equity[0];
+      if (ranges.length && !opts.fast) eq = E.equity([{ hand: hc }, ...ranges.map((r) => ({ combos: r.combos }))], [], { iterations: opts.iterations || 2500, random: opts.random }).equity[0];
     } else {
-      eq = E.equity([{ hand: hc }, ...ranges.map((r) => ({ combos: r.combos }))], t.board, { iterations: opts.iterations || 3000 }).equity[0];
+      eq = E.equity([{ hand: hc }, ...ranges.map((r) => ({ combos: r.combos }))], t.board, { iterations: opts.iterations || 3000, random: opts.random }).equity[0];
       const k = B.classify(hc, t.board), multi = ranges.length > 1, river = t.street === 'river';
       const drawNote = k.draws.length ? ` Tirage : ${k.draws.map((d) => B.DRAWS[d].toLowerCase()).join(', ')}.` : '';
       why.push(`Ta main : ${B.MADE[k.made].toLowerCase()}.${drawNote} Équité contre ${multi ? 'les ranges estimées' : 'la range estimée'} : ${fmtP(eq)}.`);

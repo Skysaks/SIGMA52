@@ -521,6 +521,8 @@
   ACT.agsc = (t) => { ag.sc = t.dataset.v; render(); };
   ACT.agsort = (t) => { ag.sort = t.dataset.v; render(); };
   ACT.agload = (t) => { sv.sub = 'solve'; sv.board = t.dataset.b; sv.preset = 'std'; sv.include = null; sv.extraSizes = null; applyScenario(ag.sc || 'srp-BTN-BB'); sv.game = null; sv.info = null; sv.path = []; sv.err = ''; sv.note = 'Flop du rapport agrégé : lance la résolution pour le détail main par main.'; render(); };
+  // Partagé avec les mains notées et la revue EV.
+  X.SOLVER = { SCEN, ORDER, PRESETS, SAMPLES, seatsOf, presetSizes, handToSpot, pathFor, mergeExtraInto: (sizes, ex) => { for (const st of ST) for (let p = 0; p < 2; p++) for (const kind of ['bet', 'raise']) { const cur = String(sizes[st][p][kind] || '').split(/\s+/).filter(Boolean); for (const v of ex[st][p][kind]) if (!cur.some((c) => c !== 'a' && Math.abs(+c - v) < 1.5)) cur.push(String(v)); sizes[st][p][kind] = cur.join(' '); } return sizes; } };
   X.solverState = sv;
   X.solverStart = start;
   // Spot envoyé par un autre onglet (Table live) : ranges, board, pot, tapis, main du héros.
