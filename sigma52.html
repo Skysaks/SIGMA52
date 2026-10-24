@@ -5542,6 +5542,81 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.TableSim = api;
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
+<script>// Tournoi simulé de 100 joueurs (accéléré) : la table du héros est jouée main par main par le moteur de table ;
+// les autres tables sont simulées par un modèle statistique (vols de blindes, tapis entre deux joueurs dont la fréquence
+// augmente quand les tapis raccourcissent). Équilibrage : les places libres de la table du héros sont reprises par le reste du field.
+(function (root) {
+  const LEVELS = [[50, 100], [75, 150], [100, 200], [150, 300], [200, 400], [300, 600], [400, 800], [500, 1000], [700, 1400], [1000, 2000], [1500, 3000], [2000, 4000], [3000, 6000], [4000, 8000], [6000, 12000], [8000, 16000], [10000, 20000], [15000, 30000], [20000, 40000], [30000, 60000], [50000, 100000]];
+  // 15 places payées sur 100 (en % de la dotation).
+  const PAYOUTS = [25, 16, 11.5, 8.5, 6.8, 5.5, 4.2, 4.2, 4.2, 3.2, 3.2, 3.2, 1.5, 1.5, 1.5];
+  const MIXES = { standard: ['reg', 'reg', 'station', 'nit', 'maniaque', 'reg', 'station', 'harrington'], fish: ['station', 'station', 'reg', 'moneymaker', 'maniaque', 'station', 'nit', 'reg'], regs: ['reg', 'reg', 'reg', 'nit', 'reg', 'maniaque', 'chidwick', 'station'] };
+  function createField(o) {
+    const P = { n: 100, stack: 10000, buyin: 10, mix: 'standard', ...o }, r = P.random || Math.random, mix = MIXES[P.mix] || MIXES.standard;
+    const pool = [];
+    for (let i = 1; i < P.n; i++) pool.push({ id: i, name: 'Joueur ' + i, profile: mix[Math.floor(r() * mix.length)], stack: P.stack });
+    return { P, pool, busted: [], prize: P.n * P.buyin, r, hands: 0 };
+  }
+  const prizeOf = (F, place) => (place <= PAYOUTS.length ? (F.prize * PAYOUTS[place - 1]) / 100 : 0);
+  // Une main sur chaque autre table (groupes de 6 joueurs) : vol de blindes, et parfois un tapis entre deux joueurs.
+  function stepField(F, bb, aliveTotal) {
+    const r = F.r, pl = F.pool.filter((p) => p.stack > 0 && !p.seated);
+    for (let k = pl.length - 1; k > 0; k--) { const j = Math.floor(r() * (k + 1)); [pl[k], pl[j]] = [pl[j], pl[k]]; }
+    const out = [];
+    for (let g = 0; g < pl.length; g += 6) {
+      const t = pl.slice(g, g + 6); if (t.length < 2) continue;
+      const [sbp, bbp] = [t[0], t[1]], w = t[Math.floor(r() * t.length)];
+      const a = Math.min(sbp.stack, bb / 2), b = Math.min(bbp.stack, bb); sbp.stack -= a; bbp.stack -= b; w.stack += a + b;
+      const avgBB = t.reduce((s, p) => s + p.stack, 0) / t.length / bb, q = Math.min(0.35, 1.1 / Math.max(3, avgBB));
+      if (r() < q) {
+        const x = t[Math.floor(r() * t.length)]; let y = t[Math.floor(r() * t.length)]; if (y === x) y = t[(t.indexOf(x) + 1) % t.length];
+        if (x.stack > 0 && y.stack > 0) { const amt = Math.min(x.stack, y.stack), [win, lose] = r() < 0.5 ? [x, y] : [y, x]; win.stack += amt; lose.stack -= amt; if (lose.stack <= 1e-9) out.push(lose); }
+      }
+    }
+    // Éliminés de la main : le plus petit tapis de départ sort en premier (place la plus basse).
+    let alive = aliveTotal;
+    for (const p of out) { p.stack = 0; F.busted.push({ id: p.id, name: p.name, place: alive }); alive--; }
+    F.hands++;
+    return out.length;
+  }
+  // Joueurs à faire asseoir à la table du héros : on prend au hasard dans le reste du field.
+  function draw(F) { const pl = F.pool.filter((p) => p.stack > 0 && !p.seated); if (!pl.length) return null; const p = pl[Math.floor(F.r() * pl.length)]; p.seated = true; return p; }
+  const alivePool = (F) => F.pool.filter((p) => p.stack > 0 && !p.seated).length;
+  // Partie complète : table du héros (moteur de table) + reste du field (modèle). opts : mix, hpl (mains par niveau), random.
+  function createGame(TS, o = {}) {
+    const F = createField(o), r = F.r;
+    const tb = new TS.Table({ lineup: ['reg', 'reg', 'reg', 'reg', 'reg'], stack: F.P.stack, rebuy: false, levels: LEVELS, handsPerLevel: o.hpl || 8, random: o.random });
+    const seat = []; // seat[i] = joueur du field assis au siège i (i >= 1)
+    const sit = (i) => { const p = draw(F); if (!p) return false; const t = tb.players[i]; Object.assign(t, { name: p.name, profile: p.profile, stack: p.stack, out: false, cards: [], inHand: false, acts: [] }); seat[i] = p; return true; };
+    for (let i = 1; i < tb.n; i++) sit(i);
+    const aliveTotal = () => alivePool(F) + tb.players.filter((p) => !p.out && p.stack > 0).length;
+    const G = { F, tb, over: false, place: null, prize: 0, hands: 0,
+      prepare() {
+        // Sièges libérés à la table du héros : un joueur du field vient s'asseoir.
+        for (let i = 1; i < tb.n; i++) if (tb.players[i].out) { if (seat[i]) seat[i] = null; sit(i); }
+        tb.over = false;
+      },
+      after() {
+        G.hands++;
+        // Éliminés à la table du héros (le moteur les a marqués « out »).
+        const outNow = []; for (let i = 1; i < tb.n; i++) { const p = seat[i]; if (p && tb.players[i].out && p.stack > 0) { p.stack = 0; outNow.push(p); } else if (p) p.stack = tb.players[i].stack; }
+        let alive = aliveTotal() + outNow.length + (tb.players[0].out ? 1 : 0);
+        for (const p of outNow) { F.busted.push({ id: p.id, name: p.name, place: alive }); alive--; }
+        if (tb.players[0].out) { G.over = true; G.place = alive; G.prize = prizeOf(F, G.place); return; }
+        stepField(F, tb.bb, aliveTotal());
+        if (aliveTotal() <= 1) { G.over = true; G.place = 1; G.prize = prizeOf(F, 1); }
+      },
+      status() {
+        const all = F.pool.filter((p) => p.stack > 0).map((p) => p.stack), heroS = tb.players[0].stack; all.push(heroS);
+        const n = all.length, tot = all.reduce((a, b) => a + b, 0), rank = all.filter((x) => x > heroS).length + 1;
+        return { left: n, avg: tot / n, rank, heroS, paid: PAYOUTS.length, bubble: n > PAYOUTS.length && n <= PAYOUTS.length + 5, itm: n <= PAYOUTS.length, finalTable: n <= 6, level: Math.min(LEVELS.length, Math.floor((tb.handNo - 1) / tb.handsPerLevel) + 1), max: Math.max(...all) };
+      },
+    };
+    return G;
+  }
+  const api = { LEVELS, PAYOUTS, MIXES, createField, stepField, prizeOf, draw, alivePool, createGame };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.MTT = api;
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
 <script>// Coach de la table d'entraînement : avant chaque décision du héros, estime la range de chaque adversaire
 // (profil + actions de la main), calcule l'équité contre ces ranges, compare aux cotes et recommande une action.
 // La table est un simulateur : cette aide n'existe que là, jamais pendant une vraie partie.
@@ -8641,13 +8716,54 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
 
   // ================= Simulateur =================
   let sub = 'table';
-  const SUBS = [['table', 'Table cash + coach'], ['practice', 'Mains notées (EV)'], ['guided', 'Mains guidées'], ['legends', 'Mains de légende'], ['expresso', 'Expresso et Spin']];
+  const SUBS = [['table', 'Table cash + coach'], ['practice', 'Mains notées (EV)'], ['guided', 'Mains guidées'], ['legends', 'Mains de légende'], ['expresso', 'Expresso et Spin'], ['mtt', 'Tournoi 100 joueurs']];
   VIEWS.sim = () => head('Simulateur', 'S\'entraîner en conditions de jeu, avec un coach qui explique chaque décision. C\'est un simulateur : l\'aide y est permise. En room, rien de tout ça n\'est autorisé.') +
     `<div class="subtabs" role="tablist">${SUBS.map(([k, l]) => `<button class="chip" aria-pressed="${sub === k}" data-act="simsub" data-s="${k}">${l}</button>`).join('')}</div>` + SIMVIEWS[sub]();
   ACT.simsub = (t) => { sub = t.dataset.s; render(); };
   const SIMVIEWS = {};
   SIMVIEWS.practice = () => (X.practiceHTML ? X.practiceHTML() : '');
   SIMVIEWS.legends = () => (X.legendsHTML ? X.legendsHTML() : '');
+  // ---- Tournoi de 100 joueurs ----
+  let mt = null; const mprep = { mix: 'standard', mode: 'live' };
+  SIMVIEWS.mtt = () => {
+    const MT = window.MTT, R = state.progress.mtt;
+    const rec = R ? `<div class="stats"><div class="stat hero"><span>Tournois joués</span><b>${R.games}</b><span>${R.itm} dans l'argent · ${R.wins} victoire${R.wins > 1 ? 's' : ''}</span></div><div class="stat"><span>Gains simulés</span><b>${fr(R.prizes, 0)} €</b><span>pour ${fr(R.games * 10, 0)} € de buy-ins · ROI ${R.games ? pct(R.prizes / (R.games * 10) - 1, 0) : '—'}</span></div><div class="stat"><span>Meilleure place</span><b>${R.best ?? '—'}</b><span>sur 100</span></div></div>` : '';
+    if (!mt) return `<section class="panel"><span class="eyebrow">Tournoi simulé · 100 joueurs · buy-in 10 € · 15 places payées</span><h2>Du début à la table finale, en accéléré</h2>
+      <p class="note">Tu joues ta table main par main ; les 16 autres tables avancent en même temps (modèle statistique : vols de blindes et tapis de plus en plus fréquents quand les tapis raccourcissent). Les places libres de ta table sont reprises par des joueurs du field, avec leur tapis. 10 000 jetons, niveau toutes les 8 mains de ta table, ${MT.LEVELS.length} niveaux de 50/100 à 50 000/100 000.</p>
+      <div class="row"><span class="note">Field :</span>${[['standard', 'Standard'], ['fish', 'Beaucoup de joueurs loisir'], ['regs', 'Beaucoup de réguliers']].map(([k, l]) => `<button class="chip" aria-pressed="${mprep.mix === k}" data-act="mtmix" data-v="${k}">${l}</button>`).join('')}</div>
+      <div class="row"><span class="note">Coach :</span>${[['live', 'En direct'], ['exam', 'Examen'], ['free', 'Sans aide']].map(([k, l]) => `<button class="chip" aria-pressed="${mprep.mode === k}" data-act="mtmode" data-v="${k}">${l}</button>`).join('')}</div>
+      <p class="note">Gains : ${MT.PAYOUTS.slice(0, 6).map((x, i) => `${i === 0 ? '1er' : i + 1 + 'e'} ${fr(x * 10, 0)} €`).join(' · ')} · 7e à 9e 42 € · 10e à 12e 32 € · 13e à 15e 15 €.</p>
+      <div class="row"><button class="btn primary" data-act="mtstart">Lancer le tournoi</button><button class="btn small" data-act="openmod" data-id="icm">Module ICM et bulle</button></div></section>${rec}`;
+    const g = mt, t = g.tb, G = g.game, st = G.status(), L = !t.done && t.toAct === 0 && !t.players[0].out ? t.legal() : null, handDec = g.decisions.filter((d) => d.hand === t.handNo);
+    const nextPay = st.left > MT.PAYOUTS.length ? `bulle à ${MT.PAYOUTS.length + 1} joueurs` : st.left > 1 ? `prochain palier : ${fr(MT.prizeOf(G.F, st.left - 1) , 0)} € à la ${st.left - 1}e place` : '';
+    let out = `<div class="stats"><div class="stat hero"><span>Joueurs restants</span><b>${st.left}/100</b><span>${nextPay}</span></div>
+      <div class="stat"><span>Ton tapis</span><b>${Math.round(st.heroS).toLocaleString('fr-FR')}</b><span>${fr(st.heroS / t.bb, 1)} bb · rang ${st.rank}/${st.left}</span></div>
+      <div class="stat"><span>Niveau ${st.level}</span><b>${t.sb.toLocaleString('fr-FR')}/${t.bb.toLocaleString('fr-FR')}</b><span>tapis moyen ${fr(st.avg / t.bb, 1)} bb</span></div></div>
+      ${st.bubble ? `<div class="warnbox"><strong>Bulle :</strong> ${st.left - MT.PAYOUTS.length} joueur${st.left - MT.PAYOUTS.length > 1 ? 's' : ''} avant l'argent. Les tapis moyens appuient sur les petits ; le gros tapis vole ; les petits tapis survivent si possible (ICM).</div>` : ''}
+      ${st.finalTable ? '<div class="warnbox"><strong>Table finale.</strong> Les écarts de gains sont maximaux : relis tes ranges de tapis ou couché et pense ICM.</div>' : ''}
+      <div class="row"><span class="pill acc">Main ${G.hands + (t.done ? 0 : 1)}</span><span class="pill">${{ live: 'Coach en direct', exam: 'Mode examen', free: 'Sans aide' }[g.mode]}</span><button class="btn small" data-act="mtauto" ${G.over ? 'disabled' : ''}>10 mains en automatique (coach)</button><button class="btn small" data-act="mtquit" style="margin-left:auto">Abandonner</button></div>
+      ${tableHTML(t, { chips: true, showProfiles: true })}`;
+    if (L) out += `<section class="panel"><span class="eyebrow">À toi · ${TS.posName(t, 0)} · ${E.abstractOf(t.players[0].cards[0], t.players[0].cards[1])} · ${fr(t.effStack(0) / t.bb, 1)} bb effectifs</span>${actionsHTML(t)}</section>` + (g.mode === 'live' ? coachHTML(adviceFor(g), t) : '');
+    if (t.done) {
+      out += `<section class="panel"><div class="row" style="justify-content:space-between"><h2>${G.over ? (G.place === 1 ? 'Victoire : tu remportes le tournoi' : `Éliminé à la ${G.place}e place`) + (G.prize ? ` · ${fr(G.prize, 0)} €` : ' · hors de l\'argent') : 'Fin de la main'}</h2><div class="row"><button class="btn small" data-act="libtable">Sauvegarder la main</button>${G.over ? '<button class="btn primary" data-act="mtnew">Nouveau tournoi</button>' : '<button class="btn primary" data-act="mtnext">Main suivante <span style="opacity:.7">Entrée</span></button>'}</div></div>${decisionsHTML(handDec, g.mode)}${G.over ? `<h3>Ton tournoi</h3>${catTable(g.decisions)}<p class="note">${G.hands} mains jouées à ta table. Buy-in 10 € : ${G.prize ? 'résultat net ' + (G.prize >= 10 ? '+' : '−') + fr(Math.abs(G.prize - 10), 0) + ' €' : 'perte de 10 €'}. Un tournoi isolé est surtout de la variance : regarde le taux de décisions justes.</p>` : ''}</section>`;
+    }
+    return out + rec;
+  };
+  ACT.mtmix = (t) => { mprep.mix = t.dataset.v; render(); };
+  ACT.mtmode = (t) => { mprep.mode = t.dataset.v; render(); };
+  ACT.mtstart = () => { const game = window.MTT.createGame(TS, { mix: mprep.mix }); mt = { kind: 'mtt', tb: game.tb, game, mode: mprep.mode, decisions: [], adv: null, objectives: new Set() }; nextHand(mt); };
+  ACT.mtnext = () => { if (mt && !mt.game.over) nextHand(mt); };
+  ACT.mtnew = () => { mt = null; render(); };
+  ACT.mtquit = () => { mt = null; render(); };
+  ACT.mtauto = () => {
+    if (!mt) return; const g = mt, t = g.tb; let n = 0, guard = 0;
+    while (n < 10 && !g.game.over && guard++ < 4000) {
+      if (t.done) { nextHand(g); n++; continue; }
+      if (t.toAct === 0 && !t.players[0].out) { const a = adviceFor(g); const L = t.legal(); const type = a.rec === 'fold' && L.canCheck ? 'check' : a.rec === 'check' && !L.canCheck ? 'fold' : a.rec; t.act(type, type === 'raise' ? Math.max(L.minTo, Math.min(L.maxTo, a.to || L.minTo)) : undefined); g.adv = null; t.runBots(); if (t.done) afterHand(g); }
+      else { t.runBots(); if (t.done) afterHand(g); }
+    }
+    render();
+  };
   X.getSimSub = () => sub; X.setSimSub = (v) => { sub = v; };
 
   // ---- Rendu commun d'une table (cash 6 joueurs ou Expresso 3 joueurs) ----
@@ -8729,10 +8845,11 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
   function adviceFor(g) {
     const t = g.tb, key = t.handNo + ':' + t.seq.length + ':' + t.street;
     if (g.adv && g.adv.key === key) return g.adv.a;
-    const a = (g.kind === 'xp' ? Co.pushFoldAdvice(t) : null) || Co.advise(t);
+    const a = (g.kind === 'xp' || g.kind === 'mtt' ? Co.pushFoldAdvice(t) : null) || Co.advise(t);
     g.adv = { key, a }; return a;
   }
   function afterHand(g) {
+    if (g.kind === 'mtt' && !g.counted) { g.game.after(); if (g.game.over) { g.counted = true; const M = state.progress.mtt || (state.progress.mtt = { games: 0, itm: 0, wins: 0, prizes: 0, best: null }); M.games++; if (g.game.prize > 0) M.itm++; if (g.game.place === 1) M.wins++; M.prizes += g.game.prize; M.best = M.best ? Math.min(M.best, g.game.place) : g.game.place; X.award?.('champ', null, true); } }
     if (g.kind === 'cash') { state.progress.tableHands = (state.progress.tableHands || 0) + 1; X.award?.('hand', null, true); }
     if (g.kind === 'xp' && g.tb.over && !g.counted && g.fmt && g.fmt !== 'expresso') {
       g.counted = true; const F = state.progress.formats || (state.progress.formats = {}), e = F[g.fmt] || (F[g.fmt] = { games: 0, places: [] });
@@ -8744,20 +8861,20 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
     }
     save('progress');
   }
-  const cur = () => (sub === 'expresso' ? xp : cash);
+  const cur = () => (sub === 'expresso' ? xp : sub === 'mtt' ? mt : cash);
   ACT.hfold = () => decide(cur(), 'fold');
   ACT.hcall = () => { const t = cur().tb, L = t.legal(); decide(cur(), L.canCheck ? 'check' : 'call'); };
   ACT.hraise = (el) => decide(cur(), 'raise', +el.dataset.to);
   ACT.hraisefree = () => decide(cur(), 'raise', +($('#rto')?.value || 0));
   ONINPUT.push((t) => { if (t.id === 'rto') { raiseTo = +t.value; const g = cur(); $('#rtv').textContent = fbb(raiseTo, g.tb) + ' bb'; return true; } });
   ONKEY.push((e, tab) => {
-    if (tab !== 'sim' || !['table', 'expresso'].includes(sub)) return;
+    if (tab !== 'sim' || !['table', 'expresso', 'mtt'].includes(sub)) return;
     const g = cur(); if (!g || !g.tb) return;
     const t = g.tb;
     if (!t.done && t.toAct === 0) { const L = t.legal(); if (e.key === 'f' && !L.canCheck) { decide(g, 'fold'); return true; } if (e.key === 'c') { decide(g, L.canCheck ? 'check' : 'call'); return true; } }
-    else if (t.done && e.key === 'Enter' && !(g.kind === 'xp' && t.over) && !sessionDone()) { nextHand(g); return true; }
+    else if (t.done && e.key === 'Enter' && !(g.kind === 'xp' && t.over) && !(g.kind === 'mtt' && g.game.over) && !sessionDone()) { nextHand(g); return true; }
   });
-  function nextHand(g) { g.tb.newHand(); g.tb.runBots(); g.adv = null; if (g.tb.done) afterHand(g); render(); }
+  function nextHand(g) { if (g.kind === 'mtt') { if (g.game.over) return render(); g.game.prepare(); } g.tb.newHand(); g.tb.runBots(); g.adv = null; if (g.tb.done) afterHand(g); render(); }
 
   function decisionsHTML(list, mode) {
     if (!list.length) return '';

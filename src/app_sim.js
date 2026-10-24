@@ -8,13 +8,54 @@
 
   // ================= Simulateur =================
   let sub = 'table';
-  const SUBS = [['table', 'Table cash + coach'], ['practice', 'Mains notées (EV)'], ['guided', 'Mains guidées'], ['legends', 'Mains de légende'], ['expresso', 'Expresso et Spin']];
+  const SUBS = [['table', 'Table cash + coach'], ['practice', 'Mains notées (EV)'], ['guided', 'Mains guidées'], ['legends', 'Mains de légende'], ['expresso', 'Expresso et Spin'], ['mtt', 'Tournoi 100 joueurs']];
   VIEWS.sim = () => head('Simulateur', 'S\'entraîner en conditions de jeu, avec un coach qui explique chaque décision. C\'est un simulateur : l\'aide y est permise. En room, rien de tout ça n\'est autorisé.') +
     `<div class="subtabs" role="tablist">${SUBS.map(([k, l]) => `<button class="chip" aria-pressed="${sub === k}" data-act="simsub" data-s="${k}">${l}</button>`).join('')}</div>` + SIMVIEWS[sub]();
   ACT.simsub = (t) => { sub = t.dataset.s; render(); };
   const SIMVIEWS = {};
   SIMVIEWS.practice = () => (X.practiceHTML ? X.practiceHTML() : '');
   SIMVIEWS.legends = () => (X.legendsHTML ? X.legendsHTML() : '');
+  // ---- Tournoi de 100 joueurs ----
+  let mt = null; const mprep = { mix: 'standard', mode: 'live' };
+  SIMVIEWS.mtt = () => {
+    const MT = window.MTT, R = state.progress.mtt;
+    const rec = R ? `<div class="stats"><div class="stat hero"><span>Tournois joués</span><b>${R.games}</b><span>${R.itm} dans l'argent · ${R.wins} victoire${R.wins > 1 ? 's' : ''}</span></div><div class="stat"><span>Gains simulés</span><b>${fr(R.prizes, 0)} €</b><span>pour ${fr(R.games * 10, 0)} € de buy-ins · ROI ${R.games ? pct(R.prizes / (R.games * 10) - 1, 0) : '—'}</span></div><div class="stat"><span>Meilleure place</span><b>${R.best ?? '—'}</b><span>sur 100</span></div></div>` : '';
+    if (!mt) return `<section class="panel"><span class="eyebrow">Tournoi simulé · 100 joueurs · buy-in 10 € · 15 places payées</span><h2>Du début à la table finale, en accéléré</h2>
+      <p class="note">Tu joues ta table main par main ; les 16 autres tables avancent en même temps (modèle statistique : vols de blindes et tapis de plus en plus fréquents quand les tapis raccourcissent). Les places libres de ta table sont reprises par des joueurs du field, avec leur tapis. 10 000 jetons, niveau toutes les 8 mains de ta table, ${MT.LEVELS.length} niveaux de 50/100 à 50 000/100 000.</p>
+      <div class="row"><span class="note">Field :</span>${[['standard', 'Standard'], ['fish', 'Beaucoup de joueurs loisir'], ['regs', 'Beaucoup de réguliers']].map(([k, l]) => `<button class="chip" aria-pressed="${mprep.mix === k}" data-act="mtmix" data-v="${k}">${l}</button>`).join('')}</div>
+      <div class="row"><span class="note">Coach :</span>${[['live', 'En direct'], ['exam', 'Examen'], ['free', 'Sans aide']].map(([k, l]) => `<button class="chip" aria-pressed="${mprep.mode === k}" data-act="mtmode" data-v="${k}">${l}</button>`).join('')}</div>
+      <p class="note">Gains : ${MT.PAYOUTS.slice(0, 6).map((x, i) => `${i === 0 ? '1er' : i + 1 + 'e'} ${fr(x * 10, 0)} €`).join(' · ')} · 7e à 9e 42 € · 10e à 12e 32 € · 13e à 15e 15 €.</p>
+      <div class="row"><button class="btn primary" data-act="mtstart">Lancer le tournoi</button><button class="btn small" data-act="openmod" data-id="icm">Module ICM et bulle</button></div></section>${rec}`;
+    const g = mt, t = g.tb, G = g.game, st = G.status(), L = !t.done && t.toAct === 0 && !t.players[0].out ? t.legal() : null, handDec = g.decisions.filter((d) => d.hand === t.handNo);
+    const nextPay = st.left > MT.PAYOUTS.length ? `bulle à ${MT.PAYOUTS.length + 1} joueurs` : st.left > 1 ? `prochain palier : ${fr(MT.prizeOf(G.F, st.left - 1) , 0)} € à la ${st.left - 1}e place` : '';
+    let out = `<div class="stats"><div class="stat hero"><span>Joueurs restants</span><b>${st.left}/100</b><span>${nextPay}</span></div>
+      <div class="stat"><span>Ton tapis</span><b>${Math.round(st.heroS).toLocaleString('fr-FR')}</b><span>${fr(st.heroS / t.bb, 1)} bb · rang ${st.rank}/${st.left}</span></div>
+      <div class="stat"><span>Niveau ${st.level}</span><b>${t.sb.toLocaleString('fr-FR')}/${t.bb.toLocaleString('fr-FR')}</b><span>tapis moyen ${fr(st.avg / t.bb, 1)} bb</span></div></div>
+      ${st.bubble ? `<div class="warnbox"><strong>Bulle :</strong> ${st.left - MT.PAYOUTS.length} joueur${st.left - MT.PAYOUTS.length > 1 ? 's' : ''} avant l'argent. Les tapis moyens appuient sur les petits ; le gros tapis vole ; les petits tapis survivent si possible (ICM).</div>` : ''}
+      ${st.finalTable ? '<div class="warnbox"><strong>Table finale.</strong> Les écarts de gains sont maximaux : relis tes ranges de tapis ou couché et pense ICM.</div>' : ''}
+      <div class="row"><span class="pill acc">Main ${G.hands + (t.done ? 0 : 1)}</span><span class="pill">${{ live: 'Coach en direct', exam: 'Mode examen', free: 'Sans aide' }[g.mode]}</span><button class="btn small" data-act="mtauto" ${G.over ? 'disabled' : ''}>10 mains en automatique (coach)</button><button class="btn small" data-act="mtquit" style="margin-left:auto">Abandonner</button></div>
+      ${tableHTML(t, { chips: true, showProfiles: true })}`;
+    if (L) out += `<section class="panel"><span class="eyebrow">À toi · ${TS.posName(t, 0)} · ${E.abstractOf(t.players[0].cards[0], t.players[0].cards[1])} · ${fr(t.effStack(0) / t.bb, 1)} bb effectifs</span>${actionsHTML(t)}</section>` + (g.mode === 'live' ? coachHTML(adviceFor(g), t) : '');
+    if (t.done) {
+      out += `<section class="panel"><div class="row" style="justify-content:space-between"><h2>${G.over ? (G.place === 1 ? 'Victoire : tu remportes le tournoi' : `Éliminé à la ${G.place}e place`) + (G.prize ? ` · ${fr(G.prize, 0)} €` : ' · hors de l\'argent') : 'Fin de la main'}</h2><div class="row"><button class="btn small" data-act="libtable">Sauvegarder la main</button>${G.over ? '<button class="btn primary" data-act="mtnew">Nouveau tournoi</button>' : '<button class="btn primary" data-act="mtnext">Main suivante <span style="opacity:.7">Entrée</span></button>'}</div></div>${decisionsHTML(handDec, g.mode)}${G.over ? `<h3>Ton tournoi</h3>${catTable(g.decisions)}<p class="note">${G.hands} mains jouées à ta table. Buy-in 10 € : ${G.prize ? 'résultat net ' + (G.prize >= 10 ? '+' : '−') + fr(Math.abs(G.prize - 10), 0) + ' €' : 'perte de 10 €'}. Un tournoi isolé est surtout de la variance : regarde le taux de décisions justes.</p>` : ''}</section>`;
+    }
+    return out + rec;
+  };
+  ACT.mtmix = (t) => { mprep.mix = t.dataset.v; render(); };
+  ACT.mtmode = (t) => { mprep.mode = t.dataset.v; render(); };
+  ACT.mtstart = () => { const game = window.MTT.createGame(TS, { mix: mprep.mix }); mt = { kind: 'mtt', tb: game.tb, game, mode: mprep.mode, decisions: [], adv: null, objectives: new Set() }; nextHand(mt); };
+  ACT.mtnext = () => { if (mt && !mt.game.over) nextHand(mt); };
+  ACT.mtnew = () => { mt = null; render(); };
+  ACT.mtquit = () => { mt = null; render(); };
+  ACT.mtauto = () => {
+    if (!mt) return; const g = mt, t = g.tb; let n = 0, guard = 0;
+    while (n < 10 && !g.game.over && guard++ < 4000) {
+      if (t.done) { nextHand(g); n++; continue; }
+      if (t.toAct === 0 && !t.players[0].out) { const a = adviceFor(g); const L = t.legal(); const type = a.rec === 'fold' && L.canCheck ? 'check' : a.rec === 'check' && !L.canCheck ? 'fold' : a.rec; t.act(type, type === 'raise' ? Math.max(L.minTo, Math.min(L.maxTo, a.to || L.minTo)) : undefined); g.adv = null; t.runBots(); if (t.done) afterHand(g); }
+      else { t.runBots(); if (t.done) afterHand(g); }
+    }
+    render();
+  };
   X.getSimSub = () => sub; X.setSimSub = (v) => { sub = v; };
 
   // ---- Rendu commun d'une table (cash 6 joueurs ou Expresso 3 joueurs) ----
@@ -96,10 +137,11 @@
   function adviceFor(g) {
     const t = g.tb, key = t.handNo + ':' + t.seq.length + ':' + t.street;
     if (g.adv && g.adv.key === key) return g.adv.a;
-    const a = (g.kind === 'xp' ? Co.pushFoldAdvice(t) : null) || Co.advise(t);
+    const a = (g.kind === 'xp' || g.kind === 'mtt' ? Co.pushFoldAdvice(t) : null) || Co.advise(t);
     g.adv = { key, a }; return a;
   }
   function afterHand(g) {
+    if (g.kind === 'mtt' && !g.counted) { g.game.after(); if (g.game.over) { g.counted = true; const M = state.progress.mtt || (state.progress.mtt = { games: 0, itm: 0, wins: 0, prizes: 0, best: null }); M.games++; if (g.game.prize > 0) M.itm++; if (g.game.place === 1) M.wins++; M.prizes += g.game.prize; M.best = M.best ? Math.min(M.best, g.game.place) : g.game.place; X.award?.('champ', null, true); } }
     if (g.kind === 'cash') { state.progress.tableHands = (state.progress.tableHands || 0) + 1; X.award?.('hand', null, true); }
     if (g.kind === 'xp' && g.tb.over && !g.counted && g.fmt && g.fmt !== 'expresso') {
       g.counted = true; const F = state.progress.formats || (state.progress.formats = {}), e = F[g.fmt] || (F[g.fmt] = { games: 0, places: [] });
@@ -111,20 +153,20 @@
     }
     save('progress');
   }
-  const cur = () => (sub === 'expresso' ? xp : cash);
+  const cur = () => (sub === 'expresso' ? xp : sub === 'mtt' ? mt : cash);
   ACT.hfold = () => decide(cur(), 'fold');
   ACT.hcall = () => { const t = cur().tb, L = t.legal(); decide(cur(), L.canCheck ? 'check' : 'call'); };
   ACT.hraise = (el) => decide(cur(), 'raise', +el.dataset.to);
   ACT.hraisefree = () => decide(cur(), 'raise', +($('#rto')?.value || 0));
   ONINPUT.push((t) => { if (t.id === 'rto') { raiseTo = +t.value; const g = cur(); $('#rtv').textContent = fbb(raiseTo, g.tb) + ' bb'; return true; } });
   ONKEY.push((e, tab) => {
-    if (tab !== 'sim' || !['table', 'expresso'].includes(sub)) return;
+    if (tab !== 'sim' || !['table', 'expresso', 'mtt'].includes(sub)) return;
     const g = cur(); if (!g || !g.tb) return;
     const t = g.tb;
     if (!t.done && t.toAct === 0) { const L = t.legal(); if (e.key === 'f' && !L.canCheck) { decide(g, 'fold'); return true; } if (e.key === 'c') { decide(g, L.canCheck ? 'check' : 'call'); return true; } }
-    else if (t.done && e.key === 'Enter' && !(g.kind === 'xp' && t.over) && !sessionDone()) { nextHand(g); return true; }
+    else if (t.done && e.key === 'Enter' && !(g.kind === 'xp' && t.over) && !(g.kind === 'mtt' && g.game.over) && !sessionDone()) { nextHand(g); return true; }
   });
-  function nextHand(g) { g.tb.newHand(); g.tb.runBots(); g.adv = null; if (g.tb.done) afterHand(g); render(); }
+  function nextHand(g) { if (g.kind === 'mtt') { if (g.game.over) return render(); g.game.prepare(); } g.tb.newHand(); g.tb.runBots(); g.adv = null; if (g.tb.done) afterHand(g); render(); }
 
   function decisionsHTML(list, mode) {
     if (!list.length) return '';
