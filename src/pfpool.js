@@ -5,7 +5,7 @@
   const jobs = new Map(), reqs = new Map();
   function recv(m, w) {
     if (m.pong) { if (w) w.ok = true; return; }
-    if (m.rid) { const r = reqs.get(m.rid); if (!r) return; reqs.delete(m.rid); if (m.error) r.reject(new Error(m.error)); else r.resolve(m.node || m.ranges); return; }
+    if (m.rid) { const r = reqs.get(m.rid); if (!r) return; reqs.delete(m.rid); if (m.error) r.reject(new Error(m.error)); else r.resolve(m.node || m.ranges || m.agg); return; }
     const j = jobs.get(m.id); if (!j) return;
     if (m.error) { j.state = 'error'; j._rej(new Error(m.error)); return; }
     if (m.progress !== undefined) { j.ex = m.progress; j.its = m.its; j.ms = m.ms; j.onProgress?.(j); return; }
@@ -50,6 +50,7 @@
     j.ready.catch(() => {});
     j.node = (path, combos) => req(j, { cmd: 'node', path, combos });
     j.ranges = (path) => req(j, { cmd: 'ranges', path });
+    j.aggregate = (actor) => req(j, { cmd: 'aggregate', actor });
     j.free = () => { if (j.state === 'freed') return; send(j, { cmd: 'free', id: j.id }); if (j.w) j.w.load = Math.max(0, j.w.load - 1); j.state = 'freed'; jobs.delete(j.id); };
     jobs.set(j.id, j); send(j, { cmd: 'solve', id: j.id, cfg, pct: j.pct, maxMs: j.maxMs });
     return j;

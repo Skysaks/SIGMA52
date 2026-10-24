@@ -107,7 +107,10 @@
     try {
       const cfg = buildCfg();
       estimateText(); if (sv.estMb > 700) throw new Error('Arbre trop gros pour le navigateur : choisis des tailles « Rapide » ou un board plus avancé (turn, river).');
-      sv.game = PF.create(cfg); sv.err = ''; sv.path = []; sv.info = null; sv.ex = null; sv.cell = null; sv.running = true; sv.t0 = performance.now(); sv.elapsed = 0; sv.lastEx = 0;
+      sv.game = PF.create(cfg);
+      if (!sv.keepLocks) { sv.locks = []; sv.lockRes = null; sv.lockBase = null; } sv.keepLocks = false;
+      for (const l of sv.locks || []) { try { sv.game.lock(l.path, l.strat); } catch (e) { /* chemin absent */ } }
+      sv.err = ''; sv.path = []; sv.info = null; sv.ex = null; sv.cell = null; sv.running = true; sv.t0 = performance.now(); sv.elapsed = 0; sv.lastEx = 0;
       sv.heroCombo = parseHero();
       render(); setTimeout(chunk, 30);
     } catch (e) { sv.err = e.message; sv.running = false; render(); }
@@ -122,7 +125,8 @@
     sv.elapsed = (performance.now() - sv.t0) / 1000;
     const it = g.stats().iterations, target = ACC[sv.acc].pct;
     if (it - sv.lastEx >= Math.max(10, Math.round(it * 0.15)) || sv.elapsed > sv.maxSec) { sv.ex = g.exploitability(); sv.lastEx = it; }
-    const done = (sv.ex && sv.ex.pct <= target) || sv.elapsed > sv.maxSec;
+    // Avec un verrou, le joueur verrouillé ne s'adapte plus : l'exploitabilité ne descend pas, on s'arrête au nombre d'itérations du solve d'équilibre.
+    const done = sv.locks?.length ? it >= Math.max(150, sv.baseIts || 200) || sv.elapsed > sv.maxSec : (sv.ex && sv.ex.pct <= target) || sv.elapsed > sv.maxSec;
     const pr = $('#svprog');
     if (pr) pr.innerHTML = progressHTML();
     if (done) { if (!sv.ex || sv.lastEx !== it) sv.ex = g.exploitability(); finish(); return; }
@@ -130,9 +134,10 @@
   }
   function finish() {
     sv.running = false;
+    if (!sv.locks?.length) sv.baseIts = sv.game.stats().iterations;
     state.progress.solves = (state.progress.solves || 0) + 1; X.award?.('solve', null, true); X.Store.save('progress');
     if (sv.target) { try { sv.path = sv.target.seq ? pathFor(sv.game, sv.target.seq) : (sv.target.path || []).slice(); } catch (e) { sv.path = []; } }
-    refreshInfo(); render();
+    lockReport(); refreshInfo(); render();
   }
   function refreshInfo() { if (!sv.game) return; try { sv.info = sv.game.info(sv.path); } catch (e) { sv.path = []; sv.info = sv.game.info([]); } }
   const progressHTML = () => {
@@ -269,7 +274,75 @@
       <div class="svgrid">${grid169(cellHTML)}</div>
       <p class="note">Couleur = mélange d'actions de la classe de mains, pondéré par les combos encore présents ; une case pâle = peu de combos de cette main arrivent ici. Clique une case pour le détail par combo.</p>
       ${sv.cell ? comboHTML(r, sv.cell) : ''}</section>
-      ${heroHTML(r)}${categoryHTML(r)}`;
+      ${heroHTML(r)}${categoryHTML(r)}${lockHTML(r)}`;
+  }
+  // ---------------- Node locking : imposer la stratégie d'un joueur à ce nœud et recalculer la meilleure réponse ----------------
+  const BUCKETS = [['Mains fortes', 0.66, 1.01], ['Mains moyennes', 0.4, 0.66], ['Mains faibles', -1, 0.4]];
+  const pathKey = (p) => JSON.stringify(p);
+  function lockPreset(node, k) {
+    const acts = node.acts, aggr = acts.map((a, i) => ['b', 'r', 'a'].includes(a.k) ? i : -1).filter((i) => i >= 0), pass = acts.findIndex((a) => a.k === 'x' || a.k === 'c'), fold = acts.findIndex((a) => a.k === 'f');
+    const R = (a, f) => ({ a, f });
+    if (k === 'nobluff') return [R(-1, 100), R(-1, 100), R(pass >= 0 ? pass : fold, 100)];
+    if (k === 'station') return [R(-1, 100), R(pass, 100), R(pass, 100)];
+    if (k === 'nit') return [R(-1, 100), R(fold >= 0 ? fold : pass, 100), R(fold >= 0 ? fold : pass, 100)];
+    if (k === 'always') return [R(aggr[0] ?? pass, 100), R(aggr[0] ?? pass, 100), R(aggr[0] ?? pass, 100)];
+    if (k === 'never') return [R(pass >= 0 ? pass : fold, 100), R(pass >= 0 ? pass : fold, 100), R(pass >= 0 ? pass : fold, 100)];
+    return [R(-1, 100), R(-1, 100), R(-1, 100)];
+  }
+  function buildLock(r, rules) {
+    const g = sv.game, node = r.node, p = node.p, n = g.N[p], A = node.acts.length, out = new Float64Array(A * n);
+    for (let i = 0; i < n; i++) {
+      const e = isFinite(r.eq[p][i]) ? r.eq[p][i] : 0.5, b = BUCKETS.findIndex(([, lo, hi]) => e >= lo && e < hi), rule = rules[b < 0 ? 2 : b];
+      if (rule.a < 0) { for (let a = 0; a < A; a++) out[a * n + i] = r.strategy[a * n + i]; continue; }
+      const f = Math.max(0, Math.min(1, rule.f / 100)); let rest = 0;
+      for (let a = 0; a < A; a++) if (a !== rule.a) rest += r.strategy[a * n + i];
+      for (let a = 0; a < A; a++) out[a * n + i] = a === rule.a ? f : (1 - f) * (rest > 1e-9 ? r.strategy[a * n + i] / rest : 1 / (A - 1));
+    }
+    return out;
+  }
+  function lockHTML(r) {
+    const g = sv.game, node = r.node; if (!g || sv.running) return '';
+    const key = pathKey(sv.path), locked = (sv.locks || []).find((l) => l.key === key), ed = sv.lockEd && sv.lockEd.key === key ? sv.lockEd : null;
+    const res = sv.lockRes;
+    const resHTML = res ? `<div class="advice"><div class="good"><strong>Exploitation chiffrée :</strong> ${res.lines.map(esc).join(' ')}</div></div>` : '';
+    const list = (sv.locks || []).length ? `<p class="note">${sv.locks.length} nœud${sv.locks.length > 1 ? 's' : ''} verrouillé${sv.locks.length > 1 ? 's' : ''} : ${sv.locks.map((l) => esc(l.label)).join(' · ')}. <button class="btn small" data-act="lkclear">Retirer les verrous et revenir à l'équilibre</button></p>` : '';
+    if (!ed) return `<section class="panel"><div class="row" style="justify-content:space-between"><div><span class="eyebrow">Node locking${locked ? ' · nœud verrouillé' : ''}</span><p class="note" style="margin:4px 0 0">Impose ce que ${esc(nm(node.p))} joue vraiment ici (« il ne bluffe jamais », « il paie tout »), puis recalcule la meilleure réponse de l'autre joueur et chiffre l'exploitation.</p></div><button class="btn" data-act="lkedit">${locked ? 'Modifier le verrou' : 'Verrouiller ce nœud'}</button></div>${resHTML}${list}</section>`;
+    const opt = (b, rule) => `<select data-lk="${b}" aria-label="Action ${BUCKETS[b][0]}"><option value="-1"${rule.a < 0 ? ' selected' : ''}>Comme le solveur</option>${node.acts.map((_, a) => `<option value="${a}"${rule.a === a ? ' selected' : ''}>${esc(g.label(node, a))}</option>`).join('')}</select>`;
+    return `<section class="panel" style="border-color:var(--accent)"><span class="eyebrow">Node locking · ${esc(nm(node.p))}</span><h2>Ce qu'il joue vraiment ici</h2>
+      <div class="row"><span class="note">Profils rapides :</span>${[['nobluff', 'Ne bluffe jamais'], ['station', 'Ne se couche jamais'], ['nit', 'Se couche trop'], ['always', 'Mise toujours'], ['never', 'Ne mise jamais'], ['gto', 'Comme le solveur']].map(([k, l]) => `<button class="chip" data-act="lkpreset" data-k="${k}">${l}</button>`).join('')}</div>
+      <div style="display:grid;gap:8px">${BUCKETS.map(([l, lo, hi], b) => `<div class="row" style="align-items:center"><span style="min-width:140px">${l} <span class="note">(équité ${lo < 0 ? '< 40 %' : hi > 1 ? '≥ 66 %' : '40-66 %'})</span></span>${opt(b, ed.rules[b])}<label class="f" style="flex-direction:row;align-items:center;gap:6px"><input type="number" min="0" max="100" step="5" value="${ed.rules[b].f}" data-lkf="${b}" style="width:72px" ${ed.rules[b].a < 0 ? 'disabled' : ''}> %</label></div>`).join('')}</div>
+      <p class="note">Le pourcentage est la fréquence de l'action choisie dans la catégorie ; le reste suit les proportions du solveur. Équité de chaque main contre la range adverse à ce nœud.</p>
+      <div class="row"><button class="btn primary" data-act="lkgo">Verrouiller et recalculer</button><button class="btn" data-act="lkcancel">Annuler</button></div></section>`;
+  }
+  ACT.lkedit = () => { const key = pathKey(sv.path), l = (sv.locks || []).find((x) => x.key === key); sv.lockEd = { key, rules: l ? JSON.parse(JSON.stringify(l.rules)) : lockPreset(sv.info.node, 'gto') }; render(); };
+  ACT.lkcancel = () => { sv.lockEd = null; render(); };
+  ACT.lkpreset = (t) => { sv.lockEd.rules = lockPreset(sv.info.node, t.dataset.k); render(); };
+  ONCHANGE.push((t) => {
+    if (t.dataset.lk !== undefined && sv.lockEd) { sv.lockEd.rules[+t.dataset.lk].a = +t.value; render(); return true; }
+    if (t.dataset.lkf !== undefined && sv.lockEd) { sv.lockEd.rules[+t.dataset.lkf].f = Math.max(0, Math.min(100, +t.value || 0)); return true; }
+  });
+  ACT.lkgo = () => {
+    const r = sv.info, g = sv.game, node = r.node, p = node.p, o = 1 - p;
+    const strat = buildLock(r, sv.lockEd.rules), key = sv.lockEd.key;
+    // Référence avant verrou : EV moyennes à la racine et au nœud, pour chiffrer le gain de l'exploitant.
+    const root = g.info([]);
+    if (!sv.lockBase) sv.lockBase = { root: root.evMean.slice(), node: {} };
+    sv.lockBase.node[key] = r.evMean.slice();
+    const label = `${nm(p)} · ${node.board.map(E.cardStr).join('')} · ${sv.lockEd.rules.map((x, b) => (x.a < 0 ? null : `${BUCKETS[b][0].toLowerCase()} : ${g.label(node, x.a).toLowerCase()} ${x.f} %`)).filter(Boolean).join(', ') || 'stratégie du solveur'}`;
+    sv.locks = (sv.locks || []).filter((l) => l.key !== key).concat({ key, path: sv.path.slice(), strat: Array.from(strat), rules: sv.lockEd.rules, label, p, o });
+    sv.lockEd = null; sv.lockPending = { key, p, o }; sv.keepLocks = true;
+    sv.pendingTarget = { path: sv.path.slice() }; sv.target = sv.pendingTarget; sv.pendingTarget = null;
+    start();
+  };
+  ACT.lkclear = () => { sv.locks = []; sv.lockRes = null; sv.lockBase = null; sv.keepLocks = true; sv.target = { path: sv.path.slice() }; start(); };
+  // Appelé à la fin d'une résolution avec verrous : comparaison avant/après.
+  function lockReport() {
+    const lp = sv.lockPending; sv.lockPending = null; if (!lp || !sv.lockBase) return;
+    try {
+      const root = sv.game.info([]), at = sv.game.info(sv.locks.find((l) => l.key === lp.key).path), b = sv.lockBase;
+      const gainRoot = root.evMean[lp.o] - b.root[lp.o], gainNode = at.evMean[lp.o] - (b.node[lp.key] || at.evMean)[lp.o];
+      sv.lockRes = { lines: [`${nm(lp.o)} gagne ${gainNode >= 0 ? '+' : '−'}${fr(Math.abs(gainNode), 2)} bb en moyenne à ce nœud et ${gainRoot >= 0 ? '+' : '−'}${fr(Math.abs(gainRoot), 2)} bb sur l'ensemble du spot (pot de départ ${fr(sv.game.P0, 1)} bb) en adaptant sa stratégie.`, 'Navigue dans l\'arbre : les nœuds de l\'exploitant montrent maintenant sa meilleure réponse au verrou.'] };
+    } catch (e) { sv.lockRes = null; }
   }
   const evTxt = (v) => (isFinite(v) ? fr(v, 2) + ' bb' : '–');
   function comboHTML(r, h) {
@@ -487,9 +560,75 @@
 
   // ---------------- Rapport agrégé (précalculé par tools/build_aggregate.js) ----------------
   const ag = { group: 'high', sort: 'w', sc: 'srp-BTN-BB' };
+  // ---------------- Rapport agrégé à la demande : échantillon stratifié de flops résolus dans les fils de calcul ----------------
+  let FLOPS = null;
+  function flopSet() {
+    if (FLOPS) return FLOPS;
+    const canon = (cards) => { let best = null; for (const pm of PERMS) { const k = cards.map((c) => (c & ~3) | pm[c & 3]).sort((a, b) => b - a).join(','); if (best === null || k < best) best = k; } return best; };
+    const PERMS = []; const pp = (a, l) => { if (!l.length) PERMS.push(a); l.forEach((x, i) => pp([...a, x], l.filter((_, j) => j !== i))); }; pp([], [0, 1, 2, 3]);
+    const map = new Map();
+    for (let a = 0; a < 52; a++) for (let b = a + 1; b < 52; b++) for (let c = b + 1; c < 52; c++) { const k = canon([a, b, c]); map.set(k, (map.get(k) || 0) + 1); }
+    const hiName = (r) => (r === 12 ? 'A' : r === 11 ? 'K' : r === 10 ? 'Q' : r === 9 ? 'J' : r === 8 ? 'T' : '9-');
+    FLOPS = [...map].map(([k, w]) => {
+      const cards = k.split(',').map(Number), r = cards.map((c) => c >> 2).sort((x, y) => y - x), ns = new Set(cards.map((c) => c & 3)).size, u = [...new Set(r)], span = u[0] - u[u.length - 1];
+      const t = { high: hiName(r[0]), paired: r[0] === r[1] || r[1] === r[2] ? (r[0] === r[2] ? 'brelan' : 'pairé') : 'non pairé', suits: ns === 1 ? 'monochrome' : ns === 2 ? 'deux couleurs' : 'arc-en-ciel', conn: u.length === 3 && (span <= 4 || (r[0] === 12 && r[2] <= 3 && r[1] <= 3)) ? 'connecté' : 'sec' };
+      return { cards, w, t };
+    });
+    return FLOPS;
+  }
+  function stratified(NF, seed) {
+    const groups = new Map(); for (const f of flopSet()) { const g = `${f.t.high}|${f.t.suits}|${f.t.paired === 'non pairé' ? 'np' : 'p'}`; if (!groups.has(g)) groups.set(g, []); groups.get(g).push(f); }
+    const R = E.rng(seed), pick = [];
+    // Quotas au plus fort reste : exactement NF flops, répartis selon le poids réel de chaque groupe (hauteur × couleurs × paire).
+    const G = [...groups.values()].map((L) => { const w = L.reduce((x, f) => x + f.w, 0), e = (w / 22100) * NF; return { L, w, q: Math.floor(e), r: e - Math.floor(e) }; });
+    let left = NF - G.reduce((x, g) => x + g.q, 0); G.slice().sort((x, y) => y.r - x.r).forEach((g) => { if (left > 0) { g.q++; left--; } });
+    for (const g of G) { if (!g.q) continue; const M = g.L.slice().sort(() => R() - 0.5), q = Math.min(g.q, M.length); for (let i = 0; i < q; i++) pick.push({ ...M[i], gw: g.w / q }); }
+    return pick;
+  }
+  const FLOPSIZES = { std: ['33 75', 'Mises 33 % et 75 %'], small: ['25 50', 'Mises 25 % et 50 %'], big: ['50 100', 'Mises 50 % et 100 %'], over: ['33 125', 'Mise 33 % et overbet 125 %'] };
+  const od = { scen: 'srp-CO-BB', n: 24, size: 'std', depth: 100, running: false, done: 0, total: 0, flops: [], err: '', count: 0 };
+  function odStart() {
+    const sc = SCEN.find((x) => x.id === od.scen); if (!sc || !window.PFPool) return;
+    const [o, i] = seatsOf(sc), agg = sc.agg === o[0] ? 0 : 1, actor = agg === 1 ? 'ip' : 'oop', inv = 100 - sc.stack, stack = od.depth - inv;
+    const fsz = FLOPSIZES[od.size][0];
+    const sizes = { flop: [0, 1].map((p) => ({ bet: p === agg ? fsz : p === 1 ? '50' : '', raise: '60' })), turn: [{ bet: '75', raise: '' }, { bet: '75', raise: '' }], river: [{ bet: '75', raise: '' }, { bet: '75', raise: '' }] };
+    const pick = stratified(od.n, 52 + od.count);
+    Object.assign(od, { running: true, done: 0, total: pick.length, flops: [], err: '', meta: { sc, o, i, actor, stack, sizes } });
+    const par = Math.max(1, window.PFPool.workers()); let next = 0;
+    const one = async (f) => {
+      const job = window.PFPool.solve({ board: f.cards, pot: sc.pot, stack, ranges: [o[1], i[1]], sizes, maxRaises: 1, sample: { turn: 8, river: 6 } }, { pct: 1.2, maxMs: 25000 });
+      try { await job.ready; const a = await job.aggregate(actor); od.flops.push({ b: f.cards.map(E.cardStr).join(''), w: f.gw, t: f.t, ...a, ex: +(job.ex ?? 0).toFixed(2) }); } catch (e) { od.err = e.message; } finally { job.free(); }
+    };
+    const pump = () => { while (od.running && next < pick.length && (next - od.done) < par) { const f = pick[next++]; one(f).then(() => { od.done++; if (od.done >= pick.length) odFinish(); else { pump(); if (X.getTab() === 'solveur' && sv.sub === 'agg') render(); } }); } };
+    pump(); render();
+  }
+  function odFinish() {
+    od.running = false; if (!od.flops.length) { render(); return; }
+    const m = od.meta, D0 = window.AggregateData; od.count++;
+    const id = 'od' + od.count, spot = `${m.sc.label}, ${od.depth} bb · ${FLOPSIZES[od.size][1].toLowerCase()} (à la demande)`;
+    const actorName = m.actor === 'ip' ? m.i[0] : m.o[0], resp = m.actor === 'ip' ? m.o[0] : m.i[0];
+    const D = { id, scen: m.sc.id, spot, title: m.actor === 'ip' ? `que fait ${actorName} quand ${resp} check ?` : `que fait ${actorName} (agresseur hors de position) au flop ?`, actor: m.actor, actorName, resp, cats: ['Deux paires et mieux', 'Top paire, overpair', 'Paire moyenne ou faible', 'Tirage', 'Rien'], flops: od.flops.filter((f) => f.bb), total: flopSet().length, built: new Date().toISOString().slice(0, 10), sizesTxt: FLOPSIZES[od.size][1].toLowerCase(), custom: true };
+    if (D0) { D0.scenarios = D0.scenarios || [D0]; D0.scenarios.push(D); } else window.AggregateData = { ...D, scenarios: [D] };
+    ag.sc = id; state.progress.solves = (state.progress.solves || 0) + od.flops.length; X.award?.('solve', null, true); X.Store.save('progress'); render();
+  }
+  ACT.odgo = () => odStart();
+  ACT.odstop = () => { od.running = false; od.total = od.done; odFinish(); };
+  ACT.odn = (t) => { od.n = +t.dataset.v; render(); };
+  ACT.odsize = (t) => { od.size = t.dataset.v; render(); };
+  ACT.oddepth = (t) => { od.depth = +t.dataset.v; render(); };
+  ONCHANGE.push((t) => { if (t.dataset.od === 'scen') { od.scen = t.value; render(); return true; } });
+  function onDemandHTML() {
+    const pool = window.PFPool, w = pool ? pool.workers() : 0, est = Math.ceil((od.n * 11) / Math.max(1, w || 1) / 60);
+    return `<section class="panel"><span class="eyebrow">Rapport à la demande</span><h2>Ton spot, tes tailles, ta profondeur</h2>
+      <label class="f">Spot préflop<select data-od="scen">${['Pot simple', 'Pot 3-bet'].map((t) => `<optgroup label="${t}">${SCEN.filter((x) => x.type === t).map((x) => `<option value="${x.id}"${x.id === od.scen ? ' selected' : ''}>${esc(x.label)}</option>`).join('')}</optgroup>`).join('')}</select></label>
+      <div class="row"><span class="note">Tailles de l'agresseur au flop :</span>${Object.entries(FLOPSIZES).map(([k, [, l]]) => `<button class="chip" aria-pressed="${od.size === k}" data-act="odsize" data-v="${k}">${l}</button>`).join('')}</div>
+      <div class="row"><span class="note">Profondeur :</span>${[40, 100, 150].map((d) => `<button class="chip" aria-pressed="${od.depth === d}" data-act="oddepth" data-v="${d}">${d} bb</button>`).join('')}<span class="note">Flops :</span>${[12, 24, 48].map((n) => `<button class="chip" aria-pressed="${od.n === n}" data-act="odn" data-v="${n}">${n}</button>`).join('')}</div>
+      <div class="row">${od.running ? '<button class="btn" data-act="odstop">Arrêter et afficher</button>' : '<button class="btn primary" data-act="odgo">Calculer le rapport</button>'}<span class="note">≈ ${est} min avec ${w || 1} fil${w > 1 ? 's' : ''} de calcul (environ 11 s par flop et par fil).</span></div>
+      ${od.total ? `<div class="pbar"><i style="width:${Math.round((od.done / od.total) * 100)}%"></i></div><p class="note mono">${od.done}/${od.total} flops résolus${od.running ? ' · calcul en cours…' : ''}</p>` : ''}${od.err ? `<p class="note">Un flop n'a pas pu être résolu : ${esc(od.err)}</p>` : ''}</section>`;
+  }
   function aggHTML() {
     const D0 = window.AggregateData, SCs = D0 ? D0.scenarios || [D0] : [], D = SCs.find((x) => x.id === ag.sc) || SCs[0];
-    if (!D || !D.flops.length) return '<section class="panel"><p>Rapport agrégé indisponible.</p></section>';
+    if (!D || !D.flops.length) return onDemandHTML() + '<section class="panel"><p>Rapport agrégé indisponible.</p></section>';
     const F = D.flops, nA = F[0].act.length;
     const avg = (L, fn) => { const tw = L.reduce((a, f) => a + f.w, 0); return L.reduce((a, f) => a + f.w * fn(f), 0) / (tw || 1); };
     const freqRow = (L) => F[0].act.map((_, a) => avg(L, (f) => f.f[a]));
@@ -503,13 +642,13 @@
     const catRows = D.cats.map((c, i) => `<tr><td>${esc(c)}</td><td class="n mono">${pct(avg(F, (f) => f.cat[i][0]), 0)}</td><td class="n mono">${pct(avg(F.filter((f) => f.cat[i][1] !== null), (f) => f.cat[i][1]), 0)}</td></tr>`).join('');
     const bbAct = F[0].bb.act.map((l) => l.replace(/\s*(à\s*)?[\d,]+.*$/, '')), bbRow = bbAct.map((_, a) => avg(F, (f) => f.bb.f[a] ?? 0));
     const list = F.slice().sort((a, b) => (ag.sort === 'bet' ? (1 - b.f[0]) - (1 - a.f[0]) : ag.sort === 'eq' ? b.eq - a.eq : b.w - a.w)).map((f) => `<tr><td><button class="btn small mono" data-act="agload" data-b="${f.b}">${f.b.replace(/(..)/g, '$1 ').trim()}</button></td><td class="note tx">${esc([f.t.suits, f.t.paired, f.t.conn].join(', '))}</td><td class="tb">${bar(f.f)}</td>${f.f.map((x) => `<td class="n mono">${pct(x, 0)}</td>`).join('')}<td class="n mono">${pct(f.eq, 0)}</td></tr>`).join('');
-    const actor = D.actor === 'oop' ? 'du 3-bettor' : 'de l\'ouvreur', resp = D.resp || 'BB';
+    const actor = D.actorName ? 'de ' + D.actorName : D.actor === 'oop' ? 'du 3-bettor' : 'de l\'ouvreur', resp = D.resp || 'BB', small = (F[0].act[1] || '').replace(/^Miser [\d,]+ \((\d+) %\).*$/, '$1 %');
     const scRow = SCs.length > 1 ? `<div class="row"><span class="note">Scénario :</span>${SCs.map((x) => `<button class="chip" aria-pressed="${x.id === D.id}" data-act="agsc" data-v="${x.id}">${esc(x.spot)}</button>`).join('')}</div>` : '';
-    return `<section class="panel">${scRow}<span class="eyebrow">${esc(D.spot)} · ${F.length} flops résolus sur ${D.total} distincts · pondérés par fréquence</span><h2>Rapport agrégé : ${esc(D.title || 'que fait le bouton quand la grosse blinde check ?')}</h2>
-      <p class="note">Chaque flop d'un échantillon stratifié (hauteur, couleurs, paires) a été résolu par le solveur SIGMA 52 (tailles 33 % et 75 % au flop, turn et river simplifiés à 75 %, précision ≈ 1 % du pot). La moyenne pondère chaque flop par le nombre de flops réels qu'il représente.</p>
+    return onDemandHTML() + `<section class="panel">${scRow}<span class="eyebrow">${esc(D.spot)} · ${F.length} flops résolus sur ${D.total} distincts · pondérés par fréquence</span><h2>Rapport agrégé : ${esc(D.title || 'que fait le bouton quand la grosse blinde check ?')}</h2>
+      <p class="note">Chaque flop d'un échantillon stratifié (hauteur, couleurs, paires) a été résolu par le solveur SIGMA 52 (${esc(D.sizesTxt || 'tailles 33 % et 75 %')} au flop, turn et river simplifiés à 75 %, précision ≈ 1 % du pot). La moyenne pondère chaque flop par le nombre de flops réels qu'il représente.</p>
       <div class="stats"><div class="stat hero"><span>Mise ${actor} (moyenne)</span><b>${pct(1 - tot[0], 0)}</b><span>${labels.slice(1).map((l, a) => `${l.toLowerCase()} ${pct(tot[a + 1], 0)}`).join(' · ')}</span></div>
         <div class="stat"><span>Équité ${actor}</span><b>${pct(avg(F, (f) => f.eq), 0)}</b><span>contre la range adverse</span></div>
-        <div class="stat"><span>${esc(resp)} face à 33 %</span><b>${pct(bbRow[0], 0)}</b><span>${bbAct.map((l, a) => `${l.toLowerCase()} ${pct(bbRow[a], 0)}`).join(' · ')}</span></div></div>
+        <div class="stat"><span>${esc(resp)} face à ${esc(small || '33 %')}</span><b>${pct(bbRow[0], 0)}</b><span>${bbAct.map((l, a) => `${l.toLowerCase()} ${pct(bbRow[a], 0)}`).join(' · ')}</span></div></div>
       <div class="row"><span class="note">Grouper par :</span>${[['high', 'Hauteur'], ['suits', 'Couleurs'], ['paired', 'Paires'], ['conn', 'Connexion']].map(([k, l]) => `<button class="chip" aria-pressed="${ag.group === k}" data-act="aggroup" data-v="${k}">${l}</button>`).join('')}</div>
       <div class="tw"><table class="t"><thead><tr><th>Groupe</th><th class="n">Part</th><th>Stratégie</th>${labels.map((l) => `<th class="n">${esc(l)}</th>`).join('')}<th class="n">Mise vs moy. (pts)</th><th class="n">Équité</th></tr></thead><tbody>${grow('Tous les flops', F)}${order.filter((g) => groups[g]).map((g) => grow(g, groups[g])).join('')}</tbody></table></div>
       <h3>Avec quoi il mise</h3><div class="tw"><table class="t"><thead><tr><th>Catégorie de main ${actor}</th><th class="n">Part de sa range</th><th class="n">Fréquence de mise</th></tr></thead><tbody>${catRows}</tbody></table></div>
@@ -520,7 +659,7 @@
   ACT.aggroup = (t) => { ag.group = t.dataset.v; render(); };
   ACT.agsc = (t) => { ag.sc = t.dataset.v; render(); };
   ACT.agsort = (t) => { ag.sort = t.dataset.v; render(); };
-  ACT.agload = (t) => { sv.sub = 'solve'; sv.board = t.dataset.b; sv.preset = 'std'; sv.include = null; sv.extraSizes = null; applyScenario(ag.sc || 'srp-BTN-BB'); sv.game = null; sv.info = null; sv.path = []; sv.err = ''; sv.note = 'Flop du rapport agrégé : lance la résolution pour le détail main par main.'; render(); };
+  ACT.agload = (t) => { sv.sub = 'solve'; sv.board = t.dataset.b; sv.preset = 'std'; sv.include = null; sv.extraSizes = null; { const D0 = window.AggregateData, Dx = D0 && (D0.scenarios || [D0]).find((x) => x.id === ag.sc); applyScenario(Dx?.scen || (SCEN.some((x) => x.id === ag.sc) ? ag.sc : 'srp-BTN-BB')); } sv.game = null; sv.info = null; sv.path = []; sv.err = ''; sv.note = 'Flop du rapport agrégé : lance la résolution pour le détail main par main.'; render(); };
   // Partagé avec les mains notées et la revue EV.
   X.SOLVER = { SCEN, ORDER, PRESETS, SAMPLES, seatsOf, presetSizes, handToSpot, pathFor, mergeExtraInto: (sizes, ex) => { for (const st of ST) for (let p = 0; p < 2; p++) for (const kind of ['bet', 'raise']) { const cur = String(sizes[st][p][kind] || '').split(/\s+/).filter(Boolean); for (const v of ex[st][p][kind]) if (!cur.some((c) => c !== 'a' && Math.abs(+c - v) < 1.5)) cur.push(String(v)); sizes[st][p][kind] = cur.join(' '); } return sizes; } };
   X.solverState = sv;

@@ -8,7 +8,7 @@ for key, f in [('ENGINE', 'engine'), ('OMAHA', 'omaha'), ('VARIANTS', 'variants'
     js = open(f'src/{f}.js', encoding='utf-8').read()
     assert '</script' not in js, f
     t = t.replace(f'/*__{key}__*/', js)
-wsrc = ''.join(open(f'src/{f}.js', encoding='utf-8').read() + '\n' for f in ['engine', 'postflop', 'pf_worker'])
+wsrc = ''.join(open(f'src/{f}.js', encoding='utf-8').read() + '\n' for f in ['engine', 'board', 'postflop', 'pf_worker'])
 assert '</script' not in wsrc
 t = t.replace('/*__PFSRC__*/', wsrc)
 open('sigma52.html', 'w', encoding='utf-8').write(t)
