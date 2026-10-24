@@ -8,12 +8,13 @@
 
   // ================= Simulateur =================
   let sub = 'table';
-  const SUBS = [['table', 'Table cash + coach'], ['practice', 'Mains notées (EV)'], ['guided', 'Mains guidées'], ['expresso', 'Expresso']];
+  const SUBS = [['table', 'Table cash + coach'], ['practice', 'Mains notées (EV)'], ['guided', 'Mains guidées'], ['legends', 'Mains de légende'], ['expresso', 'Expresso et Spin']];
   VIEWS.sim = () => head('Simulateur', 'S\'entraîner en conditions de jeu, avec un coach qui explique chaque décision. C\'est un simulateur : l\'aide y est permise. En room, rien de tout ça n\'est autorisé.') +
     `<div class="subtabs" role="tablist">${SUBS.map(([k, l]) => `<button class="chip" aria-pressed="${sub === k}" data-act="simsub" data-s="${k}">${l}</button>`).join('')}</div>` + SIMVIEWS[sub]();
   ACT.simsub = (t) => { sub = t.dataset.s; render(); };
   const SIMVIEWS = {};
   SIMVIEWS.practice = () => (X.practiceHTML ? X.practiceHTML() : '');
+  SIMVIEWS.legends = () => (X.legendsHTML ? X.legendsHTML() : '');
   X.getSimSub = () => sub; X.setSimSub = (v) => { sub = v; };
 
   // ---- Rendu commun d'une table (cash 6 joueurs ou Expresso 3 joueurs) ----
