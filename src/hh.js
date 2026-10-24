@@ -1,4 +1,4 @@
-// Import d'historiques de mains (Winamax, PokerStars) : parsing, statistiques, fuites préflop, EV des all-in, profils adversaires.
+// Import d'historiques de mains (Winamax, PokerStars, GGPoker et ses skins) : parsing, statistiques, fuites préflop, EV des all-in, profils adversaires.
 // Uniquement des mains que tu as jouées, analysées après la session.
 (function (root) {
   const E = root.Engine || require('./engine.js');
@@ -9,25 +9,29 @@
   const ACT = new RegExp(`^(.+?):? (folds|checks|calls|bets|raises)(?: (${AMT}))?(?: to (${AMT}))?(.*all-in.*)?$`);
 
   function split(text) {
-    return text.replace(/\r/g, '').replace(/^﻿/, '').split(/\n(?=(?:Winamax Poker|PokerStars (?:Hand|Zoom Hand|Game)) )/).map((s) => s.trim()).filter((s) => /^(Winamax Poker|PokerStars)/.test(s));
+    return text.replace(/\r/g, '').replace(/^﻿/, '').split(/\n(?=(?:Winamax Poker |PokerStars (?:Hand|Zoom Hand|Game) |Poker Hand #))/).map((s) => s.trim()).filter((s) => /^(Winamax Poker|PokerStars|Poker Hand #)/.test(s));
   }
 
   function parseHand(txt) {
     const L = txt.split('\n').map((l) => l.trim()).filter(Boolean);
-    const site = /^Winamax/.test(L[0]) ? 'Winamax' : 'PokerStars';
+    const site = /^Winamax/.test(L[0]) ? 'Winamax' : /^Poker Hand #/.test(L[0]) ? 'GGPoker' : 'PokerStars';
     const h = { site, raw: txt, id: (L[0].match(/(?:HandId: #|Hand #)([\w-]+)/) || [])[1] || '', tournament: /Tournament|Tournoi/i.test(L[0]),
       seats: [], button: 0, hero: null, heroCards: null, actions: [], board: [], shown: {}, collected: {}, returned: {}, posts: {}, rake: 0, sb: 0, bb: 0 };
     const bl = [...L[0].matchAll(/\(([^()]*\/[^()]*)\)/g)].pop();
     if (bl) { const p = bl[1].split('/').map(num).filter((x) => !isNaN(x)); h.bb = p[p.length - 1]; h.sb = p[p.length - 2]; }
+    // GGPoker tournoi : « Level10(150/300(40)) » (blindes et ante imbriqués).
+    const lv = L[0].match(/Level\s*\d+\s*\(([\d.,]+)\/([\d.,]+)(?:\(([\d.,]+)\))?\)/); if (lv) { h.sb = num(lv[1]); h.bb = num(lv[2]); }
     const date = L[0].match(/(\d{4})[/-](\d{2})[/-](\d{2})/); h.date = date ? `${date[1]}-${date[2]}-${date[3]}` : '';
     const btn = txt.match(/Seat #(\d+) is the button/); h.button = btn ? +btn[1] : 0;
     let street = 'pre', summary = false;
     for (const l of L.slice(1)) {
       if (/^\*\*\* SUMMARY/.test(l)) { summary = true; continue; }
-      const st = l.match(/^\*\*\* (PRE-FLOP|HOLE CARDS|FLOP|TURN|RIVER|SHOW ?DOWN)/);
+      const st = l.match(/^\*\*\* (FIRST |SECOND |THIRD )?(PRE-FLOP|HOLE CARDS|FLOP|TURN|RIVER|SHOW ?DOWN)/);
       if (st) {
-        street = { 'PRE-FLOP': 'pre', 'HOLE CARDS': 'pre', FLOP: 'flop', TURN: 'turn', RIVER: 'river' }[st[1]] || 'sd';
+        street = { 'PRE-FLOP': 'pre', 'HOLE CARDS': 'pre', FLOP: 'flop', TURN: 'turn', RIVER: 'river' }[st[2]] || 'sd';
         const cards = [...l.matchAll(/\[([^\]]+)\]/g)].map((m) => m[1]).join(' ');
+        // Run it twice (GGPoker) : on garde le premier board, le second ne sert qu'au partage du pot.
+        if (st[1] && st[1] !== 'FIRST ') { h.rit = true; continue; }
         if (street !== 'pre' && street !== 'sd') h.board = E.parseCards(cards);
         continue;
       }

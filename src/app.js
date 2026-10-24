@@ -406,7 +406,7 @@
   function runAnalysis(text, kind) {
     try {
       const r = HH.analyze(text);
-      if (!r.hands) throw new Error('Aucune main reconnue. Colle le texte brut des historiques Winamax ou PokerStars (une main commence par « Winamax Poker - » ou « PokerStars Hand »).');
+      if (!r.hands) throw new Error('Aucune main reconnue. Colle le texte brut des historiques Winamax, PokerStars ou GGPoker (une main commence par « Winamax Poker - », « PokerStars Hand » ou « Poker Hand # »).');
       if (!r.hero) throw new Error('Mains reconnues, mais aucune ligne « Dealt to … » : impossible de savoir qui tu es.');
       const me = r.me;
       r.ev100 = me.hands ? (me.netBB - me.allins.reduce((a, x) => a + x.luck / x.bb, 0)) / me.hands * 100 : 0;
@@ -453,11 +453,11 @@
       <section class="panel"><h2>Plus gros pots</h2>${r.pots.map((p, i) => `<details><summary><span class="mono">${sgn(p.bb, 1)} bb</span> · main ${esc(p.id)}${p.hand.heroCards ? ' · ' + p.hand.heroCards.map(E.cardStr).join(' ') : ''}</summary><div class="row" style="margin:8px 0"><button class="btn small" data-act="rppot" data-i="${i}">Rejouer pas à pas</button><button class="btn small" data-act="libpot" data-i="${i}">Sauvegarder dans la bibliothèque</button></div><pre class="hh">${esc(p.hand.raw)}</pre></details>`).join('')}</section>`;
     }
     const known = Object.entries(state.notes.opponents).filter(([, o]) => o.hands >= 15).sort((a, b) => b[1].hands - a[1].hands).slice(0, 30);
-    return head('Analyse de tes mains', 'Après la session, colle tes historiques Winamax ou PokerStars : résultat, chance aux all-in, fuites préflop, profil de chaque adversaire. Uniquement tes propres mains : analyser des mains achetées ou partagées est interdit par les rooms.') +
+    return head('Analyse de tes mains', 'Après la session, colle tes historiques Winamax, PokerStars ou GGPoker : résultat, chance aux all-in, fuites préflop, profil de chaque adversaire. Uniquement tes propres mains : analyser des mains achetées ou partagées est interdit par les rooms.') +
       `<section class="panel"><label class="f">Historiques (texte brut)<textarea id="antext" class="f mono" rows="7" style="font-size:12px" placeholder="Winamax Poker - CashGame - HandId: #…">${esc(anText)}</textarea></label>
         <div class="row"><button class="btn primary" data-act="analyze">Analyser</button><label class="btn" for="anfile">Charger des fichiers .txt</label><input type="file" id="anfile" accept=".txt,text/plain" multiple hidden>
         <button class="btn" data-act="ansample">Exemple : 300 mains simulées</button></div>
-        <p class="note">Winamax enregistre tes historiques dans le dossier « history » de son répertoire d'installation. Parseur testé sur des historiques Winamax et sur ceux de la table d'entraînement. Si un fichier récent ne passe pas, envoie-moi une main d'exemple : le parseur s'ajuste.</p>
+        <p class="note">Winamax enregistre tes historiques dans le dossier « history » de son répertoire d'installation. GGPoker : télécharge tes mains depuis PokerCraft (le héros s'appelle « Hero », les adversaires sont anonymisés, le run it twice est reconnu). Parseur testé sur des historiques Winamax réels, sur le format GGPoker et sur la table d'entraînement. Si un fichier récent ne passe pas, envoie-moi une main d'exemple : le parseur s'ajuste.</p>
         ${anErr ? `<p class="pill bad" style="white-space:normal">${esc(anErr)}</p>` : ''}</section>${res}
       ${known.length ? `<section class="panel"><h2>Fiches adversaires cumulées</h2><div class="tw"><table class="t"><thead><tr><th>Joueur</th><th class="n">Mains</th><th class="n">VPIP</th><th class="n">PFR</th><th>Profil</th></tr></thead><tbody>${known.map(([n, o]) => `<tr><td>${esc(n)}</td><td class="n">${o.hands}</td><td class="n">${rate(o.vpip, o.hands)}</td><td class="n">${rate(o.pfr, o.hands)}</td><td>${HH.profileOf(o).label}</td></tr>`).join('')}</tbody></table></div><p class="note">Cumul de tous tes imports. Relis-les avant une session, jamais pendant.</p></section>` : ''}`;
   };
