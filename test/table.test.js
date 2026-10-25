@@ -65,4 +65,24 @@ t('3 000 parties Expresso au hasard : jamais de main bloquée (blinde qui met à
   }
   assert.strictEqual(stuck, 0);
 });
+t('règles live : straddle, ante, bomb pot — jetons conservés, historique relu, carte des fuites et population cohérentes', () => {
+  for (const o of [{ straddle: true }, { anteBB: 0.2 }, { bombEvery: 3, bombBB: 2 }, { straddle: true, anteBB: 0.1, bombEvery: 5 }]) {
+    const R = E.rng(5), tb = new T.Table({ random: R, ...o }), parts = []; let bad = 0, bombs = 0, net = 0;
+    for (let h = 1; h <= 600; h++) {
+      tb.newHand(); if (tb.bomb) { bombs++; assert(tb.street !== 'pre' || tb.done, 'bomb pot : pas de tour préflop'); }
+      const sum = tb.players.reduce((a, p) => a + p.stack + p.total, 0); let k = 0;
+      while (!tb.done && k++ < 300) { tb.runBots(); if (!tb.done) tb.autoHero('reg'); }
+      if (!tb.done) bad++; if (Math.abs(tb.players.reduce((a, p) => a + p.stack, 0) - sum) > 1e-6) bad++;
+      net += (tb.players[0].stack - tb.players[0].start) / tb.bb;
+      if (h % 300 === 0) parts.push(tb.exportHH());
+    }
+    assert.strictEqual(bad, 0, JSON.stringify(o));
+    if (o.bombEvery) assert.strictEqual(bombs, Math.floor(600 / o.bombEvery));
+    const a = H.analyze(parts.join('\n\n'));
+    assert.strictEqual(a.me.hands, 600);
+    assert(Math.abs(a.me.netBB - net) < 0.05, `net relu ${a.me.netBB} contre ${net} (${JSON.stringify(o)})`);
+    let hs = 0; for (const p in a.heat) for (const k in a.heat[p]) hs += a.heat[p][k].bb;
+    assert(Math.abs(hs - a.me.netBB) < 1e-6 && a.pool.hands === 600 * 5);
+  }
+});
 console.log(n, 'tests passés au total');

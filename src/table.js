@@ -92,6 +92,9 @@
       this.levels = opts.levels || null; this.handsPerLevel = opts.handsPerLevel || 6;
       [this.sb, this.bb] = this.levels ? this.levels[0] : [opts.sb ?? 0.05, opts.bb ?? 0.1];
       this.rebuy = opts.rebuy !== false; this.startStack = opts.stack ?? 10; this.handNo = 0; this.unit = opts.unit ?? '€';
+      // Parties live et entre amis : ante (en bb, payée par chaque joueur), straddle (UTG met 2 bb à l'aveugle et parle en dernier préflop),
+      // bomb pot toutes les N mains (chacun met bombBB au pot, pas de tour préflop, le flop est servi directement).
+      this.anteBB = +opts.anteBB || 0; this.straddle = !!opts.straddle; this.bombEvery = +opts.bombEvery || 0; this.bombBB = +opts.bombBB || 2;
       const lineup = opts.lineup || ['station', 'reg', 'maniaque', 'station', 'nit'];
       const used = {};
       this.players = [{ name: 'Toi', hero: true, stack: this.startStack, profile: null }]
@@ -125,11 +128,24 @@
       this.lines = [`${hd} - ${new Date().toISOString().slice(0, 19).replace('T', ' ').replace(/-/g, '/')} UTC`,
         `Table: 'SIGMA Entraînement' ${this.n}-max (real money) Seat #${this.button + 1} is the button`,
         ...this.players.map((p, i) => (p.out ? null : `Seat ${i + 1}: ${p.name} (${p.stack.toFixed(2)}€)`)).filter(Boolean), '*** ANTE/BLINDS ***'];
+      this.bomb = this.bombEvery > 0 && this.handNo % this.bombEvery === 0 && order.length >= 2; this.straddled = -1;
+      if (this.bomb) {
+        // Bomb pot : mise forcée identique pour tous (argent mort), pas de blindes ni de tour préflop.
+        for (const i of order) this.dead(i, this.bombBB * this.bb, 'ante');
+        this.lines.push(`Dealt to Toi [${this.players[0].cards.map(E.cardStr).join(' ')}]`, '*** PRE-FLOP *** ');
+        this.cur = 0; this.minRaise = this.bb; this.raises = 0; this.acted = new Set(); this.lastAggr = -1;
+        return this.nextStreet();
+      }
+      if (this.anteBB > 0) for (const i of order) this.dead(i, this.anteBB * this.bb, 'ante');
       this.post(sbi, this.sb, 'small blind'); this.post(bbi, this.bb, 'big blind');
+      let last = bbi;
+      if (this.straddle && order.length >= 4) { const sti = order[2]; this.post(sti, 2 * this.bb, 'straddle'); this.straddled = sti; last = sti; }
       this.lines.push(`Dealt to Toi [${this.players[0].cards.map(E.cardStr).join(' ')}]`, '*** PRE-FLOP *** ');
-      this.cur = this.bb; this.minRaise = this.bb; this.raises = 1; this.acted = new Set(); this.toAct = (bbi + 1) % this.n; this.lastAggr = bbi;
+      this.cur = last === bbi ? this.bb : 2 * this.bb; this.minRaise = this.cur; this.raises = 1; this.acted = new Set(); this.toAct = (last + 1) % this.n; this.lastAggr = last;
       this.skipToNext(true);
     }
+    // Argent mort (ante, bomb pot) : entre dans le pot sans compter comme mise de la rue.
+    dead(i, amt, label) { const p = this.players[i]; const a = Math.min(amt, p.stack); p.stack -= a; p.total += a; if (p.stack <= 1e-9) p.allin = true; this.lines.push(`${p.name} posts ${label} ${a.toFixed(2)}€`); }
     post(i, amt, label) { const p = this.players[i]; const a = Math.min(amt, p.stack); p.stack -= a; p.put += a; p.total += a; if (p.stack <= 1e-9) p.allin = true; this.lines.push(`${p.name} posts ${label} ${a.toFixed(2)}€`); }
     alive() { return this.players.filter((p) => p.inHand); }
     canAct(i) { const p = this.players[i]; return p.inHand && !p.allin && p.stack > 1e-9; }

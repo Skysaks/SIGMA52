@@ -41,8 +41,8 @@
         if (num(m[3]) > 0 && !m[4]) h.seats.push({ seat: +m[1], name: m[2], stack: num(m[3]) }); continue;
       }
       if ((m = l.match(/^Dealt to (.+?) \[([^\]]+)\]/))) { if (!h.hero) { h.hero = m[1]; h.heroCards = E.parseCards(m[2]); } continue; }
-      if ((m = l.match(/^(.+?):? posts (small blind|big blind|ante|the ante|small & big blinds) (\S+)/))) {
-        const kind = /small &/.test(m[2]) ? 'both' : /small/.test(m[2]) ? 'sb' : /big/.test(m[2]) ? 'bb' : 'ante';
+      if ((m = l.match(/^(.+?):? posts (small blind|big blind|ante|the ante|small & big blinds|straddle) (\S+)/))) {
+        const kind = /small &/.test(m[2]) ? 'both' : /small/.test(m[2]) ? 'sb' : /big/.test(m[2]) ? 'bb' : /straddle/.test(m[2]) ? 'straddle' : 'ante';
         h.actions.push({ street: 'pre', p: m[1], type: 'post', kind, amt: num(m[3]) }); continue;
       }
       if ((m = l.match(/^Uncalled bet \((\S+)\) returned to (.+)$/))) { h.returned[m[2]] = (h.returned[m[2]] || 0) + num(m[1]); continue; }
@@ -74,7 +74,8 @@
   // Analyse d'une main : contributions, net par joueur, faits préflop et postflop.
   function analyzeHand(h) {
     const players = h.seats.map((s) => s.name), put = {}, facts = {};
-    players.forEach((p) => { put[p] = 0; facts[p] = { vpip: false, pfr: false, threeOpp: false, three: false, sawFlop: false, folded: false, aggr: 0, calls: 0, sd: false, won: false, cbetOpp: false, cbet: false, ftcOpp: false, ftc: false }; });
+    players.forEach((p) => { put[p] = 0; facts[p] = { vpip: false, pfr: false, threeOpp: false, three: false, sawFlop: false, folded: false, aggr: 0, calls: 0, sd: false, won: false, cbetOpp: false, cbet: false, ftcOpp: false, ftc: false, f3Opp: false, f3: false, rvFace: 0, rvRaise: 0, rvFold: 0, last: 'pre' }; });
+    let opener = null, threeBet = false;
     let streetPut = {}, cur = 'pre', raises = 0;
     const pos = positions(h);
     let firstIn = null, heroActed = false, voluntary = false;
@@ -83,7 +84,13 @@
       if (a.street !== cur) { cur = a.street; streetPut = {}; }
       const f = facts[a.p];
       if (a.type === 'post') { put[a.p] += a.amt; if (a.kind !== 'ante') streetPut[a.p] = (streetPut[a.p] || 0) + (a.kind === 'both' ? a.amt : a.amt); continue; }
+      f.last = cur;
+      // Rivière : réaction face à une mise (relance, couché).
+      if (cur === 'river') { const top = Math.max(0, ...Object.values(streetPut)); if (top > (streetPut[a.p] || 0) + 1e-9) { f.rvFace++; if (a.type === 'raises') f.rvRaise++; if (a.type === 'folds') f.rvFold++; } }
       if (cur === 'pre') {
+        // Fold face au 3-bet : l'ouvreur, quand une relance suit la sienne, se couche-t-il ?
+        if (a.p === opener && threeBet && !facts[opener].f3Opp) { facts[opener].f3Opp = true; if (a.type === 'folds') facts[opener].f3 = true; }
+        if (a.type === 'raises' || a.type === 'bets') { if (raises === 0) opener = a.p; else if (raises === 1) threeBet = true; }
         if (a.p === h.hero && !heroActed) { heroActed = true; if (!voluntary) firstIn = { pos: pos[a.p], action: a.type }; }
         if (raises === 1 && a.type !== 'post') { f.threeOpp = true; if (a.type === 'raises') f.three = true; }
         if (a.type === 'calls' || a.type === 'raises' || a.type === 'bets') { f.vpip = true; voluntary = true; }
@@ -165,7 +172,7 @@
     const hands = split(text).map(parseHand).filter((h) => h.seats.length >= 2 && h.bb > 0);
     const heroCount = {}; hands.forEach((h) => h.hero && (heroCount[h.hero] = (heroCount[h.hero] || 0) + 1));
     const hero = Object.entries(heroCount).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
-    const opp = {}, me = { hands: 0, net: 0, netBB: 0, vpip: 0, pfr: 0, threeOpp: 0, three: 0, sawFlop: 0, sd: 0, wsd: 0, aggr: 0, calls: 0, cbetOpp: 0, cbet: 0, ftcOpp: 0, ftc: 0, byPos: {}, luck: 0, allins: [], rake: 0, dealt: { n: 0, prem: 0 }, sets: { n: 0, hit: 0 }, curve: [] };
+    const opp = {}, pool = { hands: 0, vpip: 0, pfr: 0, threeOpp: 0, three: 0, f3Opp: 0, f3: 0, sawFlop: 0, sd: 0, wsd: 0, aggr: 0, calls: 0, cbetOpp: 0, cbet: 0, ftcOpp: 0, ftc: 0, rvFace: 0, rvRaise: 0, rvFold: 0 }, heat = {}, me = { hands: 0, net: 0, netBB: 0, vpip: 0, pfr: 0, threeOpp: 0, three: 0, sawFlop: 0, sd: 0, wsd: 0, aggr: 0, calls: 0, cbetOpp: 0, cbet: 0, ftcOpp: 0, ftc: 0, byPos: {}, luck: 0, allins: [], rake: 0, dealt: { n: 0, prem: 0 }, sets: { n: 0, hit: 0 }, curve: [] };
     const leaks = { tooLoose: [], tooTight: [], limps: [] }, pots = [];
     for (const h of hands) {
       const a = analyzeHand(h);
@@ -174,11 +181,17 @@
         tgt.hands++; if (f.vpip) tgt.vpip++; if (f.pfr) tgt.pfr++; if (f.threeOpp) tgt.threeOpp++; if (f.three) tgt.three++;
         if (f.sawFlop) tgt.sawFlop++; if (f.sd) { tgt.sd++; if (f.won) tgt.wsd++; } tgt.aggr += f.aggr; tgt.calls += f.calls;
         if (f.cbetOpp) tgt.cbetOpp++; if (f.cbet) tgt.cbet++; if (f.ftcOpp) tgt.ftcOpp++; if (f.ftc) tgt.ftc++;
-        if (p !== hero) tgt.net += a.net[p] / h.bb;
+        if (p !== hero) {
+          tgt.net += a.net[p] / h.bb;
+          pool.hands++; for (const k of ['vpip', 'pfr', 'threeOpp', 'three', 'f3Opp', 'f3', 'sawFlop', 'cbetOpp', 'cbet', 'ftcOpp', 'ftc']) if (f[k]) pool[k]++;
+          if (f.sd) { pool.sd++; if (f.won) pool.wsd++; } pool.aggr += f.aggr; pool.calls += f.calls; pool.rvFace += f.rvFace; pool.rvRaise += f.rvRaise; pool.rvFold += f.rvFold;
+        }
       }
       if (hero && a.net[hero] !== undefined) {
         const nbb = a.net[hero] / h.bb; me.net += a.net[hero]; me.netBB += nbb;
         const ps = a.pos[hero] || '?'; const bp = me.byPos[ps] = me.byPos[ps] || { hands: 0, bb: 0 }; bp.hands++; bp.bb += nbb;
+        // Carte des fuites : où se décide le résultat de la main (dernière rue où tu as agi, ou l'abattage).
+        const fh = a.facts[hero], st = fh?.sd ? 'sd' : fh?.last || 'pre', hp = heat[ps] = heat[ps] || {}, hc = hp[st] = hp[st] || { n: 0, bb: 0 }; hc.n++; hc.bb += nbb;
         pots.push({ id: h.id, bb: nbb, eur: a.net[hero], hand: h });
         const fi = a.firstIn;
         if (fi && h.heroCards && CHART_POS[fi.pos] && !h.tournament) {
@@ -202,7 +215,7 @@
     }
     pots.sort((x, y) => Math.abs(y.bb) - Math.abs(x.bb));
     const opponents = Object.values(opp).sort((a, b) => b.hands - a.hands).map((o) => ({ ...o, profile: profileOf(o) }));
-    return { hands: hands.length, hero, me, opponents, leaks, pots: pots.slice(0, 10), sites: [...new Set(hands.map((h) => h.site))], from: hands[0]?.date, to: hands[hands.length - 1]?.date };
+    return { hands: hands.length, hero, me, opponents, pool, heat, leaks, pots: pots.slice(0, 10), sites: [...new Set(hands.map((h) => h.site))], from: hands[0]?.date, to: hands[hands.length - 1]?.date };
   }
 
 
@@ -228,7 +241,7 @@
       if (!(a.p in put)) continue;
       if (a.street !== street) { street = a.street; streetPut = {}; }
       let add = 0, txt = '';
-      if (a.type === 'post') { add = a.amt; txt = `${a.p} poste ${a.kind === 'sb' ? 'la petite blinde' : a.kind === 'bb' ? 'la grosse blinde' : 'l\'ante'} (${a.amt})`; streetPut[a.p] = (streetPut[a.p] || 0) + (a.kind === 'ante' ? 0 : a.amt); }
+      if (a.type === 'post') { add = a.amt; txt = `${a.p} poste ${a.kind === 'sb' ? 'la petite blinde' : a.kind === 'bb' ? 'la grosse blinde' : a.kind === 'straddle' ? 'le straddle' : 'l\'ante'} (${a.amt})`; streetPut[a.p] = (streetPut[a.p] || 0) + (a.kind === 'ante' ? 0 : a.amt); }
       else if (a.type === 'folds') { folded.add(a.p); txt = `${a.p} se couche`; }
       else if (a.type === 'checks') txt = `${a.p} checke`;
       else if (a.type === 'calls') { add = a.amt; txt = `${a.p} suit ${a.amt}`; }

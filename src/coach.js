@@ -268,7 +268,18 @@
     return { ok, note };
   }
 
+  // Gravité d'une erreur (mode « n'interromps qu'en cas d'erreur ») : grave = écart net entre équité et cote requise,
+  // ou bluff contre un joueur qui ne se couche pas ; petite sinon (limp, taille, décision serrée).
+  function severity(adv, act, gr) {
+    if (gr.ok) return null;
+    const eq = adv.eq, need = adv.need ?? 0, has = eq !== null && eq !== undefined;
+    if (act === 'fold' && adv.rec !== 'fold' && has && eq - need > 0.15) return 'grave';
+    if ((act === 'call' || act === 'raise') && adv.rec === 'fold' && has && need - eq > 0.1) return 'grave';
+    if (act === 'raise' && adv.cats.includes('nobluff')) return 'grave';
+    if (act === 'fold' && adv.rec === 'raise' && adv.cats.includes('value')) return 'grave';
+    return 'petite';
+  }
   const ACT_FR = { fold: 'se coucher', check: 'parole', call: 'suivre', raise: 'miser / relancer' };
-  const api = { CATS, ACT_FR, villainRange, advise, grade, describeRange, preflopInterval, pushFoldAdvice, heroPreRange, rangeAdvice };
+  const api = { CATS, ACT_FR, villainRange, advise, grade, severity, describeRange, preflopInterval, pushFoldAdvice, heroPreRange, rangeAdvice };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Coach = api;
 })(typeof window !== 'undefined' ? window : globalThis);

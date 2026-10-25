@@ -124,7 +124,9 @@
       const a = adviceFor(g);
       if (a) {
         const gr = Co.grade(a, type, to, t), hero = t.players[0];
-        g.decisions.push({ hand: t.handNo, street: t.street, pos: a.pos, cards: hero.cards.slice(), board: t.board.slice(), act: type, rec: a.rec, recTxt: REC_FR(a, t), ok: gr.ok, note: gr.note, cats: a.cats, why: a.why, eq: a.eq, need: a.need });
+        const sev = Co.severity ? Co.severity(a, type, gr) : (gr.ok ? null : 'petite');
+        g.decisions.push({ hand: t.handNo, street: t.street, pos: a.pos, cards: hero.cards.slice(), board: t.board.slice(), act: type, rec: a.rec, recTxt: REC_FR(a, t), ok: gr.ok, note: gr.note, cats: a.cats, why: a.why, eq: a.eq, need: a.need, sev });
+        if (g.mode === 'errors' && sev === 'grave') g.stopErr = g.decisions[g.decisions.length - 1];
         const cs = state.progress.coach;
         a.cats.forEach((c) => { const x = cs[c] || (cs[c] = { ok: 0, n: 0 }); x.n++; if (gr.ok) x.ok++; });
         X.award?.('decision', { cats: a.cats, ok: gr.ok, champ: g.champ });
@@ -176,7 +178,7 @@
 
   // ---- Table cash : préparation, jeu avec coach, bilan ----
   const OBJ_MOD = { rfi: 'preflop', iso: 'fish', pfdef: 'preflop2', odds: 'maths', value: 'fish', nobluff: 'fish', bluff: 'postflop' };
-  const prep = { lineup: 'fish', target: 50, mode: 'live', objectives: new Set(['rfi', 'odds', 'value']) };
+  const prep = { lineup: 'fish', target: 50, mode: 'live', objectives: new Set(['rfi', 'odds', 'value']), straddle: false, ante: 0, bomb: 0 };
   let cash = null, showProfiles = false;
   const sessionDone = () => sub === 'table' && cash && cash.target && cash.tb.done && cash.tb.session.hands >= cash.target;
   SIMVIEWS.table = () => {
@@ -184,7 +186,9 @@
       return `<section class="panel"><span class="eyebrow">Préparer la session</span><h2>Choisis ta table, tes objectifs et le niveau d'aide</h2>
         <div class="row"><span class="note">Table :</span>${Object.entries({ fish: 'Riche en fish', equilibree: 'Équilibrée', regs: 'Réguliers' }).map(([k, l]) => `<button class="chip" aria-pressed="${prep.lineup === k}" data-act="prepl" data-v="${k}">${l}</button>`).join('')}</div>
         <div class="row"><span class="note">Durée :</span>${[[25, '25 mains'], [50, '50 mains'], [100, '100 mains'], [0, 'Illimitée']].map(([k, l]) => `<button class="chip" aria-pressed="${prep.target === k}" data-act="prept" data-v="${k}">${l}</button>`).join('')}</div>
-        <div class="row"><span class="note">Coach :</span>${[['live', 'En direct (conseil avant chaque décision)'], ['exam', 'Examen (correction après la main)'], ['free', 'Sans aide']].map(([k, l]) => `<button class="chip" aria-pressed="${prep.mode === k}" data-act="prepm" data-v="${k}">${l}</button>`).join('')}</div>
+        <div class="row"><span class="note">Coach :</span>${[['live', 'En direct (conseil avant chaque décision)'], ['errors', 'Seulement en cas d\'erreur (une erreur grave arrête la main)'], ['exam', 'Examen (correction après la main)'], ['free', 'Sans aide']].map(([k, l]) => `<button class="chip" aria-pressed="${prep.mode === k}" data-act="prepm" data-v="${k}">${l}</button>`).join('')}</div>
+        <div class="row"><span class="note">Règles live :</span><button class="chip" aria-pressed="${prep.straddle}" data-act="prepx" data-k="straddle">Straddle (UTG met 2 bb)</button>${[[0, 'Sans ante'], [0.1, 'Ante 0,1 bb'], [0.25, 'Ante 0,25 bb']].map(([v, l]) => `<button class="chip" aria-pressed="${prep.ante === v}" data-act="prepa" data-v="${v}">${l}</button>`).join('')}${[[0, 'Pas de bomb pot'], [5, 'Bomb pot toutes les 5 mains'], [10, 'Toutes les 10']].map(([v, l]) => `<button class="chip" aria-pressed="${prep.bomb === v}" data-act="prepb" data-v="${v}">${l}</button>`).join('')}</div>
+        ${prep.straddle || prep.ante || prep.bomb ? '<p class="note">Bomb pot : chacun met 2 bb, pas de tour préflop, le flop arrive tout de suite (pot multiway gonflé : joue plus serré sans les tirages faibles). Straddle : le préflop se joue à 2 bb, les ranges d\'ouverture se resserrent. Ante : plus d\'argent mort, les vols deviennent rentables plus large.</p>' : ''}
         <div><span class="note">Objectifs suivis :</span><div class="row" style="margin-top:6px">${Object.entries(Co.CATS).filter(([k]) => k !== 'pushfold').map(([k, l]) => `<button class="chip" aria-pressed="${prep.objectives.has(k)}" data-act="prepo" data-v="${k}">${l}</button>`).join('')}</div></div>
         <div class="warnbox"><strong>Avant de jouer, relis :</strong> ${[...new Set([...prep.objectives].map((o) => OBJ_MOD[o]).filter(Boolean))].map((id) => { const m = K.MODULES.find((x) => x.id === id); return m ? `<button class="btn small" data-act="openmod" data-id="${id}">${esc(m.title)}</button>` : ''; }).join(' ') || '—'}</div>
         <div class="row"><button class="btn primary" data-act="cashstart">Lancer la session</button></div></section>
@@ -192,9 +196,9 @@
     }
     const t = cash.tb, L = !t.done && t.toAct === 0 ? t.legal() : null;
     const handDec = cash.decisions.filter((d) => d.hand === t.handNo);
-    let out = `<div class="row"><span class="pill acc">${cash.target ? `Main ${Math.min(t.session.hands + (t.done ? 0 : 1), cash.target)}/${cash.target}` : `Main ${t.session.hands + (t.done ? 0 : 1)}`}</span><span class="pill">${{ live: 'Coach en direct', exam: 'Mode examen', free: 'Sans aide' }[cash.mode]}</span>
+    let out = `<div class="row"><span class="pill acc">${cash.target ? `Main ${Math.min(t.session.hands + (t.done ? 0 : 1), cash.target)}/${cash.target}` : `Main ${t.session.hands + (t.done ? 0 : 1)}`}</span>${t.bomb ? '<span class="pill bad">Bomb pot</span>' : t.straddled >= 0 ? '<span class="pill">Straddle</span>' : ''}<span class="pill">${{ live: 'Coach en direct', errors: 'Coach sur erreur', exam: 'Mode examen', free: 'Sans aide' }[cash.mode]}</span>
       <label class="check"><input type="checkbox" id="showprof" data-act="showprof" ${showProfiles ? 'checked' : ''}><span class="note">Profils visibles</span></label><button class="btn small" data-act="cashstop" style="margin-left:auto">Terminer la session</button></div>
-      ${cash.champ && X.champBanner ? X.champBanner(cash) : ''}${tableHTML(t, { showProfiles: showProfiles && !cash.champ?.hidden })}`;
+      ${cash.champ && X.champBanner ? X.champBanner(cash) : ''}${cash.stopErr ? stopErrHTML(cash.stopErr) : ''}${tableHTML(t, { showProfiles: showProfiles && !cash.champ?.hidden })}`;
     if (L) out += `<section class="panel"><span class="eyebrow">À toi · ${TS.posName(t, 0)} · ${E.abstractOf(t.players[0].cards[0], t.players[0].cards[1])}</span>${actionsHTML(t)}</section>` + (cash.mode === 'live' ? coachHTML(adviceFor(cash), t) + rangeAdvHTML(cash) : '');
     if (t.done && t.notes) {
       const n = t.notes, finished = sessionDone();
@@ -210,16 +214,24 @@
       <div class="row"><button class="btn" data-act="tb2an" ${t.history.length ? '' : 'disabled'}>Analyser ces mains</button></div>`;
     return out;
   };
+  // Mode « n'interromps qu'en cas d'erreur » : arrêt sur une erreur grave, avec la correction ; les petites attendent le bilan.
+  function stopErrHTML(d) {
+    return `<section class="panel" style="border-color:var(--bad)"><span class="eyebrow" style="color:var(--bad)">Erreur grave · ${{ pre: 'préflop', flop: 'flop', turn: 'turn', river: 'river' }[d.street]}</span>
+      <h2>Tu as choisi « ${Co.ACT_FR[d.act]} », le coach : ${esc(d.recTxt)}</h2>${d.eq !== null && d.eq !== undefined ? `<p class="note mono">Équité ${pct(d.eq, 1)}${d.need ? ` · cote requise ${pct(d.need, 1)}` : ''}</p>` : ''}
+      <div class="advice">${[d.note, ...d.why].filter(Boolean).map((w) => `<div>${esc(w)}</div>`).join('')}</div><div class="row"><button class="btn primary" data-act="stoperrok">Compris, continuer</button></div></section>`;
+  }
+  ACT.stoperrok = () => { if (cash) cash.stopErr = null; render(); };
   function catTable(decisions, highlight) {
     const by = {}; decisions.forEach((d) => d.cats.forEach((c) => { const x = by[c] || (by[c] = { ok: 0, n: 0 }); x.n++; if (d.ok) x.ok++; }));
     const rows = Object.entries(Co.CATS).filter(([k]) => by[k]);
     return rows.length ? `<div class="tw"><table class="t"><thead><tr><th>Objectif</th><th class="n">Décisions</th><th class="n">Justes</th></tr></thead><tbody>${rows.map(([k, l]) => `<tr${highlight && highlight.has(k) ? ' style="font-weight:600"' : ''}><td>${l}${highlight && highlight.has(k) ? ' ★' : ''}</td><td class="n">${by[k].n}</td><td class="n" style="color:var(${by[k].ok / by[k].n >= 0.8 ? '--good' : '--bad'})">${pct(by[k].ok / by[k].n)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="note">Aucune décision notée.</p>';
   }
   function bilanHTML(g) {
-    const d = g.decisions, ok = d.filter((x) => x.ok).length, miss = d.filter((x) => !x.ok).slice(-12);
+    const d = g.decisions, ok = d.filter((x) => x.ok).length, miss = d.filter((x) => !x.ok).sort((a, b) => (a.sev === 'grave' ? 0 : 1) - (b.sev === 'grave' ? 0 : 1)).slice(0, 14);
+    const nG = d.filter((x) => x.sev === 'grave').length, nP = d.filter((x) => x.sev === 'petite').length;
     return `<section class="panel" style="border-color:var(--accent)"><span class="eyebrow">Bilan de session</span><h2>${g.tb.session.hands} mains · ${sgn(g.tb.session.net, 1)} bb · ${d.length ? pct(ok / d.length) : '—'} de décisions justes</h2>
-      ${catTable(d, g.objectives)}
-      ${miss.length ? `<h3>Décisions à revoir</h3><div class="tw"><table class="t"><tbody>${miss.map((m) => `<tr><td class="mono">Main ${m.hand}</td><td>${m.pos} · ${m.cards.map(E.cardStr).join(' ')}${m.board.length ? ' · ' + m.board.map(E.cardStr).join(' ') : ''}</td><td>Tu as choisi « ${Co.ACT_FR[m.act]} », conseil « ${esc(m.recTxt)} »</td></tr><tr><td colspan="3" class="note">${esc([m.note, ...m.why].filter(Boolean).join(' '))}</td></tr>`).join('')}</tbody></table></div>` : '<p>Aucune erreur sur cette session.</p>'}
+      ${catTable(d, g.objectives)}${nG + nP ? `<p><strong style="color:var(--bad)">${nG} erreur${nG > 1 ? 's' : ''} grave${nG > 1 ? 's' : ''}</strong> (écart net d'équité, bluff contre un joueur qui paie, valeur manquée) · <strong>${nP} petite${nP > 1 ? 's' : ''}</strong> (limp, taille, décision serrée). Les graves d'abord.</p>` : ''}
+      ${miss.length ? `<h3>Décisions à revoir</h3><div class="tw"><table class="t"><tbody>${miss.map((m) => `<tr><td class="mono">${m.sev === 'grave' ? '<span class="pill bad">grave</span> ' : m.sev === 'petite' ? '<span class="pill">petite</span> ' : ''}Main ${m.hand}</td><td>${m.pos} · ${m.cards.map(E.cardStr).join(' ')}${m.board.length ? ' · ' + m.board.map(E.cardStr).join(' ') : ''}</td><td>Tu as choisi « ${Co.ACT_FR[m.act]} », conseil « ${esc(m.recTxt)} »</td></tr><tr><td colspan="3" class="note">${esc([m.note, ...m.why].filter(Boolean).join(' '))}</td></tr>`).join('')}</tbody></table></div>` : '<p>Aucune erreur sur cette session.</p>'}
       <p class="note">Le résultat en bb sur ${g.tb.session.hands} mains est surtout de la variance. Juge la session sur le taux de décisions justes.</p>
       <div class="row"><button class="btn primary" data-act="cashnew">Nouvelle session</button><button class="btn" data-act="tb2an">Analyser ces mains</button></div></section>`;
   }
@@ -229,11 +241,14 @@
       ${rows.length ? `<div class="tw"><table class="t"><thead><tr><th>Objectif</th><th class="n">Décisions</th><th class="n">Justes</th></tr></thead><tbody>${rows.map(([k, l]) => `<tr><td>${l}</td><td class="n">${cs[k].n}</td><td class="n">${pct(cs[k].ok / cs[k].n)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="note">Lance une session avec le coach : tes décisions seront notées par objectif.</p>'}</section>`;
   }
   ACT.prepl = (t) => { prep.lineup = t.dataset.v; render(); };
+  ACT.prepx = () => { prep.straddle = !prep.straddle; render(); };
+  ACT.prepa = (t) => { prep.ante = +t.dataset.v; render(); };
+  ACT.prepb = (t) => { prep.bomb = +t.dataset.v; render(); };
   ACT.prept = (t) => { prep.target = +t.dataset.v; render(); };
   ACT.prepm = (t) => { prep.mode = t.dataset.v; render(); };
   ACT.prepo = (t) => { const v = t.dataset.v; prep.objectives.has(v) ? prep.objectives.delete(v) : prep.objectives.add(v); render(); };
   ACT.cashstart = () => {
-    cash = { kind: 'cash', tb: new TS.Table({ lineup: LINEUPS[prep.lineup] }), mode: prep.mode, target: prep.target, objectives: new Set(prep.objectives), decisions: [], adv: null };
+    cash = { kind: 'cash', tb: new TS.Table({ lineup: LINEUPS[prep.lineup], straddle: prep.straddle, anteBB: prep.ante, bombEvery: prep.bomb }), mode: prep.mode, target: prep.target, objectives: new Set(prep.objectives), decisions: [], adv: null };
     nextHand(cash);
   };
   ACT.cashnext = () => { if (!sessionDone()) nextHand(cash); };
@@ -370,9 +385,9 @@
   X.getReplay = () => rp; X.setAnSub = (v) => { anSub = v; }; X.openReplay = (raw) => openReplay(raw);
   const baseAnalyse = VIEWS.analyse;
   VIEWS.analyse = () => {
-    const tabs = `<div class="subtabs" role="tablist">${[['import', 'Import et statistiques'], ['review', 'Revue EV'], ['replay', 'Replayer'], ['library', `Bibliothèque (${state.library.hands.length})`]].map(([k, l]) => `<button class="chip" aria-pressed="${anSub === k}" data-act="ansub" data-s="${k}">${l}</button>`).join('')}</div>`;
+    const tabs = `<div class="subtabs" role="tablist">${[['import', 'Import et statistiques'], ['review', 'Revue EV'], ['leaks', 'Population et fuites'], ['replay', 'Replayer'], ['library', `Bibliothèque (${state.library.hands.length})`]].map(([k, l]) => `<button class="chip" aria-pressed="${anSub === k}" data-act="ansub" data-s="${k}">${l}</button>`).join('')}</div>`;
     if (anSub === 'import') return baseAnalyse().replace('</section>', '</section>' + tabs);
-    return head('Analyse de tes mains', 'Après la session : rejoue tes mains rue par rue, garde les plus instructives dans ta bibliothèque.') + tabs + (anSub === 'replay' ? replayHTML() : anSub === 'review' ? (X.reviewHTML ? X.reviewHTML() : '') : libraryHTML());
+    return head('Analyse de tes mains', 'Après la session : rejoue tes mains rue par rue, garde les plus instructives dans ta bibliothèque.') + tabs + (anSub === 'replay' ? replayHTML() : anSub === 'review' ? (X.reviewHTML ? X.reviewHTML() : '') : anSub === 'leaks' ? (X.leaksHTML ? X.leaksHTML() : '') : libraryHTML());
   };
   ACT.ansub = (t) => { anSub = t.dataset.s; render(); };
   function openReplay(raw) {

@@ -391,7 +391,8 @@
   }
 
   // ---------------- Actions ----------------
-  ACT.svgo = () => { sv.target = sv.pendingTarget || null; sv.pendingTarget = null; start(); };
+  // Le nœud cible d'une main importée ne vaut que pour son board : un board modifié entre-temps l'annule.
+  ACT.svgo = () => { const pt = sv.pendingTarget; sv.target = pt && (!pt.board || pt.board === sv.board) ? pt : null; sv.pendingTarget = null; start(); };
   ACT.svstop = () => { sv.running = false; if (sv.game) { sv.ex = sv.game.exploitability(); finish(); } };
   ACT.svsetup = (t, e) => { e.preventDefault(); sv.setupOpen = !sv.setupOpen; render(); };
   ACT.svreset = () => { sv.game = null; sv.info = null; sv.path = []; sv.target = null; render(); };
@@ -540,7 +541,7 @@
     sv.hero = s.heroCards ? s.heroCards.map(E.cardStr).join('') : ''; sv.heroCombo = parseHero();
     sv.note = `Main importée : ${s.desc}, solve à partir du ${s.startSt}. Ranges préflop estimées à partir des positions : vérifie-les. Les tailles réellement jouées ont été ajoutées à l'arbre ; après la résolution, le solveur s'ouvre au moment de la décision.`;
     sv.game = null; sv.info = null; sv.path = []; sv.err = '';
-    sv.pendingTarget = { seq: s.seq };
+    sv.pendingTarget = { seq: s.seq, board: sv.board };
     go('solveur');
   };
 
@@ -562,7 +563,7 @@
   // ---------------- Rapport agrégé (précalculé par tools/build_aggregate.js) ----------------
   const ag = { group: 'high', sort: 'w', sc: 'srp-BTN-BB' };
   // ---------------- Préflop : ranges calculées par le solveur préflop simplifié (tools/build_preflop.js) ----------------
-  const pf = { fmt: 'cash', id: 'cash100', key: 'rfi:CO', cell: null };
+  const pf = { fmt: 'cash', id: 'cash100', key: 'rfi:CO', cell: null, cmp: null };
   const PFCAT = [['rfi', 'Ouverture'], ['vo', 'Face à une ouverture'], ['vsh', 'Face à un tapis d\'ouverture'], ['v3', 'Face à un 3-bet'], ['v3a', 'Face à un 3-bet tapis'], ['v4', 'Face à un 4-bet'], ['v4a', 'Face à un 4-bet tapis'], ['v5', 'Face à un 5-bet tapis'], ['sq', 'Squeeze'], ['sqv', 'Ouvreur face au squeeze'], ['sqc', 'Caller face au squeeze'], ['sqo', 'Squeezer face au tapis de l\'ouvreur'], ['sqa', 'Squeezer face au tapis du caller']];
   const PFK = { f: 'f', c: 'x', r: 'b2', a: 'a' };
   function pfDecode(D, node) { return node.f.map((str) => Float64Array.from(str, (ch) => D.alph.indexOf(ch) / 63)); }
@@ -582,7 +583,8 @@
     else if (kind === 'vo' && C.FACING[o]?.[q]) { const f = C.FACING[o][q], ref = new Set([...E.parseRange(f.call), ...E.parseRange(f.threebet)]); const more = E.ALL169.filter((h, i) => play(i) >= 0.5 && !ref.has(h)), less = E.ALL169.filter((h, i) => play(i) < 0.5 && ref.has(h)); cmp = [more, less]; }
     const opts = PFCAT.map(([k, l]) => { const L = cfg.nodes.filter((n) => n.key.split(':')[0] === k); return L.length ? `<optgroup label="${l}">${L.map((n) => `<option value="${n.key}"${n.key === node.key ? ' selected' : ''}>${esc(n.label)}</option>`).join('')}</optgroup>` : ''; }).join('');
     const sel = pf.cell ? E.ALL169.indexOf(pf.cell) : -1;
-    return `<section class="panel"><span class="eyebrow">Ranges préflop calculées par le solveur</span><h2>${esc(cfg.label)} · ${esc(node.label)}</h2>
+    if (pf.cmp) return compareHTML(D, cfg, cfgs, node);
+    return `<section class="panel"><div class="row" style="justify-content:space-between"><span class="eyebrow">Ranges préflop calculées par le solveur</span><span class="row"><button class="btn small" data-act="pfcmp" data-v="pos">Comparer les positions</button><button class="btn small" data-act="pfcmp" data-v="depth">Comparer les profondeurs</button></span></div><h2>${esc(cfg.label)} · ${esc(node.label)}</h2>
       <div class="row"><span class="note">Format :</span>${[['cash', 'Cash'], ['mtt', 'Tournoi (ante de grosse blinde)']].map(([k, l]) => `<button class="chip" aria-pressed="${pf.fmt === k}" data-act="pffmt" data-v="${k}">${l}</button>`).join('')}</div>
       <div class="row"><span class="note">Profondeur :</span>${cfgs.map((c) => `<button class="chip" aria-pressed="${c.id === cfg.id}" data-act="pfid" data-v="${c.id}">${c.stack} bb</button>`).join('')}</div>
       <label class="f">Situation<select data-pfsel="1">${opts}</select></label>
@@ -593,9 +595,37 @@
       ${cmp ? `<p class="note"><strong>Par rapport au tableau de référence (cash 100 bb) :</strong> joue en plus ${cmp[0].length ? cmp[0].join(' ') : 'rien'} ; laisse de côté ${cmp[1].length ? cmp[1].join(' ') : 'rien'}.</p>` : ''}
       <p class="note">Modèle simplifié, à lire comme une tendance : six joueurs à tapis égaux, ouverture ${String(cfg.open).replace('.', ',')} bb, 3-bet 3 fois (4 fois depuis les blindes), squeezes, mais pas de limp ni de pot à trois. Après le flop, la valeur d'un pot payé est l'équité réalisée : 100 % en position, 72 % hors de position en pot simple (82 % en 3-bet, 90 % au-delà), modulée par la jouabilité de la main (paires et assorties connectées réalisent mieux). Tapis : équité exacte avec les blocages. Validé à 10 bb sans ante : la petite blinde pousse 58,9 % des mains contre 58,4 % pour l'équilibre tête-à-tête exact.</p></section>`;
   }
+  // Comparateur côte à côte : la même situation pour toutes les positions, ou la même position à toutes les profondeurs.
+  function miniGrid(D, node, hl) {
+    const F = pfDecode(D, node), cls = node.acts.map((a) => PFK[a.k] || 'b2'), W = E.ALL169.map((h) => E.combos(h).length);
+    const play = E.ALL169.reduce((s, h, i) => s + (1 - F[0][i]) * W[i], 0) / 1326;
+    const cells = E.ALL169.map((h, i) => `<span title="${h} : ${node.acts.map((a, k) => `${a.l} ${Math.round(F[k][i] * 100)} %`).join(', ')}" style="aspect-ratio:1;background:${grad(node.acts.map((_, a) => [cls[a], F[a][i]])) || 'var(--sunk)'}${hl === h ? ';outline:2px solid var(--ink)' : ''}"></span>`).join('');
+    return { html: `<div style="display:grid;grid-template-columns:repeat(13,1fr);gap:1px;background:var(--line);border:1px solid var(--line)">${cells}</div>`, play };
+  }
+  function compareHTML(D, cfg, cfgs, node) {
+    const [kind, o, q] = node.key.split(':');
+    let items;
+    if (pf.cmp === 'pos') {
+      // Même type de situation : on fait varier la position du joueur qui décide, le reste fixé quand c'est possible.
+      const same = cfg.nodes.filter((n) => { const [k, a, b] = n.key.split(':'); return k === kind && (kind === 'rfi' || (kind === 'vo' ? a === o : b === q)); });
+      items = (same.length > 1 ? same : cfg.nodes.filter((n) => n.key.split(':')[0] === kind)).map((n) => ({ n, title: n.label }));
+    } else items = cfgs.map((c) => ({ n: c.nodes.find((x) => x.key === node.key), title: `${c.stack} bb` })).filter((x) => x.n);
+    const blocks = items.map(({ n, title }) => { const g = miniGrid(D, n, pf.cell); return `<div style="display:grid;gap:4px;align-content:start"><button class="chip" data-act="pfpick" data-k="${n.key}" style="justify-self:start" ${n.key === node.key && pf.cmp === 'pos' ? 'aria-pressed="true"' : ''}>${esc(title)}</button>${g.html}<span class="note mono">joue ${pct(g.play, 1)}</span></div>`; }).join('');
+    const legend = node.acts.map((a) => `<span><i style="background:var(--act-${PFK[a.k] || 'b2'})"></i>${esc(a.l)}</span>`).join('');
+    return `<section class="panel"><div class="row" style="justify-content:space-between"><span class="eyebrow">Comparateur · ${esc(cfg.label)}</span><button class="btn small" data-act="pfcmp" data-v="">← Retour à une range</button></div>
+      <h2>${pf.cmp === 'pos' ? 'Toutes les positions' : 'Toutes les profondeurs'} · ${esc(PFCAT.find(([k]) => k === kind)?.[1] || kind)}</h2>
+      <div class="row"><span class="note">Comparer :</span><button class="chip" aria-pressed="${pf.cmp === 'pos'}" data-act="pfcmp" data-v="pos">Positions (${esc(cfg.label)})</button><button class="chip" aria-pressed="${pf.cmp === 'depth'}" data-act="pfcmp" data-v="depth">Profondeurs (${esc(node.label)})</button>${[['cash', 'Cash'], ['mtt', 'Tournoi']].map(([k, l]) => `<button class="chip" aria-pressed="${pf.fmt === k}" data-act="pffmt" data-v="${k}">${l}</button>`).join('')}</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px">${blocks}</div>
+      <div class="legend">${legend}</div>
+      <label class="f" style="max-width:220px">Repérer une main<input data-pfhl="1" value="${esc(pf.cell || '')}" placeholder="A5s" spellcheck="false" autocomplete="off"></label>
+      <p class="note">Lecture : chaque grille est la matrice 13 × 13 (paires sur la diagonale, assorties au-dessus). La couleur suit les fréquences de chaque action. Clique un titre pour ouvrir cette range en grand.</p></section>`;
+  }
+  ACT.pfcmp = (t) => { pf.cmp = t.dataset.v || null; render(); };
+  ACT.pfpick = (t) => { pf.key = t.dataset.k; pf.cmp = null; render(); };
   ACT.pffmt = (t) => { pf.fmt = t.dataset.v; pf.id = t.dataset.v === 'cash' ? 'cash100' : 'mtt20'; pf.cell = null; render(); };
   ACT.pfid = (t) => { pf.id = t.dataset.v; render(); };
   ACT.pflcell = (t) => { pf.cell = pf.cell === t.dataset.h ? null : t.dataset.h; render(); };
+  ONCHANGE.push((t) => { if (t.dataset.pfhl) { const v = t.value.trim().toUpperCase().replace(/S$/, 's').replace(/O$/, 'o'); pf.cell = E.ALL169.includes(v) ? v : null; render(); return true; } });
   ONCHANGE.push((t) => { if (t.dataset.pfsel) { pf.key = t.value; pf.cell = null; render(); return true; } });
 
   // ---------------- Rapport agrégé à la demande : échantillon stratifié de flops résolus dans les fils de calcul ----------------

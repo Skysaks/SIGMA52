@@ -9,7 +9,7 @@
   const GRADE = [['Meilleure', 'good'], ['Correcte', 'good'], ['Inexacte', ''], ['Erreur', 'bad']];
   const gradeOf = (lossPct, freq) => (lossPct < 0.005 || freq >= 0.25 ? 0 : lossPct < 0.02 ? 1 : lossPct < 0.06 ? 2 : 3);
   const RIVER = { bet: '33 75 150', raise: '60 a' };
-  const setup = { scen: 'srp-BTN-BB', seat: 'rand', target: 10, depth: 'fast' };
+  const setup = { scen: 'srp-BTN-BB', seat: 'rand', target: 10, depth: 'fast', quiet: false };
   let ses = null, qz = null;
   const BANK = () => window.HandQuiz || [];
 
@@ -96,7 +96,7 @@
     const best = Math.max(...c.ev), loss = Math.max(0, best - c.ev[a]), lossPct = loss / n.pot, g = gradeOf(lossPct, c.strat[a]);
     h.decisions.push({ street: n.street, board: n.board, acts: n.acts, chosen: a, strat: c.strat, ev: c.ev, best: c.ev.indexOf(best), loss, lossPct, g, pot: n.pot });
     const P = prog(); P.n++; if (g <= 1) P.good++; P.loss += lossPct; P.lossBB += loss; P.hist = [...(P.hist || []), Math.round(lossPct * 1000) / 1000].slice(-100);
-    ses.n++; ses.lossBB += loss; ses.lossPct += lossPct; if (g <= 1) ses.good++;
+    ses.n++; ses.lossBB += loss; ses.lossPct += lossPct; if (g <= 1) ses.good++; ses.gc = ses.gc || [0, 0, 0, 0]; ses.gc[g]++;
     X.award?.('decision', { cats: ['value'], ok: g <= 1 }, true); X.award?.('trainer', null, true);
     Store.save('progress');
     h.log.push({ who: h.heroP, label: n.acts[a].label, street: n.street, g });
@@ -181,12 +181,14 @@
         <div class="row"><span class="note">Tu joues :</span>${[['rand', 'Au hasard'], [sc.a, sc.a], [sc.b, sc.b]].map(([k, l]) => `<button class="chip" aria-pressed="${setup.seat === k}" data-act="prseat" data-v="${k}">${l}</button>`).join('')}</div>
         <div class="row"><span class="note">Mains :</span>${[[10, '10'], [25, '25'], [0, 'Illimité']].map(([k, l]) => `<button class="chip" aria-pressed="${setup.target === k}" data-act="prtarget" data-v="${k}">${l}</button>`).join('')}</div>
         <div class="row"><span class="note">Arbre du flop :</span>${[['fast', 'Rapide (1 taille)'], ['std', 'Standard (2 tailles, plus lent)']].map(([k, l]) => `<button class="chip" aria-pressed="${setup.depth === k}" data-act="prdepth" data-v="${k}">${l}</button>`).join('')}</div>
+        <div class="row"><span class="note">Corrections :</span><button class="chip" aria-pressed="${!setup.quiet}" data-act="prquiet" data-v="0">Après chaque décision</button><button class="chip" aria-pressed="${setup.quiet}" data-act="prquiet" data-v="1">Seulement en cas d'erreur (les décisions justes ne s'arrêtent pas)</button></div>
         <div class="row"><button class="btn primary" data-act="prstart">Lancer</button>${BANK().length ? `<button class="btn" data-act="qzstart">Quiz instantanés (${BANK().length} spots déjà résolus)</button>` : ''}<span class="note">Calcul : ${POOL.mode() === 'worker' ? `${POOL.workers()} fil${POOL.workers() > 1 ? 's' : ''} séparé${POOL.workers() > 1 ? 's' : ''}` : 'fil principal (ce navigateur refuse les fils séparés : l\'interface peut ralentir pendant le calcul)'}</span></div></section>${statsHTML}
         <p class="note">Simplifications : turn joué avec une seule taille (75 % du pot, comme dans l'arbre du flop), ranges préflop issues des tableaux de référence, flop approché sur un échantillon de turns et de rivers qui contient toujours le vrai board.</p>`;
     }
     const h = ses.cur;
     let body = '';
     if (ses.over) body = `<section class="panel" style="border-color:var(--accent)"><span class="eyebrow">Session terminée</span><h2>${ses.n} décisions · ${ses.n ? pct(ses.good / ses.n) : '—'} meilleures ou correctes · EV perdue ${fr(ses.lossBB, 2)} bb</h2>
+      ${ses.gc ? `<p><strong style="color:var(--bad)">${ses.gc[3]} erreur${ses.gc[3] > 1 ? 's' : ''} grave${ses.gc[3] > 1 ? 's' : ''}</strong> (plus de 6 % du pot perdus) · <strong>${ses.gc[2]} moyenne${ses.gc[2] > 1 ? 's' : ''}</strong> (2 à 6 %) · ${ses.gc[1]} imprécision${ses.gc[1] > 1 ? 's' : ''} (moins de 2 %) · ${ses.gc[0]} meilleure${ses.gc[0] > 1 ? 's' : ''} action${ses.gc[0] > 1 ? 's' : ''}.</p>` : ''}
       <p class="note">EV perdue moyenne : ${ses.n ? fr(ses.lossPct / ses.n * 100, 2) : '—'} % du pot par décision. Résultat réel des mains : ${sgn(ses.net, 1)} bb (variance : juge la session sur l'EV perdue).</p>
       <div class="row"><button class="btn primary" data-act="prstart">Nouvelle session</button><button class="btn" data-act="prend">Changer de spot</button></div></section>`;
     else if (h.stage === 'solving' || h.stage === 'river' || h.stage === 'wait') body = `${tableHTML(h)}<section class="panel"><p class="note" id="prprog">${h.stage === 'river' ? 'Re-résolution exacte de la river…' : h.stage === 'wait' ? 'L\'adversaire réfléchit…' : progressText(h)}</p><div class="pbar"><i style="width:${h.stage === 'solving' ? 35 : 80}%"></i></div></section>`;
@@ -196,7 +198,7 @@
       body = tableHTML(h) + `<section class="panel"><span class="eyebrow">${STREET[n.board.length] || ''} · ${esc(h.sc.label)}</span><p>${logHTML(h) || 'Début du flop.'}</p>
         ${h.stage === 'play' ? `<div class="actions">${n.acts.map((a, i) => `<button class="btn${i === 0 ? '' : ''}" data-act="prchoose" data-i="${i}">${esc(a.label)} <span class="note">${i + 1}</span></button>`).join('')}</div>` : ''}
         ${h.stage === 'done' ? `<h3>${esc(h.result.txt)} ${sgn(h.result.net, 1)} bb</h3><p class="note">EV perdue sur la main : ${fr(h.decisions.reduce((a, d) => a + d.loss, 0), 2)} bb sur ${h.decisions.length} décision${h.decisions.length > 1 ? 's' : ''}.</p><div class="row"><button class="btn primary" data-act="prnext">${ses.target && ses.done >= ses.target ? 'Voir le bilan' : 'Main suivante'} <span class="note">Entrée</span></button></div>` : ''}</section>
-        ${last ? `<section class="panel"><div class="row" style="justify-content:space-between"><span class="eyebrow">Ta dernière décision · ${STREET[last.street]}</span><span class="pill ${GRADE[last.g][1]}">${GRADE[last.g][0]} · −${fr(last.loss, 2)} bb (${fr(last.lossPct * 100, 1)} % du pot)</span></div>${decisionHTML(last)}
+        ${last && (!setup.quiet || last.g >= 2) ? `<section class="panel"><div class="row" style="justify-content:space-between"><span class="eyebrow">Ta dernière décision · ${STREET[last.street]}</span><span class="pill ${GRADE[last.g][1]}">${GRADE[last.g][0]} · −${fr(last.loss, 2)} bb (${fr(last.lossPct * 100, 1)} % du pot)</span></div>${decisionHTML(last)}
           <p class="note">« Solveur » : fréquence de chaque action avec ta main exacte. Une action jouée au moins 25 % du temps par le solveur compte comme meilleure (stratégie mixte). Écart : EV perdue par rapport à la meilleure action, en bb.</p></section>` : ''}`;
     }
     return `<div class="row" style="justify-content:space-between"><span class="pill acc">Main ${Math.min(ses.done + (h.stage === 'done' ? 0 : 1), ses.target || Infinity)}${ses.target ? '/' + ses.target : ''}</span><span class="note mono">${ses.n} décision${ses.n > 1 ? 's' : ''} · ${ses.n ? pct(ses.good / ses.n) : '—'} justes · −${fr(ses.lossBB, 2)} bb</span><button class="btn small" data-act="prend">Terminer</button></div>${body}${statsHTML}`;
@@ -205,6 +207,7 @@
   ACT.prend = () => endSession();
   ACT.prnext = () => nextHand();
   ACT.prchoose = (t) => choose(+t.dataset.i);
+  ACT.prquiet = (t) => { setup.quiet = t.dataset.v === '1'; render(); };
   ACT.prseat = (t) => { setup.seat = t.dataset.v; render(); };
   ACT.prtarget = (t) => { setup.target = +t.dataset.v; render(); };
   ACT.prdepth = (t) => { setup.depth = t.dataset.v; render(); };

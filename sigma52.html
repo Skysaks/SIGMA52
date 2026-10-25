@@ -4959,8 +4959,8 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
         if (num(m[3]) > 0 && !m[4]) h.seats.push({ seat: +m[1], name: m[2], stack: num(m[3]) }); continue;
       }
       if ((m = l.match(/^Dealt to (.+?) \[([^\]]+)\]/))) { if (!h.hero) { h.hero = m[1]; h.heroCards = E.parseCards(m[2]); } continue; }
-      if ((m = l.match(/^(.+?):? posts (small blind|big blind|ante|the ante|small & big blinds) (\S+)/))) {
-        const kind = /small &/.test(m[2]) ? 'both' : /small/.test(m[2]) ? 'sb' : /big/.test(m[2]) ? 'bb' : 'ante';
+      if ((m = l.match(/^(.+?):? posts (small blind|big blind|ante|the ante|small & big blinds|straddle) (\S+)/))) {
+        const kind = /small &/.test(m[2]) ? 'both' : /small/.test(m[2]) ? 'sb' : /big/.test(m[2]) ? 'bb' : /straddle/.test(m[2]) ? 'straddle' : 'ante';
         h.actions.push({ street: 'pre', p: m[1], type: 'post', kind, amt: num(m[3]) }); continue;
       }
       if ((m = l.match(/^Uncalled bet \((\S+)\) returned to (.+)$/))) { h.returned[m[2]] = (h.returned[m[2]] || 0) + num(m[1]); continue; }
@@ -4992,7 +4992,8 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
   // Analyse d'une main : contributions, net par joueur, faits préflop et postflop.
   function analyzeHand(h) {
     const players = h.seats.map((s) => s.name), put = {}, facts = {};
-    players.forEach((p) => { put[p] = 0; facts[p] = { vpip: false, pfr: false, threeOpp: false, three: false, sawFlop: false, folded: false, aggr: 0, calls: 0, sd: false, won: false, cbetOpp: false, cbet: false, ftcOpp: false, ftc: false }; });
+    players.forEach((p) => { put[p] = 0; facts[p] = { vpip: false, pfr: false, threeOpp: false, three: false, sawFlop: false, folded: false, aggr: 0, calls: 0, sd: false, won: false, cbetOpp: false, cbet: false, ftcOpp: false, ftc: false, f3Opp: false, f3: false, rvFace: 0, rvRaise: 0, rvFold: 0, last: 'pre' }; });
+    let opener = null, threeBet = false;
     let streetPut = {}, cur = 'pre', raises = 0;
     const pos = positions(h);
     let firstIn = null, heroActed = false, voluntary = false;
@@ -5001,7 +5002,13 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
       if (a.street !== cur) { cur = a.street; streetPut = {}; }
       const f = facts[a.p];
       if (a.type === 'post') { put[a.p] += a.amt; if (a.kind !== 'ante') streetPut[a.p] = (streetPut[a.p] || 0) + (a.kind === 'both' ? a.amt : a.amt); continue; }
+      f.last = cur;
+      // Rivière : réaction face à une mise (relance, couché).
+      if (cur === 'river') { const top = Math.max(0, ...Object.values(streetPut)); if (top > (streetPut[a.p] || 0) + 1e-9) { f.rvFace++; if (a.type === 'raises') f.rvRaise++; if (a.type === 'folds') f.rvFold++; } }
       if (cur === 'pre') {
+        // Fold face au 3-bet : l'ouvreur, quand une relance suit la sienne, se couche-t-il ?
+        if (a.p === opener && threeBet && !facts[opener].f3Opp) { facts[opener].f3Opp = true; if (a.type === 'folds') facts[opener].f3 = true; }
+        if (a.type === 'raises' || a.type === 'bets') { if (raises === 0) opener = a.p; else if (raises === 1) threeBet = true; }
         if (a.p === h.hero && !heroActed) { heroActed = true; if (!voluntary) firstIn = { pos: pos[a.p], action: a.type }; }
         if (raises === 1 && a.type !== 'post') { f.threeOpp = true; if (a.type === 'raises') f.three = true; }
         if (a.type === 'calls' || a.type === 'raises' || a.type === 'bets') { f.vpip = true; voluntary = true; }
@@ -5083,7 +5090,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
     const hands = split(text).map(parseHand).filter((h) => h.seats.length >= 2 && h.bb > 0);
     const heroCount = {}; hands.forEach((h) => h.hero && (heroCount[h.hero] = (heroCount[h.hero] || 0) + 1));
     const hero = Object.entries(heroCount).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
-    const opp = {}, me = { hands: 0, net: 0, netBB: 0, vpip: 0, pfr: 0, threeOpp: 0, three: 0, sawFlop: 0, sd: 0, wsd: 0, aggr: 0, calls: 0, cbetOpp: 0, cbet: 0, ftcOpp: 0, ftc: 0, byPos: {}, luck: 0, allins: [], rake: 0, dealt: { n: 0, prem: 0 }, sets: { n: 0, hit: 0 }, curve: [] };
+    const opp = {}, pool = { hands: 0, vpip: 0, pfr: 0, threeOpp: 0, three: 0, f3Opp: 0, f3: 0, sawFlop: 0, sd: 0, wsd: 0, aggr: 0, calls: 0, cbetOpp: 0, cbet: 0, ftcOpp: 0, ftc: 0, rvFace: 0, rvRaise: 0, rvFold: 0 }, heat = {}, me = { hands: 0, net: 0, netBB: 0, vpip: 0, pfr: 0, threeOpp: 0, three: 0, sawFlop: 0, sd: 0, wsd: 0, aggr: 0, calls: 0, cbetOpp: 0, cbet: 0, ftcOpp: 0, ftc: 0, byPos: {}, luck: 0, allins: [], rake: 0, dealt: { n: 0, prem: 0 }, sets: { n: 0, hit: 0 }, curve: [] };
     const leaks = { tooLoose: [], tooTight: [], limps: [] }, pots = [];
     for (const h of hands) {
       const a = analyzeHand(h);
@@ -5092,11 +5099,17 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
         tgt.hands++; if (f.vpip) tgt.vpip++; if (f.pfr) tgt.pfr++; if (f.threeOpp) tgt.threeOpp++; if (f.three) tgt.three++;
         if (f.sawFlop) tgt.sawFlop++; if (f.sd) { tgt.sd++; if (f.won) tgt.wsd++; } tgt.aggr += f.aggr; tgt.calls += f.calls;
         if (f.cbetOpp) tgt.cbetOpp++; if (f.cbet) tgt.cbet++; if (f.ftcOpp) tgt.ftcOpp++; if (f.ftc) tgt.ftc++;
-        if (p !== hero) tgt.net += a.net[p] / h.bb;
+        if (p !== hero) {
+          tgt.net += a.net[p] / h.bb;
+          pool.hands++; for (const k of ['vpip', 'pfr', 'threeOpp', 'three', 'f3Opp', 'f3', 'sawFlop', 'cbetOpp', 'cbet', 'ftcOpp', 'ftc']) if (f[k]) pool[k]++;
+          if (f.sd) { pool.sd++; if (f.won) pool.wsd++; } pool.aggr += f.aggr; pool.calls += f.calls; pool.rvFace += f.rvFace; pool.rvRaise += f.rvRaise; pool.rvFold += f.rvFold;
+        }
       }
       if (hero && a.net[hero] !== undefined) {
         const nbb = a.net[hero] / h.bb; me.net += a.net[hero]; me.netBB += nbb;
         const ps = a.pos[hero] || '?'; const bp = me.byPos[ps] = me.byPos[ps] || { hands: 0, bb: 0 }; bp.hands++; bp.bb += nbb;
+        // Carte des fuites : où se décide le résultat de la main (dernière rue où tu as agi, ou l'abattage).
+        const fh = a.facts[hero], st = fh?.sd ? 'sd' : fh?.last || 'pre', hp = heat[ps] = heat[ps] || {}, hc = hp[st] = hp[st] || { n: 0, bb: 0 }; hc.n++; hc.bb += nbb;
         pots.push({ id: h.id, bb: nbb, eur: a.net[hero], hand: h });
         const fi = a.firstIn;
         if (fi && h.heroCards && CHART_POS[fi.pos] && !h.tournament) {
@@ -5120,7 +5133,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
     }
     pots.sort((x, y) => Math.abs(y.bb) - Math.abs(x.bb));
     const opponents = Object.values(opp).sort((a, b) => b.hands - a.hands).map((o) => ({ ...o, profile: profileOf(o) }));
-    return { hands: hands.length, hero, me, opponents, leaks, pots: pots.slice(0, 10), sites: [...new Set(hands.map((h) => h.site))], from: hands[0]?.date, to: hands[hands.length - 1]?.date };
+    return { hands: hands.length, hero, me, opponents, pool, heat, leaks, pots: pots.slice(0, 10), sites: [...new Set(hands.map((h) => h.site))], from: hands[0]?.date, to: hands[hands.length - 1]?.date };
   }
 
 
@@ -5146,7 +5159,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
       if (!(a.p in put)) continue;
       if (a.street !== street) { street = a.street; streetPut = {}; }
       let add = 0, txt = '';
-      if (a.type === 'post') { add = a.amt; txt = `${a.p} poste ${a.kind === 'sb' ? 'la petite blinde' : a.kind === 'bb' ? 'la grosse blinde' : 'l\'ante'} (${a.amt})`; streetPut[a.p] = (streetPut[a.p] || 0) + (a.kind === 'ante' ? 0 : a.amt); }
+      if (a.type === 'post') { add = a.amt; txt = `${a.p} poste ${a.kind === 'sb' ? 'la petite blinde' : a.kind === 'bb' ? 'la grosse blinde' : a.kind === 'straddle' ? 'le straddle' : 'l\'ante'} (${a.amt})`; streetPut[a.p] = (streetPut[a.p] || 0) + (a.kind === 'ante' ? 0 : a.amt); }
       else if (a.type === 'folds') { folded.add(a.p); txt = `${a.p} se couche`; }
       else if (a.type === 'checks') txt = `${a.p} checke`;
       else if (a.type === 'calls') { add = a.amt; txt = `${a.p} suit ${a.amt}`; }
@@ -5262,6 +5275,9 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
       this.levels = opts.levels || null; this.handsPerLevel = opts.handsPerLevel || 6;
       [this.sb, this.bb] = this.levels ? this.levels[0] : [opts.sb ?? 0.05, opts.bb ?? 0.1];
       this.rebuy = opts.rebuy !== false; this.startStack = opts.stack ?? 10; this.handNo = 0; this.unit = opts.unit ?? '€';
+      // Parties live et entre amis : ante (en bb, payée par chaque joueur), straddle (UTG met 2 bb à l'aveugle et parle en dernier préflop),
+      // bomb pot toutes les N mains (chacun met bombBB au pot, pas de tour préflop, le flop est servi directement).
+      this.anteBB = +opts.anteBB || 0; this.straddle = !!opts.straddle; this.bombEvery = +opts.bombEvery || 0; this.bombBB = +opts.bombBB || 2;
       const lineup = opts.lineup || ['station', 'reg', 'maniaque', 'station', 'nit'];
       const used = {};
       this.players = [{ name: 'Toi', hero: true, stack: this.startStack, profile: null }]
@@ -5295,11 +5311,24 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
       this.lines = [`${hd} - ${new Date().toISOString().slice(0, 19).replace('T', ' ').replace(/-/g, '/')} UTC`,
         `Table: 'SIGMA Entraînement' ${this.n}-max (real money) Seat #${this.button + 1} is the button`,
         ...this.players.map((p, i) => (p.out ? null : `Seat ${i + 1}: ${p.name} (${p.stack.toFixed(2)}€)`)).filter(Boolean), '*** ANTE/BLINDS ***'];
+      this.bomb = this.bombEvery > 0 && this.handNo % this.bombEvery === 0 && order.length >= 2; this.straddled = -1;
+      if (this.bomb) {
+        // Bomb pot : mise forcée identique pour tous (argent mort), pas de blindes ni de tour préflop.
+        for (const i of order) this.dead(i, this.bombBB * this.bb, 'ante');
+        this.lines.push(`Dealt to Toi [${this.players[0].cards.map(E.cardStr).join(' ')}]`, '*** PRE-FLOP *** ');
+        this.cur = 0; this.minRaise = this.bb; this.raises = 0; this.acted = new Set(); this.lastAggr = -1;
+        return this.nextStreet();
+      }
+      if (this.anteBB > 0) for (const i of order) this.dead(i, this.anteBB * this.bb, 'ante');
       this.post(sbi, this.sb, 'small blind'); this.post(bbi, this.bb, 'big blind');
+      let last = bbi;
+      if (this.straddle && order.length >= 4) { const sti = order[2]; this.post(sti, 2 * this.bb, 'straddle'); this.straddled = sti; last = sti; }
       this.lines.push(`Dealt to Toi [${this.players[0].cards.map(E.cardStr).join(' ')}]`, '*** PRE-FLOP *** ');
-      this.cur = this.bb; this.minRaise = this.bb; this.raises = 1; this.acted = new Set(); this.toAct = (bbi + 1) % this.n; this.lastAggr = bbi;
+      this.cur = last === bbi ? this.bb : 2 * this.bb; this.minRaise = this.cur; this.raises = 1; this.acted = new Set(); this.toAct = (last + 1) % this.n; this.lastAggr = last;
       this.skipToNext(true);
     }
+    // Argent mort (ante, bomb pot) : entre dans le pot sans compter comme mise de la rue.
+    dead(i, amt, label) { const p = this.players[i]; const a = Math.min(amt, p.stack); p.stack -= a; p.total += a; if (p.stack <= 1e-9) p.allin = true; this.lines.push(`${p.name} posts ${label} ${a.toFixed(2)}€`); }
     post(i, amt, label) { const p = this.players[i]; const a = Math.min(amt, p.stack); p.stack -= a; p.put += a; p.total += a; if (p.stack <= 1e-9) p.allin = true; this.lines.push(`${p.name} posts ${label} ${a.toFixed(2)}€`); }
     alive() { return this.players.filter((p) => p.inHand); }
     canAct(i) { const p = this.players[i]; return p.inHand && !p.allin && p.stack > 1e-9; }
@@ -5887,8 +5916,19 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
     return { ok, note };
   }
 
+  // Gravité d'une erreur (mode « n'interromps qu'en cas d'erreur ») : grave = écart net entre équité et cote requise,
+  // ou bluff contre un joueur qui ne se couche pas ; petite sinon (limp, taille, décision serrée).
+  function severity(adv, act, gr) {
+    if (gr.ok) return null;
+    const eq = adv.eq, need = adv.need ?? 0, has = eq !== null && eq !== undefined;
+    if (act === 'fold' && adv.rec !== 'fold' && has && eq - need > 0.15) return 'grave';
+    if ((act === 'call' || act === 'raise') && adv.rec === 'fold' && has && need - eq > 0.1) return 'grave';
+    if (act === 'raise' && adv.cats.includes('nobluff')) return 'grave';
+    if (act === 'fold' && adv.rec === 'raise' && adv.cats.includes('value')) return 'grave';
+    return 'petite';
+  }
   const ACT_FR = { fold: 'se coucher', check: 'parole', call: 'suivre', raise: 'miser / relancer' };
-  const api = { CATS, ACT_FR, villainRange, advise, grade, describeRange, preflopInterval, pushFoldAdvice, heroPreRange, rangeAdvice };
+  const api = { CATS, ACT_FR, villainRange, advise, grade, severity, describeRange, preflopInterval, pushFoldAdvice, heroPreRange, rangeAdvice };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Coach = api;
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
@@ -9442,7 +9482,9 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
       const a = adviceFor(g);
       if (a) {
         const gr = Co.grade(a, type, to, t), hero = t.players[0];
-        g.decisions.push({ hand: t.handNo, street: t.street, pos: a.pos, cards: hero.cards.slice(), board: t.board.slice(), act: type, rec: a.rec, recTxt: REC_FR(a, t), ok: gr.ok, note: gr.note, cats: a.cats, why: a.why, eq: a.eq, need: a.need });
+        const sev = Co.severity ? Co.severity(a, type, gr) : (gr.ok ? null : 'petite');
+        g.decisions.push({ hand: t.handNo, street: t.street, pos: a.pos, cards: hero.cards.slice(), board: t.board.slice(), act: type, rec: a.rec, recTxt: REC_FR(a, t), ok: gr.ok, note: gr.note, cats: a.cats, why: a.why, eq: a.eq, need: a.need, sev });
+        if (g.mode === 'errors' && sev === 'grave') g.stopErr = g.decisions[g.decisions.length - 1];
         const cs = state.progress.coach;
         a.cats.forEach((c) => { const x = cs[c] || (cs[c] = { ok: 0, n: 0 }); x.n++; if (gr.ok) x.ok++; });
         X.award?.('decision', { cats: a.cats, ok: gr.ok, champ: g.champ });
@@ -9494,7 +9536,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
 
   // ---- Table cash : préparation, jeu avec coach, bilan ----
   const OBJ_MOD = { rfi: 'preflop', iso: 'fish', pfdef: 'preflop2', odds: 'maths', value: 'fish', nobluff: 'fish', bluff: 'postflop' };
-  const prep = { lineup: 'fish', target: 50, mode: 'live', objectives: new Set(['rfi', 'odds', 'value']) };
+  const prep = { lineup: 'fish', target: 50, mode: 'live', objectives: new Set(['rfi', 'odds', 'value']), straddle: false, ante: 0, bomb: 0 };
   let cash = null, showProfiles = false;
   const sessionDone = () => sub === 'table' && cash && cash.target && cash.tb.done && cash.tb.session.hands >= cash.target;
   SIMVIEWS.table = () => {
@@ -9502,7 +9544,9 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
       return `<section class="panel"><span class="eyebrow">Préparer la session</span><h2>Choisis ta table, tes objectifs et le niveau d'aide</h2>
         <div class="row"><span class="note">Table :</span>${Object.entries({ fish: 'Riche en fish', equilibree: 'Équilibrée', regs: 'Réguliers' }).map(([k, l]) => `<button class="chip" aria-pressed="${prep.lineup === k}" data-act="prepl" data-v="${k}">${l}</button>`).join('')}</div>
         <div class="row"><span class="note">Durée :</span>${[[25, '25 mains'], [50, '50 mains'], [100, '100 mains'], [0, 'Illimitée']].map(([k, l]) => `<button class="chip" aria-pressed="${prep.target === k}" data-act="prept" data-v="${k}">${l}</button>`).join('')}</div>
-        <div class="row"><span class="note">Coach :</span>${[['live', 'En direct (conseil avant chaque décision)'], ['exam', 'Examen (correction après la main)'], ['free', 'Sans aide']].map(([k, l]) => `<button class="chip" aria-pressed="${prep.mode === k}" data-act="prepm" data-v="${k}">${l}</button>`).join('')}</div>
+        <div class="row"><span class="note">Coach :</span>${[['live', 'En direct (conseil avant chaque décision)'], ['errors', 'Seulement en cas d\'erreur (une erreur grave arrête la main)'], ['exam', 'Examen (correction après la main)'], ['free', 'Sans aide']].map(([k, l]) => `<button class="chip" aria-pressed="${prep.mode === k}" data-act="prepm" data-v="${k}">${l}</button>`).join('')}</div>
+        <div class="row"><span class="note">Règles live :</span><button class="chip" aria-pressed="${prep.straddle}" data-act="prepx" data-k="straddle">Straddle (UTG met 2 bb)</button>${[[0, 'Sans ante'], [0.1, 'Ante 0,1 bb'], [0.25, 'Ante 0,25 bb']].map(([v, l]) => `<button class="chip" aria-pressed="${prep.ante === v}" data-act="prepa" data-v="${v}">${l}</button>`).join('')}${[[0, 'Pas de bomb pot'], [5, 'Bomb pot toutes les 5 mains'], [10, 'Toutes les 10']].map(([v, l]) => `<button class="chip" aria-pressed="${prep.bomb === v}" data-act="prepb" data-v="${v}">${l}</button>`).join('')}</div>
+        ${prep.straddle || prep.ante || prep.bomb ? '<p class="note">Bomb pot : chacun met 2 bb, pas de tour préflop, le flop arrive tout de suite (pot multiway gonflé : joue plus serré sans les tirages faibles). Straddle : le préflop se joue à 2 bb, les ranges d\'ouverture se resserrent. Ante : plus d\'argent mort, les vols deviennent rentables plus large.</p>' : ''}
         <div><span class="note">Objectifs suivis :</span><div class="row" style="margin-top:6px">${Object.entries(Co.CATS).filter(([k]) => k !== 'pushfold').map(([k, l]) => `<button class="chip" aria-pressed="${prep.objectives.has(k)}" data-act="prepo" data-v="${k}">${l}</button>`).join('')}</div></div>
         <div class="warnbox"><strong>Avant de jouer, relis :</strong> ${[...new Set([...prep.objectives].map((o) => OBJ_MOD[o]).filter(Boolean))].map((id) => { const m = K.MODULES.find((x) => x.id === id); return m ? `<button class="btn small" data-act="openmod" data-id="${id}">${esc(m.title)}</button>` : ''; }).join(' ') || '—'}</div>
         <div class="row"><button class="btn primary" data-act="cashstart">Lancer la session</button></div></section>
@@ -9510,9 +9554,9 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
     }
     const t = cash.tb, L = !t.done && t.toAct === 0 ? t.legal() : null;
     const handDec = cash.decisions.filter((d) => d.hand === t.handNo);
-    let out = `<div class="row"><span class="pill acc">${cash.target ? `Main ${Math.min(t.session.hands + (t.done ? 0 : 1), cash.target)}/${cash.target}` : `Main ${t.session.hands + (t.done ? 0 : 1)}`}</span><span class="pill">${{ live: 'Coach en direct', exam: 'Mode examen', free: 'Sans aide' }[cash.mode]}</span>
+    let out = `<div class="row"><span class="pill acc">${cash.target ? `Main ${Math.min(t.session.hands + (t.done ? 0 : 1), cash.target)}/${cash.target}` : `Main ${t.session.hands + (t.done ? 0 : 1)}`}</span>${t.bomb ? '<span class="pill bad">Bomb pot</span>' : t.straddled >= 0 ? '<span class="pill">Straddle</span>' : ''}<span class="pill">${{ live: 'Coach en direct', errors: 'Coach sur erreur', exam: 'Mode examen', free: 'Sans aide' }[cash.mode]}</span>
       <label class="check"><input type="checkbox" id="showprof" data-act="showprof" ${showProfiles ? 'checked' : ''}><span class="note">Profils visibles</span></label><button class="btn small" data-act="cashstop" style="margin-left:auto">Terminer la session</button></div>
-      ${cash.champ && X.champBanner ? X.champBanner(cash) : ''}${tableHTML(t, { showProfiles: showProfiles && !cash.champ?.hidden })}`;
+      ${cash.champ && X.champBanner ? X.champBanner(cash) : ''}${cash.stopErr ? stopErrHTML(cash.stopErr) : ''}${tableHTML(t, { showProfiles: showProfiles && !cash.champ?.hidden })}`;
     if (L) out += `<section class="panel"><span class="eyebrow">À toi · ${TS.posName(t, 0)} · ${E.abstractOf(t.players[0].cards[0], t.players[0].cards[1])}</span>${actionsHTML(t)}</section>` + (cash.mode === 'live' ? coachHTML(adviceFor(cash), t) + rangeAdvHTML(cash) : '');
     if (t.done && t.notes) {
       const n = t.notes, finished = sessionDone();
@@ -9528,16 +9572,24 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
       <div class="row"><button class="btn" data-act="tb2an" ${t.history.length ? '' : 'disabled'}>Analyser ces mains</button></div>`;
     return out;
   };
+  // Mode « n'interromps qu'en cas d'erreur » : arrêt sur une erreur grave, avec la correction ; les petites attendent le bilan.
+  function stopErrHTML(d) {
+    return `<section class="panel" style="border-color:var(--bad)"><span class="eyebrow" style="color:var(--bad)">Erreur grave · ${{ pre: 'préflop', flop: 'flop', turn: 'turn', river: 'river' }[d.street]}</span>
+      <h2>Tu as choisi « ${Co.ACT_FR[d.act]} », le coach : ${esc(d.recTxt)}</h2>${d.eq !== null && d.eq !== undefined ? `<p class="note mono">Équité ${pct(d.eq, 1)}${d.need ? ` · cote requise ${pct(d.need, 1)}` : ''}</p>` : ''}
+      <div class="advice">${[d.note, ...d.why].filter(Boolean).map((w) => `<div>${esc(w)}</div>`).join('')}</div><div class="row"><button class="btn primary" data-act="stoperrok">Compris, continuer</button></div></section>`;
+  }
+  ACT.stoperrok = () => { if (cash) cash.stopErr = null; render(); };
   function catTable(decisions, highlight) {
     const by = {}; decisions.forEach((d) => d.cats.forEach((c) => { const x = by[c] || (by[c] = { ok: 0, n: 0 }); x.n++; if (d.ok) x.ok++; }));
     const rows = Object.entries(Co.CATS).filter(([k]) => by[k]);
     return rows.length ? `<div class="tw"><table class="t"><thead><tr><th>Objectif</th><th class="n">Décisions</th><th class="n">Justes</th></tr></thead><tbody>${rows.map(([k, l]) => `<tr${highlight && highlight.has(k) ? ' style="font-weight:600"' : ''}><td>${l}${highlight && highlight.has(k) ? ' ★' : ''}</td><td class="n">${by[k].n}</td><td class="n" style="color:var(${by[k].ok / by[k].n >= 0.8 ? '--good' : '--bad'})">${pct(by[k].ok / by[k].n)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="note">Aucune décision notée.</p>';
   }
   function bilanHTML(g) {
-    const d = g.decisions, ok = d.filter((x) => x.ok).length, miss = d.filter((x) => !x.ok).slice(-12);
+    const d = g.decisions, ok = d.filter((x) => x.ok).length, miss = d.filter((x) => !x.ok).sort((a, b) => (a.sev === 'grave' ? 0 : 1) - (b.sev === 'grave' ? 0 : 1)).slice(0, 14);
+    const nG = d.filter((x) => x.sev === 'grave').length, nP = d.filter((x) => x.sev === 'petite').length;
     return `<section class="panel" style="border-color:var(--accent)"><span class="eyebrow">Bilan de session</span><h2>${g.tb.session.hands} mains · ${sgn(g.tb.session.net, 1)} bb · ${d.length ? pct(ok / d.length) : '—'} de décisions justes</h2>
-      ${catTable(d, g.objectives)}
-      ${miss.length ? `<h3>Décisions à revoir</h3><div class="tw"><table class="t"><tbody>${miss.map((m) => `<tr><td class="mono">Main ${m.hand}</td><td>${m.pos} · ${m.cards.map(E.cardStr).join(' ')}${m.board.length ? ' · ' + m.board.map(E.cardStr).join(' ') : ''}</td><td>Tu as choisi « ${Co.ACT_FR[m.act]} », conseil « ${esc(m.recTxt)} »</td></tr><tr><td colspan="3" class="note">${esc([m.note, ...m.why].filter(Boolean).join(' '))}</td></tr>`).join('')}</tbody></table></div>` : '<p>Aucune erreur sur cette session.</p>'}
+      ${catTable(d, g.objectives)}${nG + nP ? `<p><strong style="color:var(--bad)">${nG} erreur${nG > 1 ? 's' : ''} grave${nG > 1 ? 's' : ''}</strong> (écart net d'équité, bluff contre un joueur qui paie, valeur manquée) · <strong>${nP} petite${nP > 1 ? 's' : ''}</strong> (limp, taille, décision serrée). Les graves d'abord.</p>` : ''}
+      ${miss.length ? `<h3>Décisions à revoir</h3><div class="tw"><table class="t"><tbody>${miss.map((m) => `<tr><td class="mono">${m.sev === 'grave' ? '<span class="pill bad">grave</span> ' : m.sev === 'petite' ? '<span class="pill">petite</span> ' : ''}Main ${m.hand}</td><td>${m.pos} · ${m.cards.map(E.cardStr).join(' ')}${m.board.length ? ' · ' + m.board.map(E.cardStr).join(' ') : ''}</td><td>Tu as choisi « ${Co.ACT_FR[m.act]} », conseil « ${esc(m.recTxt)} »</td></tr><tr><td colspan="3" class="note">${esc([m.note, ...m.why].filter(Boolean).join(' '))}</td></tr>`).join('')}</tbody></table></div>` : '<p>Aucune erreur sur cette session.</p>'}
       <p class="note">Le résultat en bb sur ${g.tb.session.hands} mains est surtout de la variance. Juge la session sur le taux de décisions justes.</p>
       <div class="row"><button class="btn primary" data-act="cashnew">Nouvelle session</button><button class="btn" data-act="tb2an">Analyser ces mains</button></div></section>`;
   }
@@ -9547,11 +9599,14 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
       ${rows.length ? `<div class="tw"><table class="t"><thead><tr><th>Objectif</th><th class="n">Décisions</th><th class="n">Justes</th></tr></thead><tbody>${rows.map(([k, l]) => `<tr><td>${l}</td><td class="n">${cs[k].n}</td><td class="n">${pct(cs[k].ok / cs[k].n)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="note">Lance une session avec le coach : tes décisions seront notées par objectif.</p>'}</section>`;
   }
   ACT.prepl = (t) => { prep.lineup = t.dataset.v; render(); };
+  ACT.prepx = () => { prep.straddle = !prep.straddle; render(); };
+  ACT.prepa = (t) => { prep.ante = +t.dataset.v; render(); };
+  ACT.prepb = (t) => { prep.bomb = +t.dataset.v; render(); };
   ACT.prept = (t) => { prep.target = +t.dataset.v; render(); };
   ACT.prepm = (t) => { prep.mode = t.dataset.v; render(); };
   ACT.prepo = (t) => { const v = t.dataset.v; prep.objectives.has(v) ? prep.objectives.delete(v) : prep.objectives.add(v); render(); };
   ACT.cashstart = () => {
-    cash = { kind: 'cash', tb: new TS.Table({ lineup: LINEUPS[prep.lineup] }), mode: prep.mode, target: prep.target, objectives: new Set(prep.objectives), decisions: [], adv: null };
+    cash = { kind: 'cash', tb: new TS.Table({ lineup: LINEUPS[prep.lineup], straddle: prep.straddle, anteBB: prep.ante, bombEvery: prep.bomb }), mode: prep.mode, target: prep.target, objectives: new Set(prep.objectives), decisions: [], adv: null };
     nextHand(cash);
   };
   ACT.cashnext = () => { if (!sessionDone()) nextHand(cash); };
@@ -9688,9 +9743,9 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
   X.getReplay = () => rp; X.setAnSub = (v) => { anSub = v; }; X.openReplay = (raw) => openReplay(raw);
   const baseAnalyse = VIEWS.analyse;
   VIEWS.analyse = () => {
-    const tabs = `<div class="subtabs" role="tablist">${[['import', 'Import et statistiques'], ['review', 'Revue EV'], ['replay', 'Replayer'], ['library', `Bibliothèque (${state.library.hands.length})`]].map(([k, l]) => `<button class="chip" aria-pressed="${anSub === k}" data-act="ansub" data-s="${k}">${l}</button>`).join('')}</div>`;
+    const tabs = `<div class="subtabs" role="tablist">${[['import', 'Import et statistiques'], ['review', 'Revue EV'], ['leaks', 'Population et fuites'], ['replay', 'Replayer'], ['library', `Bibliothèque (${state.library.hands.length})`]].map(([k, l]) => `<button class="chip" aria-pressed="${anSub === k}" data-act="ansub" data-s="${k}">${l}</button>`).join('')}</div>`;
     if (anSub === 'import') return baseAnalyse().replace('</section>', '</section>' + tabs);
-    return head('Analyse de tes mains', 'Après la session : rejoue tes mains rue par rue, garde les plus instructives dans ta bibliothèque.') + tabs + (anSub === 'replay' ? replayHTML() : anSub === 'review' ? (X.reviewHTML ? X.reviewHTML() : '') : libraryHTML());
+    return head('Analyse de tes mains', 'Après la session : rejoue tes mains rue par rue, garde les plus instructives dans ta bibliothèque.') + tabs + (anSub === 'replay' ? replayHTML() : anSub === 'review' ? (X.reviewHTML ? X.reviewHTML() : '') : anSub === 'leaks' ? (X.leaksHTML ? X.leaksHTML() : '') : libraryHTML());
   };
   ACT.ansub = (t) => { anSub = t.dataset.s; render(); };
   function openReplay(raw) {
@@ -10236,7 +10291,8 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
   }
 
   // ---------------- Actions ----------------
-  ACT.svgo = () => { sv.target = sv.pendingTarget || null; sv.pendingTarget = null; start(); };
+  // Le nœud cible d'une main importée ne vaut que pour son board : un board modifié entre-temps l'annule.
+  ACT.svgo = () => { const pt = sv.pendingTarget; sv.target = pt && (!pt.board || pt.board === sv.board) ? pt : null; sv.pendingTarget = null; start(); };
   ACT.svstop = () => { sv.running = false; if (sv.game) { sv.ex = sv.game.exploitability(); finish(); } };
   ACT.svsetup = (t, e) => { e.preventDefault(); sv.setupOpen = !sv.setupOpen; render(); };
   ACT.svreset = () => { sv.game = null; sv.info = null; sv.path = []; sv.target = null; render(); };
@@ -10385,7 +10441,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
     sv.hero = s.heroCards ? s.heroCards.map(E.cardStr).join('') : ''; sv.heroCombo = parseHero();
     sv.note = `Main importée : ${s.desc}, solve à partir du ${s.startSt}. Ranges préflop estimées à partir des positions : vérifie-les. Les tailles réellement jouées ont été ajoutées à l'arbre ; après la résolution, le solveur s'ouvre au moment de la décision.`;
     sv.game = null; sv.info = null; sv.path = []; sv.err = '';
-    sv.pendingTarget = { seq: s.seq };
+    sv.pendingTarget = { seq: s.seq, board: sv.board };
     go('solveur');
   };
 
@@ -10407,7 +10463,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
   // ---------------- Rapport agrégé (précalculé par tools/build_aggregate.js) ----------------
   const ag = { group: 'high', sort: 'w', sc: 'srp-BTN-BB' };
   // ---------------- Préflop : ranges calculées par le solveur préflop simplifié (tools/build_preflop.js) ----------------
-  const pf = { fmt: 'cash', id: 'cash100', key: 'rfi:CO', cell: null };
+  const pf = { fmt: 'cash', id: 'cash100', key: 'rfi:CO', cell: null, cmp: null };
   const PFCAT = [['rfi', 'Ouverture'], ['vo', 'Face à une ouverture'], ['vsh', 'Face à un tapis d\'ouverture'], ['v3', 'Face à un 3-bet'], ['v3a', 'Face à un 3-bet tapis'], ['v4', 'Face à un 4-bet'], ['v4a', 'Face à un 4-bet tapis'], ['v5', 'Face à un 5-bet tapis'], ['sq', 'Squeeze'], ['sqv', 'Ouvreur face au squeeze'], ['sqc', 'Caller face au squeeze'], ['sqo', 'Squeezer face au tapis de l\'ouvreur'], ['sqa', 'Squeezer face au tapis du caller']];
   const PFK = { f: 'f', c: 'x', r: 'b2', a: 'a' };
   function pfDecode(D, node) { return node.f.map((str) => Float64Array.from(str, (ch) => D.alph.indexOf(ch) / 63)); }
@@ -10427,7 +10483,8 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
     else if (kind === 'vo' && C.FACING[o]?.[q]) { const f = C.FACING[o][q], ref = new Set([...E.parseRange(f.call), ...E.parseRange(f.threebet)]); const more = E.ALL169.filter((h, i) => play(i) >= 0.5 && !ref.has(h)), less = E.ALL169.filter((h, i) => play(i) < 0.5 && ref.has(h)); cmp = [more, less]; }
     const opts = PFCAT.map(([k, l]) => { const L = cfg.nodes.filter((n) => n.key.split(':')[0] === k); return L.length ? `<optgroup label="${l}">${L.map((n) => `<option value="${n.key}"${n.key === node.key ? ' selected' : ''}>${esc(n.label)}</option>`).join('')}</optgroup>` : ''; }).join('');
     const sel = pf.cell ? E.ALL169.indexOf(pf.cell) : -1;
-    return `<section class="panel"><span class="eyebrow">Ranges préflop calculées par le solveur</span><h2>${esc(cfg.label)} · ${esc(node.label)}</h2>
+    if (pf.cmp) return compareHTML(D, cfg, cfgs, node);
+    return `<section class="panel"><div class="row" style="justify-content:space-between"><span class="eyebrow">Ranges préflop calculées par le solveur</span><span class="row"><button class="btn small" data-act="pfcmp" data-v="pos">Comparer les positions</button><button class="btn small" data-act="pfcmp" data-v="depth">Comparer les profondeurs</button></span></div><h2>${esc(cfg.label)} · ${esc(node.label)}</h2>
       <div class="row"><span class="note">Format :</span>${[['cash', 'Cash'], ['mtt', 'Tournoi (ante de grosse blinde)']].map(([k, l]) => `<button class="chip" aria-pressed="${pf.fmt === k}" data-act="pffmt" data-v="${k}">${l}</button>`).join('')}</div>
       <div class="row"><span class="note">Profondeur :</span>${cfgs.map((c) => `<button class="chip" aria-pressed="${c.id === cfg.id}" data-act="pfid" data-v="${c.id}">${c.stack} bb</button>`).join('')}</div>
       <label class="f">Situation<select data-pfsel="1">${opts}</select></label>
@@ -10438,9 +10495,37 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
       ${cmp ? `<p class="note"><strong>Par rapport au tableau de référence (cash 100 bb) :</strong> joue en plus ${cmp[0].length ? cmp[0].join(' ') : 'rien'} ; laisse de côté ${cmp[1].length ? cmp[1].join(' ') : 'rien'}.</p>` : ''}
       <p class="note">Modèle simplifié, à lire comme une tendance : six joueurs à tapis égaux, ouverture ${String(cfg.open).replace('.', ',')} bb, 3-bet 3 fois (4 fois depuis les blindes), squeezes, mais pas de limp ni de pot à trois. Après le flop, la valeur d'un pot payé est l'équité réalisée : 100 % en position, 72 % hors de position en pot simple (82 % en 3-bet, 90 % au-delà), modulée par la jouabilité de la main (paires et assorties connectées réalisent mieux). Tapis : équité exacte avec les blocages. Validé à 10 bb sans ante : la petite blinde pousse 58,9 % des mains contre 58,4 % pour l'équilibre tête-à-tête exact.</p></section>`;
   }
+  // Comparateur côte à côte : la même situation pour toutes les positions, ou la même position à toutes les profondeurs.
+  function miniGrid(D, node, hl) {
+    const F = pfDecode(D, node), cls = node.acts.map((a) => PFK[a.k] || 'b2'), W = E.ALL169.map((h) => E.combos(h).length);
+    const play = E.ALL169.reduce((s, h, i) => s + (1 - F[0][i]) * W[i], 0) / 1326;
+    const cells = E.ALL169.map((h, i) => `<span title="${h} : ${node.acts.map((a, k) => `${a.l} ${Math.round(F[k][i] * 100)} %`).join(', ')}" style="aspect-ratio:1;background:${grad(node.acts.map((_, a) => [cls[a], F[a][i]])) || 'var(--sunk)'}${hl === h ? ';outline:2px solid var(--ink)' : ''}"></span>`).join('');
+    return { html: `<div style="display:grid;grid-template-columns:repeat(13,1fr);gap:1px;background:var(--line);border:1px solid var(--line)">${cells}</div>`, play };
+  }
+  function compareHTML(D, cfg, cfgs, node) {
+    const [kind, o, q] = node.key.split(':');
+    let items;
+    if (pf.cmp === 'pos') {
+      // Même type de situation : on fait varier la position du joueur qui décide, le reste fixé quand c'est possible.
+      const same = cfg.nodes.filter((n) => { const [k, a, b] = n.key.split(':'); return k === kind && (kind === 'rfi' || (kind === 'vo' ? a === o : b === q)); });
+      items = (same.length > 1 ? same : cfg.nodes.filter((n) => n.key.split(':')[0] === kind)).map((n) => ({ n, title: n.label }));
+    } else items = cfgs.map((c) => ({ n: c.nodes.find((x) => x.key === node.key), title: `${c.stack} bb` })).filter((x) => x.n);
+    const blocks = items.map(({ n, title }) => { const g = miniGrid(D, n, pf.cell); return `<div style="display:grid;gap:4px;align-content:start"><button class="chip" data-act="pfpick" data-k="${n.key}" style="justify-self:start" ${n.key === node.key && pf.cmp === 'pos' ? 'aria-pressed="true"' : ''}>${esc(title)}</button>${g.html}<span class="note mono">joue ${pct(g.play, 1)}</span></div>`; }).join('');
+    const legend = node.acts.map((a) => `<span><i style="background:var(--act-${PFK[a.k] || 'b2'})"></i>${esc(a.l)}</span>`).join('');
+    return `<section class="panel"><div class="row" style="justify-content:space-between"><span class="eyebrow">Comparateur · ${esc(cfg.label)}</span><button class="btn small" data-act="pfcmp" data-v="">← Retour à une range</button></div>
+      <h2>${pf.cmp === 'pos' ? 'Toutes les positions' : 'Toutes les profondeurs'} · ${esc(PFCAT.find(([k]) => k === kind)?.[1] || kind)}</h2>
+      <div class="row"><span class="note">Comparer :</span><button class="chip" aria-pressed="${pf.cmp === 'pos'}" data-act="pfcmp" data-v="pos">Positions (${esc(cfg.label)})</button><button class="chip" aria-pressed="${pf.cmp === 'depth'}" data-act="pfcmp" data-v="depth">Profondeurs (${esc(node.label)})</button>${[['cash', 'Cash'], ['mtt', 'Tournoi']].map(([k, l]) => `<button class="chip" aria-pressed="${pf.fmt === k}" data-act="pffmt" data-v="${k}">${l}</button>`).join('')}</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px">${blocks}</div>
+      <div class="legend">${legend}</div>
+      <label class="f" style="max-width:220px">Repérer une main<input data-pfhl="1" value="${esc(pf.cell || '')}" placeholder="A5s" spellcheck="false" autocomplete="off"></label>
+      <p class="note">Lecture : chaque grille est la matrice 13 × 13 (paires sur la diagonale, assorties au-dessus). La couleur suit les fréquences de chaque action. Clique un titre pour ouvrir cette range en grand.</p></section>`;
+  }
+  ACT.pfcmp = (t) => { pf.cmp = t.dataset.v || null; render(); };
+  ACT.pfpick = (t) => { pf.key = t.dataset.k; pf.cmp = null; render(); };
   ACT.pffmt = (t) => { pf.fmt = t.dataset.v; pf.id = t.dataset.v === 'cash' ? 'cash100' : 'mtt20'; pf.cell = null; render(); };
   ACT.pfid = (t) => { pf.id = t.dataset.v; render(); };
   ACT.pflcell = (t) => { pf.cell = pf.cell === t.dataset.h ? null : t.dataset.h; render(); };
+  ONCHANGE.push((t) => { if (t.dataset.pfhl) { const v = t.value.trim().toUpperCase().replace(/S$/, 's').replace(/O$/, 'o'); pf.cell = E.ALL169.includes(v) ? v : null; render(); return true; } });
   ONCHANGE.push((t) => { if (t.dataset.pfsel) { pf.key = t.value; pf.cell = null; render(); return true; } });
 
   // ---------------- Rapport agrégé à la demande : échantillon stratifié de flops résolus dans les fils de calcul ----------------
@@ -13875,7 +13960,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
   const GRADE = [['Meilleure', 'good'], ['Correcte', 'good'], ['Inexacte', ''], ['Erreur', 'bad']];
   const gradeOf = (lossPct, freq) => (lossPct < 0.005 || freq >= 0.25 ? 0 : lossPct < 0.02 ? 1 : lossPct < 0.06 ? 2 : 3);
   const RIVER = { bet: '33 75 150', raise: '60 a' };
-  const setup = { scen: 'srp-BTN-BB', seat: 'rand', target: 10, depth: 'fast' };
+  const setup = { scen: 'srp-BTN-BB', seat: 'rand', target: 10, depth: 'fast', quiet: false };
   let ses = null, qz = null;
   const BANK = () => window.HandQuiz || [];
 
@@ -13962,7 +14047,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
     const best = Math.max(...c.ev), loss = Math.max(0, best - c.ev[a]), lossPct = loss / n.pot, g = gradeOf(lossPct, c.strat[a]);
     h.decisions.push({ street: n.street, board: n.board, acts: n.acts, chosen: a, strat: c.strat, ev: c.ev, best: c.ev.indexOf(best), loss, lossPct, g, pot: n.pot });
     const P = prog(); P.n++; if (g <= 1) P.good++; P.loss += lossPct; P.lossBB += loss; P.hist = [...(P.hist || []), Math.round(lossPct * 1000) / 1000].slice(-100);
-    ses.n++; ses.lossBB += loss; ses.lossPct += lossPct; if (g <= 1) ses.good++;
+    ses.n++; ses.lossBB += loss; ses.lossPct += lossPct; if (g <= 1) ses.good++; ses.gc = ses.gc || [0, 0, 0, 0]; ses.gc[g]++;
     X.award?.('decision', { cats: ['value'], ok: g <= 1 }, true); X.award?.('trainer', null, true);
     Store.save('progress');
     h.log.push({ who: h.heroP, label: n.acts[a].label, street: n.street, g });
@@ -14047,12 +14132,14 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
         <div class="row"><span class="note">Tu joues :</span>${[['rand', 'Au hasard'], [sc.a, sc.a], [sc.b, sc.b]].map(([k, l]) => `<button class="chip" aria-pressed="${setup.seat === k}" data-act="prseat" data-v="${k}">${l}</button>`).join('')}</div>
         <div class="row"><span class="note">Mains :</span>${[[10, '10'], [25, '25'], [0, 'Illimité']].map(([k, l]) => `<button class="chip" aria-pressed="${setup.target === k}" data-act="prtarget" data-v="${k}">${l}</button>`).join('')}</div>
         <div class="row"><span class="note">Arbre du flop :</span>${[['fast', 'Rapide (1 taille)'], ['std', 'Standard (2 tailles, plus lent)']].map(([k, l]) => `<button class="chip" aria-pressed="${setup.depth === k}" data-act="prdepth" data-v="${k}">${l}</button>`).join('')}</div>
+        <div class="row"><span class="note">Corrections :</span><button class="chip" aria-pressed="${!setup.quiet}" data-act="prquiet" data-v="0">Après chaque décision</button><button class="chip" aria-pressed="${setup.quiet}" data-act="prquiet" data-v="1">Seulement en cas d'erreur (les décisions justes ne s'arrêtent pas)</button></div>
         <div class="row"><button class="btn primary" data-act="prstart">Lancer</button>${BANK().length ? `<button class="btn" data-act="qzstart">Quiz instantanés (${BANK().length} spots déjà résolus)</button>` : ''}<span class="note">Calcul : ${POOL.mode() === 'worker' ? `${POOL.workers()} fil${POOL.workers() > 1 ? 's' : ''} séparé${POOL.workers() > 1 ? 's' : ''}` : 'fil principal (ce navigateur refuse les fils séparés : l\'interface peut ralentir pendant le calcul)'}</span></div></section>${statsHTML}
         <p class="note">Simplifications : turn joué avec une seule taille (75 % du pot, comme dans l'arbre du flop), ranges préflop issues des tableaux de référence, flop approché sur un échantillon de turns et de rivers qui contient toujours le vrai board.</p>`;
     }
     const h = ses.cur;
     let body = '';
     if (ses.over) body = `<section class="panel" style="border-color:var(--accent)"><span class="eyebrow">Session terminée</span><h2>${ses.n} décisions · ${ses.n ? pct(ses.good / ses.n) : '—'} meilleures ou correctes · EV perdue ${fr(ses.lossBB, 2)} bb</h2>
+      ${ses.gc ? `<p><strong style="color:var(--bad)">${ses.gc[3]} erreur${ses.gc[3] > 1 ? 's' : ''} grave${ses.gc[3] > 1 ? 's' : ''}</strong> (plus de 6 % du pot perdus) · <strong>${ses.gc[2]} moyenne${ses.gc[2] > 1 ? 's' : ''}</strong> (2 à 6 %) · ${ses.gc[1]} imprécision${ses.gc[1] > 1 ? 's' : ''} (moins de 2 %) · ${ses.gc[0]} meilleure${ses.gc[0] > 1 ? 's' : ''} action${ses.gc[0] > 1 ? 's' : ''}.</p>` : ''}
       <p class="note">EV perdue moyenne : ${ses.n ? fr(ses.lossPct / ses.n * 100, 2) : '—'} % du pot par décision. Résultat réel des mains : ${sgn(ses.net, 1)} bb (variance : juge la session sur l'EV perdue).</p>
       <div class="row"><button class="btn primary" data-act="prstart">Nouvelle session</button><button class="btn" data-act="prend">Changer de spot</button></div></section>`;
     else if (h.stage === 'solving' || h.stage === 'river' || h.stage === 'wait') body = `${tableHTML(h)}<section class="panel"><p class="note" id="prprog">${h.stage === 'river' ? 'Re-résolution exacte de la river…' : h.stage === 'wait' ? 'L\'adversaire réfléchit…' : progressText(h)}</p><div class="pbar"><i style="width:${h.stage === 'solving' ? 35 : 80}%"></i></div></section>`;
@@ -14062,7 +14149,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
       body = tableHTML(h) + `<section class="panel"><span class="eyebrow">${STREET[n.board.length] || ''} · ${esc(h.sc.label)}</span><p>${logHTML(h) || 'Début du flop.'}</p>
         ${h.stage === 'play' ? `<div class="actions">${n.acts.map((a, i) => `<button class="btn${i === 0 ? '' : ''}" data-act="prchoose" data-i="${i}">${esc(a.label)} <span class="note">${i + 1}</span></button>`).join('')}</div>` : ''}
         ${h.stage === 'done' ? `<h3>${esc(h.result.txt)} ${sgn(h.result.net, 1)} bb</h3><p class="note">EV perdue sur la main : ${fr(h.decisions.reduce((a, d) => a + d.loss, 0), 2)} bb sur ${h.decisions.length} décision${h.decisions.length > 1 ? 's' : ''}.</p><div class="row"><button class="btn primary" data-act="prnext">${ses.target && ses.done >= ses.target ? 'Voir le bilan' : 'Main suivante'} <span class="note">Entrée</span></button></div>` : ''}</section>
-        ${last ? `<section class="panel"><div class="row" style="justify-content:space-between"><span class="eyebrow">Ta dernière décision · ${STREET[last.street]}</span><span class="pill ${GRADE[last.g][1]}">${GRADE[last.g][0]} · −${fr(last.loss, 2)} bb (${fr(last.lossPct * 100, 1)} % du pot)</span></div>${decisionHTML(last)}
+        ${last && (!setup.quiet || last.g >= 2) ? `<section class="panel"><div class="row" style="justify-content:space-between"><span class="eyebrow">Ta dernière décision · ${STREET[last.street]}</span><span class="pill ${GRADE[last.g][1]}">${GRADE[last.g][0]} · −${fr(last.loss, 2)} bb (${fr(last.lossPct * 100, 1)} % du pot)</span></div>${decisionHTML(last)}
           <p class="note">« Solveur » : fréquence de chaque action avec ta main exacte. Une action jouée au moins 25 % du temps par le solveur compte comme meilleure (stratégie mixte). Écart : EV perdue par rapport à la meilleure action, en bb.</p></section>` : ''}`;
     }
     return `<div class="row" style="justify-content:space-between"><span class="pill acc">Main ${Math.min(ses.done + (h.stage === 'done' ? 0 : 1), ses.target || Infinity)}${ses.target ? '/' + ses.target : ''}</span><span class="note mono">${ses.n} décision${ses.n > 1 ? 's' : ''} · ${ses.n ? pct(ses.good / ses.n) : '—'} justes · −${fr(ses.lossBB, 2)} bb</span><button class="btn small" data-act="prend">Terminer</button></div>${body}${statsHTML}`;
@@ -14071,6 +14158,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
   ACT.prend = () => endSession();
   ACT.prnext = () => nextHand();
   ACT.prchoose = (t) => choose(+t.dataset.i);
+  ACT.prquiet = (t) => { setup.quiet = t.dataset.v === '1'; render(); };
   ACT.prseat = (t) => { setup.seat = t.dataset.v; render(); };
   ACT.prtarget = (t) => { setup.target = +t.dataset.v; render(); };
   ACT.prdepth = (t) => { setup.depth = t.dataset.v; render(); };
@@ -14479,6 +14567,715 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
       <p class="note">Calcul en jetons (chipEV) : près de la bulle ou en table finale, l'ICM resserre les calls ; utilise alors Outils › Push/Fold & ICM. À plusieurs joueurs, les ranges de call et de tapis sont estimées à partir de l'équilibre tête-à-tête.</p></section>`;
   }
   X.reviewHTML = () => postflopHTML() + pushFoldHTML();
+})();
+</script>
+<script>// Moteur de partie entre amis (jetons sans valeur) : hold'em no-limit de 2 à 9 joueurs humains, côté hôte.
+// L'état est un objet JSON (sérialisable) ; publicView() en retire les cartes cachées pour la diffusion.
+// Règles : blindes, relance minimale, tapis, pots annexes, abattage ; même logique que la table d'entraînement.
+(function (root) {
+  const E = root.Engine || require('./engine.js');
+  const STREETS = ['pre', 'flop', 'turn', 'river'];
+  function create(o = {}) {
+    return { sb: +o.sb || 1, bb: +o.bb || 2, seats: [], button: -1, handNo: 0, street: 'pre', board: [], deck: [], cur: 0, minRaise: 0, toAct: -1, acted: [], done: true, log: [], seq: 0, show: null, last: null };
+  }
+  // Siège : { id (pair réseau), name, stack }. Un joueur à 0 jeton ne reçoit pas de cartes.
+  function sit(G, i, id, name, stack) { G.seats[i] = { id, name: String(name || 'Joueur').slice(0, 20), stack: +stack || 0, cards: [], inHand: false, allin: false, put: 0, total: 0 }; }
+  function leave(G, i) { const p = G.seats[i]; if (!p) return; if (!G.done && p.inHand) foldOut(G, i); G.seats[i] = null; }
+  const live = (G) => G.seats.map((p, i) => (p && p.stack > 1e-9 ? i : -1)).filter((i) => i >= 0);
+  const n = (G) => G.seats.length;
+  function nextFrom(G, from, test) { const N = n(G); for (let k = 1; k <= N; k++) { const i = (from + k + N) % N; if (G.seats[i] && test(G.seats[i], i)) return i; } return -1; }
+  const canAct = (p) => p && p.inHand && !p.allin && p.stack > 1e-9;
+  function shuffled(rand) { const d = [...Array(52).keys()]; for (let i = 51; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [d[i], d[j]] = [d[j], d[i]]; } return d; }
+  function startHand(G, rand = Math.random) {
+    const players = G.seats.map((p, i) => (p && p.stack > 1e-9 ? i : -1)).filter((i) => i >= 0);
+    if (players.length < 2) throw new Error('Il faut au moins deux joueurs avec des jetons');
+    G.handNo++; G.seq++; G.done = false; G.street = 'pre'; G.board = []; G.show = null; G.last = null; G.log = [];
+    G.deck = shuffled(rand);
+    G.seats.forEach((p) => { if (!p) return; Object.assign(p, { cards: [], inHand: p.stack > 1e-9, allin: false, put: 0, total: 0 }); });
+    for (const i of players) G.seats[i].cards = [G.deck.pop(), G.deck.pop()];
+    G.button = nextFrom(G, G.button < 0 ? -1 : G.button, (p) => p.inHand);
+    const sbi = players.length === 2 ? G.button : nextFrom(G, G.button, (p) => p.inHand), bbi = nextFrom(G, sbi, (p) => p.inHand);
+    post(G, sbi, G.sb); post(G, bbi, G.bb);
+    G.cur = G.bb; G.minRaise = G.bb; G.acted = []; G.sbi = sbi; G.bbi = bbi;
+    G.toAct = nextFrom(G, bbi, canAct);
+    G.log.push(`Main ${G.handNo} : blindes ${G.sb}/${G.bb}`);
+    if (roundOver(G)) nextStreet(G);
+    return G;
+  }
+  function post(G, i, amt) { const p = G.seats[i], a = Math.min(amt, p.stack); p.stack = r2(p.stack - a); p.put += a; p.total += a; if (p.stack <= 1e-9) p.allin = true; }
+  const alive = (G) => G.seats.filter((p) => p && p.inHand);
+  const pot = (G) => G.seats.reduce((a, p) => a + (p ? p.total : 0), 0);
+  function legal(G) {
+    const p = G.seats[G.toAct]; if (!p || G.done) return null;
+    const toCall = Math.min(G.cur - p.put, p.stack), maxTo = p.put + p.stack;
+    return { seat: G.toAct, toCall, canCheck: toCall <= 1e-9, minTo: Math.min(G.cur + G.minRaise, maxTo), maxTo, canRaise: maxTo > G.cur + 1e-9, pot: pot(G) };
+  }
+  function roundOver(G) {
+    if (alive(G).length <= 1) return true;
+    const act = G.seats.map((p, i) => (canAct(p) ? i : -1)).filter((i) => i >= 0);
+    if (!act.length) return true;
+    if (act.length === 1 && G.seats[act[0]].put >= G.cur - 1e-9) return G.acted.includes(act[0]) || alive(G).every((p) => p.allin || p === G.seats[act[0]]);
+    return act.every((i) => G.acted.includes(i) && G.seats[i].put >= G.cur - 1e-9);
+  }
+  function foldOut(G, i) { G.seats[i].inHand = false; }
+  // Action du joueur au siège i. type : fold | check | call | raise (to = mise totale de la rue). Lève une erreur si illégale.
+  function act(G, i, type, to = 0) {
+    if (G.done) throw new Error('Main terminée');
+    if (i !== G.toAct) throw new Error('Ce n\'est pas ton tour');
+    const p = G.seats[i], L = legal(G);
+    if (type === 'raise' && !L.canRaise) type = 'call';
+    if (type === 'fold' && L.canCheck) type = 'check';
+    if (type === 'check' && !L.canCheck) throw new Error('Impossible de checker : il y a une mise');
+    if (type === 'fold') { foldOut(G, i); G.log.push(`${p.name} se couche`); }
+    else if (type === 'check') G.log.push(`${p.name} checke`);
+    else if (type === 'call') { const a = L.toCall; p.stack = r2(p.stack - a); p.put = r2(p.put + a); p.total += a; if (p.stack <= 1e-9) p.allin = true; G.log.push(`${p.name} suit ${fmt(a)}${p.allin ? ' (tapis)' : ''}`); }
+    else if (type === 'raise') {
+      to = Math.round(Math.max(L.minTo, Math.min(+to || 0, L.maxTo)) * 100) / 100;
+      const add = to - p.put, wasBet = G.cur <= 1e-9;
+      if (to - G.cur >= G.minRaise - 1e-9) G.minRaise = to - G.cur;
+      p.stack = r2(p.stack - add); p.put = to; p.total = r2(p.total + add); if (p.stack <= 1e-9) p.allin = true;
+      G.log.push(`${p.name} ${wasBet ? 'mise' : 'relance à'} ${fmt(to)}${p.allin ? ' (tapis)' : ''}`);
+      if (to > G.cur + 1e-9) { G.cur = to; G.acted = []; }
+    } else throw new Error('Action inconnue');
+    G.acted.push(i); G.seq++; G.last = { seat: i, type };
+    if (roundOver(G)) nextStreet(G); else G.toAct = nextFrom(G, i, canAct);
+    return G;
+  }
+  function r2(x) { return Math.round(x * 100) / 100; }
+  const fmt = (x) => (Math.round(x * 100) / 100).toLocaleString('fr-FR');
+  function nextStreet(G) {
+    if (alive(G).length <= 1) return finish(G);
+    G.seats.forEach((p) => p && (p.put = 0)); G.cur = 0; G.minRaise = G.bb; G.acted = [];
+    const k = STREETS.indexOf(G.street);
+    if (k === 3) return finish(G);
+    G.street = STREETS[k + 1];
+    const add = G.street === 'flop' ? 3 : 1; for (let j = 0; j < add; j++) G.board.push(G.deck.pop());
+    if (G.seats.filter(canAct).length <= 1) return nextStreet(G);
+    G.toAct = nextFrom(G, G.button, canAct);
+    if (G.toAct < 0) return nextStreet(G);
+  }
+  function finish(G) {
+    G.done = true; G.toAct = -1; G.seq++;
+    const al = alive(G), N = n(G), win = new Array(N).fill(0);
+    if (al.length === 1) { const w = G.seats.indexOf(al[0]); win[w] = pot(G); G.show = null; }
+    else {
+      while (G.board.length < 5) G.board.push(G.deck.pop());
+      const vals = G.seats.map((p) => (p && p.inHand ? E.evaluate([...p.cards, ...G.board]) : -1));
+      const totals = [...new Set(G.seats.map((p) => (p ? p.total : 0)))].sort((a, b) => a - b); let prev = 0;
+      for (const lvl of totals) {
+        if (lvl <= prev) continue;
+        const contrib = G.seats.reduce((a, p) => a + (p ? Math.min(Math.max(p.total - prev, 0), lvl - prev) : 0), 0);
+        const elig = G.seats.map((p, i) => (p && p.inHand && p.total >= lvl - 1e-9 ? i : -1)).filter((i) => i >= 0);
+        if (elig.length) {
+          const best = Math.max(...elig.map((i) => vals[i])), ws = elig.filter((i) => vals[i] === best), c = Math.round(contrib * 100), q = Math.floor(c / ws.length);
+          ws.forEach((i, k) => (win[i] += (q + (k === 0 ? c - q * ws.length : 0)) / 100));
+        } else { const top = G.seats.map((p, i) => (p && p.total >= lvl - 1e-9 ? i : -1)).filter((i) => i >= 0); top.forEach((i) => (win[i] += contrib / top.length)); }
+        prev = lvl;
+      }
+      G.show = G.seats.map((p, i) => (p && p.inHand ? { i, cards: p.cards.slice(), cat: E.categoryName(vals[i]) } : null)).filter(Boolean);
+    }
+    G.result = win.map((w, i) => (G.seats[i] ? Math.round((w - G.seats[i].total) * 100) / 100 : 0));
+    win.forEach((w, i) => { if (w > 0 && G.seats[i]) { G.seats[i].stack = Math.round((G.seats[i].stack + w) * 100) / 100; G.log.push(`${G.seats[i].name} remporte ${fmt(w)}`); } });
+    G.potFinal = pot(G);
+  }
+  // Vue publique (diffusée à tous) : aucune carte cachée, sauf à l'abattage. Compacte (limite des messages : 4 Ko).
+  function publicView(G) {
+    return { v: 1, h: G.handNo, q: G.seq, sb: G.sb, bb: G.bb, st: G.street, b: G.board.slice(), btn: G.button, ta: G.toAct, cur: G.cur, mr: G.minRaise, d: G.done, pot: pot(G),
+      s: G.seats.map((p) => (p ? [p.id, p.name, p.stack, p.put, p.inHand ? 1 : 0, p.allin ? 1 : 0, p.total] : null)),
+      sh: G.show, r: G.done ? G.result : null, lg: G.log.slice(-6) };
+  }
+  const api = { create, sit, leave, startHand, act, legal, publicView, pot, live };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.NetGame = api;
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+<script>// Jouer › Entre amis : parties en ligne en jetons sans valeur (salle en temps réel de la page publiée),
+// classement partagé et ligue d'amis, groupe d'étude (mains partagées, votes, verdict du moteur).
+// Données partagées : base de la page (db) ; temps réel : salle (room). Sans ces fonctions (fichier ouvert hors claude.ai), l'onglet l'explique.
+(function () {
+  const X = window.__S52, E = window.Engine, NG = window.NetGame, PF = window.Postflop, PR = window.Pro;
+  const { $, esc, fr, pct, state, render, head, cardHTML, backHTML, VIEWS, ACT, ONCHANGE } = X;
+  const use = async (name) => { try { return window.claude?.use ? await window.claude.use(name) : null; } catch (e) { return null; } };
+
+  // ---------------- Accès partagé (db + identité) ----------------
+  const SH = { tried: false, db: null, user: null, uid: null, board: [], study: [], votes: {}, myVotes: {}, weekly: [], names: {}, err: '' };
+  X.shared = SH;
+  let subs = false;
+  // Les mises à jour partagées n'affichent qu'aux onglets qui les montrent (évite d'effacer une saisie en cours ailleurs).
+  const rr = () => { if (['amis', 'defis'].includes(X.getTab())) render(); };
+  async function initShared() {
+    if (SH.tried) return; SH.tried = true;
+    SH.db = await use('db'); SH.user = await use('user');
+    if (!SH.db || !SH.user) { rr(); return; }
+    try { SH.uid = await SH.user.id(); } catch (e) { SH.uid = null; }
+    if (!SH.uid || subs) { rr(); return; }
+    subs = true;
+    const err = (e) => { SH.err = e?.message || String(e); rr(); };
+    SH.db.collection('board').onSnapshot((s) => { SH.board = s.docs.map((d) => ({ id: d.id, ...d.data() })); names(SH.board.map((r) => r.id)); rr(); }, err);
+    SH.db.collection('study').orderBy('at', 'desc').limit(40).onSnapshot((s) => { SH.study = s.docs.map((d) => ({ id: d.id, ...d.data() })); names(SH.study.map((r) => r.by)); rr(); }, err);
+    SH.db.collection('votes').onSnapshot((s) => { SH.votes = {}; for (const d of s.docs) { SH.votes[d.id] = d.data() || {}; if (d.id === SH.uid) SH.myVotes = { ...(d.data() || {}) }; } rr(); }, err);
+    SH.db.collection('weekly').onSnapshot((s) => { SH.weekly = s.docs.map((d) => ({ id: d.id, ...d.data() })); names(SH.weekly.map((r) => r.id)); X.onWeekly?.(); rr(); }, err);
+    rr();
+  }
+  async function names(ids) {
+    const miss = [...new Set(ids)].filter((i) => i && !(i in SH.names)); if (!miss.length || !SH.user) return;
+    try { const ps = await SH.user.profiles(miss); for (const i of miss) SH.names[i] = ps[i]?.name || ''; rr(); } catch (e) { /* noms indisponibles */ }
+  }
+  const nameOf = (id) => (id === SH.uid ? 'Toi' : SH.names[id] || 'Un ami');
+  X.sharedName = nameOf; X.initShared = initShared;
+  const offline = () => `<section class="panel"><h2>Fonction partagée indisponible ici</h2><p>Les classements, le groupe d'étude et les parties en ligne passent par la page publiée sur claude.ai, connecté à ton compte. Ouvre SIGMA 52 depuis son lien et partage-le avec tes amis.</p></section>`;
+
+  // ---------------- Classement partagé et ligue d'amis ----------------
+  function myStats() {
+    const p = state.progress, L = p.league || {}, e = p.elo || { r: 1000, n: 0 }, sc = X.sigmaScore ? X.sigmaScore() : null;
+    const exams = Object.values(p.exams || {}).filter((x) => x && (x.passed || x.best >= 16)).length;
+    return { elo: Math.round(e.r || 1000), eloN: e.n || 0, score: sc ? Math.round(sc.total ?? sc.score ?? 0) : 0, week: L.week || (PR ? PR.weekKey(new Date()) : ''), xp: L.xp || 0, streak: X.streak ? X.streak() : p.streak || 0, exams, hands: (p.tableHands || 0) + (p.practice?.hands || 0), at: Date.now() };
+  }
+  async function publish() { if (!SH.db || !SH.uid) return; try { await SH.db.doc('board/' + SH.uid).set(myStats()); state.progress.sharePub = true; X.Store.save('progress'); } catch (e) { SH.err = e.message; } render(); }
+  X.sharedPublish = () => { if (state.progress.sharePub && SH.db && SH.uid) publish(); };
+  let bsort = 'elo';
+  function boardHTML() {
+    const wk = PR ? PR.weekKey(new Date()) : '';
+    const rows = SH.board.slice().sort((a, b) => (bsort === 'xp' ? (b.week === wk ? b.xp : 0) - (a.week === wk ? a.xp : 0) : (b[bsort] || 0) - (a[bsort] || 0)));
+    const me = SH.board.find((r) => r.id === SH.uid);
+    return `<section class="panel"><div class="row" style="justify-content:space-between"><div><span class="eyebrow">Classement partagé · ligue d'amis</span><h2>${rows.length} joueur${rows.length > 1 ? 's' : ''} sur cette page</h2></div>
+        <button class="btn${me ? '' : ' primary'}" data-act="shpub">${me ? 'Mettre à jour mes chiffres' : 'Publier mes chiffres'}</button></div>
+      <p class="note">Tout le monde voit les chiffres publiés ici : Elo, Score SIGMA, XP de la semaine (ligue d'amis), série, examens réussis, mains jouées. Rien n'est publié sans ce bouton ; ensuite, tes chiffres se mettent à jour quand tu ouvres l'onglet.</p>
+      <div class="row"><span class="note">Trier par :</span>${[['elo', 'Elo'], ['xp', 'XP de la semaine'], ['score', 'Score SIGMA'], ['streak', 'Série'], ['exams', 'Examens']].map(([k, l]) => `<button class="chip" aria-pressed="${bsort === k}" data-act="shsort" data-v="${k}">${l}</button>`).join('')}</div>
+      ${rows.length ? `<div class="tw"><table class="t"><thead><tr><th class="n">#</th><th>Joueur</th><th class="n">Elo</th><th class="n">XP semaine</th><th class="n">Score</th><th class="n">Série</th><th class="n">Examens</th><th class="n">Mains</th></tr></thead><tbody>${rows.map((r, i) => `<tr${r.id === SH.uid ? ' style="font-weight:600"' : ''}><td class="n">${i + 1}</td><td>${esc(nameOf(r.id))}</td><td class="n mono">${r.elo ?? '–'}</td><td class="n mono">${r.week === wk ? r.xp : 0}</td><td class="n mono">${r.score ?? '–'}</td><td class="n mono">${r.streak ?? 0} j</td><td class="n mono">${r.exams ?? 0}/6</td><td class="n mono">${(r.hands || 0).toLocaleString('fr-FR')}</td></tr>`).join('')}</tbody></table></div>` : '<p>Personne n\'a encore publié. Sois le premier, puis partage le lien de la page avec tes amis.</p>'}
+      <p class="note">Ligue d'amis : classement de l'XP gagnée cette semaine (${esc(wk)}), remis à zéro chaque lundi comme ta ligue.</p></section>`;
+  }
+  ACT.shpub = () => publish();
+  ACT.shsort = (t) => { bsort = t.dataset.v; render(); };
+
+  // ---------------- Groupe d'étude ----------------
+  const st = { hero: '', board: '', pot: '10', toCall: '5', range: 'TT+, AQ+, KQs, 98s, 87s', note: '', open: false, msg: '' };
+  const verdicts = new Map();
+  function verdict(h) {
+    if (verdicts.has(h.id)) return verdicts.get(h.id);
+    let v = null;
+    try {
+      const hero = E.parseCards(h.hero), board = E.parseCards(h.board || ''), combos = PF.parseWeighted(h.range, [...hero, ...board]).filter(([a, b]) => !hero.includes(a) && !hero.includes(b));
+      const r = E.equity([{ hand: hero }, { combos }], board, { iterations: 12000 }), eq = r.equity[0], pot = +h.pot, call = +h.toCall;
+      if (call > 0) { const need = call / (pot + call); v = { eq, need, best: eq >= need ? 1 : 0, txt: `Équité ${pct(eq, 1)} contre la range, cote requise ${pct(need, 1)} → ${eq >= need ? 'payer au minimum' : 'se coucher'}${eq > 0.65 ? ' ; relancer pour la valeur se discute' : ''}.` }; }
+      else v = { eq, need: 0, best: eq > 0.6 ? 1 : 0, txt: `Équité ${pct(eq, 1)} contre la range → ${eq > 0.6 ? 'miser pour la valeur' : 'checker (pas assez de valeur, bluff à juger selon l\'adversaire)'}.` };
+    } catch (e) { v = { err: e.message }; }
+    verdicts.set(h.id, v); return v;
+  }
+  const optsOf = (h) => (+h.toCall > 0 ? ['Se coucher', 'Payer', 'Relancer'] : ['Checker', 'Miser']);
+  function studyHTML() {
+    const form = st.open ? `<div class="form">
+        <label class="f">Tes cartes<input data-stf="hero" value="${esc(st.hero)}" placeholder="AhQd" spellcheck="false" autocomplete="off"></label>
+        <label class="f">Board (0 à 5 cartes)<input data-stf="board" value="${esc(st.board)}" placeholder="Qs7d2c" spellcheck="false" autocomplete="off"></label>
+        <label class="f">Pot avant la mise adverse<input data-stf="pot" inputmode="decimal" value="${esc(st.pot)}"></label>
+        <label class="f">À payer (0 = personne n'a misé)<input data-stf="toCall" inputmode="decimal" value="${esc(st.toCall)}"></label>
+        <label class="f" style="grid-column:1/-1">Range estimée de l'adversaire<input class="mono" data-stf="range" value="${esc(st.range)}" spellcheck="false"></label>
+        <label class="f" style="grid-column:1/-1">Contexte (positions, profil, actions)<input data-stf="note" value="${esc(st.note)}" maxlength="240"></label></div>
+      <div class="row"><button class="btn primary" data-act="stsend">Partager au groupe</button><button class="btn" data-act="stopen">Annuler</button>${st.msg ? `<span class="note" style="color:var(--bad)">${esc(st.msg)}</span>` : ''}</div>` : '<div class="row"><button class="btn primary" data-act="stopen">Partager une main</button></div>';
+    const list = SH.study.map((h) => {
+      const mine = SH.myVotes[h.id], all = Object.values(SH.votes).map((v) => v[h.id]).filter((x) => x !== undefined), O = optsOf(h);
+      const cnt = O.map((_, i) => all.filter((x) => x === i).length), v = mine !== undefined ? verdict(h) : null;
+      return `<section class="panel"><div class="row" style="justify-content:space-between"><span class="eyebrow">${esc(nameOf(h.by))} · ${new Date(h.at).toLocaleDateString('fr-FR')}</span>${h.by === SH.uid ? `<button class="btn small" data-act="stdel" data-id="${esc(h.id)}">Retirer</button>` : ''}</div>
+        <div class="row" style="gap:16px;align-items:center"><span class="cards">${E.parseCards(h.hero).map((c) => cardHTML(c, true)).join('')}</span>${h.board ? `<span class="cards">${E.parseCards(h.board).map((c) => cardHTML(c, true)).join('')}</span>` : '<span class="note">préflop</span>'}<span class="mono note">pot ${fr(+h.pot, 1)}${+h.toCall > 0 ? ` · à payer ${fr(+h.toCall, 1)}` : ''}</span></div>
+        ${h.note ? `<p>${esc(h.note)}</p>` : ''}<p class="note">Range adverse : <span class="mono">${esc(h.range)}</span></p>
+        <div class="opts">${O.map((o, i) => `<button class="opt${mine === i ? ' ok' : ''}" data-act="stvote" data-id="${esc(h.id)}" data-i="${i}">${o}${mine !== undefined ? ` · ${cnt[i]} vote${cnt[i] > 1 ? 's' : ''}` : ''}</button>`).join('')}</div>
+        ${v ? (v.err ? `<p class="note">Moteur : ${esc(v.err)}</p>` : `<div class="advice"><div class="${(O.length === 3 ? (mine >= 1 ? 1 : 0) : mine) === v.best ? 'good' : 'warn'}"><strong>Moteur :</strong> ${esc(v.txt)}</div></div>`) : '<p class="note">Vote pour voir les votes du groupe et le verdict du moteur.</p>'}</section>`;
+    }).join('');
+    return `<section class="panel"><span class="eyebrow">Groupe d'étude</span><h2>Une main, un vote, puis le moteur</h2><p class="note">Chacun partage une décision difficile ; le groupe vote avant de voir les votes des autres et le verdict du moteur (équité contre la range annoncée et cote du pot : un repère, pas un solveur complet).</p>${form}</section>${list || '<p class="note">Aucune main partagée pour l\'instant.</p>'}`;
+  }
+  ACT.stopen = () => { st.open = !st.open; st.msg = ''; render(); };
+  ACT.stsend = async () => {
+    try {
+      const hero = E.parseCards(st.hero), board = E.parseCards(st.board || '');
+      if (hero.length !== 2 || hero[0] === hero[1]) throw new Error('Tes cartes : deux cartes, par exemple AhQd.');
+      if (board.length > 5 || ![0, 3, 4, 5].includes(board.length) || new Set([...hero, ...board]).size !== hero.length + board.length) throw new Error('Board : 0, 3, 4 ou 5 cartes, sans doublon.');
+      PF.parseWeighted(st.range, [...hero, ...board]);
+      if (!(+st.pot > 0) || !(+st.toCall >= 0)) throw new Error('Pot et mise : des nombres positifs.');
+      await SH.db.collection('study').add({ by: SH.uid, at: Date.now(), hero: st.hero.trim(), board: st.board.trim(), pot: +String(st.pot).replace(',', '.'), toCall: +String(st.toCall).replace(',', '.'), range: st.range.trim().slice(0, 300), note: st.note.trim().slice(0, 240) });
+      st.open = false; st.msg = ''; st.hero = ''; st.board = '';
+    } catch (e) { st.msg = e.message; }
+    render();
+  };
+  ACT.stvote = async (t) => { const id = t.dataset.id, i = +t.dataset.i; SH.myVotes = { ...SH.myVotes, [id]: i }; render(); try { await SH.db.doc('votes/' + SH.uid).set(SH.myVotes); } catch (e) { SH.err = e.message; render(); } };
+  ACT.stdel = async (t) => { try { await SH.db.doc('study/' + t.dataset.id).delete(); } catch (e) { SH.err = e.message; render(); } };
+  ONCHANGE.push((t) => { if (t.dataset.stf) { st[t.dataset.stf] = t.value; return true; } });
+
+  // ---------------- Parties en ligne (jetons sans valeur) ----------------
+  const ng = { phase: 'lobby', code: '', nick: '', stack: 200, sb: 1, bb: 2, room: null, host: false, me: null, G: null, view: null, cards: null, err: '', peers: [], raise: null, keys: null, peerKeys: new Map(), hostPeer: null };
+  const b64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf)));
+  const unb64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+  async function keys() {
+    if (ng.keys) return ng.keys;
+    const kp = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, false, ['deriveKey']);
+    ng.keys = { kp, pub: b64(await crypto.subtle.exportKey('raw', kp.publicKey)) }; return ng.keys;
+  }
+  async function shared(pubB64) {
+    if (ng.peerKeys.has(pubB64)) return ng.peerKeys.get(pubB64);
+    const pk = await crypto.subtle.importKey('raw', unb64(pubB64), { name: 'ECDH', namedCurve: 'P-256' }, false, []);
+    const k = await crypto.subtle.deriveKey({ name: 'ECDH', public: pk }, (await keys()).kp.privateKey, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+    ng.peerKeys.set(pubB64, k); return k;
+  }
+  async function seal(pubB64, obj) { const iv = crypto.getRandomValues(new Uint8Array(12)), ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await shared(pubB64), new TextEncoder().encode(JSON.stringify(obj))); return [b64(iv), b64(ct)]; }
+  async function open(pubB64, [iv, ct]) { const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(iv) }, await shared(pubB64), unb64(ct)); return JSON.parse(new TextDecoder().decode(pt)); }
+  const rand = () => { const a = new Uint32Array(1); crypto.getRandomValues(a); return a[0] / 4294967296; };
+  const peerOf = (id) => ng.peers.find((p) => p.peer === id);
+
+  async function enter(asHost) {
+    ng.err = '';
+    const room = await use('room');
+    if (!room) { ng.err = 'Salle en temps réel indisponible : ouvre la page publiée sur claude.ai (les amis doivent y avoir un accès Contributeur ou plus).'; return render(); }
+    const code = (asHost ? Math.random().toString(36).slice(2, 7) : ng.code).toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (code.length < 4) { ng.err = 'Code de table : 4 à 6 caractères.'; return render(); }
+    if (!ng.nick.trim()) { ng.err = 'Choisis un pseudo.'; return render(); }
+    try {
+      const k = await keys();
+      ng.room = await room.join('s52t-' + code); ng.code = code; ng.host = asHost; ng.phase = 'table';
+      ng.room.on('state', (m) => { if (ng.host || m.peer !== ng.hostPeer || !m.data) return; ng.view = m.data; if (ng.cards && ng.cards.h !== ng.view.h) ng.cards = null; render(); });
+      ng.room.on('cards', async (m) => {
+        if (ng.host || m.peer !== ng.hostPeer || !m.data?.e) return;
+        const mine = m.data.e[ng.me]; if (!mine) return;
+        const hp = peerOf(ng.hostPeer)?.presence?.pub; if (!hp) return;
+        try { ng.cards = await open(hp, mine); render(); } catch (e) { /* message d'un autre hôte */ }
+      });
+      ng.room.on('act', (m) => { if (ng.host && m.data) hostAct(m.peer, m.data); });
+      ng.room.on('hello', (m) => { if (ng.host) hostSync(m.peer); });
+      ng.room.onPeers((ch) => {
+        ng.peers = ch.peers.slice(); ng.me = ng.peers.find((p) => p.isMe)?.peer || ng.me;
+        const h = ng.peers.find((p) => p.presence?.host && !p.isMe); if (!ng.host) { const prev = ng.hostPeer; ng.hostPeer = h ? h.peer : null; if (h && h.peer !== prev) ng.room.emit('hello', {}).catch(() => {}); }
+        if (ng.host) hostPeers(ch);
+        render();
+      });
+      await ng.room.presence({ nick: ng.nick.trim().slice(0, 20), pub: k.pub, host: asHost || null, v: 1 });
+      if (asHost) { ng.G = NG.create({ sb: ng.sb, bb: ng.bb }); setTimeout(() => { ng.me = ng.room.peers().find((p) => p.isMe)?.peer; if (ng.me) { NG.sit(ng.G, 0, ng.me, ng.nick.trim(), ng.stack); hostBroadcast(); } render(); }, 300); }
+    } catch (e) { ng.err = e.message || String(e); ng.phase = 'lobby'; }
+    render();
+  }
+  // ---- côté hôte ----
+  function hostPeers(ch) {
+    const G = ng.G; if (!G) return;
+    for (const p of ch.joined) {
+      if (p.isMe || !p.presence?.nick) continue;
+      // Reconnexion : même pseudo qu'un siège resté vacant.
+      const back = G.seats.findIndex((s) => s && s.away && s.name === p.presence.nick);
+      if (back >= 0) { G.seats[back].id = p.peer; G.seats[back].away = false; }
+      else if (!G.seats.some((s) => s && s.id === p.peer)) { let i = G.seats.findIndex((s) => !s); if (i < 0) i = G.seats.length; if (i < 9) NG.sit(G, i, p.peer, p.presence.nick, ng.stack); }
+    }
+    for (const p of ch.updated) { const s = G.seats.find((x) => x && x.id === p.peer); if (s && p.presence?.nick) s.name = String(p.presence.nick).slice(0, 20); }
+    for (const p of ch.left) { const i = G.seats.findIndex((s) => s && s.id === p.peer); if (i >= 0) { G.seats[i].away = true; if (!G.done && G.toAct === i) { try { NG.act(G, i, 'fold'); } catch (e) { /* déjà fini */ } } } }
+    hostBroadcast(true);
+  }
+  async function hostBroadcast(withCards) {
+    const G = ng.G; if (!G || !ng.room) return;
+    const pv = NG.publicView(G); pv.s = pv.s.map((s, i) => (s && G.seats[i].away ? [...s, 1] : s));
+    ng.view = pv; ng.cards = !G.done || G.show ? (G.seats.find((s) => s && s.id === ng.me)?.cards?.length ? { h: G.handNo, c: G.seats.find((s) => s && s.id === ng.me).cards } : null) : ng.cards;
+    try { await ng.room.emit('state', pv); } catch (e) { ng.err = e.message; }
+    if (withCards && G.handNo) await sendCards();
+    render();
+  }
+  async function sendCards(only) {
+    const G = ng.G, e = {};
+    for (const s of G.seats) {
+      if (!s || !s.cards.length || s.id === ng.me || (only && s.id !== only)) continue;
+      const pub = peerOf(s.id)?.presence?.pub; if (!pub) continue;
+      e[s.id] = await seal(pub, { h: G.handNo, c: s.cards });
+    }
+    if (Object.keys(e).length) try { await ng.room.emit('cards', { h: G.handNo, e }); } catch (er) { ng.err = er.message; }
+  }
+  function hostSync(peer) { hostBroadcast(false); if (ng.G?.handNo) sendCards(peer); }
+  function hostAct(peer, d) {
+    const G = ng.G; if (!G || G.done) return;
+    const i = G.seats.findIndex((s) => s && s.id === peer);
+    if (i < 0 || i !== G.toAct || d.h !== G.handNo || d.q !== G.seq) return;
+    try { NG.act(G, i, d.t, d.to); } catch (e) { return; }
+    hostBroadcast(false);
+  }
+  // ---- actions locales ----
+  function myAct(type, to) {
+    const v = ng.view; if (!v || v.d) return;
+    if (ng.host) { const G = ng.G, i = G.seats.findIndex((s) => s && s.id === ng.me); if (i !== G.toAct) return; try { NG.act(G, i, type, to); } catch (e) { ng.err = e.message; } hostBroadcast(false); return; }
+    ng.room.emit('act', { h: v.h, q: v.q, t: type, to }).catch((e) => { ng.err = e.message; render(); });
+  }
+  ACT.ngcreate = () => enter(true);
+  ACT.ngjoin = () => enter(false);
+  ACT.ngdeal = () => { const G = ng.G; if (!G) return; try { NG.startHand(G, rand); ng.raise = null; } catch (e) { ng.err = e.message; } hostBroadcast(true); };
+  ACT.ngfold = () => myAct('fold'); ACT.ngcall = () => { const L = legalMine(); myAct(L && L.canCheck ? 'check' : 'call'); };
+  ACT.ngraise = (t) => myAct('raise', +(t.dataset.to || $('#ngrto')?.value || 0));
+  ACT.ngrebuy = (t) => { const G = ng.G, s = G?.seats[+t.dataset.i]; if (!s || !G.done) return; s.stack = Math.round((s.stack + ng.stack) * 100) / 100; hostBroadcast(false); };
+  ACT.ngkick = (t) => { const G = ng.G; if (!G || !G.done) return; NG.leave(G, +t.dataset.i); hostBroadcast(false); };
+  ACT.ngleave = async () => { try { await ng.room?.leave(); } catch (e) { /* déjà parti */ } Object.assign(ng, { phase: 'lobby', room: null, host: false, G: null, view: null, cards: null, hostPeer: null, peers: [] }); render(); };
+  ONCHANGE.push((t) => { if (t.dataset.ngf) { const k = t.dataset.ngf; ng[k] = ['stack', 'sb', 'bb'].includes(k) ? Math.max(0.01, +String(t.value).replace(',', '.') || 0) : t.value; render(); return true; } });
+  function legalMine() {
+    const v = ng.view; if (!v || v.d || v.ta < 0) return null; const s = v.s[v.ta]; if (!s || s[0] !== ng.me) return null;
+    const [, , stack, put] = s, toCall = Math.min(v.cur - put, stack), maxTo = put + stack;
+    return { toCall, canCheck: toCall <= 1e-9, minTo: Math.min(v.cur + v.mr, maxTo), maxTo, canRaise: maxTo > v.cur + 1e-9, pot: v.pot };
+  }
+  function tableHTML() {
+    const v = ng.view, L = legalMine(), seats = v ? v.s : [];
+    const seatHTML = (s, i) => {
+      if (!s) return '';
+      const [id, name, stack, put, inHand, allin, , away] = s, me = id === ng.me, show = v.sh?.find((x) => x.i === i);
+      const cards = show ? show.cards.map((c) => cardHTML(c, true)).join('') : me && ng.cards && ng.cards.h === v.h && inHand ? ng.cards.c.map((c) => cardHTML(c, true)).join('') : inHand && !v.d ? backHTML(true).repeat(2) : '';
+      return `<div class="stat${v.ta === i ? ' hero' : ''}"${inHand || v.d ? '' : ' style="opacity:.5"'}><span>${esc(name)}${me ? ' (toi)' : ''}${v.btn === i ? ' · D' : ''}${away ? ' · absent' : ''}</span><b>${fr(stack, stack % 1 ? 2 : 0)}</b><span>${put > 0 ? `mise ${fr(put, put % 1 ? 2 : 0)}` : allin ? 'tapis' : '&nbsp;'}${v.r && v.r[i] ? ` · ${v.r[i] > 0 ? '+' : '−'}${fr(Math.abs(v.r[i]), 1)}` : ''}</span><div class="cards">${cards}</div>${show ? `<span class="note">${esc(show.cat)}</span>` : ''}${ng.host && v.d ? `<span class="row" style="gap:4px">${stack <= 0 ? `<button class="btn small" data-act="ngrebuy" data-i="${i}">Recave</button>` : ''}${!me ? `<button class="btn small" data-act="ngkick" data-i="${i}">Retirer</button>` : ''}</span>` : ''}</div>`;
+    };
+    const act = L ? `<section class="panel"><span class="eyebrow">À toi</span><div class="row actrow"><button class="btn" data-act="ngfold"${L.canCheck ? ' disabled' : ''}>Se coucher</button><button class="btn" data-act="ngcall">${L.canCheck ? 'Checker' : `Suivre ${fr(L.toCall, L.toCall % 1 ? 2 : 0)}`}</button>
+        ${L.canRaise ? [0.5, 1].map((f) => { const to = Math.min(L.maxTo, Math.max(L.minTo, Math.round(v.cur + f * (v.pot + L.toCall)))); return `<button class="btn" data-act="ngraise" data-to="${to}">${f === 1 ? 'Pot' : '½ pot'} (${fr(to, 0)})</button>`; }).join('') + `<button class="btn" data-act="ngraise" data-to="${L.maxTo}">Tapis</button><input id="ngrto" type="number" min="${L.minTo}" max="${L.maxTo}" step="1" value="${Math.round(L.minTo)}" style="width:6em" aria-label="Montant de la relance"><button class="btn primary" data-act="ngraise">${v.cur > 0 ? 'Relancer' : 'Miser'}</button>` : ''}</div></section>` : '';
+    const seated = seats.filter(Boolean).length, canDeal = ng.host && (!v || v.d) && seats.filter((s) => s && s[2] > 0 && !s[7]).length >= 2;
+    return `<section class="panel"><div class="row" style="justify-content:space-between"><div><span class="eyebrow">Table ${esc(ng.code)} · jetons sans valeur</span><h2>${v ? (v.h ? `Main ${v.h}` : 'En attente des joueurs') : 'Connexion…'}</h2></div><span class="row">${canDeal ? '<button class="btn primary" data-act="ngdeal">Distribuer</button>' : ''}<button class="btn small" data-act="ngleave">Quitter</button></span></div>
+        <p class="note">${ng.host ? `Tu es l'hôte : donne le code <strong class="mono">${esc(ng.code)}</strong> à tes amis. Blindes ${fr(ng.sb, 2)}/${fr(ng.bb, 2)}, tapis de départ ${fr(ng.stack, 0)}.` : ng.hostPeer ? 'Connecté à l\'hôte.' : 'L\'hôte n\'est pas (ou plus) connecté.'} ${seated} joueur${seated > 1 ? 's' : ''} assis.</p>
+        ${v ? `<div class="felt" style="display:grid;gap:10px;justify-items:center;padding:14px;border-radius:14px"><div class="cards">${v.b.map((c) => cardHTML(c)).join('') || '<span class="note" style="color:#fff">préflop</span>'}</div><span class="pot" style="font:700 15px var(--f-display)">Pot ${fr(v.pot, v.pot % 1 ? 2 : 0)}</span></div>
+        <div class="stats" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr))">${seats.map(seatHTML).join('')}</div>
+        <div class="note mono">${(v.lg || []).map(esc).join(' · ')}</div>` : ''}</section>${act}${ng.err ? `<p class="pill bad" style="white-space:normal">${esc(ng.err)}</p>` : ''}`;
+  }
+  function lobbyHTML() {
+    return `<section class="panel"><span class="eyebrow">Parties en ligne entre amis</span><h2>Une table privée, en jetons sans valeur</h2>
+      <p>Pour jouer à distance avec tes amis : aucune mise d'argent, aucun lien avec une room. Chaque joueur ouvre cette page (partagée en accès Contributeur ou plus) et entre le même code.</p>
+      <div class="form"><label class="f">Pseudo<input data-ngf="nick" value="${esc(ng.nick)}" maxlength="20" autocomplete="nickname"></label><label class="f">Code de table (pour rejoindre)<input data-ngf="code" value="${esc(ng.code)}" maxlength="6" spellcheck="false" autocomplete="off" placeholder="K7Q2M"></label>
+        <label class="f">Tapis de départ (hôte)<input data-ngf="stack" inputmode="decimal" value="${ng.stack}"></label><label class="f">Petite / grosse blinde (hôte)<span class="row" style="gap:6px"><input data-ngf="sb" inputmode="decimal" value="${ng.sb}" style="width:5em" aria-label="Petite blinde"><input data-ngf="bb" inputmode="decimal" value="${ng.bb}" style="width:5em" aria-label="Grosse blinde"></span></label></div>
+      <div class="row"><button class="btn primary" data-act="ngcreate">Créer une table</button><button class="btn" data-act="ngjoin">Rejoindre avec le code</button></div>
+      ${ng.err ? `<p class="pill bad" style="white-space:normal">${esc(ng.err)}</p>` : ''}
+      <p class="note">Comment c'est fait : l'appareil de l'hôte bat les cartes et arbitre ; chaque joueur reçoit ses deux cartes chiffrées pour lui seul (clé échangée à la connexion). L'appareil de l'hôte connaît donc tout le paquet : pour une partie sans soupçon, l'hôte peut être un appareil qui ne joue pas. Si l'hôte quitte la page, la partie s'arrête.</p></section>`;
+  }
+
+  // ---------------- Vue ----------------
+  let sub = 'jeu';
+  VIEWS.amis = () => {
+    initShared();
+    if (SH.db && SH.uid && state.progress.sharePub && !SH.autoPub) { SH.autoPub = true; publish(); }
+    const tabs = `<div class="subtabs" role="tablist">${[['jeu', 'Partie en ligne'], ['ligue', 'Classement et ligue'], ['groupe', 'Groupe d\'étude']].map(([k, l]) => `<button class="chip" aria-pressed="${sub === k}" data-act="amsub" data-s="${k}">${l}</button>`).join('')}</div>`;
+    const sharedOk = SH.db && SH.uid;
+    const body = sub === 'jeu' ? (ng.phase === 'table' ? tableHTML() : lobbyHTML()) : !SH.tried ? '<p class="note">Connexion…</p>' : !sharedOk ? offline() : sub === 'ligue' ? boardHTML() : studyHTML();
+    return head('Entre amis', 'Jouer ensemble à distance en jetons sans valeur, se comparer, étudier des mains à plusieurs. Rien ici ne touche à l\'argent ni à une room.') + tabs + body + (SH.err ? `<p class="note" style="color:var(--bad)">${esc(SH.err)}</p>` : '');
+  };
+  ACT.amsub = (t) => { sub = t.dataset.s; render(); };
+})();
+</script>
+<script>// Vague 3 : Défis (charts à débloquer, défi du jour commun, spot de la semaine), Analyse › Population et fuites,
+// Mental (check-in après session relié aux résultats, routine de session guidée), Carrière (staking, festival), Journal (session live).
+(function () {
+  const X = window.__S52, E = window.Engine, S = window.Spots, C = window.Charts, PR = window.Pro;
+  const { $, esc, fr, eur, sgn, pct, today, state, Store, render, head, cardHTML, VIEWS, ACT, ONCHANGE, TABS, GROUPS } = X;
+  const W = () => state.progress.w3 || (state.progress.w3 = {});
+  const save = () => Store.save('progress');
+  const num = (v) => +String(v ?? '').replace(/\s/g, '').replace(',', '.').replace('−', '-') || 0;
+  TABS.push(['defis', 'Défis'], ['amis', 'Entre amis']);
+  GROUPS.find((g) => g[0] === 'apprendre')[2].push('defis');
+  GROUPS.find((g) => g[0] === 'jouer')[2].push('amis');
+  const hashStr = (s) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
+
+  // =================== Défis ===================
+  // ---- #9 Charts à débloquer : chaque range maîtrisée (23 justes sur les 25 dernières) ouvre la suivante ----
+  const LEVELS = [...C.POS.map((p) => ({ id: 'rfi:' + p, kind: 'rfi', pos: p, label: `Ouverture ${p}` })),
+    ...Object.entries(C.FACING).flatMap(([o, by]) => Object.keys(by).map((h) => ({ id: `vo:${o}:${h}`, kind: 'vo', o, h, label: `${h} face à l'ouverture ${o}` })))];
+  const NEED = 25, OKN = 23;
+  const cg = () => { const w = W(); return w.charts || (w.charts = { lvl: 0, hist: {} }); };
+  let chq = null; // question en cours { L, cards, h, ok (index), opts, a }
+  function chartSet(L) {
+    if (L.kind === 'rfi') { const set = E.parseRange(C.RFI[L.pos].range); return { opts: ['Ouvrir', 'Se coucher'], ans: (h) => (set.has(h) ? 0 : 1), size: E.rangePct(set) }; }
+    const f = C.FACING[L.o][L.h], t3 = E.parseRange(f.threebet), ca = f.call ? E.parseRange(f.call) : new Set();
+    return { opts: ['Sur-relancer (3-bet)', 'Payer', 'Se coucher'], ans: (h) => (t3.has(h) ? 0 : ca.has(h) ? 1 : 2), size: E.rangePct(new Set([...t3, ...ca])) };
+  }
+  function newChartQ(i) {
+    const L = LEVELS[i], cs = chartSet(L), r = Math.random;
+    // Moitié des mains près de la frontière de la range, moitié au hasard.
+    let cards, h;
+    for (let k = 0; k < 40; k++) {
+      const d = [...Array(52).keys()]; const a = d.splice(Math.floor(r() * 52), 1)[0], b = d[Math.floor(r() * 51)]; cards = [a, b]; h = E.abstractOf(a, b);
+      if (r() < 0.5) break;
+      const ri = E.RANKS.indexOf(h[0]), rj = E.RANKS.indexOf(h[1]);
+      const nb = [[ri, rj - 1], [ri, rj + 1], [ri - 1, rj]].filter(([x, y]) => x >= 0 && y >= 0 && x <= 12 && y <= 12 && x !== y).map(([x, y]) => E.RANKS[Math.max(x, y)] + E.RANKS[Math.min(x, y)] + (h[2] || ''));
+      if (nb.some((x) => cs.ans(x) !== cs.ans(h))) break;
+    }
+    chq = { i, L, cs, cards, h, a: null };
+  }
+  function chartsHTML() {
+    const P = cg(), unlocked = Math.min(P.lvl, LEVELS.length - 1);
+    if (!chq || chq.i > unlocked) newChartQ(unlocked);
+    const q = chq, hist = P.hist[q.L.id] || [], last = hist.slice(-NEED), okN = last.filter(Boolean).length;
+    const list = LEVELS.map((L, i) => { const hh = (P.hist[L.id] || []).slice(-NEED), done = i < P.lvl || (hh.length >= NEED && hh.filter(Boolean).length >= OKN); return `<button class="chip" ${i > unlocked ? 'disabled' : ''} aria-pressed="${i === q.i}" data-act="chlev" data-i="${i}">${done ? '✓ ' : i > unlocked ? '🔒 ' : ''}${esc(L.label)}</button>`; }).join('');
+    const ok = q.a !== null && q.a === q.cs.ans(q.h);
+    return `<section class="panel"><div class="row" style="justify-content:space-between"><div><span class="eyebrow">Charts à débloquer · ${P.lvl}/${LEVELS.length} maîtrisées</span><h2>${esc(q.L.label)}</h2></div><span class="note mono">${okN}/${last.length} justes sur les ${NEED} dernières · il en faut ${OKN}/${NEED}</span></div>
+      <div class="pbar" aria-hidden="true"><i style="width:${Math.round(Math.min(1, last.length / NEED) * (okN / Math.max(1, last.length)) * 100)}%"></i></div>
+      <p style="font-size:17px">${q.L.kind === 'rfi' ? `Tout le monde a passé jusqu'à toi. Tu es <strong>${q.L.pos}</strong>.` : `<strong>${q.L.o}</strong> ouvre, tu es <strong>${q.L.h}</strong>.`} Ta main :</p>
+      <div class="felt" style="display:flex;justify-content:center;padding:12px;border-radius:12px"><div class="cards">${q.cards.map((c) => cardHTML(c)).join('')}</div></div>
+      <div class="opts">${q.cs.opts.map((o, i) => `<button class="opt${q.a !== null && i === q.cs.ans(q.h) ? ' ok' : ''}${q.a === i && !ok ? ' ko' : ''}" data-act="chans" data-i="${i}" ${q.a !== null ? 'disabled' : ''}><span class="mono note">${i + 1}</span> ${o}</button>`).join('')}</div>
+      ${q.a !== null ? `<div class="verdict ${ok ? 'good' : 'bad'}"><b>${ok ? 'Juste.' : 'Non : ' + q.cs.opts[q.cs.ans(q.h)] + '.'}</b><span>${q.h} ${q.cs.ans(q.h) === q.cs.opts.length - 1 ? 'est hors de' : 'fait partie de'} la range « ${esc(q.L.label)} » (${fr(q.cs.size, 0)} % des mains jouées).</span></div><div class="row"><button class="btn primary" data-act="chnext">Main suivante <span class="note">Entrée</span></button></div>` : ''}
+      ${P.justUnlocked ? `<p class="pill good">Débloqué : ${esc(LEVELS[P.lvl]?.label || 'toutes les charts sont maîtrisées')}</p>` : ''}
+      <div class="row" style="margin-top:8px">${list}</div>
+      <p class="note">Une chart est maîtrisée avec ${OKN} bonnes réponses sur les ${NEED} dernières ; la suivante s'ouvre alors. Les mains proches de la frontière de la range reviennent plus souvent : ce sont celles qu'on rate.</p></section>`;
+  }
+  ACT.chans = (t) => {
+    const q = chq; if (!q || q.a !== null) return; q.a = +t.dataset.i;
+    const P = cg(), ok = q.a === q.cs.ans(q.h), h = P.hist[q.L.id] || (P.hist[q.L.id] = []); h.push(ok ? 1 : 0); if (h.length > 60) h.shift();
+    P.justUnlocked = false;
+    const last = h.slice(-NEED); if (q.i === P.lvl && last.length >= NEED && last.filter(Boolean).length >= OKN && P.lvl < LEVELS.length) { P.lvl++; P.justUnlocked = true; X.award?.('spot', { type: 'rfi', ok: true }, true); }
+    X.award?.('spot', { type: q.L.kind === 'rfi' ? 'rfi' : 'vsopen', ok }, true); save(); render();
+  };
+  ACT.chnext = () => { const P = cg(); newChartQ(Math.min(P.justUnlocked ? P.lvl : chq.i, LEVELS.length - 1)); P.justUnlocked = false; render(); };
+  ACT.chlev = (t) => { newChartQ(+t.dataset.i); render(); };
+
+  // ---- #11 Défi du jour commun (mêmes spots pour tout le monde, tirés de la date) et spot de la semaine ----
+  const DAILY_TYPES = ['rfi', 'vsopen', 'odds', 'pushfold', 'mdf'];
+  const dailySpots = (d) => { const R = E.rng(hashStr('sigma52-' + d)); return DAILY_TYPES.map((t) => S.GEN[t](R)); };
+  let dcache = null;
+  const dget = () => { const d = today(); if (!dcache || dcache.d !== d) dcache = { d, spots: dailySpots(d) }; return dcache; };
+  const dprog = () => { const w = W(), d = today(); if (!w.daily || w.daily.d !== d) w.daily = { d, a: [] }; return w.daily; };
+  function weekSpot() {
+    const B = window.HandQuiz || []; if (!B.length) return null;
+    const wk = PR.weekKey(new Date()), cand = B.map((q, i) => [q, i]).filter(([q]) => Math.max(...q.f) < 0.85 && q.o.length >= 2);
+    const pool = cand.length ? cand : B.map((q, i) => [q, i]), [q, i] = pool[hashStr(wk) % pool.length];
+    return { q, i, wk };
+  }
+  async function pushShared(patch) { const SH = X.shared; if (!SH?.db || !SH.uid) return; try { const { id, ...mine } = SH.weekly.find((r) => r.id === SH.uid) || {}; void id; await SH.db.doc('weekly/' + SH.uid).set({ ...mine, ...patch }); } catch (e) { /* hors ligne */ } }
+  function dailyHTML() {
+    const D = dget(), P = dprog(), i = P.a.length, SH = X.shared, done = i >= D.spots.length;
+    let body;
+    if (!done) {
+      const s = D.spots[i];
+      body = `<p class="note">Spot ${i + 1}/${D.spots.length} · ${esc(s.title)}</p><p style="font-size:17px">${s.prompt}</p>${s.cards ? `<div class="cards">${s.cards.map((c) => cardHTML(c, true)).join('')}</div>` : ''}${s.board ? `<div class="cards">${s.board.map((c) => cardHTML(c, true)).join('')}</div>` : ''}
+        <div class="opts">${s.opts.map((o, k) => `<button class="opt" data-act="dyans" data-i="${k}"><span class="mono note">${k + 1}</span> ${esc(o)}</button>`).join('')}</div>`;
+    } else {
+      const ok = P.a.filter((x, k) => x === D.spots[k].ok).length;
+      body = `<h3>${ok}/${D.spots.length} aujourd'hui</h3><div class="tw"><table class="t"><tbody>${D.spots.map((s, k) => `<tr><td>${esc(s.title)}</td><td>${P.a[k] === s.ok ? '✓' : '✗ ' + esc(s.opts[s.ok])}</td><td class="note">${esc(s.why).slice(0, 160)}${s.why.length > 160 ? '…' : ''}</td></tr>`).join('')}</tbody></table></div>`;
+    }
+    const friends = SH?.weekly?.filter((r) => r.day === D.d && r.dok !== undefined).sort((a, b) => b.dok - a.dok) || [];
+    return `<section class="panel"><span class="eyebrow">Défi du jour commun · ${D.d.split('-').reverse().join('/')}</span><h2>Les mêmes 5 spots pour tout le monde aujourd'hui</h2>${body}
+      ${friends.length ? `<p class="note">Entre amis aujourd'hui : ${friends.map((r) => `${esc(X.sharedName(r.id))} ${r.dok}/5`).join(' · ')}</p>` : '<p class="note">Les spots sont tirés de la date : tes amis ont les mêmes. Avec la page publiée, les scores du jour s\'affichent ici.</p>'}</section>`;
+  }
+  ACT.dyans = (t) => {
+    const D = dget(), P = dprog(); if (P.a.length >= D.spots.length) return;
+    const k = +t.dataset.i, s = D.spots[P.a.length]; P.a.push(k); X.award?.('spot', { type: s.type, ok: k === s.ok }, true); save();
+    if (P.a.length === D.spots.length) pushShared({ day: D.d, dok: P.a.filter((x, j) => x === D.spots[j].ok).length });
+    render();
+  };
+  function weekHTML() {
+    const W0 = weekSpot(); if (!W0) return '';
+    const { q, wk } = W0, P = W(), mine = P.week && P.week.wk === wk ? P.week.a : null, cards = E.parseCards(q.b), SH = X.shared;
+    const votes = SH?.weekly?.filter((r) => r.wk === wk && r.wa !== undefined) || [], cnt = q.o.map((_, i) => votes.filter((r) => r.wa === i).length);
+    const best = q.e.reduce((b, x, i) => (x > q.e[b] ? i : b), 0);
+    return `<section class="panel"><span class="eyebrow">Spot de la semaine · ${esc(wk)}</span><h2>${esc(q.s)} · tu es ${esc(q.n[q.p])}</h2>
+      <div class="row" style="gap:16px;align-items:center"><span class="cards">${E.parseCards(q.h).map((c) => cardHTML(c)).join('')}</span><span class="cards">${cards.map((c) => cardHTML(c, true)).join('')}</span><span class="mono note">pot ${fr(q.pot, 1)} bb · tapis ${fr(q.st, 1)} bb</span></div>
+      <p>${q.l ? esc(q.l) : 'Premier à parler au flop.'}</p>
+      <div class="opts">${q.o.map((o, i) => `<button class="opt${mine === i ? ' ok' : ''}" data-act="wkans" data-i="${i}" ${mine !== null ? 'disabled' : ''}>${esc(o)}${mine !== null ? ` · solveur ${pct(q.f[i], 0)} · EV ${fr(q.e[i], 2)} bb${votes.length ? ` · ${cnt[i]} vote${cnt[i] > 1 ? 's' : ''}` : ''}` : ''}</button>`).join('')}</div>
+      ${mine !== null ? `<p class="note">Meilleure EV : ${esc(q.o[best])}. Un spot choisi pour sa stratégie mixte : aucune action n'est jouée plus de 85 % du temps, l'écart d'EV entre les options est souvent petit. À discuter avec ton groupe d'étude.</p>` : '<p class="note">Même spot pour tout le monde cette semaine. Réponds, puis compare au solveur et aux votes de tes amis.</p>'}</section>`;
+  }
+  ACT.wkans = (t) => { const W0 = weekSpot(), i = +t.dataset.i; W().week = { wk: W0.wk, a: i }; save(); pushShared({ wk: W0.wk, wa: i }); render(); };
+  X.onWeekly = () => {};
+  VIEWS.defis = () => { X.initShared?.(); return head('Défis', 'Des formats courts pour revenir chaque jour : débloquer les charts une à une, le défi du jour (le même pour tous) et le spot de la semaine.') + chartsHTML() + dailyHTML() + weekHTML(); };
+  X.ONKEY.push((e, tab) => {
+    if (tab !== 'defis' || !chq) return;
+    if (chq.a === null && /^[1-3]$/.test(e.key) && +e.key <= chq.cs.opts.length) { ACT.chans({ dataset: { i: +e.key - 1 } }); return true; }
+    if (chq.a !== null && e.key === 'Enter') { ACT.chnext(); return true; }
+  });
+
+  // =================== Analyse › Population et fuites (#19, #21) ===================
+  const POS_ORDER = ['UTG', 'UTG+1', 'UTG+2', 'MP', 'MP+1', 'LJ', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
+  const STR = [['pre', 'Préflop'], ['flop', 'Flop'], ['turn', 'Turn'], ['river', 'River'], ['sd', 'Abattage']];
+  // Repères d'équilibre approximatifs (6 joueurs, 100 bb, joueurs solides) : fourchettes, pas des valeurs exactes.
+  const REF = [
+    ['VPIP', (p) => [p.vpip, p.hands], [0.22, 0.28], 'Joue trop de mains : isole-le plus large et paie moins ses relances préflop, il les fait avec des mains faibles.', 'Joue serré : vole ses blindes, respecte ses relances.'],
+    ['PFR', (p) => [p.pfr, p.hands], [0.17, 0.23], 'Relance beaucoup : 3-bette-le plus large pour la valeur, paie moins ses 3-bets légers en position.', 'Relance peu : ses relances sont fortes ; ses limps et calls cachent des mains moyennes.'],
+    ['3-bet', (p) => [p.three, p.threeOpp], [0.06, 0.1], 'Sur-relance beaucoup : 4-bet pour la valeur plus large, ouvre moins de mains faibles devant lui.', 'Sur-relance peu : ouvre plus large, couche les mains moyennes face à ses 3-bets.'],
+    ['Fold face au 3-bet', (p) => [p.f3, p.f3Opp], [0.42, 0.55], 'Abandonne trop souvent après avoir ouvert : 3-bette en bluff (A5s, K9s, mains assorties).', 'Paie trop les 3-bets : 3-bette plus pour la valeur, moins en bluff.'],
+    ['C-bet flop', (p) => [p.cbet, p.cbetOpp], [0.45, 0.6], 'Mise trop souvent le flop : défends plus large et check-relance plus (bluffs avec tirages).', 'Mise trop peu : ses c-bets sont forts, couche les mains marginales ; mise toi-même quand il checke.'],
+    ['Fold face au c-bet', (p) => [p.ftc, p.ftcOpp], [0.35, 0.48], 'Se couche trop face aux c-bets : mise souvent et petit le flop, même sans main.', 'Paie trop : mise pour la valeur, réduis les bluffs flop.'],
+    ['Va à l\'abattage', (p) => [p.sd, p.sawFlop], [0.26, 0.33], 'Va trop souvent à l\'abattage : bluffe moins, mise plus gros pour la valeur.', 'Abandonne avant l\'abattage : bluffe plus au turn et à la river.'],
+    ['Relance river face à une mise', (p) => [p.rvRaise, p.rvFace], [0.06, 0.12], 'Relance souvent la river : vérifie si ce sont des bluffs ; en général, ce n\'en est pas assez.', 'Relance très peu la river : une relance river de ce joueur = presque toujours le haut de sa range. Couche les bluff-catchers.'],
+    ['Fold river face à une mise', (p) => [p.rvFold, p.rvFace], [0.35, 0.5], 'Se couche trop à la river : bluffe plus la river, surtout en grosse taille.', 'Paie trop à la river : ne bluffe plus la river, mise fin pour la valeur.'],
+  ];
+  function leaksHTML() {
+    const a = X.getAnRes?.();
+    if (!a || !a.hands) return '<section class="panel"><p>Importe d\'abord des historiques (onglet « Import et statistiques ») : la population et la carte des fuites se calculent dessus.</p></section>';
+    const H = a.heat || {}, me = a.me, pos = Object.keys(H).sort((x, y) => (POS_ORDER.indexOf(x) + 99 * (POS_ORDER.indexOf(x) < 0)) - (POS_ORDER.indexOf(y) + 99 * (POS_ORDER.indexOf(y) < 0)));
+    const val = (c) => (c ? (c.bb / me.hands) * 100 : 0), mx = Math.max(1e-9, ...pos.flatMap((p) => STR.map(([k]) => Math.abs(val(H[p][k])))));
+    let worst = null; for (const p of pos) for (const [k, l] of STR) { const c = H[p][k]; if (c && c.n >= 5 && (!worst || val(c) < worst.v)) worst = { p, l, v: val(c), n: c.n }; }
+    const cell = (c) => { if (!c) return '<td class="n note">–</td>'; const v = val(c), f = Math.abs(v) / mx; return `<td class="n mono" style="background:color-mix(in srgb, var(${v >= 0 ? '--good' : '--bad'}) ${Math.round(8 + 60 * f)}%, transparent)" title="${c.n} mains, ${fr(c.bb, 1)} bb">${sgn(v, 1)}<br><span class="note">${c.n}</span></td>`; };
+    const heat = `<section class="panel"><span class="eyebrow">Carte de chaleur des fuites</span><h2>Où tu gagnes et où tu perds : position × rue où la main se termine pour toi</h2>
+      <div class="tw"><table class="t"><thead><tr><th>Position</th>${STR.map(([, l]) => `<th class="n">${l}</th>`).join('')}<th class="n">Total</th></tr></thead><tbody>${pos.map((p) => { const tot = STR.reduce((s, [k]) => s + (H[p][k]?.bb || 0), 0); return `<tr><td><strong>${esc(p)}</strong></td>${STR.map(([k]) => cell(H[p][k])).join('')}<td class="n mono">${sgn((tot / me.hands) * 100, 1)}</td></tr>`; }).join('')}</tbody></table></div>
+      <p class="note">Chaque case : bb/100 mains qu'elle apporte à ton résultat total (sous le chiffre : nombre de mains). Lecture : « Préflop » = les mains que tu abandonnes avant le flop (les blindes y perdent forcément) ; « River » = celles que tu abandonnes à la river ; « Abattage » = celles qui y vont.${worst ? ` <strong>Plus grosse fuite visible : ${esc(worst.p)}, ${worst.l.toLowerCase()} (${sgn(worst.v, 1)} bb/100 sur ${worst.n} mains).</strong>` : ''} Sous 5 000 mains, la variance domine : regarde les tendances, pas une case isolée.</p></section>`;
+    const P = a.pool || {}, rows = REF.map(([lab, get, [lo, hi], hiTxt, loTxt]) => {
+      const [x, n] = get(P), v = n ? x / n : null, k = v === null ? null : v > hi ? 'hi' : v < lo ? 'lo' : 'ok', small = n < 50;
+      const ex = k === 'hi' ? hiTxt : k === 'lo' ? loTxt : '';
+      return `<tr><td><strong>${lab}</strong></td><td class="n mono">${v === null ? '–' : pct(v, 0)}<br><span class="note">${n} occ.</span></td><td class="n mono">${pct(lo, 0)} à ${pct(hi, 0)}</td><td>${k === null ? '' : k === 'ok' ? '<span class="pill">dans la norme</span>' : `<span class="pill ${small ? '' : 'bad'}">${k === 'hi' ? 'au-dessus' : 'en dessous'}</span>`}</td></tr>${ex ? `<tr><td colspan="4" class="note" style="border-top:0;padding-top:0">→ ${esc(ex)}${small ? ' (échantillon faible : à confirmer)' : ''}</td></tr>` : ''}`;
+    }).join('');
+    const pop = `<section class="panel"><span class="eyebrow">Analyse de population</span><h2>Tes adversaires, tous ensemble, comparés à un jeu équilibré</h2>
+      <p class="note">${(P.hands || 0).toLocaleString('fr-FR')} mains-joueurs adverses (${a.opponents.length} adversaires). Les exploits de population sont ceux qui rapportent contre tout le monde à ta limite, même contre un inconnu.</p>
+      <div class="tw"><table class="t"><thead><tr><th>Statistique</th><th class="n">Population</th><th class="n">Repère</th><th>Écart et exploit</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <p class="note">Repères : fourchettes approximatives d'un jeu solide à 6 joueurs et 100 bb (solveurs et bases de mains publiques), pas des valeurs exactes. Tes historiques de la table d'entraînement mesurent les bots, pas une vraie population.</p></section>`;
+    return heat + pop;
+  }
+  X.leaksHTML = leaksHTML;
+
+  // =================== Mental : check-in après session (#25) et routine guidée (#26) ===================
+  const mental = () => { const m = state.mental; m.post = m.post || []; m.checkins = m.checkins || []; return m; };
+  const post = { focus: 0, tilt: -1, fatigue: 0, stop: null, result: '' };
+  const lvl = (x) => (x <= 2 ? 'bas (1-2)' : x === 3 ? 'moyen (3)' : 'haut (4-5)');
+  function linkHTML() {
+    const m = mental(), ss = state.journal.sessions;
+    const byDate = {}; ss.forEach((s) => { (byDate[s.date] = byDate[s.date] || []).push(s); });
+    const rows = [];
+    for (const [k, l] of [['sleep', 'Sommeil'], ['energy', 'Énergie'], ['calm', 'Calme'], ['focus', 'Concentration']]) {
+      const g = {}; for (const c of m.checkins) { const list = byDate[c.date]; if (!list || !c[k]) continue; const key = lvl(c[k]); const x = g[key] || (g[key] = { n: 0, r: 0 }); for (const s of list) { x.n++; x.r += s.result; } }
+      for (const key of ['bas (1-2)', 'moyen (3)', 'haut (4-5)']) if (g[key]) rows.push([l + ' avant', key, g[key]]);
+    }
+    const gt = {}; for (const p of m.post) { const key = ['aucun', 'léger', 'moyen', 'fort'][p.tilt] || '?'; const x = gt['Tilt ressenti ' + key] || (gt['Tilt ressenti ' + key] = { n: 0, r: 0 }); x.n++; x.r += +p.result || 0; }
+    const gs = {}; for (const p of m.post) { if (p.stop === null) continue; const key = p.stop ? 'Stop-loss respecté' : 'Stop-loss dépassé'; const x = gs[key] || (gs[key] = { n: 0, r: 0 }); x.n++; x.r += +p.result || 0; }
+    for (const [k, x] of [...Object.entries(gt), ...Object.entries(gs)]) rows.push([k, '', x]);
+    if (!rows.length) return '<p class="note">Les liens apparaissent dès que des check-ins (avant ou après) tombent les jours où une session est notée au Journal.</p>';
+    return `<div class="tw"><table class="t"><thead><tr><th>Facteur</th><th>Niveau</th><th class="n">Sessions</th><th class="n">Résultat moyen</th></tr></thead><tbody>${rows.map(([f, l, x]) => `<tr><td>${esc(f)}</td><td>${esc(l)}</td><td class="n">${x.n}</td><td class="n mono" style="color:var(${x.r >= 0 ? '--good' : '--bad'})">${eur(x.r / x.n)}</td></tr>`).join('')}</tbody></table></div>
+      <p class="note">Une moyenne sur moins de 10 sessions est surtout de la variance. Le signal fiable : un écart qui se maintient quand les sessions s'accumulent (par exemple, résultats nettement plus bas les jours de sommeil bas).</p>`;
+  }
+  function postHTML() {
+    const m = mental(), done = post.focus > 0 && post.tilt >= 0 && post.fatigue > 0 && post.stop !== null;
+    const lastS = state.journal.sessions.filter((s) => s.date === today()).pop();
+    const scale = (k, labels) => `<div class="row">${labels.map((l, i) => `<button class="chip" aria-pressed="${post[k] === (k === 'tilt' ? i : i + 1)}" data-act="postset" data-k="${k}" data-v="${k === 'tilt' ? i : i + 1}">${l}</button>`).join('')}</div>`;
+    return `<section class="panel"><span class="eyebrow">Check-in après session</span><h2>Deux minutes, juste après avoir quitté la table</h2>
+      <p class="note">Concentration pendant la session</p>${scale('focus', ['1 dispersé', '2', '3', '4', '5 totale'])}
+      <p class="note">Tilt ressenti</p>${scale('tilt', ['Aucun', 'Léger', 'Moyen', 'Fort'])}
+      <p class="note">Fatigue en fin de session</p>${scale('fatigue', ['1 frais', '2', '3', '4', '5 épuisé'])}
+      <p class="note">Stop-loss et durée prévue respectés ?</p><div class="row"><button class="chip" aria-pressed="${post.stop === true}" data-act="poststop" data-v="1">Oui</button><button class="chip" aria-pressed="${post.stop === false}" data-act="poststop" data-v="0">Non</button></div>
+      <label class="f" style="max-width:260px">Résultat de la session (€)<input data-postf="result" inputmode="decimal" value="${esc(post.result || (lastS ? String(lastS.result) : ''))}"></label>
+      <div class="row"><button class="btn primary" data-act="postsave" ${done ? '' : 'disabled'}>Enregistrer</button>${m.post.length ? `<span class="note">${m.post.length} check-in${m.post.length > 1 ? 's' : ''} après session enregistrés.</span>` : ''}</div>
+      <h3>Ce qui est relié à tes résultats</h3>${linkHTML()}</section>`;
+  }
+  ACT.postset = (t) => { post[t.dataset.k] = +t.dataset.v; render(); };
+  ACT.poststop = (t) => { post.stop = t.dataset.v === '1'; render(); };
+  ACT.postsave = () => {
+    const m = mental(), lastS = state.journal.sessions.filter((s) => s.date === today()).pop();
+    m.post.push({ date: today(), focus: post.focus, tilt: post.tilt, fatigue: post.fatigue, stop: post.stop, result: post.result !== '' ? num(post.result) : lastS ? lastS.result : 0 });
+    if (m.post.length > 400) m.post.shift();
+    Object.assign(post, { focus: 0, tilt: -1, fatigue: 0, stop: null, result: '' }); Store.save('mental'); render();
+  };
+  ONCHANGE.push((t) => { if (t.dataset.postf) { post[t.dataset.postf] = t.value; return true; } });
+
+  // Routine de session : chrono, pauses toutes les 50 minutes, rappel de stop-loss, respiration guidée.
+  const rt = { on: false, t0: 0, pauses: 0, every: 50, stop: '', cur: '', breath: 0, timer: null, paused: false };
+  const mm = (ms) => { const s = Math.floor(ms / 1000), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60); return `${h ? h + ' h ' : ''}${String(m).padStart(2, '0')} min ${String(s % 60).padStart(2, '0')} s`; };
+  function tick() {
+    if (!rt.on) return;
+    const el = $('#rtclock'), now = Date.now(), dur = now - rt.t0, next = rt.t0 + (rt.pauses + 1) * rt.every * 60000;
+    if (el) el.textContent = mm(dur);
+    const np = $('#rtnext'); if (np) np.textContent = next > now ? mm(next - now) : 'maintenant';
+    if (next <= now && !rt.paused) { rt.paused = true; render(); }
+    if (rt.breath) { const left = rt.breath - now, b = $('#rtbreath'); if (left <= 0) { rt.breath = 0; render(); } else if (b) { const ph = Math.floor((120000 - left) / 5000) % 2; b.textContent = ph ? 'Expire… (5 s)' : 'Inspire… (5 s)'; b.parentElement.style.transform = `scale(${ph ? 0.75 : 1.15})`; } }
+  }
+  function routineHTML() {
+    const stop = num(rt.stop), cur = num(rt.cur), hit = rt.stop !== '' && rt.cur !== '' && cur <= -Math.abs(stop);
+    if (!rt.on) return `<section class="panel"><span class="eyebrow">Routine de session guidée</span><h2>Lance-la au début de la session, elle tient la discipline à ta place</h2>
+      <p>Chrono, pause de 10 minutes toutes les ${rt.every} minutes, rappel de ton stop-loss, et une respiration guidée de 2 minutes avant de commencer ou après un gros pot perdu.</p>
+      <div class="form"><label class="f">Pause toutes les … minutes<input data-rtf="every" inputmode="numeric" value="${rt.every}"></label><label class="f">Stop-loss de la session (€)<input data-rtf="stop" inputmode="decimal" value="${esc(rt.stop)}" placeholder="ex. 60"></label></div>
+      <div class="row"><button class="btn primary" data-act="rtstart">Commencer la session</button><button class="btn" data-act="rtbreath">Respiration 2 min</button></div>${rt.breath ? breathHTML() : ''}</section>`;
+    return `<section class="panel" style="border-color:var(--accent)"><span class="eyebrow">Session en cours</span><h2 id="rtclock" class="mono">${mm(Date.now() - rt.t0)}</h2>
+      <p class="note">Prochaine pause dans <span id="rtnext" class="mono">…</span> · ${rt.pauses} pause${rt.pauses > 1 ? 's' : ''} faite${rt.pauses > 1 ? 's' : ''}</p>
+      ${rt.paused ? `<div class="warnbox"><strong>Pause de 10 minutes.</strong> Lève-toi, bois de l'eau, regarde loin, ne regarde pas tes résultats. Avant de revenir : es-tu toujours calme et concentré ? Sinon, la session s'arrête ici.<div class="row"><button class="btn primary" data-act="rtpause">Pause faite, je reprends</button><button class="btn" data-act="rtend">J'arrête</button></div></div>` : ''}
+      <div class="form"><label class="f">Résultat actuel (€, négatif si tu perds)<input data-rtf="cur" inputmode="decimal" value="${esc(rt.cur)}"></label><label class="f">Stop-loss (€)<input data-rtf="stop" inputmode="decimal" value="${esc(rt.stop)}"></label></div>
+      ${hit ? '<div class="warnbox" style="border-color:var(--bad)"><strong>Stop-loss atteint.</strong> Fin de la session, maintenant. Aucune « dernière main ». Note la session au Journal, puis fais le check-in après session.</div>' : rt.stop !== '' && rt.cur !== '' && cur <= -Math.abs(stop) * 0.7 ? '<p class="pill bad">Tu approches du stop-loss : décide maintenant de ce que tu feras s\'il tombe.</p>' : ''}
+      <div class="row"><button class="btn" data-act="rtbreath">Respiration 2 min</button><button class="btn" data-act="rtend">Terminer la session</button></div>${rt.breath ? breathHTML() : ''}</section>`;
+  }
+  const breathHTML = () => `<div style="display:grid;justify-items:center;gap:10px;padding:16px"><div style="width:140px;height:140px;border-radius:50%;background:color-mix(in srgb, var(--accent) 35%, var(--sunk));display:grid;place-items:center;transition:transform 5s ease-in-out"><span id="rtbreath" style="font:600 15px var(--f-display)">Inspire… (5 s)</span></div><p class="note">Cohérence cardiaque : 6 respirations par minute, pendant 2 minutes. Ventre qui se gonfle à l'inspiration.</p><button class="btn small" data-act="rtbreathstop">Arrêter</button></div>`;
+  function ensureTimer() { if (!rt.timer) rt.timer = setInterval(tick, 1000); }
+  ACT.rtstart = () => { Object.assign(rt, { on: true, t0: Date.now(), pauses: 0, paused: false, cur: '' }); ensureTimer(); render(); };
+  ACT.rtpause = () => { rt.pauses++; rt.paused = false; render(); };
+  ACT.rtend = () => { const mins = Math.round((Date.now() - rt.t0) / 60000); rt.on = false; rt.paused = false; if (rt.cur !== '') post.result = rt.cur; W().lastRoutine = { date: today(), mins }; save(); render(); setTimeout(() => $('[data-act=postsave]')?.scrollIntoView({ block: 'center' }), 50); };
+  ACT.rtbreath = () => { rt.breath = Date.now() + 120000; ensureTimer(); render(); };
+  ACT.rtbreathstop = () => { rt.breath = 0; render(); };
+  ONCHANGE.push((t) => { if (t.dataset.rtf) { const k = t.dataset.rtf; rt[k] = k === 'every' ? Math.max(15, Math.min(120, num(t.value) || 50)) : t.value; render(); return true; } });
+  const baseMental = VIEWS.mental;
+  VIEWS.mental = () => baseMental() + routineHTML() + postHTML();
+
+  // =================== Carrière : staking (#29) et festival (#31) ===================
+  const sk = { bi: '1000', markup: '1.2', sold: '50', roi: '15', split: '50', makeup: '0', result: '' };
+  const contracts = () => { const w = W(); return w.stakes || (w.stakes = []); };
+  function stakingHTML() {
+    const bi = num(sk.bi), mk = num(sk.markup) || 1, sold = Math.min(100, Math.max(0, num(sk.sold))) / 100, roi = num(sk.roi) / 100, split = Math.min(100, Math.max(0, num(sk.split))) / 100;
+    const price1 = (bi / 100) * mk, raised = bi * sold * mk, own = bi * (1 - sold), evBacker = sold * bi * (1 + roi) - raised, evPlayer = (1 - sold) * bi * (1 + roi) - own + (raised - sold * bi);
+    const fair = 1 + roi;
+    const C0 = contracts();
+    const list = C0.map((c, i) => `<tr><td>${esc(c.name)}</td><td class="n mono">${fr(c.split * 100, 0)} %</td><td class="n mono" style="color:var(${c.makeup < 0 ? '--bad' : '--good'})">${eur(c.makeup)}</td><td class="n mono">${eur(c.paidPlayer)}</td><td class="n mono">${eur(c.paidBacker)}</td><td><input data-skr="${i}" inputmode="decimal" placeholder="résultat" style="width:7em" aria-label="Résultat de session pour ${esc(c.name)}"> <button class="btn small" data-act="skadd" data-i="${i}">Ajouter</button> <button class="btn small" data-act="skdel" data-i="${i}">Supprimer</button></td></tr>`).join('');
+    return `<section class="panel"><span class="eyebrow">Staking : calculateur et suivi</span><h2>Vendre des parts ou jouer sous contrat de makeup</h2>
+      <h3>Vente de parts (tournoi)</h3>
+      <div class="form"><label class="f">Buy-in (€)<input data-skf="bi" inputmode="decimal" value="${esc(sk.bi)}"></label><label class="f">Markup (ex. 1,2)<input data-skf="markup" inputmode="decimal" value="${esc(sk.markup)}"></label><label class="f">Part vendue (%)<input data-skf="sold" inputmode="decimal" value="${esc(sk.sold)}"></label><label class="f">ROI estimé (%)<input data-skf="roi" inputmode="decimal" value="${esc(sk.roi)}"></label></div>
+      <div class="stats"><div class="stat"><span>Prix de 1 %</span><b>${eur(price1)}</b><span>buy-in ÷ 100 × markup</span></div><div class="stat"><span>Tu lèves</span><b>${eur(raised)}</b><span>tu paies toi-même ${eur(own)}</span></div><div class="stat"><span>EV des backers</span><b style="color:var(${evBacker >= 0 ? '--good' : '--bad'})">${eur(evBacker)}</b><span>avec ton ROI estimé</span></div><div class="stat hero"><span>Ton EV</span><b>${eur(evPlayer)}</b><span>part gardée + markup encaissé</span></div></div>
+      <p class="note">Markup juste ≈ 1 + ROI attendu (ici ${fr(fair, 2)}). Au-delà, les backers perdent de l'argent en moyenne ; en dessous, tu leur donnes de l'EV. Le markup rémunère ton avantage, pas ta variance : un ROI estimé sur moins de 500 tournois est très incertain.</p>
+      <h3>Contrat de makeup (cash ou tournois)</h3>
+      <div class="form"><label class="f">Partage des profits pour toi (%)<input data-skf="split" inputmode="decimal" value="${esc(sk.split)}"></label><label class="f">Makeup actuel (€, négatif = dette)<input data-skf="makeup" inputmode="decimal" value="${esc(sk.makeup)}"></label><label class="f">Résultat d'une session (€)<input data-skf="result" inputmode="decimal" value="${esc(sk.result)}" placeholder="ex. 800"></label></div>
+      ${sk.result !== '' ? (() => { const m0 = num(sk.makeup), r = num(sk.result), tot = m0 + r; return tot <= 0 ? `<p>Makeup après la session : <strong style="color:var(--bad)">${eur(tot)}</strong>. Rien à partager : tu dois d'abord effacer la dette.</p>` : `<p>Makeup effacé, profit à partager ${eur(tot)} : <strong>${eur(tot * split)} pour toi</strong>, ${eur(tot * (1 - split))} pour le backer ; le makeup repart à 0.</p>`; })() : ''}
+      <div class="row"><input data-skf="newname" placeholder="Nom du contrat (backer, période)" value="${esc(sk.newname || '')}" style="min-width:220px"><button class="btn" data-act="sknew">Suivre ce contrat</button></div>
+      ${C0.length ? `<div class="tw"><table class="t"><thead><tr><th>Contrat</th><th class="n">Ta part</th><th class="n">Makeup</th><th class="n">Reçu (toi)</th><th class="n">Reçu (backer)</th><th></th></tr></thead><tbody>${list}</tbody></table></div>` : ''}
+      <p class="note">Pas de place de marché : un calculateur pour négocier un accord clair et un suivi des comptes. Mets tout contrat par écrit (durée, makeup à la fin, limites autorisées, fréquence des partages).</p></section>`;
+  }
+  ONCHANGE.push((t) => { if (t.dataset.skf) { sk[t.dataset.skf] = t.value; render(); return true; } if (t.dataset.skr !== undefined) { sk['r' + t.dataset.skr] = t.value; return true; } });
+  ACT.sknew = () => { const n = (sk.newname || '').trim() || 'Contrat ' + (contracts().length + 1); contracts().push({ name: n.slice(0, 40), split: Math.min(1, Math.max(0, num(sk.split) / 100)), makeup: num(sk.makeup), paidPlayer: 0, paidBacker: 0, log: [] }); sk.newname = ''; save(); render(); };
+  ACT.skadd = (t) => {
+    const i = +t.dataset.i, c = contracts()[i], r = num(sk['r' + i] ?? $(`[data-skr="${i}"]`)?.value); if (!c || !r) return;
+    const tot = c.makeup + r;
+    if (tot <= 0) c.makeup = tot; else { c.paidPlayer += tot * c.split; c.paidBacker += tot * (1 - c.split); c.makeup = 0; }
+    c.log.push({ d: today(), r }); sk['r' + i] = ''; save(); render();
+  };
+  ACT.skdel = (t) => { contracts().splice(+t.dataset.i, 1); save(); render(); };
+
+  const fest = () => { const w = W(); return w.fest || (w.fest = { name: '', events: [], travel: '', nights: '', hotel: '', days: '', food: '', other: '', rate: '1', check: {} }); };
+  const CHECK = ['Pièce d\'identité valide (exigée à l\'entrée des casinos)', 'Passeport et visa si hors Union européenne', 'Hôtel réservé près de la salle', 'Pré-inscription aux tournois et horaires vérifiés', 'Structure des tournois lue (niveaux, tapis, re-entrées)', 'Budget maximum et stop-loss du festival écrits', 'Moyens de paiement, plafonds de carte, devises', 'Assurance voyage', 'Fiscalité des gains dans le pays (à vérifier avant)', 'Sommeil et repas planifiés entre les jours de jeu', 'Casque, chargeur, tenue chaude (salles climatisées)'];
+  function festivalHTML() {
+    const F = fest(), rate = num(F.rate) || 1, buy = F.events.reduce((a, e) => a + num(e.bi) * (1 + num(e.re || 0)), 0) * rate;
+    const costs = (num(F.travel) + num(F.nights) * num(F.hotel) + num(F.days) * num(F.food) + num(F.other)), total = buy + costs;
+    const bank = X.journalStats().bank, share = bank > 0 ? buy / bank : null, roiNeed = buy > 0 ? costs / buy : null;
+    return `<section class="panel"><span class="eyebrow">Préparation de festival</span><h2>${esc(F.name || 'Ton prochain festival')} : budget, programme, check-list</h2>
+      <div class="form"><label class="f">Festival<input data-fsf="name" value="${esc(F.name)}" placeholder="ex. étape d'un circuit à l'étranger"></label><label class="f">Taux de change (1 unité = … €)<input data-fsf="rate" inputmode="decimal" value="${esc(F.rate)}"></label></div>
+      <h3>Programme</h3>
+      ${F.events.length ? `<div class="tw"><table class="t"><thead><tr><th>Date</th><th>Tournoi</th><th class="n">Buy-in</th><th class="n">Re-entrées prévues</th><th></th></tr></thead><tbody>${F.events.map((e, i) => `<tr><td class="mono">${esc(e.date)}</td><td>${esc(e.name)}</td><td class="n mono">${fr(num(e.bi), 0)}</td><td class="n mono">${num(e.re || 0)}</td><td><button class="btn small" data-act="fsdel" data-i="${i}">Retirer</button></td></tr>`).join('')}</tbody></table></div>` : ''}
+      <div class="row"><input type="date" data-fsf="ndate" value="${esc(F.ndate || '')}" aria-label="Date du tournoi"><input data-fsf="nname" placeholder="Tournoi" value="${esc(F.nname || '')}" style="min-width:160px"><input data-fsf="nbi" inputmode="decimal" placeholder="Buy-in" value="${esc(F.nbi || '')}" style="width:7em"><input data-fsf="nre" inputmode="numeric" placeholder="Re-entrées" value="${esc(F.nre || '')}" style="width:7em"><button class="btn" data-act="fsadd">Ajouter</button></div>
+      <h3>Frais (en €)</h3>
+      <div class="form"><label class="f">Transport aller-retour<input data-fsf="travel" inputmode="decimal" value="${esc(F.travel)}"></label><label class="f">Nuits × prix par nuit<span class="row" style="gap:6px"><input data-fsf="nights" inputmode="numeric" value="${esc(F.nights)}" style="width:5em" aria-label="Nuits"><input data-fsf="hotel" inputmode="decimal" value="${esc(F.hotel)}" style="width:7em" aria-label="Prix par nuit"></span></label><label class="f">Jours × repas par jour<span class="row" style="gap:6px"><input data-fsf="days" inputmode="numeric" value="${esc(F.days)}" style="width:5em" aria-label="Jours"><input data-fsf="food" inputmode="decimal" value="${esc(F.food)}" style="width:7em" aria-label="Repas par jour"></span></label><label class="f">Divers (pourboires, transports sur place)<input data-fsf="other" inputmode="decimal" value="${esc(F.other)}"></label></div>
+      <div class="stats"><div class="stat"><span>Buy-ins</span><b>${eur(buy)}</b><span>re-entrées comprises</span></div><div class="stat"><span>Frais</span><b>${eur(costs)}</b><span>voyage et séjour</span></div><div class="stat hero"><span>Budget total</span><b>${eur(total)}</b><span>${share !== null ? `${pct(share, 1)} de ta bankroll en buy-ins` : 'bankroll inconnue'}</span></div><div class="stat"><span>ROI pour couvrir les frais</span><b>${roiNeed !== null ? pct(roiNeed, 0) : '—'}</b><span>sur les buy-ins</span></div></div>
+      ${share !== null && share > 0.2 ? '<p class="pill bad" style="white-space:normal">Plus de 20 % de ta bankroll en buy-ins sur un seul festival : risque élevé. Réduis le programme ou vends des parts (calculateur ci-dessus).</p>' : ''}
+      ${roiNeed !== null && roiNeed > 0.3 ? '<p class="note">Il faut un ROI de plus de 30 % juste pour rembourser les frais : très peu de joueurs l\'atteignent. Un festival à l\'étranger se justifie surtout par le volume de tournois joués.</p>' : ''}
+      <h3>Check-list</h3><div style="display:grid;gap:6px">${CHECK.map((c, i) => `<label class="check"><input type="checkbox" data-act="fscheck" data-i="${i}" ${F.check[i] ? 'checked' : ''}><span>${esc(c)}</span></label>`).join('')}</div></section>`;
+  }
+  ONCHANGE.push((t) => { if (t.dataset.fsf) { fest()[t.dataset.fsf] = t.value; save(); render(); return true; } });
+  ACT.fsadd = () => { const F = fest(); if (!F.nname && !F.nbi) return; F.events.push({ date: F.ndate || '', name: (F.nname || 'Tournoi').slice(0, 60), bi: F.nbi || '0', re: F.nre || '0' }); F.events.sort((a, b) => String(a.date).localeCompare(String(b.date))); F.nname = F.nbi = F.nre = ''; save(); render(); };
+  ACT.fsdel = (t) => { fest().events.splice(+t.dataset.i, 1); save(); render(); };
+  ACT.fscheck = (t) => { const F = fest(); F.check[t.dataset.i] = t.checked; save(); };
+  const baseCarriere = VIEWS.carriere;
+  VIEWS.carriere = () => baseCarriere() + stakingHTML() + festivalHTML();
+
+  // =================== Journal : suivi de session live (#30) ===================
+  const CUR = [['EUR', '€', 1], ['USD', '$', 0.92], ['GBP', '£', 1.17], ['CHF', 'CHF', 1.05], ['CZK', 'Kč', 0.04], ['AUTRE', '', 1]];
+  const lv = () => { const w = W(); return w.liveSes || null; };
+  function liveHTML() {
+    const L = lv();
+    if (!L) return `<section class="panel"><div class="row" style="justify-content:space-between"><div><span class="eyebrow">Session live</span><h2>Suivre une session en salle ou en club</h2></div><button class="btn primary" data-act="lsstart">Démarrer une session live</button></div><p class="note">Chrono, achats et recaves, pourboires, devise et taux de change ; à la fin, la session part au Journal (en €) et s'exporte en CSV.</p></section>`;
+    const cur = CUR.find((c) => c[0] === L.cur) || CUR[0], sym = cur[1] || L.cur, rate = num(L.rate) || 1;
+    const buy = L.tx.filter((x) => x.k === 'buy').reduce((a, x) => a + x.v, 0), tips = L.tx.filter((x) => x.k === 'tip').reduce((a, x) => a + x.v, 0), out = L.tx.filter((x) => x.k === 'out').reduce((a, x) => a + x.v, 0);
+    const end = L.end || Date.now(), mins = Math.round((end - L.t0) / 60000), res = out - buy - tips;
+    return `<section class="panel" style="border-color:var(--accent)"><div class="row" style="justify-content:space-between"><div><span class="eyebrow">Session live${L.end ? ' terminée' : ' en cours'} · ${esc(L.place || 'salle')}</span><h2 class="mono" id="lsclock">${Math.floor(mins / 60)} h ${String(mins % 60).padStart(2, '0')}</h2></div><span class="row">${L.end ? '' : '<button class="btn" data-act="lsend">Fin de session</button>'}<button class="btn small" data-act="lscsv">Exporter CSV</button></span></div>
+      <div class="form"><label class="f">Lieu<input data-lsf="place" value="${esc(L.place || '')}" placeholder="Casino, club, partie"></label><label class="f">Jeu et limite<input data-lsf="stake" value="${esc(L.stake || '')}" placeholder="NL 1/2"></label>
+        <label class="f">Devise<select data-lsf="cur">${CUR.map(([k]) => `<option${k === L.cur ? ' selected' : ''}>${k}</option>`).join('')}</select></label><label class="f">1 ${esc(L.cur)} = … €<input data-lsf="rate" inputmode="decimal" value="${esc(L.rate)}"></label></div>
+      <div class="row"><input data-lsf="amt" inputmode="decimal" placeholder="Montant" value="${esc(L.amt || '')}" style="width:8em" aria-label="Montant"><button class="btn" data-act="lstx" data-k="buy">Achat / recave</button><button class="btn" data-act="lstx" data-k="tip">Pourboire</button><button class="btn" data-act="lstx" data-k="out">Je sors avec</button></div>
+      ${L.tx.length ? `<div class="tw"><table class="t"><tbody>${L.tx.map((x, i) => `<tr><td class="mono">${new Date(x.t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</td><td>${{ buy: 'Achat / recave', tip: 'Pourboire', out: 'Sortie' }[x.k]}</td><td class="n mono">${fr(x.v, 2)} ${esc(sym)}</td><td><button class="btn small" data-act="lsundo" data-i="${i}">Annuler</button></td></tr>`).join('')}</tbody></table></div>` : ''}
+      <div class="stats"><div class="stat"><span>Investi</span><b>${fr(buy, 0)} ${esc(sym)}</b><span>${L.tx.filter((x) => x.k === 'buy').length} achat(s)</span></div><div class="stat"><span>Pourboires</span><b>${fr(tips, 0)} ${esc(sym)}</b><span>à déduire du gain</span></div><div class="stat hero"><span>Résultat</span><b style="color:var(${res >= 0 ? '--good' : '--bad'})">${out ? sgn(res, 0) + ' ' + esc(sym) : '—'}</b><span>${out ? `${eur(res * rate)} · ${eur(mins ? (res * rate) / mins * 60 : 0)}/h` : 'renseigne ta sortie'}</span></div></div>
+      ${L.end ? `<div class="row"><button class="btn primary" data-act="lssave" ${out ? '' : 'disabled'}>Enregistrer au Journal (${eur(res * rate)})</button><button class="btn" data-act="lsdrop">Abandonner</button></div>` : ''}</section>`;
+  }
+  const lsTimer = setInterval(() => { const L = lv(), el = $('#lsclock'); if (L && !L.end && el) { const m = Math.round((Date.now() - L.t0) / 60000); el.textContent = `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`; } }, 30000); void lsTimer;
+  ACT.lsstart = () => { W().liveSes = { t0: Date.now(), cur: 'EUR', rate: '1', place: '', stake: '', tx: [] }; save(); render(); };
+  ACT.lstx = (t) => { const L = lv(), v = Math.abs(num(L.amt)); if (!v) return; L.tx.push({ t: Date.now(), k: t.dataset.k, v }); L.amt = ''; save(); render(); };
+  ACT.lsundo = (t) => { lv().tx.splice(+t.dataset.i, 1); save(); render(); };
+  ACT.lsend = () => { lv().end = Date.now(); save(); render(); };
+  ACT.lsdrop = () => { W().liveSes = null; save(); render(); };
+  ACT.lssave = () => {
+    const L = lv(), rate = num(L.rate) || 1, buy = L.tx.filter((x) => x.k === 'buy').reduce((a, x) => a + x.v, 0), tips = L.tx.filter((x) => x.k === 'tip').reduce((a, x) => a + x.v, 0), out = L.tx.filter((x) => x.k === 'out').reduce((a, x) => a + x.v, 0);
+    const d = new Date(L.t0), date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    state.journal.sessions.push({ id: 's' + Date.now().toString(36), date, room: ('Live ' + (L.place || '')).trim().slice(0, 40), format: 'Cash', stake: String(L.stake || 'LIVE').toUpperCase().replace(/\s/g, ''), result: Math.round((out - buy - tips) * rate * 100) / 100, hands: 0, minutes: Math.round(((L.end || Date.now()) - L.t0) / 60000), tilt: 0, trigger: '', note: `Live ${L.cur} (taux ${L.rate}), pourboires ${fr(tips, 2)}` });
+    Store.save('journal'); W().liveSes = null; save(); render();
+  };
+  ACT.lscsv = async () => {
+    const L = lv(); if (!L) return;
+    const rows = [['heure', 'type', 'montant', 'devise', 'montant_eur'], ...L.tx.map((x) => [new Date(x.t).toISOString(), x.k, x.v, L.cur, Math.round(x.v * (num(L.rate) || 1) * 100) / 100])];
+    const data = rows.map((r) => r.join(';')).join('\n'), filename = `session-live-${new Date(L.t0).toISOString().slice(0, 10)}.csv`;
+    try { const d = window.claude?.use ? await window.claude.use('downloads') : null; if (d) { await d.save({ filename, data }); return; } } catch (e) { if (e && e.code === 'declined') return; }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([data], { type: 'text/csv' })); a.download = filename; a.click();
+  };
+  ONCHANGE.push((t) => { if (t.dataset.lsf) { const L = lv(); if (!L) return true; L[t.dataset.lsf] = t.value; if (t.dataset.lsf === 'cur') { const c = CUR.find((x) => x[0] === t.value); if (c && c[0] !== 'AUTRE') L.rate = String(c[2]); } save(); render(); return true; } });
+  const baseJournal = VIEWS.journal;
+  VIEWS.journal = () => { const h = baseJournal(), i = h.indexOf('<div class="stats">'); return i >= 0 ? h.slice(0, i) + liveHTML() + h.slice(i) : h + liveHTML(); };
 })();
 </script>
 <script>// Confort d'utilisation : recherche globale (Ctrl+K ou /), thème clair/sombre/auto, aide des raccourcis (?).
