@@ -71,7 +71,7 @@ p { margin: 0; }
 .chip[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .subtabs { display: flex; gap: 6px; flex-wrap: wrap; border-bottom: 1px solid var(--line); padding-bottom: 12px; }
 .pill { display: inline-block; font: 600 11px/1 var(--f-mono); letter-spacing: .05em; text-transform: uppercase; padding: 5px 8px; border-radius: 999px; background: var(--sunk); color: var(--muted); white-space: nowrap; }
-.pill.good { background: var(--good-bg); color: var(--good); } .pill.bad { background: var(--bad-bg); color: var(--bad); } .pill.acc { background: var(--accent-bg); color: var(--accent); }
+.pill.good { background: var(--good-bg); color: var(--good); } .pill.bad { background: var(--bad-bg); color: var(--bad); } .pill.acc { background: var(--accent-bg); color: var(--accent); } .pill.warn { background: var(--sunk); color: var(--gold); }
 .note { font-size: 13px; color: var(--muted); }
 .mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
 .warnbox { border-left: 3px solid var(--gold); padding: 10px 14px; background: var(--sunk); border-radius: 0 9px 9px 0; }
@@ -338,78 +338,79 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
 <main class="wrap" id="view" aria-live="polite"></main>
 <nav class="bottomnav" id="bottomnav" aria-label="Espaces"></nav>
 <div class="cmdk" id="cmdk" hidden></div>
-<script>/*__ENGINE__*/</script>
-<script>/*__OMAHA__*/</script>
-<script>/*__VARIANTS__*/</script>
-<script>/*__MATRIX__*/</script>
-<script>/*__SOLVER__*/</script>
-<script>/*__CHARTS__*/</script>
-<script>/*__COURSE__*/</script>
-<script>/*__COURSE1__*/</script>
-<script>/*__COURSE2__*/</script>
-<script>/*__COURSE3__*/</script>
-<script>/*__COURSE4__*/</script>
-<script>/*__COURSEE__*/</script>
-<script>/*__COURSEC__*/</script>
-<script>/*__COURSEL__*/</script>
-<script>/*__COURSEX__*/</script>
-<script>/*__COURSEU__*/</script>
-<script>/*__COURSEP__*/</script>
-<script>/*__COURSEM__*/</script>
-<script>/*__COURSED__*/</script>
-<script>/*__COURSED2__*/</script>
-<script>/*__COURSED3__*/</script>
-<script>/*__SPOTS__*/</script>
-<script>/*__BOARD__*/</script>
-<script>/*__HH__*/</script>
-<script>/*__TABLE__*/</script>
-<script>/*__MTT__*/</script>
-<script>/*__COACH__*/</script>
-<script>/*__GUIDED__*/</script>
-<script>/*__PLAN__*/</script>
-<script>/*__PRO__*/</script>
-<script>/*__TRACKS__*/</script>
-<script>/*__EXAMS__*/</script>
-<script>/*__FSRS__*/</script>
-<script>/*__APP__*/</script>
-<script>/*__POSTFLOP__*/</script>
-<script>/*__PLOPREDATA__*/</script>
-<script>/*__PLOSOLVER__*/</script>
-<script>/*__SOLVER3__*/</script>
-<script>/*__PFCORE__*/</script>
-<script>/*__PFPOOL__*/</script>
-<script type="text/plain" id="pfsrc">/*__PFSRC__*/</script>
-<script>/*__APPSIM__*/</script>
-<script>/*__AGGDATA__*/</script>
-<script>/*__FLOPLIB__*/</script>
-<script>/*__PREFLOPDATA__*/</script>
-<script>/*__APPSOLVER__*/</script>
-<script>/*__APPMULTI__*/</script>
-<script>/*__APPTOOLS__*/</script>
-<script>/*__TRSPOTS__*/</script>
-<script>/*__APPTRAIN__*/</script>
-<script>/*__CHAMPIONS__*/</script>
-<script>/*__APPCHAMP__*/</script>
-<script>/*__LIVEMODEL__*/</script>
-<script>/*__LIVEMULTI__*/</script>
-<script>/*__VARIANTSDATA__*/</script>
-<script>/*__VARIANTSQ__*/</script>
-<script>/*__OMAHACALIB__*/</script>
-<script>/*__LIVE__*/</script>
-<script>/*__APPTOOLS2__*/</script>
-<script>/*__APPLIVE__*/</script>
-<script>/*__APPTRACKS__*/</script>
-<script>/*__APPSTUDIO__*/</script>
-<script>/*__APPPRO__*/</script>
-<script>/*__HANDQUIZ__*/</script>
-<script>/*__APPPRACTICE__*/</script>
-<script>/*__REVIEW__*/</script>
-<script>/*__LEGENDS__*/</script>
-<script>/*__APPLEGENDS__*/</script>
-<script>/*__APPREVIEW__*/</script>
-<script>/*__NETGAME__*/</script>
-<script>/*__APPFRIENDS__*/</script>
-<script>/*__APPWAVE3__*/</script>
-<script>/*__APPLEARN__*/</script>
-<script>/*__APPUI__*/</script>
-<script>window.__S52.start();</script>
+<script data-s52>/*__ENGINE__*/</script>
+<script data-s52>/*__OMAHA__*/</script>
+<script data-s52>/*__VARIANTS__*/</script>
+<script data-s52>/*__MATRIX__*/</script>
+<script data-s52>/*__SOLVER__*/</script>
+<script data-s52>/*__CHARTS__*/</script>
+<script data-s52>/*__COURSE__*/</script>
+<script data-s52>/*__COURSE1__*/</script>
+<script data-s52>/*__COURSE2__*/</script>
+<script data-s52>/*__COURSE3__*/</script>
+<script data-s52>/*__COURSE4__*/</script>
+<script data-s52>/*__COURSEE__*/</script>
+<script data-s52>/*__COURSEC__*/</script>
+<script data-s52>/*__COURSEL__*/</script>
+<script data-s52>/*__COURSEX__*/</script>
+<script data-s52>/*__COURSEU__*/</script>
+<script data-s52>/*__COURSEP__*/</script>
+<script data-s52>/*__COURSEM__*/</script>
+<script data-s52>/*__COURSED__*/</script>
+<script data-s52>/*__COURSED2__*/</script>
+<script data-s52>/*__COURSED3__*/</script>
+<script data-s52>/*__SPOTS__*/</script>
+<script data-s52>/*__BOARD__*/</script>
+<script data-s52>/*__HH__*/</script>
+<script data-s52>/*__TABLE__*/</script>
+<script data-s52>/*__MTT__*/</script>
+<script data-s52>/*__COACH__*/</script>
+<script data-s52>/*__GUIDED__*/</script>
+<script data-s52>/*__PLAN__*/</script>
+<script data-s52>/*__PRO__*/</script>
+<script data-s52>/*__TRACKS__*/</script>
+<script data-s52>/*__EXAMS__*/</script>
+<script data-s52>/*__FSRS__*/</script>
+<script data-s52>/*__APP__*/</script>
+<script data-s52>/*__POSTFLOP__*/</script>
+<script data-s52>/*__PLOPREDATA__*/</script>
+<script data-s52>/*__PLOSOLVER__*/</script>
+<script data-s52>/*__SOLVER3__*/</script>
+<script data-s52>/*__PFCORE__*/</script>
+<script data-s52>/*__PFPOOL__*/</script>
+<script data-s52 type="text/plain" id="pfsrc">/*__PFSRC__*/</script>
+<script data-s52>/*__APPSIM__*/</script>
+<script data-s52>/*__AGGDATA__*/</script>
+<script data-s52>/*__FLOPLIB__*/</script>
+<script data-s52>/*__PREFLOPDATA__*/</script>
+<script data-s52>/*__APPSOLVER__*/</script>
+<script data-s52>/*__APPMULTI__*/</script>
+<script data-s52>/*__APPTOOLS__*/</script>
+<script data-s52>/*__TRSPOTS__*/</script>
+<script data-s52>/*__APPTRAIN__*/</script>
+<script data-s52>/*__CHAMPIONS__*/</script>
+<script data-s52>/*__APPCHAMP__*/</script>
+<script data-s52>/*__LIVEMODEL__*/</script>
+<script data-s52>/*__LIVEMULTI__*/</script>
+<script data-s52>/*__VARIANTSDATA__*/</script>
+<script data-s52>/*__VARIANTSQ__*/</script>
+<script data-s52>/*__OMAHACALIB__*/</script>
+<script data-s52>/*__LIVE__*/</script>
+<script data-s52>/*__APPTOOLS2__*/</script>
+<script data-s52>/*__APPLIVE__*/</script>
+<script data-s52>/*__APPTRACKS__*/</script>
+<script data-s52>/*__APPSTUDIO__*/</script>
+<script data-s52>/*__APPPRO__*/</script>
+<script data-s52>/*__HANDQUIZ__*/</script>
+<script data-s52>/*__APPPRACTICE__*/</script>
+<script data-s52>/*__REVIEW__*/</script>
+<script data-s52>/*__LEGENDS__*/</script>
+<script data-s52>/*__APPLEGENDS__*/</script>
+<script data-s52>/*__APPREVIEW__*/</script>
+<script data-s52>/*__NETGAME__*/</script>
+<script data-s52>/*__APPFRIENDS__*/</script>
+<script data-s52>/*__APPWAVE3__*/</script>
+<script data-s52>/*__APPLEARN__*/</script>
+<script data-s52>/*__APPDEBUTER__*/</script>
+<script data-s52>/*__APPUI__*/</script>
+<script data-s52>window.__S52.start();</script>

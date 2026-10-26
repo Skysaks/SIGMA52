@@ -124,7 +124,7 @@
       // Avec des verrous conservés, on désactive l'isomorphisme : un verrou posé sur une carte ne doit pas s'appliquer à ses cartes symétriques.
       sv.game = PF.create({ ...cfg, iso: !(sv.keepLocks && sv.locks?.length) });
       stabStop(); sv.stabCfg = cfg.sample ? cfg : null; sv.prof = null; sv.profBase = null; sv.profRes = ''; sv.profTarget = 0; if (sv.simp?.job) try { sv.simp.job.free(); } catch (e) { /* libéré */ } sv.simp = null;
-      if (!sv.keepLocks) { sv.locks = []; sv.lockRes = null; sv.lockBase = null; } sv.keepLocks = false;
+      if (!sv.keepLocks) { sv.locks = []; sv.play = null; sv.lockRes = null; sv.lockBase = null; } sv.keepLocks = false;
       for (const l of sv.locks || []) { try { sv.game.lock(l.path, l.strat); } catch (e) { /* chemin absent */ } }
       sv.err = ''; sv.path = []; sv.info = null; sv.ex = null; sv.cell = null; sv.running = true; sv.t0 = performance.now(); sv.elapsed = 0; sv.lastEx = 0;
       sv.heroCombo = parseHero();
@@ -415,7 +415,7 @@
       <div class="svgrid">${grid169(cellHTML)}</div>
       <p class="note">Couleur = mélange d'actions de la classe de mains, pondéré par les combos encore présents ; une case pâle = peu de combos de cette main arrivent ici. Clique une case pour le détail par combo.</p>
       ${sv.cell ? comboHTML(r, sv.cell) : ''}</section>
-      ${heroHTML(r)}${categoryHTML(r)}${lockHTML(r)}`;
+      ${heroHTML(r)}${categoryHTML(r)}${playHTML(r)}${lockHTML(r)}`;
   }
   // ---------------- Node locking : imposer la stratégie d'un joueur à ce nœud et recalculer la meilleure réponse ----------------
   const BUCKETS = [['Mains fortes', 0.66, 1.01], ['Mains moyennes', 0.4, 0.66], ['Mains faibles', -1, 0.4]];
@@ -455,7 +455,7 @@
       <p class="note">Le pourcentage est la fréquence de l'action choisie dans la catégorie ; le reste suit les proportions du solveur. Équité de chaque main contre la range adverse à ce nœud.</p>
       <div class="row"><button class="btn primary" data-act="lkgo">Verrouiller et recalculer</button><button class="btn" data-act="lkcancel">Annuler</button></div></section>`;
   }
-  ACT.lkedit = () => { const key = pathKey(sv.path), l = (sv.locks || []).find((x) => x.key === key); sv.lockEd = { key, rules: l ? JSON.parse(JSON.stringify(l.rules)) : lockPreset(sv.info.node, 'gto') }; render(); };
+  ACT.lkedit = () => { const key = pathKey(sv.path), l = (sv.locks || []).find((x) => x.key === key); sv.lockEd = { key, rules: l?.rules ? JSON.parse(JSON.stringify(l.rules)) : lockPreset(sv.info.node, 'gto') }; render(); };
   ACT.lkcancel = () => { sv.lockEd = null; render(); };
   ACT.lkpreset = (t) => { sv.lockEd.rules = lockPreset(sv.info.node, t.dataset.k); render(); };
   ONCHANGE.push((t) => {
@@ -475,13 +475,18 @@
     sv.pendingTarget = { path: sv.path.slice() }; sv.target = sv.pendingTarget; sv.pendingTarget = null;
     start();
   };
-  ACT.lkclear = () => { sv.locks = []; sv.lockRes = null; sv.lockBase = null; sv.keepLocks = true; sv.target = { path: sv.path.slice() }; start(); };
+  ACT.lkclear = () => { sv.play = null; sv.locks = []; sv.lockRes = null; sv.lockBase = null; sv.keepLocks = true; sv.target = { path: sv.path.slice() }; start(); };
   // Appelé à la fin d'une résolution avec verrous : comparaison avant/après.
   function lockReport() {
     const lp = sv.lockPending; sv.lockPending = null; if (!lp || !sv.lockBase) return;
     try {
       const root = sv.game.info([]), at = sv.game.info(sv.locks.find((l) => l.key === lp.key).path), b = sv.lockBase;
       const gainRoot = root.evMean[lp.o] - b.root[lp.o], gainNode = at.evMean[lp.o] - (b.node[lp.key] || at.evMean)[lp.o];
+      if (lp.play && sv.play) {
+        const cost = (b.node[lp.key] || at.evMean)[lp.p] - at.evMean[lp.p], costR = b.root[lp.p] - root.evMean[lp.p], rel = cost / Math.max(1e-9, sv.play.pot), ok = rel < 0.02;
+        sv.play.res = { ok, lines: [`Coût de la fiche pour ${nm(lp.p)} : ${fr(Math.max(0, cost), 2)} bb à ce nœud (${pct(Math.max(0, rel), 1)} du pot) et ${fr(Math.max(0, costR), 2)} bb sur l'ensemble du spot, une fois que ${nm(lp.o)} a adapté sa stratégie.`, ok ? 'Moins de 2 % du pot : fiche jouable telle quelle.' : 'Coût notable : garde un mélange pour les catégories à faible accord, ou ajoute une seconde règle.', 'Retire le verrou pour revenir à l\'équilibre.'] };
+        return;
+      }
       sv.lockRes = { lines: [`${nm(lp.o)} gagne ${gainNode >= 0 ? '+' : '−'}${fr(Math.abs(gainNode), 2)} bb en moyenne à ce nœud et ${gainRoot >= 0 ? '+' : '−'}${fr(Math.abs(gainRoot), 2)} bb sur l'ensemble du spot (pot de départ ${fr(sv.game.P0, 1)} bb) en adaptant sa stratégie.`, 'Navigue dans l\'arbre : les nœuds de l\'exploitant montrent maintenant sa meilleure réponse au verrou.'] };
     } catch (e) { sv.lockRes = null; }
   }
@@ -516,6 +521,43 @@
     return out.length ? `<section class="panel"><h2>Ta main</h2>${out.join('')}</section>` : `<section class="panel"><h2>Ta main</h2><p>${cardHTML(hc[0], true)}${cardHTML(hc[1], true)} n'est dans aucune des deux ranges (ou est bloquée par le board). Ajoute-la à ta range pour l'étudier.</p></section>`;
   }
   // Rapport par catégorie de main (main faite + tirage).
+  const catName = (a, b, board) => { const c = B.classify([a, b], board); return { name: B.MADE[c.made] + (c.draws.length && c.made >= 7 ? ' + tirage' : ''), order: c.made * 2 + (c.draws.length ? 0 : 1) }; };
+  // Stratégie jouable : une seule action par catégorie (l'action majoritaire du solveur), verrouillée puis re-résolue.
+  function playable(r) {
+    const g = sv.game, node = r.node, p = node.p, n = g.N[p], A = node.acts.length, cats = new Map(), of = new Array(n);
+    let tot = 0;
+    g.hands[p].forEach(([a, b], i) => {
+      const w = r.reach[p][i], c = catName(a, b, node.board); of[i] = c.name; if (w <= 1e-9) return;
+      let x = cats.get(c.name); if (!x) cats.set(c.name, x = { m: 0, f: new Array(A).fill(0), order: c.order });
+      x.m += w; tot += w; for (let k = 0; k < A; k++) x.f[k] += w * r.strategy[k * n + i];
+    });
+    const pickA = new Map([...cats].map(([nm_, x]) => [nm_, x.f.indexOf(Math.max(...x.f))]));
+    const strat = new Float64Array(A * n);
+    for (let i = 0; i < n; i++) { const a = pickA.get(of[i]); if (a === undefined) { for (let k = 0; k < A; k++) strat[k * n + i] = r.strategy[k * n + i]; } else strat[a * n + i] = 1; }
+    const sheet = [...cats].sort((a, b) => a[1].order - b[1].order).map(([name, x]) => ({ name, share: x.m / tot, act: g.label(node, pickA.get(name)), agree: x.f[pickA.get(name)] / x.m }));
+    return { strat, sheet };
+  }
+  function playHTML(r) {
+    const g = sv.game; if (!g || sv.running) return '';
+    const key = pathKey(sv.path), P = sv.play && sv.play.key === key ? sv.play : null;
+    const sheet = P ? P.sheet : playable(r).sheet;
+    const rows = sheet.map((x) => `<tr><td>${esc(x.name)}</td><td class="n mono">${pct(x.share, 0)}</td><td><strong>${esc(x.act)}</strong></td><td class="n mono">${pct(x.agree, 0)}</td></tr>`).join('');
+    const res = P && P.res ? `<div class="advice"><div class="${P.res.ok ? 'good' : 'warn'}">${P.res.lines.map(esc).join(' ')}</div></div>` : P ? '<p class="note">Re-résolution en cours…</p>' : '';
+    return `<section class="panel"><span class="eyebrow">Stratégie jouable</span><h2>Une action par catégorie</h2>
+      <p class="note">Le solveur mélange ; à la table, une règle simple par catégorie se retient. La fiche ci-dessous garde l'action majoritaire du solveur pour chaque catégorie. « Accord » = part de la catégorie que le solveur joue déjà ainsi.</p>
+      <div class="tw"><table class="t"><thead><tr><th>Catégorie</th><th class="n">Part</th><th>Règle</th><th class="n">Accord</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <div class="row"><button class="btn" data-act="svplay">Mesurer le coût : verrouiller la fiche et laisser ${esc(nm(1 - r.node.p))} s'adapter</button></div>${res}</section>`;
+  }
+  ACT.svplay = () => {
+    const r = sv.info, g = sv.game; if (!r || !g) return;
+    const node = r.node, p = node.p, o = 1 - p, key = pathKey(sv.path), { strat, sheet } = playable(r);
+    const root = g.info([]);
+    if (!sv.lockBase) sv.lockBase = { root: root.evMean.slice(), node: {} };
+    sv.lockBase.node[key] = r.evMean.slice();
+    sv.locks = (sv.locks || []).filter((l) => l.key !== key).concat({ key, path: sv.path.slice(), strat: Array.from(strat), rules: null, label: `${nm(p)} · fiche jouable`, p, o });
+    sv.play = { key, sheet, pot: r.pot, p }; sv.lockPending = { key, p, o, play: true }; sv.keepLocks = true;
+    sv.target = { path: sv.path.slice() }; start();
+  };
   function categoryHTML(r) {
     const g = sv.game, node = r.node, p = node.p, n = g.N[p], A = node.acts.length, cls = actClasses(node), cats = new Map();
     let tot = 0;

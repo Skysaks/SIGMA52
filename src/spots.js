@@ -7,7 +7,7 @@
 
   const TYPES = {
     rfi: 'Ouverture', vsopen: 'Face à une ouverture', odds: 'Cotes du pot', tirage: 'Tirage au turn', pushfold: 'Tapis ou couché', outs: 'Compter les outs', meilleure: 'Meilleure main', situations: 'Situations',
-    mdf: 'MDF et ratios', combos: 'Combos et bloqueurs', bounty: 'Primes PKO',
+    mdf: 'MDF et ratios', combos: 'Combos et bloqueurs', bounty: 'Primes PKO', profils: 'Même main, quatre adversaires',
   };
   const pick = (a, r) => a[(r() * a.length) | 0];
   const pct = (x) => (x * 100).toFixed(1).replace('.', ',') + ' %';
@@ -273,7 +273,40 @@
       why: `Ne compte que la part encaissée de la prime, pas la prime entière. À payer : ${call.toLocaleString('fr-FR')}. À gagner : son tapis ${shove.toLocaleString('fr-FR')} + blindes et ante ${dead.toLocaleString('fr-FR')} + prime ${prime.toLocaleString('fr-FR')}. Équité requise = ${call.toLocaleString('fr-FR')} ÷ ${(call + shove + dead + prime).toLocaleString('fr-FR')} = ${fmtp(need)} (sans la prime : ${fmtp(needNo)}).` };
   }
 
-  const GEN = { rfi, vsopen, odds, tirage, pushfold, outs: outsSpot, meilleure, situations: situation, mdf, combos, bounty };
+  // Même main, quatre adversaires : la bonne décision change avec le profil. EV en bb selon des hypothèses de population
+  // affichées dans la correction (part de bluffs, taux de fold, taux de call) : des ordres de grandeur, pas des mesures.
+  // k : part de son range de check qui paie une mise ; w : ta part de gains quand il paie ; ef : ton équité contre les mains qui se couchent.
+  const PROFS = { station: { l: 'une calling station', bl: 0.08, fe: 0.12, k: 0.85, w: 0.7, ef: 0.9 }, nit: { l: 'un nit', bl: 0.05, fe: 0.6, k: 0.25, w: 0.25, ef: 0.95 }, reg: { l: 'un régulier', bl: 0.3, fe: 0.45, k: 0.45, w: 0.5, ef: 0.85 }, maniaque: { l: 'un maniaque', bl: 0.55, fe: 0.3, k: 0.55, w: 0.6, ef: 0.8, induce: 0.45 } };
+  const PNAME = { station: 'Station', nit: 'Nit', reg: 'Régulier', maniaque: 'Maniaque' };
+  function profils(r) {
+    const P = pick([8, 10, 12, 16, 20, 24], r), kind = pick(['catch', 'bluff', 'thin'], r), who = pick(Object.keys(PROFS), r), fb = (x) => (x >= 0 ? '+' : '−') + Math.abs(x).toFixed(2).replace('.', ',') + ' bb';
+    let opts, evs, prompt, model, need;
+    if (kind === 'catch') {
+      const B = P; need = B / (P + 2 * B);
+      evs = (pr) => [pr.bl * (P + B) - (1 - pr.bl) * B, 0]; opts = ['Payer', 'Se coucher'];
+      prompt = `River, pot de <strong>${P} bb</strong>. Tu as une paire moyenne qui ne bat que des bluffs. <strong>${PROFS[who].l[0].toUpperCase() + PROFS[who].l.slice(1)}</strong> mise le pot (${B} bb).`;
+      model = (pr) => `bluffs ${Math.round(pr.bl * 100)} % de ses mises`;
+    } else if (kind === 'bluff') {
+      const B = Math.round(P * 0.75 * 10) / 10; need = B / (P + B);
+      evs = (pr) => [pr.fe * P - (1 - pr.fe) * B, 0]; opts = ['Miser 75 % du pot', 'Checker'];
+      prompt = `River, pot de <strong>${P} bb</strong>, tirage raté : ta main ne gagne jamais à l'abattage. <strong>${PROFS[who].l[0].toUpperCase() + PROFS[who].l.slice(1)}</strong> checke vers toi.`;
+      model = (pr) => `se couche ${Math.round(pr.fe * 100)} % du temps face à 75 %`;
+    } else {
+      const B = P / 2; need = null;
+      // Gain de la mise sur le check : les mains meilleures qui se couchent + la valeur quand il paie − les bluffs qu'on n'induit plus.
+      evs = (pr) => [(1 - pr.k) * (1 - pr.ef) * P + pr.k * B * (2 * pr.w - 1) - (pr.induce || 0) * B * 0.9, 0];
+      opts = ['Miser 50 % pour la valeur', 'Checker'];
+      prompt = `River, pot de <strong>${P} bb</strong>. Tu as la deuxième paire, bon kicker. <strong>${PROFS[who].l[0].toUpperCase() + PROFS[who].l.slice(1)}</strong> checke vers toi.`;
+      model = (pr) => `paie ${Math.round(pr.k * 100)} % et tu gagnes ${Math.round(pr.w * 100)} % quand il paie${pr.induce ? `, bluffe ${Math.round(pr.induce * 100)} % du temps si tu checkes` : ''}`;
+    }
+    const all = Object.entries(PROFS).map(([k, pr]) => { const e = evs(pr); return { k, best: e[0] > e[1] ? 0 : 1, gap: Math.abs(e[0] - e[1]), e }; });
+    const me = all.find((x) => x.k === who), ok = me.best;
+    const rows = all.map((x) => `${PNAME[x.k]} : ${opts[x.best].toLowerCase()} (${kind === 'thin' ? 'miser rapporte ' + fb(x.e[0]) + ' par rapport au check' : opts[0].toLowerCase() + ' ' + fb(x.e[0]) + ', ' + opts[1].toLowerCase() + ' 0'})`).join(' ; ');
+    const same = all.find((x) => x.k === 'reg'), cost = me.best !== same.best ? me.gap : 0;
+    return { type: 'profils', title: `Même main, quatre adversaires · ${PNAME[who]}`, prompt, opts, ok, ev: null,
+      why: `${need !== null ? `Il te faut ${pct(need)} de réussite. ` : ''}Hypothèse pour ${PROFS[who].l} : ${model(PROFS[who])}. Même main contre chaque profil — ${rows}. ${cost > 0 ? `Jouer ici comme contre un régulier coûterait ${cost.toFixed(2).replace('.', ',')} bb.` : 'Ici, le même choix que contre un régulier convient.'} Profils et pourcentages : ordres de grandeur de population, à ajuster avec tes propres observations (onglet Analyse).` };
+  }
+  const GEN = { rfi, vsopen, odds, tirage, pushfold, outs: outsSpot, meilleure, situations: situation, mdf, combos, bounty, profils };
   // Mix : favorise les types les moins réussis (stats = { type: { ok, n } }).
   function mix(r, stats = {}) {
     const types = Object.keys(GEN), w = types.map((t) => { const s = stats[t] || { ok: 0, n: 0 }; return 1.5 - (s.ok + 1) / (s.n + 2); });

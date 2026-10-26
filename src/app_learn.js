@@ -57,6 +57,32 @@
   // Erreurs des quiz de mains et des charts : elles entrent dans la révision espacée.
   X.reviewMiss = (spot) => { if (spot && SPOT()) { SPOT().reviewGrade('x:' + spot.sid + ':' + spot.prompt, spot, 1); save(); } };
 
+  // ---------------- Échelle d'erreur commune : Parfait / Correct / Erreur / Gaffe ----------------
+  // En % du pot perdu (seuils des mains notées) ; préflop en bb ; décision sans EV : juste = Correct, petite erreur = Erreur, grave = Gaffe.
+  const SC = { L: ['Parfait', 'Correct', 'Erreur', 'Gaffe'], C: ['good', 'acc', 'warn', 'bad'] };
+  SC.pct = (lossPct, freq = 0) => (lossPct < 0.005 || freq >= 0.25 ? 0 : lossPct < 0.02 ? 1 : lossPct < 0.06 ? 2 : 3);
+  SC.bb = (lossBB) => (lossBB <= 0.05 ? 0 : lossBB <= 0.3 ? 1 : lossBB <= 1 ? 2 : 3);
+  SC.sev = (ok, sev) => (ok ? 1 : sev === 'grave' ? 3 : 2);
+  SC.badge = (g, extra = '') => `<span class="pill ${SC.C[g]}">${SC.L[g]}${extra ? ' · ' + extra : ''}</span>`;
+  SC.legend = '<p class="note">Échelle commune : <strong>Parfait</strong> (meilleure action ou perte sous 0,5 % du pot), <strong>Correct</strong> (sous 2 %), <strong>Erreur</strong> (2 à 6 %), <strong>Gaffe</strong> (plus de 6 % du pot ; préflop : plus de 1 bb).</p>';
+  X.SCALE = SC;
+  // Journal des erreurs coûteuses (toutes sources) : les plus chères de la semaine reviennent dans le bilan et le plan du jour.
+  X.logMistake = (m) => {
+    if (!m || !(m.lossBB > 0)) return;
+    const w = W(); w.mist = w.mist || [];
+    w.mist.push({ d: today(), src: m.src, label: String(m.label || '').slice(0, 140), lossBB: Math.round(m.lossBB * 100) / 100, lossPct: m.lossPct ?? null, g: m.g ?? null, go: m.go || null, spot: m.spot || null });
+    if (w.mist.length > 300) w.mist.splice(0, w.mist.length - 300);
+    if (m.spot) X.reviewMiss(m.spot);
+    save();
+  };
+  const topMist = (days = 7, n = 3) => (W().mist || []).filter((x) => ageDays(x.d) < days).sort((a, b) => b.lossBB - a.lossBB).slice(0, n);
+  X.topMist = topMist;
+  ACT.mistgo = (t) => {
+    const m = topMist(7, 3)[+t.dataset.i]; if (!m) return;
+    if (m.spot && SPOT()) { plan = { queue: [{ spot: m.spot, src: 'Erreur chère de la semaine' }], done: 0, ok: 0, n: 1, cur: null, ret: false, label: 'Erreur de la semaine' }; SPOT().start('plan'); return go('spots'); }
+    go(m.go || 'sim');
+  };
+
   // ---------------- Faiblesses et plan du jour ----------------
   const COACH2TYPE = { rfi: 'rfi', iso: 'rfi', pfdef: 'vsopen', odds: 'odds', value: 'handquiz', nobluff: 'handquiz', bluff: 'handquiz', pushfold: 'pushfold' };
   function leaks() {
@@ -93,6 +119,7 @@
     const items = [], p = state.progress;
     const due = p.review.filter((r) => r.due <= today()).slice(0, n >= 10 ? 3 : 2);
     for (const r of due) items.push({ spot: r.spot, review: r, src: 'Révision due (mémoire FSRS)' });
+    for (const m of topMist(7, n >= 10 ? 2 : 1)) if (m.spot && !items.some((x) => x.spot?.prompt === m.spot.prompt)) items.push({ spot: m.spot, src: `Erreur chère de la semaine (−${fr(m.lossBB, 2)} bb)` });
     const weak = weaknesses(), slots = n - items.length - (n >= 10 ? 3 : 1);
     for (let k = 0; k < slots; k++) { const w = weak[k % Math.min(weak.length, 3)]; const it = makeItem(w.type, w.why); if (it) items.push(it); }
     if (n >= 10) { items.push(makeItem('handquiz', 'Quiz de main : postflop contre le solveur')); items.push(makeItem('handquiz', 'Quiz de main : postflop contre le solveur')); }
@@ -104,11 +131,20 @@
   }
   function startPlan(n, label) { plan = { queue: buildPlan(n), done: 0, ok: 0, n: 0, cur: null, ret: false, label }; plan.n = plan.queue.length; SPOT().start('plan'); go('spots'); }
   X.planNext = () => { if (!plan) return null; plan.cur = plan.queue.shift() || null; if (!plan.cur) { finishPlan(); return null; } return plan.cur; };
-  function finishPlan() { const w = W(); if (plan) { if (plan.ret) w.retLast = today(); else { w.plans = w.plans || []; w.plans.push({ d: today(), n: plan.done, ok: plan.ok }); if (w.plans.length > 60) w.plans.shift(); } w.lastPlanRes = { label: plan.label, n: plan.done, ok: plan.ok, d: today(), show: true }; plan = null; save(); } }
+  function finishPlan() { const w = W(); if (plan) { if (plan.warm) { w.warm = { d: today(), ok: plan.ok, n: plan.done, green: plan.done >= 5 && plan.ok >= 4 }; } if (plan.ret) w.retLast = today(); else if (!plan.warm) { w.plans = w.plans || []; w.plans.push({ d: today(), n: plan.done, ok: plan.ok }); if (w.plans.length > 60) w.plans.shift(); } w.lastPlanRes = { label: plan.label, n: plan.done, ok: plan.ok, d: today(), show: true }; plan = null; save(); } }
   X.planBanner = (mode) => {
     if (mode !== 'plan' || !plan) { const r = W().lastPlanRes; return r && r.d === today() && r.show ? (r.show = false, `<p class="pill good">${esc(r.label)} terminé : ${r.ok}/${r.n}</p>`) : ''; }
     const c = plan.cur;
     return `<div class="row" style="justify-content:space-between"><span class="pill acc">${esc(plan.label)} · ${Math.min(plan.done + 1, plan.n)}/${plan.n}</span><span class="note">${c ? esc(c.src || '') : ''}</span><button class="btn small" data-act="planstop">Arrêter</button></div>`;
+  };
+  // Échauffement de 2 minutes avant une session : 5 spots tirés de tes fuites ; feu vert à 4/5.
+  function startWarm() { plan = { queue: buildPlan(5).slice(0, 5), done: 0, ok: 0, n: 0, cur: null, ret: false, warm: true, label: 'Échauffement avant session' }; plan.n = plan.queue.length; const tr = state.settings.train || (state.settings.train = { conf: false, timer: 0, explain: false }); plan.prevTimer = tr.timer; SPOT().start('plan'); go('spots'); }
+  ACT.warmstart = () => startWarm();
+  X.warmHTML = () => {
+    const w = W().warm, todayW = w && w.d === today();
+    return `<section class="panel"><span class="eyebrow">Échauffement avant session · 2 minutes</span><p>Cinq spots tirés de tes fuites actuelles. <strong>Feu vert à 4/5</strong> ; en dessous, la session commence par 10 minutes de révision, ou n'a pas lieu.</p>
+      ${todayW ? `<div class="advice"><div class="${w.green ? 'good' : 'bad'}">${w.green ? `Feu vert : ${w.ok}/${w.n}.` : `Pas de feu vert : ${w.ok}/${w.n}. Révise les spots ratés avant de jouer, ou reporte la session.`}</div></div>` : ''}
+      <div class="row"><button class="btn ${todayW ? '' : 'primary'}" data-act="warmstart">${todayW ? 'Refaire l\'échauffement' : 'Lancer l\'échauffement'}</button></div></section>`;
   };
   ACT.planstart = (t) => startPlan(+t.dataset.n || 10, +t.dataset.n === 5 ? 'Version 5 minutes' : 'Plan du jour');
   ACT.planstop = () => { finishPlan(); SPOT().start('mix'); render(); };
@@ -180,14 +216,18 @@
       ${cell('Erreurs graves', r(A.dec[2] + A.ev[2], A.dec[0] + A.ev[0]), r(B.dec[2] + B.ev[2], B.dec[0] + B.ev[0]), (v) => pct(v, 0), false)}
       ${cell('Spots justes', r(A.sp[1], A.sp[0]), r(B.sp[1], B.sp[0]), (v) => pct(v, 0), true)}
       ${cell('Décisions justes au simulateur', r(A.dec[1], A.dec[0]), r(B.dec[1], B.dec[0]), (v) => pct(v, 0), true)}</div>
-      <p class="note">${A.sp[0] + A.dec[0] + A.ev[0]} décisions cette semaine. Le résultat en jetons ou en euros n'apparaît pas ici exprès : sur une semaine, c'est surtout de la variance.</p></section>`;
+      <p class="note">${A.sp[0] + A.dec[0] + A.ev[0]} décisions cette semaine. Le résultat en jetons ou en euros n'apparaît pas ici exprès : sur une semaine, c'est surtout de la variance.</p>
+      ${(() => { const T = topMist(7, 3); return T.length ? `<h3>Tes 3 erreurs les plus chères de la semaine</h3><div class="tw"><table class="t"><tbody>${T.map((m, i) => `<tr><td>${m.g !== null && m.g !== undefined ? SC.badge(m.g) : ''}</td><td>${esc(m.src)} · ${esc(m.label)}</td><td class="n mono">−${fr(m.lossBB, 2)} bb</td><td><button class="btn small" data-act="mistgo" data-i="${i}">${m.spot ? 'Rejouer' : 'Y retourner'}</button></td></tr>`).join('')}</tbody></table></div><p class="note">Celles qui ont un exercice associé passent aussi en révision FSRS et dans le plan du jour.</p>` : ''; })()}</section>`;
   }
 
   // ---------------- Explication notée par Claude ----------------
   const expl = new Map(); // clé du spot -> { st: 'wait'|'done'|'self', note, txt }
   const keyOf = (spot) => spot.sid + '|' + spot.prompt;
   async function gradeExpl(spot, choice, text) {
-    const k = keyOf(spot); expl.set(k, { st: 'wait', text }); render();
+    const k = keyOf(spot);
+    // Relecture par Claude seulement si tu l'as activée : chaque appel consomme un message de ton quota.
+    if (!state.settings.train?.claude) { expl.set(k, { st: 'self', text }); render(); return; }
+    expl.set(k, { st: 'wait', text }); render();
     const sample = await use('sample');
     if (!sample) { expl.set(k, { st: 'self', text }); render(); return; }
     const plain = (h) => String(h).replace(/<[^>]+>/g, '');
@@ -216,7 +256,7 @@
     const mobile = typeof innerWidth !== 'undefined' && innerWidth < 700;
     return `<section class="panel" style="border-color:var(--accent)"><div class="row" style="justify-content:space-between"><div><span class="eyebrow">Plan du jour</span><h2>${mobile ? '5 minutes, une décision à la fois' : '10 exercices choisis pour toi, mélangés'}</h2></div><span class="row">${mobile ? '<button class="btn primary" data-act="planstart" data-n="5">5 minutes</button><button class="btn" data-act="planstart" data-n="10">Plan complet</button>' : '<button class="btn primary" data-act="planstart" data-n="10">Lancer le plan</button><button class="btn" data-act="planstart" data-n="5">Version 5 minutes</button>'}</span></div>
       <ul class="note" style="margin:0;padding-left:1.2em">${due ? `<li>${due} révision${due > 1 ? 's' : ''} due${due > 1 ? 's' : ''} (FSRS)</li>` : ''}${[...new Set(weak.map((w) => w.why))].map((why) => `<li>${esc(why)}</li>`).join('')}</ul>
-      ${last && last.d === today() ? `<p class="pill good">Fait aujourd'hui : ${last.ok}/${last.n}</p>` : ''}${retDue() ? '<div class="row"><button class="btn small" data-act="retstart">Contrôle de rétention du mois (10 exercices)</button></div>' : ''}</section>`;
+      ${last && last.d === today() ? `<p class="pill good">Fait aujourd'hui : ${last.ok}/${last.n}</p>` : ''}<div class="row"><button class="btn small" data-act="warmstart">Échauffement avant session (2 min)</button>${W().warm?.d === today() ? `<span class="pill ${W().warm.green ? 'good' : 'bad'}">${W().warm.green ? 'feu vert' : 'pas de feu vert'} ${W().warm.ok}/${W().warm.n}</span>` : ''}</div>${retDue() ? '<div class="row"><button class="btn small" data-act="retstart">Contrôle de rétention du mois (10 exercices)</button></div>' : ''}</section>`;
   }
   const baseJour = VIEWS.jour;
   VIEWS.jour = () => {
@@ -225,6 +265,8 @@
     if (mobile) { const i = html.indexOf('</section>'); if (i >= 0) return html.slice(0, i + 10) + card + html.slice(i + 10); }
     return html.includes('<div class="warnbox"><strong>Fair-play.</strong>') ? html.replace('<div class="warnbox"><strong>Fair-play.</strong>', card + '<div class="warnbox"><strong>Fair-play.</strong>') : card + html;
   };
+  const baseMental = VIEWS.mental;
+  if (baseMental) VIEWS.mental = () => { const h = baseMental(), i = h.indexOf('<section'); return i >= 0 ? h.slice(0, i) + X.warmHTML() + h.slice(i) : h + X.warmHTML(); };
   const baseProfil = VIEWS.profil;
   VIEWS.profil = () => baseProfil() + mapHTML();
 })();

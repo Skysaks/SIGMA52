@@ -1,0 +1,1250 @@
+{
+ "built": "2026-10-26",
+ "tool": "TexasSolver (branche console, AGPL v3)",
+ "spots": [
+  {
+   "spot": "BTN-BB Ks7d2c9h4s",
+   "street": "river",
+   "pot": 20,
+   "stack": 87,
+   "sigmaEx": 0.088,
+   "texasEx": 0.03728494,
+   "sigmaMs": 122,
+   "texasMs": 8885,
+   "root": {
+    "acts": [
+     "Check",
+     "Miser 10 (50 %)",
+     "Miser 20 (100 %)"
+    ],
+    "sigma": [
+     0.4619,
+     0.4195,
+     0.1186
+    ],
+    "texas": [
+     0.483,
+     0.4141,
+     0.1029
+    ],
+    "maxAggDiff": 0.0211,
+    "comboTV": 0.0739
+   },
+   "ipAfterCheck": {
+    "acts": [
+     "Check",
+     "Miser 10 (50 %)",
+     "Miser 20 (100 %)"
+    ],
+    "sigma": [
+     0.3121,
+     0.4529,
+     0.235
+    ],
+    "texas": [
+     0.3181,
+     0.4508,
+     0.2311
+    ],
+    "maxAggDiff": 0.0061,
+    "comboTV": 0.0757
+   },
+   "oopFacingBet": {
+    "acts": [
+     "Se coucher",
+     "Suivre 10"
+    ],
+    "sigma": [
+     0.45,
+     0.55
+    ],
+    "texas": [
+     0.4636,
+     0.5364
+    ],
+    "maxAggDiff": 0.0137,
+    "comboTV": 0.0727
+   }
+  },
+  {
+   "spot": "BTN-BB Ah8c3d5s2h",
+   "street": "river",
+   "pot": 20,
+   "stack": 87,
+   "sigmaEx": 0.054,
+   "texasEx": 0.034297705,
+   "sigmaMs": 304,
+   "texasMs": 9096,
+   "root": {
+    "acts": [
+     "Check",
+     "Miser 10 (50 %)",
+     "Miser 20 (100 %)"
+    ],
+    "sigma": [
+     0.6357,
+     0.2496,
+     0.1147
+    ],
+    "texas": [
+     0.6421,
+     0.2412,
+     0.1167
+    ],
+    "maxAggDiff": 0.0084,
+    "comboTV": 0.0588
+   },
+   "ipAfterCheck": {
+    "acts": [
+     "Check",
+     "Miser 10 (50 %)",
+     "Miser 20 (100 %)"
+    ],
+    "sigma": [
+     0.3093,
+     0.4791,
+     0.2116
+    ],
+    "texas": [
+     0.3129,
+     0.4816,
+     0.2055
+    ],
+    "maxAggDiff": 0.0061,
+    "comboTV": 0.0389
+   },
+   "oopFacingBet": {
+    "acts": [
+     "Se coucher",
+     "Suivre 10"
+    ],
+    "sigma": [
+     0.4849,
+     0.5151
+    ],
+    "texas": [
+     0.4881,
+     0.5119
+    ],
+    "maxAggDiff": 0.0032,
+    "comboTV": 0.0422
+   }
+  },
+  {
+   "spot": "BTN-BB QhJh4c8d2s",
+   "street": "river",
+   "pot": 30,
+   "stack": 82,
+   "sigmaEx": 0.091,
+   "texasEx": 0.026723545,
+   "sigmaMs": 71,
+   "texasMs": 9149,
+   "root": {
+    "acts": [
+     "Check",
+     "Miser 15 (50 %)",
+     "Miser 30 (100 %)"
+    ],
+    "sigma": [
+     0.5057,
+     0.4182,
+     0.0761
+    ],
+    "texas": [
+     0.5151,
+     0.4121,
+     0.0728
+    ],
+    "maxAggDiff": 0.0094,
+    "comboTV": 0.061
+   },
+   "ipAfterCheck": {
+    "acts": [
+     "Check",
+     "Miser 15 (50 %)",
+     "Miser 30 (100 %)"
+    ],
+    "sigma": [
+     0.2904,
+     0.4625,
+     0.2472
+    ],
+    "texas": [
+     0.2938,
+     0.4518,
+     0.2544
+    ],
+    "maxAggDiff": 0.0106,
+    "comboTV": 0.0681
+   },
+   "oopFacingBet": {
+    "acts": [
+     "Se coucher",
+     "Suivre 15"
+    ],
+    "sigma": [
+     0.4959,
+     0.5041
+    ],
+    "texas": [
+     0.4907,
+     0.5093
+    ],
+    "maxAggDiff": 0.0052,
+    "comboTV": 0.1157
+   }
+  },
+  {
+   "spot": "BTN-BB 9s8s6dKcKd",
+   "street": "river",
+   "pot": 20,
+   "stack": 87,
+   "sigmaEx": 0.066,
+   "texasEx": 0.03946051,
+   "sigmaMs": 102,
+   "texasMs": 8432,
+   "root": {
+    "acts": [
+     "Check",
+     "Miser 10 (50 %)",
+     "Miser 20 (100 %)"
+    ],
+    "sigma": [
+     0.3806,
+     0.4367,
+     0.1827
+    ],
+    "texas": [
+     0.3908,
+     0.4227,
+     0.1865
+    ],
+    "maxAggDiff": 0.0139,
+    "comboTV": 0.0577
+   },
+   "ipAfterCheck": {
+    "acts": [
+     "Check",
+     "Miser 10 (50 %)",
+     "Miser 20 (100 %)"
+    ],
+    "sigma": [
+     0.3043,
+     0.4595,
+     0.2362
+    ],
+    "texas": [
+     0.3015,
+     0.4676,
+     0.2309
+    ],
+    "maxAggDiff": 0.0081,
+    "comboTV": 0.0823
+   },
+   "oopFacingBet": {
+    "acts": [
+     "Se coucher",
+     "Suivre 10"
+    ],
+    "sigma": [
+     0.5313,
+     0.4687
+    ],
+    "texas": [
+     0.5445,
+     0.4555
+    ],
+    "maxAggDiff": 0.0131,
+    "comboTV": 0.0661
+   }
+  },
+  {
+   "spot": "BTN-BB Tc7c3hAs6d",
+   "street": "river",
+   "pot": 16,
+   "stack": 90,
+   "sigmaEx": 0.09,
+   "texasEx": 0.043192506,
+   "sigmaMs": 26,
+   "texasMs": 8904,
+   "root": {
+    "acts": [
+     "Check",
+     "Miser 8 (50 %)",
+     "Miser 16 (100 %)"
+    ],
+    "sigma": [
+     0.6127,
+     0.2603,
+     0.127
+    ],
+    "texas": [
+     0.603,
+     0.2697,
+     0.1273
+    ],
+    "maxAggDiff": 0.0096,
+    "comboTV": 0.0813
+   },
+   "ipAfterCheck": {
+    "acts": [
+     "Check",
+     "Miser 8 (50 %)",
+     "Miser 16 (100 %)"
+    ],
+    "sigma": [
+     0.3122,
+     0.4778,
+     0.21
+    ],
+    "texas": [
+     0.3083,
+     0.4805,
+     0.2112
+    ],
+    "maxAggDiff": 0.0039,
+    "comboTV": 0.0349
+   },
+   "oopFacingBet": {
+    "acts": [
+     "Se coucher",
+     "Suivre 8"
+    ],
+    "sigma": [
+     0.4962,
+     0.5038
+    ],
+    "texas": [
+     0.4922,
+     0.5078
+    ],
+    "maxAggDiff": 0.004,
+    "comboTV": 0.0443
+   }
+  },
+  {
+   "spot": "CO-BB KdQs5h3c2d",
+   "street": "river",
+   "pot": 20,
+   "stack": 87,
+   "sigmaEx": 0.07,
+   "texasEx": 0.051927865,
+   "sigmaMs": 51,
+   "texasMs": 8541,
+   "root": {
+    "acts": [
+     "Check",
+     "Miser 10 (50 %)",
+     "Miser 20 (100 %)"
+    ],
+    "sigma": [
+     0.594,
+     0.346,
+     0.0601
+    ],
+    "texas": [
+     0.5917,
+     0.3488,
+     0.0595
+    ],
+    "maxAggDiff": 0.0028,
+    "comboTV": 0.0431
+   },
+   "ipAfterCheck": {
+    "acts": [
+     "Check",
+     "Miser 10 (50 %)",
+     "Miser 20 (100 %)"
+    ],
+    "sigma": [
+     0.2829,
+     0.4985,
+     0.2186
+    ],
+    "texas": [
+     0.2819,
+     0.4975,
+     0.2206
+    ],
+    "maxAggDiff": 0.002,
+    "comboTV": 0.0189
+   },
+   "oopFacingBet": {
+    "acts": [
+     "Se coucher",
+     "Suivre 10"
+    ],
+    "sigma": [
+     0.5325,
+     0.4675
+    ],
+    "texas": [
+     0.534,
+     0.466
+    ],
+    "maxAggDiff": 0.0015,
+    "comboTV": 0.038
+   }
+  },
+  {
+   "spot": "CO-BB 7h6h2dJcAs",
+   "street": "river",
+   "pot": 25,
+   "stack": 85,
+   "sigmaEx": 0.084,
+   "texasEx": 0.05360174,
+   "sigmaMs": 151,
+   "texasMs": 10084,
+   "root": {
+    "acts": [
+     "Check",
+     "Miser 12,5 (50 %)",
+     "Miser 25 (100 %)"
+    ],
+    "sigma": [
+     0.6306,
+     0.3204,
+     0.049
+    ],
+    "texas": [
+     0.647,
+     0.3059,
+     0.0471
+    ],
+    "maxAggDiff": 0.0164,
+    "comboTV": 0.0592
+   },
+   "ipAfterCheck": {
+    "acts": [
+     "Check",
+     "Miser 12,5 (50 %)",
+     "Miser 25 (100 %)"
+    ],
+    "sigma": [
+     0.2982,
+     0.4728,
+     0.229
+    ],
+    "texas": [
+     0.3103,
+     0.4736,
+     0.2161
+    ],
+    "maxAggDiff": 0.0129,
+    "comboTV": 0.0738
+   },
+   "oopFacingBet": {
+    "acts": [
+     "Se coucher",
+     "Suivre 12,5"
+    ],
+    "sigma": [
+     0.4965,
+     0.5035
+    ],
+    "texas": [
+     0.5157,
+     0.4843
+    ],
+    "maxAggDiff": 0.0192,
+    "comboTV": 0.0495
+   }
+  },
+  {
+   "spot": "UTG-BB AsKd8h4c3s",
+   "street": "river",
+   "pot": 20,
+   "stack": 87,
+   "sigmaEx": 0.097,
+   "texasEx": 0.025866032,
+   "sigmaMs": 45,
+   "texasMs": 8448,
+   "root": {
+    "acts": [
+     "Check",
+     "Miser 10 (50 %)",
+     "Miser 20 (100 %)"
+    ],
+    "sigma": [
+     0.64,
+     0.3307,
+     0.0293
+    ],
+    "texas": [
+     0.6554,
+     0.3252,
+     0.0193
+    ],
+    "maxAggDiff": 0.0155,
+    "comboTV": 0.0711
+   },
+   "ipAfterCheck": {
+    "acts": [
+     "Check",
+     "Miser 10 (50 %)",
+     "Miser 20 (100 %)"
+    ],
+    "sigma": [
+     0.2915,
+     0.428,
+     0.2805
+    ],
+    "texas": [
+     0.2917,
+     0.4302,
+     0.2781
+    ],
+    "maxAggDiff": 0.0024,
+    "comboTV": 0.0531
+   },
+   "oopFacingBet": {
+    "acts": [
+     "Se coucher",
+     "Suivre 10"
+    ],
+    "sigma": [
+     0.5677,
+     0.4323
+    ],
+    "texas": [
+     0.577,
+     0.423
+    ],
+    "maxAggDiff": 0.0093,
+    "comboTV": 0.0633
+   }
+  },
+  {
+   "spot": "UTG-BB 5c5d9sTh2c",
+   "street": "river",
+   "pot": 20,
+   "stack": 87,
+   "sigmaEx": 0.099,
+   "texasEx": 0.11903017,
+   "sigmaMs": 36,
+   "texasMs": 8769,
+   "root": {
+    "acts": [
+     "Check",
+     "Miser 10 (50 %)",
+     "Miser 20 (100 %)"
+    ],
+    "sigma": [
+     0.4768,
+     0.4449,
+     0.0783
+    ],
+    "texas": [
+     0.4862,
+     0.4359,
+     0.0779
+    ],
+    "maxAggDiff": 0.0093,
+    "comboTV": 0.0614
+   },
+   "ipAfterCheck": {
+    "acts": [
+     "Check",
+     "Miser 10 (50 %)",
+     "Miser 20 (100 %)"
+    ],
+    "sigma": [
+     0.2929,
+     0.4713,
+     0.2358
+    ],
+    "texas": [
+     0.2919,
+     0.471,
+     0.2372
+    ],
+    "maxAggDiff": 0.0014,
+    "comboTV": 0.0514
+   },
+   "oopFacingBet": {
+    "acts": [
+     "Se coucher",
+     "Suivre 10"
+    ],
+    "sigma": [
+     0.5452,
+     0.4548
+    ],
+    "texas": [
+     0.5472,
+     0.4528
+    ],
+    "maxAggDiff": 0.002,
+    "comboTV": 0.0263
+   }
+  },
+  {
+   "spot": "3bp-BTN-BB Kh9d4s2c7h",
+   "street": "river",
+   "pot": 46,
+   "stack": 130,
+   "sigmaEx": 0.068,
+   "texasEx": 0.047534443,
+   "sigmaMs": 15,
+   "texasMs": 9381,
+   "root": {
+    "acts": [
+     "Check",
+     "Miser 23 (50 %)",
+     "Miser 46 (100 %)"
+    ],
+    "sigma": [
+     0.4026,
+     0.2067,
+     0.3908
+    ],
+    "texas": [
+     0.407,
+     0.2058,
+     0.3872
+    ],
+    "maxAggDiff": 0.0045,
+    "comboTV": 0.0281
+   },
+   "ipAfterCheck": {
+    "acts": [
+     "Check",
+     "Miser 23 (50 %)",
+     "Miser 46 (100 %)"
+    ],
+    "sigma": [
+     0.3929,
+     0.4464,
+     0.1607
+    ],
+    "texas": [
+     0.3906,
+     0.4412,
+     0.1683
+    ],
+    "maxAggDiff": 0.0075,
+    "comboTV": 0.0407
+   },
+   "oopFacingBet": {
+    "acts": [
+     "Se coucher",
+     "Suivre 23"
+    ],
+    "sigma": [
+     0.3653,
+     0.6347
+    ],
+    "texas": [
+     0.3624,
+     0.6376
+    ],
+    "maxAggDiff": 0.0028,
+    "comboTV": 0.0281
+   }
+  },
+  {
+   "spot": "3bp-BTN-BB Qs8s3d4hAc",
+   "street": "river",
+   "pot": 46,
+   "stack": 130,
+   "sigmaEx": 0.075,
+   "texasEx": 0.07230925,
+   "sigmaMs": 10,
+   "texasMs": 8380,
+   "root": {
+    "acts": [
+     "Check",
+     "Miser 23 (50 %)",
+     "Miser 46 (100 %)"
+    ],
+    "sigma": [
+     0.4625,
+     0.3778,
+     0.1598
+    ],
+    "texas": [
+     0.446,
+     0.3811,
+     0.1729
+    ],
+    "maxAggDiff": 0.0165,
+    "comboTV": 0.0653
+   },
+   "ipAfterCheck": {
+    "acts": [
+     "Check",
+     "Miser 23 (50 %)",
+     "Miser 46 (100 %)"
+    ],
+    "sigma": [
+     0.5884,
+     0.3043,
+     0.1073
+    ],
+    "texas": [
+     0.5859,
+     0.314,
+     0.1001
+    ],
+    "maxAggDiff": 0.0097,
+    "comboTV": 0.0282
+   },
+   "oopFacingBet": {
+    "acts": [
+     "Se coucher",
+     "Suivre 23"
+    ],
+    "sigma": [
+     0.3325,
+     0.6675
+    ],
+    "texas": [
+     0.3286,
+     0.6714
+    ],
+    "maxAggDiff": 0.0039,
+    "comboTV": 0.0237
+   }
+  },
+  {
+   "spot": "SB-BB Jd6c2sJh3d",
+   "street": "river",
+   "pot": 12,
+   "stack": 94,
+   "sigmaEx": 0.061,
+   "texasEx": 0.041146077,
+   "sigmaMs": 215,
+   "texasMs": 8801,
+   "root": {
+    "acts": [
+     "Check",
+     "Miser 6 (50 %)",
+     "Miser 12 (100 %)"
+    ],
+    "sigma": [
+     0.3048,
+     0.4238,
+     0.2714
+    ],
+    "texas": [
+     0.3092,
+     0.4266,
+     0.2643
+    ],
+    "maxAggDiff": 0.0072,
+    "comboTV": 0.0583
+   },
+   "ipAfterCheck": {
+    "acts": [
+     "Check",
+     "Miser 6 (50 %)",
+     "Miser 12 (100 %)"
+    ],
+    "sigma": [
+     0.4189,
+     0.3917,
+     0.1893
+    ],
+    "texas": [
+     0.4166,
+     0.3894,
+     0.194
+    ],
+    "maxAggDiff": 0.0047,
+    "comboTV": 0.0393
+   },
+   "oopFacingBet": {
+    "acts": [
+     "Se coucher",
+     "Suivre 6"
+    ],
+    "sigma": [
+     0.3477,
+     0.6523
+    ],
+    "texas": [
+     0.3536,
+     0.6464
+    ],
+    "maxAggDiff": 0.0059,
+    "comboTV": 0.0245
+   }
+  },
+  {
+   "spot": "SB-BB Ac9c5d8h4s",
+   "street": "river",
+   "pot": 12,
+   "stack": 94,
+   "sigmaEx": 0.095,
+   "texasEx": 0.0455598,
+   "sigmaMs": 54,
+   "texasMs": 8782,
+   "root": {
+    "acts": [
+     "Check",
+     "Miser 6 (50 %)",
+     "Miser 12 (100 %)"
+    ],
+    "sigma": [
+     0.3399,
+     0.3831,
+     0.277
+    ],
+    "texas": [
+     0.3343,
+     0.3754,
+     0.2903
+    ],
+    "maxAggDiff": 0.0133,
+    "comboTV": 0.0798
+   },
+   "ipAfterCheck": {
+    "acts": [
+     "Check",
+     "Miser 6 (50 %)",
+     "Miser 12 (100 %)"
+    ],
+    "sigma": [
+     0.3374,
+     0.4554,
+     0.2072
+    ],
+    "texas": [
+     0.3384,
+     0.4586,
+     0.203
+    ],
+    "maxAggDiff": 0.0042,
+    "comboTV": 0.0417
+   },
+   "oopFacingBet": {
+    "acts": [
+     "Se coucher",
+     "Suivre 6"
+    ],
+    "sigma": [
+     0.3639,
+     0.6361
+    ],
+    "texas": [
+     0.368,
+     0.632
+    ],
+    "maxAggDiff": 0.0042,
+    "comboTV": 0.044
+   }
+  },
+  {
+   "spot": "BTN-BB 4h4d4cKs9s",
+   "street": "river",
+   "pot": 20,
+   "stack": 87,
+   "sigmaEx": 0.092,
+   "texasEx": 0.0444898,
+   "sigmaMs": 49,
+   "texasMs": 8747,
+   "root": {
+    "acts": [
+     "Check",
+     "Miser 10 (50 %)",
+     "Miser 20 (100 %)"
+    ],
+    "sigma": [
+     0.3232,
+     0.4593,
+     0.2175
+    ],
+    "texas": [
+     0.3853,
+     0.4203,
+     0.1944
+    ],
+    "maxAggDiff": 0.0621,
+    "comboTV": 0.106
+   },
+   "ipAfterCheck": {
+    "acts": [
+     "Check",
+     "Miser 10 (50 %)",
+     "Miser 20 (100 %)"
+    ],
+    "sigma": [
+     0.3516,
+     0.3557,
+     0.2927
+    ],
+    "texas": [
+     0.348,
+     0.3392,
+     0.3128
+    ],
+    "maxAggDiff": 0.02,
+    "comboTV": 0.0505
+   },
+   "oopFacingBet": {
+    "acts": [
+     "Se coucher",
+     "Suivre 10"
+    ],
+    "sigma": [
+     0.5617,
+     0.4383
+    ],
+    "texas": [
+     0.583,
+     0.417
+    ],
+    "maxAggDiff": 0.0213,
+    "comboTV": 0.0311
+   }
+  },
+  {
+   "spot": "BTN-BB Ks7d2c9h",
+   "street": "turn",
+   "pot": 12,
+   "stack": 92,
+   "sigmaEx": 0.091,
+   "texasEx": 0.07666896,
+   "sigmaMs": 26285,
+   "texasMs": 15025,
+   "root": {
+    "acts": [
+     "Check",
+     "Miser 9 (75 %)"
+    ],
+    "sigma": [
+     0.8041,
+     0.1959
+    ],
+    "texas": [
+     0.7984,
+     0.2016
+    ],
+    "maxAggDiff": 0.0056,
+    "comboTV": 0.0271
+   },
+   "ipAfterCheck": {
+    "acts": [
+     "Check",
+     "Miser 9 (75 %)"
+    ],
+    "sigma": [
+     0.5873,
+     0.4127
+    ],
+    "texas": [
+     0.5418,
+     0.4582
+    ],
+    "maxAggDiff": 0.0456,
+    "comboTV": 0.0654
+   },
+   "oopFacingBet": {
+    "acts": [
+     "Se coucher",
+     "Suivre 9"
+    ],
+    "sigma": [
+     0.5175,
+     0.4825
+    ],
+    "texas": [
+     0.5082,
+     0.4918
+    ],
+    "maxAggDiff": 0.0092,
+    "comboTV": 0.0099
+   }
+  },
+  {
+   "spot": "BTN-BB Qh9h5c2d",
+   "street": "turn",
+   "pot": 12,
+   "stack": 92,
+   "sigmaEx": 0.086,
+   "texasEx": 0.053749483,
+   "sigmaMs": 19280,
+   "texasMs": 15314,
+   "root": {
+    "acts": [
+     "Check",
+     "Miser 9 (75 %)"
+    ],
+    "sigma": [
+     0.7973,
+     0.2027
+    ],
+    "texas": [
+     0.774,
+     0.226
+    ],
+    "maxAggDiff": 0.0232,
+    "comboTV": 0.0428
+   },
+   "ipAfterCheck": {
+    "acts": [
+     "Check",
+     "Miser 9 (75 %)"
+    ],
+    "sigma": [
+     0.3969,
+     0.6031
+    ],
+    "texas": [
+     0.2996,
+     0.7004
+    ],
+    "maxAggDiff": 0.0974,
+    "comboTV": 0.1046
+   },
+   "oopFacingBet": {
+    "acts": [
+     "Se coucher",
+     "Suivre 9"
+    ],
+    "sigma": [
+     0.5127,
+     0.4873
+    ],
+    "texas": [
+     0.5041,
+     0.4959
+    ],
+    "maxAggDiff": 0.0086,
+    "comboTV": 0.0127
+   }
+  },
+  {
+   "spot": "CO-BB Ad7s3cTh",
+   "street": "turn",
+   "pot": 12,
+   "stack": 92,
+   "sigmaEx": 0.094,
+   "texasEx": 0.067679584,
+   "sigmaMs": 14649,
+   "texasMs": 13772,
+   "root": {
+    "acts": [
+     "Check",
+     "Miser 9 (75 %)"
+    ],
+    "sigma": [
+     0.8859,
+     0.1141
+    ],
+    "texas": [
+     0.8732,
+     0.1268
+    ],
+    "maxAggDiff": 0.0128,
+    "comboTV": 0.0234
+   },
+   "ipAfterCheck": {
+    "acts": [
+     "Check",
+     "Miser 9 (75 %)"
+    ],
+    "sigma": [
+     0.444,
+     0.556
+    ],
+    "texas": [
+     0.396,
+     0.604
+    ],
+    "maxAggDiff": 0.048,
+    "comboTV": 0.0675
+   },
+   "oopFacingBet": {
+    "acts": [
+     "Se coucher",
+     "Suivre 9"
+    ],
+    "sigma": [
+     0.5074,
+     0.4926
+    ],
+    "texas": [
+     0.4927,
+     0.5073
+    ],
+    "maxAggDiff": 0.0147,
+    "comboTV": 0.018
+   }
+  },
+  {
+   "spot": "UTG-BB Js8s4d2h",
+   "street": "turn",
+   "pot": 12,
+   "stack": 92,
+   "sigmaEx": 0.094,
+   "texasEx": 0.06337364,
+   "sigmaMs": 10053,
+   "texasMs": 14096,
+   "root": {
+    "acts": [
+     "Check",
+     "Miser 9 (75 %)"
+    ],
+    "sigma": [
+     0.8222,
+     0.1778
+    ],
+    "texas": [
+     0.7937,
+     0.2063
+    ],
+    "maxAggDiff": 0.0285,
+    "comboTV": 0.0442
+   },
+   "ipAfterCheck": {
+    "acts": [
+     "Check",
+     "Miser 9 (75 %)"
+    ],
+    "sigma": [
+     0.431,
+     0.569
+    ],
+    "texas": [
+     0.3806,
+     0.6194
+    ],
+    "maxAggDiff": 0.0504,
+    "comboTV": 0.0728
+   },
+   "oopFacingBet": {
+    "acts": [
+     "Se coucher",
+     "Suivre 9"
+    ],
+    "sigma": [
+     0.5208,
+     0.4792
+    ],
+    "texas": [
+     0.4997,
+     0.5003
+    ],
+    "maxAggDiff": 0.021,
+    "comboTV": 0.0264
+   }
+  },
+  {
+   "spot": "3bp-BTN-BB Kd8c3s6h",
+   "street": "turn",
+   "pot": 32,
+   "stack": 85,
+   "sigmaEx": 0.093,
+   "texasEx": 0.08179471,
+   "sigmaMs": 15982,
+   "texasMs": 11152,
+   "root": {
+    "acts": [
+     "Check",
+     "Miser 24 (75 %)"
+    ],
+    "sigma": [
+     0.4323,
+     0.5677
+    ],
+    "texas": [
+     0.4102,
+     0.5898
+    ],
+    "maxAggDiff": 0.0221,
+    "comboTV": 0.0552
+   },
+   "ipAfterCheck": {
+    "acts": [
+     "Check",
+     "Miser 24 (75 %)"
+    ],
+    "sigma": [
+     0.7442,
+     0.2558
+    ],
+    "texas": [
+     0.6987,
+     0.3013
+    ],
+    "maxAggDiff": 0.0455,
+    "comboTV": 0.0576
+   },
+   "oopFacingBet": {
+    "acts": [
+     "Se coucher",
+     "Suivre 24"
+    ],
+    "sigma": [
+     0.4314,
+     0.5686
+    ],
+    "texas": [
+     0.4188,
+     0.5812
+    ],
+    "maxAggDiff": 0.0126,
+    "comboTV": 0.015
+   }
+  },
+  {
+   "spot": "SB-BB 8d7d2cQs",
+   "street": "turn",
+   "pot": 8,
+   "stack": 95,
+   "sigmaEx": 0.098,
+   "texasEx": 0.080390364,
+   "sigmaMs": 22767,
+   "texasMs": 15025,
+   "root": {
+    "acts": [
+     "Check",
+     "Miser 6 (75 %)"
+    ],
+    "sigma": [
+     0.7097,
+     0.2903
+    ],
+    "texas": [
+     0.6699,
+     0.3301
+    ],
+    "maxAggDiff": 0.0398,
+    "comboTV": 0.0588
+   },
+   "ipAfterCheck": {
+    "acts": [
+     "Check",
+     "Miser 6 (75 %)"
+    ],
+    "sigma": [
+     0.4498,
+     0.5502
+    ],
+    "texas": [
+     0.3724,
+     0.6276
+    ],
+    "maxAggDiff": 0.0774,
+    "comboTV": 0.1208
+   },
+   "oopFacingBet": {
+    "acts": [
+     "Se coucher",
+     "Suivre 6"
+    ],
+    "sigma": [
+     0.4654,
+     0.5346
+    ],
+    "texas": [
+     0.4452,
+     0.5548
+    ],
+    "maxAggDiff": 0.0203,
+    "comboTV": 0.0517
+   }
+  }
+ ]
+}

@@ -323,8 +323,61 @@
       <div class="row"><span class="note">Mains par range :</span>${PLO_Q.map((q, i) => { const N = PLO_N[Math.min(5, Math.max(3, E.parseCards(pl.board).length))][i]; return `<button class="chip" aria-pressed="${pl.q === q}" data-act="pln" data-v="${q}">${['Rapide', 'Standard', 'Précis'][i]} (${N})</button>`; }).join('')}</div>
       <div class="row"><span class="note">Tailles :</span><button class="chip" aria-pressed="${pl.sizes === 'simple'}" data-act="plsz" data-v="simple">Simples (⅔ pot, relance du pot)</button><button class="chip" aria-pressed="${pl.sizes === 'riche'}" data-act="plsz" data-v="riche">Riches (½, pot, ⅓)</button></div>
       <p class="note">${E.parseCards(pl.board).length === 3 ? 'Depuis le flop : 6 turns × 5 rivers échantillonnés, une seule taille au turn et à la river. Compte 30 à 90 s.' : E.parseCards(pl.board).length === 4 ? 'Turn exact (toutes les rivers) : 5 à 40 s, puis un second tirage des ranges est résolu et moyenné avec le premier.' : 'River : moins d\'une seconde.'} Échantillon stratifié : les proportions de mains faites et de tirages sur ce board sont tenues exactement.}</p>`;
-    return wrap('plo', setup);
+    return wrap('plo', setup) + paggHTML();
   };
+  // ---------------- Rapport agrégé PLO : 14 flops types, résolus à la demande, lus par texture et par catégorie de main ----------------
+  const PAGG = [['Sec', ['Kh8s4c', 'As7d2c']], ['Connecté', ['9h8s6c', 'JdTc8h']], ['Bicolore', ['Ks9s4d', 'Qh7h3c']], ['Bicolore connecté', ['Th9h7c', '8s7s5d']], ['Monocolore', ['Ah9h4h', 'Ts6s3s']], ['Pairé', ['KdKc6s', '7h7c3d']], ['Bas', ['5c4d2h', '6h4s3c']]];
+  const PAGG_LIST = PAGG.flatMap(([t, l]) => l.map((b) => ({ t, b })));
+  let pag = null;
+  function paggCats(g, r, p, board, into) {
+    const n = g.N[p], A = r.node.acts.length, reach = r.reach[p];
+    for (let i = 0; i < n; i++) {
+      const w = reach[i]; if (w <= 1e-9) continue;
+      const h = g.holeOf(p, i), m = PS.madeCat(h, board), d = PS.draws(h, board), dr = m >= 2 ? (d.nutFlush || d.flush ? ' + tirage couleur' : d.wrap ? ' + wrap' : '') : '', name = PS.CATS[m] + dr;
+      let x = into.get(name); if (!x) into.set(name, x = { m: 0, f: new Array(A).fill(0), order: m * 4 + (d.flush ? 0 : d.wrap ? 1 : 2) });
+      x.m += w; for (let a = 0; a < A; a++) x.f[a] += w * r.strategy[a * n + i];
+    }
+  }
+  function paggStep() {
+    const A = pag; if (!A || !A.running || pag !== A) return;
+    if (!A.g) {
+      const it = PAGG_LIST[A.i], board = E.parseCards(it.b), P = PLO_PRE[pl.pre];
+      A.g = PS.create({ board, pot: P.pot, stack: P.stack, ranges: ploRanges(board, 60, 3 + A.i, []), sizes: { flop: [{ bet: [50], raise: [] }, { bet: [50, 100], raise: [100] }], turn: [{ bet: [66], raise: [] }, { bet: [66], raise: [] }], river: [{ bet: [66], raise: [] }, { bet: [66], raise: [] }] }, maxRaises: 1, sample: { turn: 4, river: 3 } });
+      A.ft = performance.now(); A.lastEx = 0;
+    }
+    const g = A.g, t0 = performance.now(); do g.iterate(1); while (performance.now() - t0 < 100);
+    const its = g.stats().iterations;
+    if (its - A.lastEx >= 20) { A.ex = g.exploitability().pct; A.lastEx = its; }
+    if ((A.ex !== undefined && A.ex <= 1.5) || performance.now() - A.ft > 14000) {
+      const it = PAGG_LIST[A.i], board = g.board, r0 = g.info([]), ck = r0.node.acts.findIndex((a) => a.k === 'x'), r1 = g.info([ck]);
+      const row = { t: it.t, b: it.b, ex: g.exploitability().pct, oop: { acts: r0.node.acts.map((_, a) => g.label(r0.node, a)), cls: actClasses(r0.node), f: r0.freq.slice() }, ip: { acts: r1.node.acts.map((_, a) => g.label(r1.node, a)), cls: actClasses(r1.node), f: r1.freq.slice() } };
+      paggCats(g, r0, 0, board, A.cats[0]); paggCats(g, r1, 1, board, A.cats[1]);
+      A.res.push(row); A.g = null; A.ex = undefined; A.i++;
+      if (A.i >= PAGG_LIST.length) { A.running = false; A.done = true; state.progress.solves = (state.progress.solves || 0) + 1; X.Store.save('progress'); }
+      if (X.svSub?.() === 'plo') render();
+    } else { const el = $('#paggprog'); if (el) el.textContent = `Flop ${A.i + 1}/${PAGG_LIST.length} · ${PAGG_LIST[A.i].b} · exploitabilité ${A.ex !== undefined ? fr(A.ex, 1) + ' %' : '…'}`; }
+    if (A.running) setTimeout(paggStep, 0);
+  }
+  ACT.paggo = () => { pag = { running: true, i: 0, res: [], cats: [new Map(), new Map()], pre: pl.pre, t0: performance.now() }; render(); setTimeout(paggStep, 30); };
+  ACT.paggstop = () => { if (pag) { pag.running = false; pag.g = null; pag.done = pag.res.length > 0; render(); } };
+  const pbar = (f, cls, acts) => `<div class="sbar small">${f.map((x, a) => (x > 0.001 ? `<i style="width:${(x * 100).toFixed(2)}%;background:var(--act-${cls[a]})" title="${esc(acts[a])} ${pct(x, 0)}"></i>` : '')).join('')}</div>`;
+  function paggHTML() {
+    const P = PLO_PRE[pl.pre], A = pag && pag.pre === pl.pre ? pag : null;
+    const intro = `<section class="panel"><span class="eyebrow">Rapport agrégé PLO · ${esc(P.label)}</span><h2>Stratégie par texture et par catégorie de main</h2>
+      <p class="note">14 flops types (2 par texture), 60 mains par range tirées du solveur préflop PLO, 4 turns × 3 rivers échantillonnés, mise de 50 % au flop. Environ 2 à 3 minutes dans le navigateur. Ordres de grandeur : chaque flop est un solve approché ; pour un spot précis, résous-le au-dessus.</p>
+      <div class="row">${A && A.running ? `<button class="btn" data-act="paggstop">Arrêter</button><span class="note" id="paggprog">Flop ${A.i + 1}/${PAGG_LIST.length}…</span>` : `<button class="btn${A ? '' : ' primary'}" data-act="paggo">${A ? 'Relancer' : 'Lancer le rapport'}</button>`}</div>`;
+    if (!A || !A.res.length) return intro + '</section>';
+    const R0 = A.res[0], byT = PAGG.map(([t]) => { const rows = A.res.filter((x) => x.t === t); if (!rows.length) return null; const avg = (k) => rows[0][k].f.map((_, a) => rows.reduce((s, x) => s + x[k].f[a], 0) / rows.length); return { t, rows, oop: avg('oop'), ip: avg('ip') }; }).filter(Boolean);
+    const leg = (o) => `<div class="legend">${o.acts.map((l, a) => `<span><i style="background:var(--act-${o.cls[a]})"></i>${esc(l)}</span>`).join('')}</div>`;
+    const tex = `<div class="tw"><table class="t"><thead><tr><th>Texture</th><th>Flops</th><th>${esc(P.names[0])} premier à parler</th><th>${esc(P.names[1])} après le check</th></tr></thead><tbody>${byT.map((x) => `<tr><td>${esc(x.t)}</td><td class="mono">${x.rows.map((r) => esc(r.b)).join(' ')}</td><td style="min-width:140px">${pbar(x.oop, R0.oop.cls, R0.oop.acts)}<span class="note mono">${x.oop.map((v) => pct(v, 0)).join(' / ')}</span></td><td style="min-width:140px">${pbar(x.ip, R0.ip.cls, R0.ip.acts)}<span class="note mono">${x.ip.map((v) => pct(v, 0)).join(' / ')}</span></td></tr>`).join('')}</tbody></table></div>`;
+    const catT = (p, o) => { const M = A.cats[p], tot = [...M.values()].reduce((s, x) => s + x.m, 0); return `<div class="tw"><table class="t"><thead><tr><th>Catégorie</th><th class="n">Part</th><th>Actions</th></tr></thead><tbody>${[...M].sort((a, b) => a[1].order - b[1].order).filter(([, x]) => x.m / tot >= 0.005).map(([name, x]) => `<tr><td>${esc(name)}</td><td class="n mono">${pct(x.m / tot, 1)}</td><td style="min-width:140px">${pbar(x.f.map((v) => v / x.m), o.cls, o.acts)}<span class="note mono">${x.f.map((v) => pct(v / x.m, 0)).join(' / ')}</span></td></tr>`).join('')}</tbody></table></div>`; };
+    const exM = A.res.reduce((s, x) => s + x.ex, 0) / A.res.length;
+    return intro + `<p class="note">${A.res.length}/${PAGG_LIST.length} flops · exploitabilité moyenne ${fr(exM, 1)} % du pot.</p>
+      <h3>Par texture</h3>${tex}${leg(R0.oop)}${leg(R0.ip)}
+      <h3>${esc(P.names[0])} premier à parler : par catégorie de main, tous flops confondus</h3>${catT(0, R0.oop)}
+      <h3>${esc(P.names[1])} après le check</h3>${catT(1, R0.ip)}
+      <p class="note">Lecture : la part est le poids de la catégorie dans la range qui arrive au nœud, sommé sur les flops. Un tirage couleur compte avec une paire ou mieux seulement (comme dans l'explorateur).</p></section>`;
+  }
   X.threeHTML = () => {
     const P = THREE_PRE[th.pre], nb = E.parseCards(th.board).length;
     const setup = `<p class="lead">Pot à trois joueurs après le flop (Hold'em). Ordre de parole : ${P.names.map(esc).join(', puis ')}. Simplifications : une taille de mise par rue. Blocages : la masse jointe des deux adversaires est exacte (cartes de ta main et cartes communes entre eux retirées) ; la répartition gagne / partage / perd à l'abattage reste approchée.</p>

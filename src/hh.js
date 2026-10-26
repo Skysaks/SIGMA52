@@ -259,6 +259,49 @@
     return { steps, known, seats: h.seats.map((s) => s.name), hero: h.hero };
   }
 
-  const api = { split, parseHand, positions, analyzeHand, allinLuck, analyze, profileOf, EXPLOIT, replay };
+  // Résumés de tournoi : GGPoker (PokerCraft, « Tournament #… ») et Winamax (« Winamax Poker - Tournament summary : … »).
+  // Reconnaissance au mieux : un résumé dont on ne lit ni le buy-in ni la place est ignoré.
+  function summaries(text) {
+    const T = String(text).replace(/\r/g, '').replace(/^\ufeff/, ''), out = [];
+    const blocks = T.split(/\n(?=Tournament #\d|Winamax Poker - Tournament summary)/).map((x) => x.trim()).filter((x) => /^(Tournament #\d|Winamax Poker - Tournament summary)/.test(x));
+    for (const b of blocks) {
+      const wm = /^Winamax/.test(b), cur = /€/.test(b) ? '€' : /\$/.test(b) ? '$' : '';
+      const sumParts = (str) => (str || '').split('+').map((x) => num(x)).filter((x) => isFinite(x));
+      let r;
+      if (wm) {
+        const head = b.match(/summary\s*:\s*(.+?)\((\d+)\)/), bi = b.match(/Buy-?In\s*:\s*([^\n]+)/i), pl = b.match(/finished in (\d+)/i), won = b.match(/You won ([^\n]+)/i), d = b.match(/(\d{4})[/-](\d{2})[/-](\d{2})/), n = b.match(/Registered players\s*:\s*(\d+)/i);
+        if (!bi || !pl) continue;
+        const parts = sumParts(bi[1]);
+        r = { site: 'Winamax', id: head ? head[2] : '', name: head ? head[1].trim() : 'Tournoi', cost: parts.reduce((x, y) => x + y, 0), place: +pl[1], won: won ? (num(won[1].replace(/\s*\+.*$/, '')) || 0) : 0, players: n ? +n[1] : 0, date: d ? `${d[1]}-${d[2]}-${d[3]}` : '', cur: cur || '€' };
+      } else {
+        const head = b.match(/^Tournament #(\d+),\s*([^,\n]+)/), bi = b.match(/Buy-?in\s*:\s*([^\n]+)/i), pl = b.match(/finished the tournament in (\d+)/i), won = b.match(/received a total of ([^\n.]+(?:\.\d+)?)/i), d = b.match(/(\d{4})[/-](\d{2})[/-](\d{2})/), n = b.match(/^(\d+) Players/m);
+        if (!bi || !pl) continue;
+        const parts = sumParts(bi[1]);
+        r = { site: 'GGPoker', id: head ? head[1] : '', name: head ? head[2].trim() : 'Tournoi', cost: parts.reduce((x, y) => x + y, 0), place: +pl[1], won: won ? (num(won[1]) || 0) : 0, players: n ? +n[1] : 0, date: d ? `${d[1]}-${d[2]}-${d[3]}` : '', cur: cur || '$' };
+      }
+      if (isFinite(r.cost)) out.push(r);
+    }
+    return out;
+  }
+  // Archive .zip (téléchargement PokerCraft) : fichiers texte extraits (stockés ou deflate) ; nécessite DecompressionStream.
+  async function unzip(buf) {
+    const u8 = new Uint8Array(buf), dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength), out = [];
+    let eocd = -1; for (let i = u8.length - 22; i >= Math.max(0, u8.length - 65557); i--) if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+    if (eocd < 0) throw new Error('Archive .zip illisible.');
+    let p = dv.getUint32(eocd + 16, true); const count = dv.getUint16(eocd + 10, true);
+    for (let k = 0; k < count && dv.getUint32(p, true) === 0x02014b50; k++) {
+      const method = dv.getUint16(p + 10, true), csize = dv.getUint32(p + 20, true), nlen = dv.getUint16(p + 28, true), xlen = dv.getUint16(p + 30, true), clen = dv.getUint16(p + 32, true), off = dv.getUint32(p + 42, true);
+      const name = new TextDecoder().decode(u8.subarray(p + 46, p + 46 + nlen)); p += 46 + nlen + xlen + clen;
+      if (name.endsWith('/') || !/\.txt$/i.test(name)) continue;
+      const lo = off + 30 + dv.getUint16(off + 26, true) + dv.getUint16(off + 28, true), data = u8.subarray(lo, lo + csize);
+      let bytes;
+      if (method === 0) bytes = data;
+      else if (method === 8 && typeof DecompressionStream !== 'undefined') bytes = new Uint8Array(await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());
+      else continue;
+      out.push({ name, text: new TextDecoder().decode(bytes) });
+    }
+    return out;
+  }
+  const api = { split, parseHand, positions, analyzeHand, allinLuck, analyze, profileOf, EXPLOIT, replay, summaries, unzip };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.HH = api;
 })(typeof window !== 'undefined' ? window : globalThis);

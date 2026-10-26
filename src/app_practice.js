@@ -6,7 +6,7 @@
   const { $, esc, fr, pct, sgn, state, Store, render, cardHTML, backHTML, ACT, ONKEY } = X;
   const SV = () => X.SOLVER;
   const prog = () => state.progress.practice || (state.progress.practice = { hands: 0, n: 0, good: 0, loss: 0, lossBB: 0, hist: [] });
-  const GRADE = [['Meilleure', 'good'], ['Correcte', 'good'], ['Inexacte', ''], ['Erreur', 'bad']];
+  const GRADE = [['Parfait', 'good'], ['Correct', 'acc'], ['Erreur', 'warn'], ['Gaffe', 'bad']];
   const gradeOf = (lossPct, freq) => (lossPct < 0.005 || freq >= 0.25 ? 0 : lossPct < 0.02 ? 1 : lossPct < 0.06 ? 2 : 3);
   const RIVER = { bet: '33 75 150', raise: '60 a' };
   const setup = { scen: 'srp-BTN-BB', seat: 'rand', target: 10, depth: 'fast', quiet: false };
@@ -97,6 +97,7 @@
     h.decisions.push({ street: n.street, board: n.board, acts: n.acts, chosen: a, strat: c.strat, ev: c.ev, best: c.ev.indexOf(best), loss, lossPct, g, pot: n.pot });
     const P = prog(); P.n++; if (g <= 1) P.good++; P.loss += lossPct; P.lossBB += loss; P.hist = [...(P.hist || []), Math.round(lossPct * 1000) / 1000].slice(-100);
     ses.n++; ses.lossBB += loss; ses.lossPct += lossPct; if (g <= 1) ses.good++; X.logDay?.('ev', { lossPct, g }); ses.gc = ses.gc || [0, 0, 0, 0]; ses.gc[g]++;
+    if (g >= 2) X.logMistake?.({ src: 'Mains notées', label: `${STREET[n.street]} · ${n.board.map(E.cardStr).join(' ')}`, lossBB: loss, lossPct, g, go: 'sim' });
     X.award?.('decision', { cats: ['value'], ok: g <= 1 }, true); X.award?.('trainer', null, true);
     Store.save('progress');
     h.log.push({ who: h.heroP, label: n.acts[a].label, street: n.street, g });
@@ -147,7 +148,7 @@
   function answerQuiz(a) {
     if (!qz || qz.a !== null) return; const q = qz.q, best = Math.max(...q.e), loss = Math.max(0, best - q.e[a]), lossPct = loss / q.pot, g = gradeOf(lossPct, q.f[a]);
     qz.a = a; qz.g = g; qz.lossBB = loss; qz.lossPct = lossPct; qz.n++; if (g <= 1) qz.good++; qz.loss += lossPct;
-    X.logDay?.('ev', { lossPct, g }); if (g >= 2) X.reviewMiss?.(X.hqSpot?.(qz.k));
+    X.logDay?.('ev', { lossPct, g }); if (g >= 2) X.logMistake?.({ src: 'Quiz de main', label: Array.isArray(q.b) ? q.b.map(E.cardStr).join(' ') : String(q.b || ''), lossBB: loss, lossPct, g, spot: X.hqSpot?.(qz.k) });
     const P = prog(); P.n++; if (g <= 1) P.good++; P.loss += lossPct; P.lossBB += loss; P.hist = [...(P.hist || []), Math.round(lossPct * 1000) / 1000].slice(-100); P.quiz = (P.quiz || 0) + 1;
     X.award?.('decision', { cats: ['value'], ok: g <= 1 }, true); Store.save('progress'); render();
   }
@@ -189,7 +190,7 @@
     const h = ses.cur;
     let body = '';
     if (ses.over) body = `<section class="panel" style="border-color:var(--accent)"><span class="eyebrow">Session terminée</span><h2>${ses.n} décisions · ${ses.n ? pct(ses.good / ses.n) : '—'} meilleures ou correctes · EV perdue ${fr(ses.lossBB, 2)} bb</h2>
-      ${ses.gc ? `<p><strong style="color:var(--bad)">${ses.gc[3]} erreur${ses.gc[3] > 1 ? 's' : ''} grave${ses.gc[3] > 1 ? 's' : ''}</strong> (plus de 6 % du pot perdus) · <strong>${ses.gc[2]} moyenne${ses.gc[2] > 1 ? 's' : ''}</strong> (2 à 6 %) · ${ses.gc[1]} imprécision${ses.gc[1] > 1 ? 's' : ''} (moins de 2 %) · ${ses.gc[0]} meilleure${ses.gc[0] > 1 ? 's' : ''} action${ses.gc[0] > 1 ? 's' : ''}.</p>` : ''}
+      ${ses.gc ? `<p><strong style="color:var(--bad)">${ses.gc[3]} gaffe${ses.gc[3] > 1 ? 's' : ''}</strong> (plus de 6 % du pot perdus) · <strong>${ses.gc[2]} erreur${ses.gc[2] > 1 ? 's' : ''}</strong> (2 à 6 %) · ${ses.gc[1]} correcte${ses.gc[1] > 1 ? 's' : ''} (moins de 2 %) · ${ses.gc[0]} parfaite${ses.gc[0] > 1 ? 's' : ''}.</p>` : ''}
       <p class="note">EV perdue moyenne : ${ses.n ? fr(ses.lossPct / ses.n * 100, 2) : '—'} % du pot par décision. Résultat réel des mains : ${sgn(ses.net, 1)} bb (variance : juge la session sur l'EV perdue).</p>
       <div class="row"><button class="btn primary" data-act="prstart">Nouvelle session</button><button class="btn" data-act="prend">Changer de spot</button></div></section>`;
     else if (h.stage === 'solving' || h.stage === 'river' || h.stage === 'wait') body = `${tableHTML(h)}<section class="panel"><p class="note" id="prprog">${h.stage === 'river' ? 'Re-résolution exacte de la river…' : h.stage === 'wait' ? 'L\'adversaire réfléchit…' : progressText(h)}</p><div class="pbar"><i style="width:${h.stage === 'solving' ? 35 : 80}%"></i></div></section>`;

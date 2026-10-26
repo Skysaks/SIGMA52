@@ -5,6 +5,21 @@
   const { E, C, K, S, SV, B, HH, TS, $, esc, fr, sgn, pct, today, state, Store, render, go, head, cardHTML, backHTML, cardsHTML, VIEWS, TOOLVIEWS, TOOLS, ACT, ONCHANGE, ONINPUT, ONKEY, LINEUPS } = X;
   const save = (k) => Store.save(k);
   const fbb = (x, t) => fr(x / t.bb, 1);
+  // Pression ICM : facteur de bulle du héros contre le plus gros tapis adverse (équité perdue si tapis perdu ÷ équité gagnée si gagné).
+  // Expresso et table finale : ICM exact (Malmuth-Harville) ; plus tôt en tournoi : repère par étape (champ de 100 joueurs trop grand pour l'ICM exact).
+  function icmPressure(t, payouts, stage) {
+    const pl = t.players.map((p, i) => ({ i })).filter((x) => !t.players[x.i].out && t.players[x.i].stack + (t.players[x.i].total || 0) > 0);
+    if (payouts && pl.length >= 2 && pl.length <= 9) {
+      const st = pl.map((x) => t.players[x.i].stack + (t.players[x.i].total || 0)), h = pl.findIndex((x) => x.i === 0); if (h < 0) return '';
+      const v = st.map((x, k) => [x, k]).filter(([, k]) => k !== h).sort((a, b) => b[0] - a[0])[0][1], risk = Math.min(st[h], st[v]);
+      const pay = payouts.slice(0, st.length), eq = (arr) => SV.icm(arr, pay)[h], e0 = eq(st), w = st.slice(), l = st.slice();
+      w[h] += risk; w[v] -= risk; l[h] -= risk; l[v] += risk;
+      const gain = eq(w) - e0, loss = e0 - eq(l), bf = gain > 1e-9 ? loss / gain : 1;
+      const need = bf / (1 + bf), lvl = bf < 1.1 ? ['faible', 'good'] : bf < 1.5 ? ['moyenne', ''] : ['forte', 'bad'];
+      return `<div class="row"><span class="pill ${lvl[1]}">Pression ICM ${lvl[0]} · facteur ${fr(bf, 2)}</span><span class="note">Contre le plus gros tapis, un tapis pris à 50/50 coûte ${fr(bf, 2)} fois ce qu'il rapporte : il faut ${fr(need * 100, 0)} % d'équité au lieu de 50 %.</span></div>`;
+    }
+    return stage ? `<div class="row"><span class="pill ${stage[1]}">Pression ICM ${stage[0]}</span><span class="note">${stage[2]}</span></div>` : '';
+  }
 
   // ================= Simulateur =================
   let sub = 'table';
@@ -35,7 +50,7 @@
       ${st.finalTable ? '<div class="warnbox"><strong>Table finale.</strong> Les écarts de gains sont maximaux : relis tes ranges de tapis ou couché et pense ICM.</div>' : ''}
       <div class="row"><span class="pill acc">Main ${G.hands + (t.done ? 0 : 1)}</span><span class="pill">${{ live: 'Coach en direct', exam: 'Mode examen', free: 'Sans aide' }[g.mode]}</span><button class="btn small" data-act="mtauto" ${G.over ? 'disabled' : ''}>10 mains en automatique (coach)</button><button class="btn small" data-act="mtquit" style="margin-left:auto">Abandonner</button></div>
       ${tableHTML(t, { chips: true, showProfiles: true })}`;
-    if (L) out += `<section class="panel"><span class="eyebrow">À toi · ${TS.posName(t, 0)} · ${E.abstractOf(t.players[0].cards[0], t.players[0].cards[1])} · ${fr(t.effStack(0) / t.bb, 1)} bb effectifs</span>${actionsHTML(t)}</section>` + (g.mode === 'live' ? coachHTML(adviceFor(g), t) : '');
+    if (L) out += `<section class="panel"><span class="eyebrow">À toi · ${TS.posName(t, 0)} · ${E.abstractOf(t.players[0].cards[0], t.players[0].cards[1])} · ${fr(t.effStack(0) / t.bb, 1)} bb effectifs</span>${icmPressure(t, st.left <= 9 ? MT.PAYOUTS.slice(0, st.left).map((x) => (G.F.prize * x) / 100) : null, st.itm ? ['moyenne', '', 'Dans l\'argent : chaque palier compte, mais le champ est encore large.'] : st.bubble ? ['forte', 'bad', 'Bulle : sortir maintenant ne rapporte rien ; les petits tapis doivent survivre.'] : ['faible', 'good', 'Loin de l\'argent : on joue surtout en jetons.'])}${actionsHTML(t)}</section>` + (g.mode === 'live' ? coachHTML(adviceFor(g), t) : '');
     if (t.done) {
       out += `<section class="panel"><div class="row" style="justify-content:space-between"><h2>${G.over ? (G.place === 1 ? 'Victoire : tu remportes le tournoi' : `Éliminé à la ${G.place}e place`) + (G.prize ? ` · ${fr(G.prize, 0)} €` : ' · hors de l\'argent') : 'Fin de la main'}</h2><div class="row"><button class="btn small" data-act="libtable">Sauvegarder la main</button>${G.over ? '<button class="btn primary" data-act="mtnew">Nouveau tournoi</button>' : '<button class="btn primary" data-act="mtnext">Main suivante <span style="opacity:.7">Entrée</span></button>'}</div></div>${decisionsHTML(handDec, g.mode)}${G.over ? `<h3>Ton tournoi</h3>${catTable(g.decisions)}<p class="note">${G.hands} mains jouées à ta table. Buy-in 10 € : ${G.prize ? 'résultat net ' + (G.prize >= 10 ? '+' : '−') + fr(Math.abs(G.prize - 10), 0) + ' €' : 'perte de 10 €'}. Un tournoi isolé est surtout de la variance : regarde le taux de décisions justes.</p>` : ''}</section>`;
     }
@@ -125,7 +140,10 @@
       if (a) {
         const gr = Co.grade(a, type, to, t), hero = t.players[0];
         const sev = Co.severity ? Co.severity(a, type, gr) : (gr.ok ? null : 'petite');
-        g.decisions.push({ hand: t.handNo, street: t.street, pos: a.pos, cards: hero.cards.slice(), board: t.board.slice(), act: type, rec: a.rec, recTxt: REC_FR(a, t), ok: gr.ok, note: gr.note, cats: a.cats, why: a.why, eq: a.eq, need: a.need, sev });
+        // Échelle commune : en EV quand le coach l'a calculée (préflop en bb, river en % du pot), sinon juste / petite / grave.
+        const SCL = X.SCALE, potBB = (t.pot || 0) / t.bb, g4 = !SCL ? null : gr.evLoss !== undefined ? (t.street === 'pre' ? SCL.bb(gr.evLoss) : SCL.pct(potBB > 0 ? gr.evLoss / potBB : 0)) : SCL.sev(gr.ok, sev);
+        g.decisions.push({ hand: t.handNo, street: t.street, pos: a.pos, cards: hero.cards.slice(), board: t.board.slice(), act: type, rec: a.rec, recTxt: REC_FR(a, t), ok: gr.ok, note: gr.note, cats: a.cats, why: a.why, eq: a.eq, need: a.need, sev, g4, evLoss: gr.evLoss });
+        if (gr.evLoss !== undefined && g4 >= 2) X.logMistake?.({ src: 'Simulateur', label: `${a.pos} · ${E.abstractOf(hero.cards[0], hero.cards[1])}${t.board.length ? ' · ' + t.board.map(E.cardStr).join(' ') : ' · préflop'}`, lossBB: gr.evLoss, g: g4, go: 'sim' });
         if (g.mode === 'errors' && sev === 'grave') g.stopErr = g.decisions[g.decisions.length - 1];
         X.logDay?.('dec', { ok: gr.ok, sev });
         const cs = state.progress.coach;
@@ -247,7 +265,7 @@
     const nG = d.filter((x) => x.sev === 'grave').length, nP = d.filter((x) => x.sev === 'petite').length;
     return `<section class="panel" style="border-color:var(--accent)"><span class="eyebrow">Bilan de session</span><h2>${g.tb.session.hands} mains · ${sgn(g.tb.session.net, 1)} bb · ${d.length ? pct(ok / d.length) : '—'} de décisions justes</h2>
       ${catTable(d, g.objectives)}${nG + nP ? `<p><strong style="color:var(--bad)">${nG} erreur${nG > 1 ? 's' : ''} grave${nG > 1 ? 's' : ''}</strong> (écart net d'équité, bluff contre un joueur qui paie, valeur manquée) · <strong>${nP} petite${nP > 1 ? 's' : ''}</strong> (limp, taille, décision serrée). Les graves d'abord.</p>` : ''}
-      ${miss.length ? `<h3>Décisions à revoir</h3><div class="tw"><table class="t"><tbody>${miss.map((m) => `<tr><td class="mono">${m.sev === 'grave' ? '<span class="pill bad">grave</span> ' : m.sev === 'petite' ? '<span class="pill">petite</span> ' : ''}Main ${m.hand}</td><td>${m.pos} · ${m.cards.map(E.cardStr).join(' ')}${m.board.length ? ' · ' + m.board.map(E.cardStr).join(' ') : ''}</td><td>Tu as choisi « ${Co.ACT_FR[m.act]} », conseil « ${esc(m.recTxt)} »</td></tr><tr><td colspan="3" class="note">${esc([m.note, ...m.why].filter(Boolean).join(' '))}</td></tr>`).join('')}</tbody></table></div>` : '<p>Aucune erreur sur cette session.</p>'}
+      ${miss.length ? `<h3>Décisions à revoir</h3><div class="tw"><table class="t"><tbody>${miss.map((m) => `<tr><td class="mono">${m.g4 !== undefined && m.g4 !== null && X.SCALE ? X.SCALE.badge(m.g4, m.evLoss !== undefined ? '−' + fr(m.evLoss, 2) + ' bb' : '') + ' ' : m.sev === 'grave' ? '<span class="pill bad">grave</span> ' : m.sev === 'petite' ? '<span class="pill">petite</span> ' : ''}Main ${m.hand}</td><td>${m.pos} · ${m.cards.map(E.cardStr).join(' ')}${m.board.length ? ' · ' + m.board.map(E.cardStr).join(' ') : ''}</td><td>Tu as choisi « ${Co.ACT_FR[m.act]} », conseil « ${esc(m.recTxt)} »</td></tr><tr><td colspan="3" class="note">${esc([m.note, ...m.why].filter(Boolean).join(' '))}</td></tr>`).join('')}</tbody></table></div>` : '<p>Aucune erreur sur cette session.</p>'}
       <p class="note">Le résultat en bb sur ${g.tb.session.hands} mains est surtout de la variance. Juge la session sur le taux de décisions justes.</p>
       <div class="row"><button class="btn primary" data-act="cashnew">Nouvelle session</button><button class="btn" data-act="tb2an">Analyser ces mains</button></div></section>`;
   }
@@ -306,7 +324,7 @@
     }
     const t = xp.tb, L = !t.done && t.toAct === 0 && !t.players[0].out ? t.legal() : null, handDec = xp.decisions.filter((d) => d.hand === t.handNo);
     let out = (xp.spin ? `<div class="warnbox" style="text-align:center"><span class="eyebrow">Multiplicateur tiré</span><div style="font:800 34px var(--f-display);color:var(--accent)">×${xp.spin.mult.toLocaleString('fr-FR')}</div><span class="note">${xp.spin.mult > 20 ? `Prix de ${fr(xp.spin.mult * 5, 0)} € partagé : 80 % au 1er, 12 % au 2e, 8 % au 3e` : `Le vainqueur gagne ${fr(xp.spin.mult * 5, 0)} € (mise 5 €)`}</span></div>` : '') + `<div class="row"><span class="pill acc">Main ${t.handNo} · blindes ${t.sb}/${t.bb}</span><span class="pill">${t.active().length} joueurs</span>${xp.fmt && xp.fmt !== 'expresso' ? `<span class="pill">${esc(xp.name)}</span>` : ''}<button class="btn small" data-act="xpquit" style="margin-left:auto">Abandonner la partie</button></div>${tableHTML(t, { chips: true, showProfiles: true })}`;
-    if (L) out += `<section class="panel"><span class="eyebrow">À toi · ${TS.posName(t, 0)} · ${E.abstractOf(t.players[0].cards[0], t.players[0].cards[1])} · ${fr(t.effStack(0) / t.bb, 1)} bb effectifs</span>${actionsHTML(t)}</section>` + (xp.mode === 'live' ? coachHTML(adviceFor(xp), t) : '');
+    if (L) out += `<section class="panel"><span class="eyebrow">À toi · ${TS.posName(t, 0)} · ${E.abstractOf(t.players[0].cards[0], t.players[0].cards[1])} · ${fr(t.effStack(0) / t.bb, 1)} bb effectifs</span>${icmPressure(t, xp.spin && PR ? [1, 2, 3].map((k) => PR.spinPrize(xp.spin.mult, k)) : [1, 0, 0])}${actionsHTML(t)}</section>` + (xp.mode === 'live' ? coachHTML(adviceFor(xp), t) : '');
     if (t.done) {
       out += `<section class="panel"><div class="row" style="justify-content:space-between"><h2>${t.over ? (t.place === 1 ? `Victoire : tu remportes ${xp.name || 'l\'Expresso'}` : `Partie terminée : ${t.place}e place`) + (xp.spin && xp.spin.won !== undefined ? ` · ${xp.spin.won > 0 ? '+' + fr(xp.spin.won, 0) + ' €' : '0 €'} (mise 5 €)` : '') : 'Fin de la main'}</h2><div class="row"><button class="btn small" data-act="libtable">Sauvegarder la main</button><button class="btn small" data-act="rptable">Rejouer</button>${t.over ? '<button class="btn primary" data-act="xpnew">Nouvelle partie</button>' : '<button class="btn primary" data-act="xpnext">Main suivante <span style="opacity:.7">Entrée</span></button>'}</div></div>
         ${decisionsHTML(handDec, xp.mode)}${t.over ? `<h3>Ta partie</h3>${catTable(xp.decisions)}` : ''}</section>`;

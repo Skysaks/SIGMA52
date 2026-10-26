@@ -309,6 +309,10 @@
         if (pr.trap && this.street === 'flop' && s > 0.8 && r() < pr.trap) return this.act('check');
         if (s > 0.62 && r() < pr.value) return this.act('raise', pr.over && late && s > 0.78 && r() < pr.over ? over() : size());
         if (s < 0.35 && r() < Math.min(0.9, pr.bluff * rf)) return this.act('raise', pr.over && late && r() < pr.over ? over() : size());
+        // Mise de reprise (« stab ») au turn et à la river à deux quand l'adversaire a checké : un régulier ne laisse pas tout
+        // aller à l'abattage (abattage mesuré à 34-38 % avant, repère 26 à 33 %).
+        const stab = pr.stab ?? (kind === 'reg' ? 0.45 : kind === 'nit' ? 0.15 : 0);
+        if (late && stab && this.alive().length <= 3 && s < 0.55 && this.seq.some((x) => x.street === this.street && x.i !== i && x.final === 'check') && r() < stab) return this.act('raise', size());
         // Continuation bet des styles : le relanceur préflop mise souvent le flop, quelle que soit sa main.
         if (pr.cbet && this.street === 'flop' && this.seq.filter((x) => x.street === 'pre' && x.final === 'raise').pop()?.i === i && r() < pr.cbet * Math.min(1.3, rf)) return this.act('raise', size());
         return this.act('check');

@@ -22,6 +22,7 @@
     notes: { opponents: {}, lastImport: null },
     library: { hands: [] },
     mental: { triggers: [], custom: [], fiches: {}, zones: {}, stop: 'net', checkins: [] },
+    debuter: {},
   };
   const state = JSON.parse(JSON.stringify(DEF));
   const Store = {
@@ -297,14 +298,14 @@
       ${daily ? `<div class="row"><span class="pill acc">Entraînement du jour · ${d.date === today() ? d.done : 0}/10</span></div>` : ''}
       ${reviewItem ? `<div class="row"><span class="pill acc">Révision${reviewItem.f ? ` · mémoire stable ${fr(reviewItem.f.s, reviewItem.f.s < 10 ? 1 : 0)} j` : reviewItem.iv ? ` · intervalle ${reviewItem.iv} j` : ''}</span></div>` : ''}
       ${window.__S52.planBanner ? window.__S52.planBanner(spotMode) : ''}
-      <div class="row"><span class="note">Entraînement :</span><button class="chip" aria-pressed="${train().conf}" data-act="trconf">Confiance avant de répondre</button>${[[0, 'Sans chrono'], [15, 'Chrono 15 s'], [8, 'Chrono 8 s']].map(([v, l]) => `<button class="chip" aria-pressed="${+train().timer === v}" data-act="trtimer" data-v="${v}">${l}</button>`).join('')}<button class="chip" aria-pressed="${train().explain}" data-act="trexpl">Expliquer avant la correction</button></div>
+      <div class="row"><span class="note">Entraînement :</span><button class="chip" aria-pressed="${train().conf}" data-act="trconf">Confiance avant de répondre</button>${[[0, 'Sans chrono'], [15, 'Chrono 15 s'], [8, 'Chrono 8 s']].map(([v, l]) => `<button class="chip" aria-pressed="${+train().timer === v}" data-act="trtimer" data-v="${v}">${l}</button>`).join('')}<button class="chip" aria-pressed="${train().explain}" data-act="trexpl">Expliquer avant la correction</button>${train().explain ? `<button class="chip" aria-pressed="${!!train().claude}" data-act="trclaude" title="Chaque relecture consomme un message de ton quota Claude">Relecture par Claude (utilise ton quota)</button>` : ''}</div>
       <section class="panel"><div class="row" style="justify-content:space-between"><span class="eyebrow">${esc(spot.title)}</span><span class="note mono">${st.n ? pct(st.ok / st.n) + ' sur ' + st.n : 'premier essai'} · série ${state.progress.streak}</span></div>
         <p style="font-size:17px">${spot.prompt}</p>${visual}
         ${+train().timer && answered === null && explChoice === null ? `<div class="row"><span class="pill bad mono" id="sptimer">${Math.max(0, Math.ceil((tEnd - Date.now()) / 1000))} s</span><span class="note">Temps écoulé = réponse fausse, comme à la table.</span></div>` : ''}
         ${train().conf && answered === null ? `<div class="row"><span class="note">Ta confiance :</span>${[50, 70, 90].map((v) => `<button class="chip" aria-pressed="${conf === v}" data-act="spconf" data-v="${v}">${v} %</button>`).join('')}</div>` : ''}
         <div class="opts">${spot.opts.map((o, i) => `<button class="opt${answered !== null && i === spot.ok ? ' ok' : ''}${answered === i && i !== spot.ok ? ' ko' : ''}${explChoice === i && answered === null ? ' sel' : ''}" data-act="ans" data-i="${i}" ${answered !== null || explChoice !== null ? 'disabled' : ''}><span class="mono note">${i + 1}</span> ${esc(o)}</button>`).join('')}</div>
         ${explChoice !== null && answered === null ? `<label class="f">Pourquoi « ${esc(spot.opts[explChoice])} » ? Une phrase, avec le chiffre qui décide.<textarea id="spexpl" rows="2" maxlength="400" placeholder="Ex. : il me faut 25 % d'équité, j'en ai environ 35 % avec 9 outs.">${esc(explText)}</textarea></label><div class="row"><button class="btn primary" data-act="explok">Valider et voir la correction</button><button class="btn small" data-act="explcancel">Changer de réponse</button></div>` : ''}
-        ${answered !== null ? `<div class="verdict ${ok ? 'good' : 'bad'}"><b>${answered < 0 ? 'Temps écoulé : ' + esc(spot.opts[spot.ok]) + '.' : ok ? 'Juste.' : 'Non : ' + esc(spot.opts[spot.ok]) + '.'}</b>${evLine ? `<div>${evLine}</div>` : ''}<span>${esc(spot.why)}</span>${!ok ? '<span class="note">Ajouté à tes révisions : il revient quand ta mémoire en a besoin (FSRS).</span>' : ''}</div>${window.__S52.explHTML ? window.__S52.explHTML(spot) : ''}
+        ${answered !== null ? `<div class="verdict ${ok ? 'good' : 'bad'}"><b>${window.__S52.SCALE ? window.__S52.SCALE.badge(ok ? 0 : 2) + ' ' : ''}${answered < 0 ? 'Temps écoulé : ' + esc(spot.opts[spot.ok]) + '.' : ok ? 'Juste.' : 'Non : ' + esc(spot.opts[spot.ok]) + '.'}</b>${evLine ? `<div>${evLine}</div>` : ''}<span>${esc(spot.why)}</span>${!ok ? '<span class="note">Ajouté à tes révisions : il revient quand ta mémoire en a besoin (FSRS).</span>' : ''}</div>${window.__S52.explHTML ? window.__S52.explHTML(spot) : ''}
         <div class="row"><button class="btn primary" data-act="next">Spot suivant</button>${['tirage', 'meilleure', 'outs'].includes(spot.type) ? '<button class="btn" data-act="toEq">Analyser dans Équité</button>' : ''}${spot.type === 'pushfold' ? '<button class="btn" data-act="toPF">Voir le tableau Nash</button>' : ''}</div>` : ''}
       </section>`;
   };
@@ -442,9 +443,27 @@
   };
 
   // ---------- Analyse ----------
-  let anText = '', anRes = null, anOpen = null, anErr = '';
+  let anText = '', anRes = null, anOpen = null, anErr = '', anSum = [], anSumMsg = '';
   // kind : 'real' (tes mains, enregistrées), 'table' (table d'entraînement), 'sample' (exemple simulé). Seules les vraies mains alimentent tes fiches.
+  function sumHTML() {
+    if (!anSum.length) return '';
+    const by = {}; for (const x of anSum) { const k = x.cur; by[k] = by[k] || { cost: 0, won: 0, n: 0, itm: 0 }; by[k].cost += x.cost; by[k].won += x.won; by[k].n++; if (x.won > 0) by[k].itm++; }
+    const have = new Set(state.journal.sessions.map((x) => x.tid).filter(Boolean)), fresh = anSum.filter((x) => !have.has(x.site + ':' + x.id)).length;
+    return `<section class="panel"><span class="eyebrow">Résumés de tournoi</span><h2>${anSum.length} tournoi${anSum.length > 1 ? 's' : ''} reconnu${anSum.length > 1 ? 's' : ''}</h2>
+      <div class="stats">${Object.entries(by).map(([c, v]) => `<div class="stat"><span>${v.n} tournois en ${esc(c)}</span><b>${v.won - v.cost >= 0 ? '+' : '−'}${fr(Math.abs(v.won - v.cost), 2)} ${esc(c)}</b><span>ROI ${v.cost > 0 ? pct((v.won - v.cost) / v.cost, 0) : '–'} · ITM ${pct(v.itm / v.n, 0)}</span></div>`).join('')}</div>
+      <div class="tw"><table class="t"><thead><tr><th>Date</th><th>Room</th><th>Tournoi</th><th class="n">Buy-in</th><th class="n">Place</th><th class="n">Gain</th></tr></thead><tbody>${anSum.slice(0, 40).map((x) => `<tr><td>${esc(x.date)}</td><td>${esc(x.site)}</td><td>${esc(x.name)}</td><td class="n mono">${fr(x.cost, 2)} ${esc(x.cur)}</td><td class="n mono">${x.place}${x.players ? '/' + x.players : ''}</td><td class="n mono">${fr(x.won, 2)}</td></tr>`).join('')}</tbody></table></div>
+      <div class="row"><button class="btn${fresh ? ' primary' : ''}" data-act="ansumimp" ${fresh ? '' : 'disabled'}>${fresh ? `Ajouter ${fresh} tournoi${fresh > 1 ? 's' : ''} au Journal` : 'Déjà dans le Journal'}</button></div>
+      ${anSumMsg ? `<div class="advice"><div class="good">${esc(anSumMsg)}</div></div>` : ''}
+      <p class="note">Montants dans la devise du résumé, sans conversion. Un ROI sur moins de quelques centaines de tournois est surtout de la variance. Lecture au mieux des formats PokerCraft et Winamax : si un résumé n'apparaît pas, son format a changé.</p></section>`;
+  }
+  ACT.ansumimp = () => {
+    const have = new Set(state.journal.sessions.map((x) => x.tid).filter(Boolean)); let n = 0;
+    for (const x of anSum) { const tid = x.site + ':' + x.id; if (have.has(tid)) continue; have.add(tid); state.journal.sessions.push({ id: 's' + Date.now().toString(36) + n, tid, date: x.date || today(), room: x.site === 'Winamax' ? 'Winamax' : 'Autre', format: 'MTT', stake: fr(x.cost, 2) + ' ' + x.cur, result: Math.round((x.won - x.cost) * 100) / 100, hands: 0, minutes: 0, tilt: 0, trigger: '', notes: `${x.site} · ${x.name} · ${x.place}${x.players ? '/' + x.players : ''}`.slice(0, 200) }); n++; }
+    Store.save('journal'); anSumMsg = `${n} tournoi${n > 1 ? 's' : ''} ajouté${n > 1 ? 's' : ''} au Journal.`; render();
+  };
   function runAnalysis(text, kind) {
+    anSum = kind === 'real' ? HH.summaries(text) : []; anSumMsg = '';
+    if (anSum.length && !HH.split(text).length) { anRes = null; anErr = ''; return; }
     try {
       const r = HH.analyze(text);
       if (!r.hands) throw new Error('Aucune main reconnue. Colle le texte brut des historiques Winamax, PokerStars ou GGPoker (une main commence par « Winamax Poker - », « PokerStars Hand » ou « Poker Hand # »).');
@@ -496,10 +515,10 @@
     const known = Object.entries(state.notes.opponents).filter(([, o]) => o.hands >= 15).sort((a, b) => b[1].hands - a[1].hands).slice(0, 30);
     return head('Analyse de tes mains', 'Après la session, colle tes historiques Winamax, PokerStars ou GGPoker : résultat, chance aux all-in, fuites préflop, profil de chaque adversaire. Uniquement tes propres mains : analyser des mains achetées ou partagées est interdit par les rooms.') +
       `<section class="panel"><label class="f">Historiques (texte brut)<textarea id="antext" class="f mono" rows="7" style="font-size:12px" placeholder="Winamax Poker - CashGame - HandId: #…">${esc(anText)}</textarea></label>
-        <div class="row"><button class="btn primary" data-act="analyze">Analyser</button><label class="btn" for="anfile">Charger des fichiers .txt</label><input type="file" id="anfile" accept=".txt,text/plain" multiple hidden>
+        <div class="row"><button class="btn primary" data-act="analyze">Analyser</button><label class="btn" for="anfile">Charger des fichiers .txt ou .zip</label><input type="file" id="anfile" accept=".txt,.zip,text/plain,application/zip" multiple hidden>
         <button class="btn" data-act="ansample">Exemple : 300 mains simulées</button></div>
-        <p class="note">Winamax enregistre tes historiques dans le dossier « history » de son répertoire d'installation. GGPoker : télécharge tes mains depuis PokerCraft (le héros s'appelle « Hero », les adversaires sont anonymisés, le run it twice est reconnu). Parseur testé sur des historiques Winamax réels, sur le format GGPoker et sur la table d'entraînement. Si un fichier récent ne passe pas, envoie-moi une main d'exemple : le parseur s'ajuste.</p>
-        ${anErr ? `<p class="pill bad" style="white-space:normal">${esc(anErr)}</p>` : ''}</section>${res}
+        <p class="note">Winamax enregistre tes historiques dans le dossier « history » de son répertoire d'installation. GGPoker : télécharge tes mains depuis PokerCraft et charge l'archive .zip telle quelle (le héros s'appelle « Hero », les adversaires sont anonymisés, le run it twice est reconnu) ; ajoute les résumés de tournoi (second bouton Download de PokerCraft, ou fichiers « summary » de Winamax) : ils sont lus pour ton Journal. Parseur testé sur des historiques Winamax réels, sur le format GGPoker et sur la table d'entraînement. Si un fichier récent ne passe pas, envoie-moi une main d'exemple : le parseur s'ajuste.</p>
+        ${anErr ? `<p class="pill bad" style="white-space:normal">${esc(anErr)}</p>` : ''}</section>${sumHTML()}${res}
       ${known.length ? `<section class="panel"><h2>Fiches adversaires cumulées</h2><div class="tw"><table class="t"><thead><tr><th>Joueur</th><th class="n">Mains</th><th class="n">VPIP</th><th class="n">PFR</th><th>Profil</th></tr></thead><tbody>${known.map(([n, o]) => `<tr><td>${esc(n)}</td><td class="n">${o.hands}</td><td class="n">${rate(o.vpip, o.hands)}</td><td class="n">${rate(o.pfr, o.hands)}</td><td>${HH.profileOf(o).label}</td></tr>`).join('')}</tbody></table></div><p class="note">Cumul de tous tes imports. Relis-les avant une session, jamais pendant.</p></section>` : ''}`;
   };
 
@@ -641,6 +660,7 @@
     if (a === 'trconf') { train().conf = !train().conf; Store.save('settings'); return render(); }
     if (a === 'trtimer') { train().timer = +t.dataset.v; Store.save('settings'); if (answered === null) armTimer(); return render(); }
     if (a === 'trexpl') { train().explain = !train().explain; Store.save('settings'); return render(); }
+    if (a === 'trclaude') { train().claude = !train().claude; Store.save('settings'); return render(); }
     if (a === 'explok') { explText = ($('#spexpl')?.value || '').trim(); const i = explChoice; return answerFinal(i); }
     if (a === 'explcancel') { explChoice = null; explText = ''; return render(); }
     if (a === 'next') { newSpot(); render(); $('.opt')?.focus(); return; }
@@ -710,7 +730,14 @@
     }
     if (t.dataset.pfs !== undefined) { pf.stacks[+t.dataset.pfs] = +String(t.value).replace(',', '.') || 0; pf.sol = null; pf.err = null; render(); }
     if (t.dataset.bd) { bdIn[t.dataset.bd] = t.value; if (t.dataset.bd === 'range') bdIn.label = ''; render(); }
-    if (t.id === 'anfile' && t.files.length) { const texts = await Promise.all([...t.files].map((f) => f.text())); anText = texts.join('\n\n'); runAnalysis(anText, 'real'); render(); }
+    if (t.id === 'anfile' && t.files.length) {
+      const texts = []; let bad = 0;
+      for (const f of t.files) {
+        if (/\.zip$/i.test(f.name)) { try { for (const x of await HH.unzip(await f.arrayBuffer())) texts.push(x.text); } catch (e) { bad++; } }
+        else texts.push(await f.text());
+      }
+      anText = texts.join('\n\n'); runAnalysis(anText, 'real'); if (bad) anErr = (anErr ? anErr + ' ' : '') + `${bad} archive${bad > 1 ? 's' : ''} illisible${bad > 1 ? 's' : ''}.`; render();
+    }
   });
   document.addEventListener('input', (e) => {
     const t = e.target;

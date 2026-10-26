@@ -115,9 +115,39 @@
   }
   ACT.wkans = (t) => { const W0 = weekSpot(), i = +t.dataset.i; W().week = { wk: W0.wk, a: i }; save(); pushShared({ wk: W0.wk, wa: i }); render(); };
   X.onWeekly = () => {};
-  VIEWS.defis = () => { X.initShared?.(); return head('Défis', 'Des formats courts pour revenir chaque jour : débloquer les charts une à une, le défi du jour (le même pour tous) et le spot de la semaine.') + chartsHTML() + dailyHTML() + weekHTML(); };
+  // ---- Série : des spots rapides jusqu'à la première erreur ; record absolu et record de la semaine (partagé entre amis) ----
+  const STREAK_TYPES = ['rfi', 'vsopen', 'odds', 'pushfold', 'mdf', 'combos', 'outs', 'profils'].filter((t) => S.GEN[t]);
+  let sq = null;
+  const stk = () => { const w = W(), wk = PR.weekKey(new Date()); w.streak = w.streak || { best: 0, wk, wbest: 0, cur: 0, on: false, last: null }; if (w.streak.wk !== wk) { w.streak.wk = wk; w.streak.wbest = 0; } return w.streak; };
+  const newSq = () => { sq = { s: S.GEN[STREAK_TYPES[(Math.random() * STREAK_TYPES.length) | 0]](Math.random), a: null }; };
+  function streakHTML() {
+    const P = stk(), SH = X.shared, fr_ = (SH?.weekly || []).filter((r) => r.swk === P.wk && r.sb > 0).sort((a, b) => b.sb - a.sb);
+    const top = `<div class="stats"><div class="stat"><span>Série en cours</span><b>${P.on ? P.cur : '–'}</b></div><div class="stat"><span>Record de la semaine</span><b>${P.wbest}</b></div><div class="stat"><span>Record absolu</span><b>${P.best}</b></div></div>`;
+    let body;
+    if (!P.on) body = `${P.last !== null ? `<div class="advice"><div class="${P.last >= P.wbest && P.last > 0 ? 'good' : 'warn'}">Série terminée à ${P.last} bonne${P.last > 1 ? 's' : ''} réponse${P.last > 1 ? 's' : ''}.${sq && sq.a !== null ? ` Dernier spot : ${esc(sq.s.opts[sq.s.ok])} était la réponse. ${esc(sq.s.why).slice(0, 220)}${sq.s.why.length > 220 ? '…' : ''}` : ''}</div></div>` : ''}
+      <div class="row"><button class="btn primary" data-act="stkgo">${P.last !== null ? 'Nouvelle série' : 'Commencer une série'}</button></div>`;
+    else {
+      if (!sq || sq.a !== null && sq.a === sq.s.ok && sq.done) newSq();
+      const s = sq.s;
+      body = `<p class="note">Spot ${P.cur + 1} · ${esc(s.title)}</p><p style="font-size:17px">${s.prompt}</p>${s.cards ? `<div class="cards">${s.cards.map((c) => cardHTML(c, true)).join('')}</div>` : ''}${s.board ? `<div class="cards">${s.board.map((c) => cardHTML(c, true)).join('')}</div>` : ''}
+        <div class="opts">${s.opts.map((o, k) => `<button class="opt" data-act="stkans" data-i="${k}"><span class="mono note">${k + 1}</span> ${esc(o)}</button>`).join('')}</div>`;
+    }
+    return `<section class="panel"><span class="eyebrow">Série</span><h2>Jusqu'à la première erreur</h2>${top}${body}
+      <p class="note">Préflop, cotes, push-fold, MDF, combos, outs et profils d'adversaires, tirés au hasard. ${fr_.length ? 'Records de la semaine entre amis : ' + fr_.slice(0, 8).map((r) => `${esc(X.sharedName(r.id))} ${r.sb}`).join(' · ') : 'Avec la page publiée, les records de la semaine de tes amis s\'affichent ici.'}</p></section>`;
+  }
+  ACT.stkgo = () => { const P = stk(); P.on = true; P.cur = 0; P.last = null; newSq(); save(); render(); };
+  ACT.stkans = (t) => {
+    const P = stk(); if (!P.on || !sq || sq.a !== null) return;
+    const k = +t.dataset.i, ok = k === sq.s.ok; sq.a = k; X.award?.('spot', { type: sq.s.type, ok }, true);
+    if (ok) { P.cur++; if (P.cur > P.best) P.best = P.cur; if (P.cur > P.wbest) P.wbest = P.cur; sq.done = true; }
+    else { P.on = false; P.last = P.cur; X.reviewMiss?.(sq.s); pushShared({ swk: P.wk, sb: P.wbest }); }
+    save(); render();
+  };
+  VIEWS.defis = () => { X.initShared?.(); return head('Défis', 'Des formats courts pour revenir chaque jour : débloquer les charts une à une, le défi du jour (le même pour tous), une série jusqu\'à la première erreur et le spot de la semaine.') + chartsHTML() + dailyHTML() + streakHTML() + weekHTML(); };
   X.ONKEY.push((e, tab) => {
-    if (tab !== 'defis' || !chq) return;
+    if (tab !== 'defis') return;
+    if (stk().on && sq && sq.a === null && /^[1-9]$/.test(e.key) && +e.key <= sq.s.opts.length) { ACT.stkans({ dataset: { i: +e.key - 1 } }); return true; }
+    if (!chq) return;
     if (chq.a === null && /^[1-3]$/.test(e.key) && +e.key <= chq.cs.opts.length) { ACT.chans({ dataset: { i: +e.key - 1 } }); return true; }
     if (chq.a !== null && e.key === 'Enter') { ACT.chnext(); return true; }
   });

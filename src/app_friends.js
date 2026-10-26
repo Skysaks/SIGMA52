@@ -3,7 +3,7 @@
 // Données partagées : base de la page (db) ; temps réel : salle (room). Sans ces fonctions (fichier ouvert hors claude.ai), l'onglet l'explique.
 (function () {
   const X = window.__S52, E = window.Engine, NG = window.NetGame, PF = window.Postflop, PR = window.Pro;
-  const { $, esc, fr, pct, state, render, head, cardHTML, backHTML, VIEWS, ACT, ONCHANGE } = X;
+  const { $, esc, fr, pct, state, render, head, cardHTML, backHTML, VIEWS, ACT, ONCHANGE, ONINPUT } = X;
   const use = async (name) => { try { return window.claude?.use ? await window.claude.use(name) : null; } catch (e) { return null; } };
 
   // ---------------- Accès partagé (db + identité) ----------------
@@ -245,14 +245,92 @@
       <p class="note">Comment c'est fait : l'appareil de l'hôte bat les cartes et arbitre ; chaque joueur reçoit ses deux cartes chiffrées pour lui seul (clé échangée à la connexion). L'appareil de l'hôte connaît donc tout le paquet : pour une partie sans soupçon, l'hôte peut être un appareil qui ne joue pas. Si l'hôte quitte la page, la partie s'arrête.</p></section>`;
   }
 
+  // ---------------- Étude en direct : une salle, un animateur, le même spot pour tous, votes cachés puis révélés ----------------
+  const ld = { phase: 'lobby', code: '', nick: '', room: null, host: false, peers: [], spot: null, votes: {}, mine: null, reveal: false, log: [], err: '', note: '', solver: null };
+  const ldPeer = (id) => ld.peers.find((p) => p.peer === id);
+  const ldName = (id) => ldPeer(id)?.presence?.nick || 'Anonyme';
+  const ldEmit = (data) => ld.room?.emit('study', data).catch((e) => { ld.err = e.message; render(); });
+  function ldSpot(type, seed) { const g = window.Spots?.GEN[type]; return g ? g(E.rng(seed)) : null; }
+  async function ldEnter(asHost) {
+    ld.err = '';
+    const room = await use('room');
+    if (!room) { ld.err = 'Salle en temps réel indisponible : ouvre la page publiée sur claude.ai (les amis doivent y avoir un accès Contributeur ou plus).'; return render(); }
+    const code = (asHost ? Math.random().toString(36).slice(2, 7) : ld.code).toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (code.length < 4) { ld.err = 'Code de salle : 4 à 6 caractères.'; return render(); }
+    if (!ld.nick.trim()) { ld.err = 'Choisis un pseudo.'; return render(); }
+    try {
+      ld.room = await room.join('s52s-' + code); ld.code = code; ld.host = asHost; ld.phase = 'room';
+      ld.room.on('study', (m) => {
+        const d = m.data || {}, fromHost = ldPeer(m.peer)?.presence?.host;
+        if (d.t === 'quiz' && fromHost) { ld.spot = { id: d.id, type: d.type, seed: d.seed, s: ldSpot(d.type, d.seed) }; ld.votes = {}; ld.mine = null; ld.reveal = false; ld.solver = null; }
+        else if (d.t === 'solver' && fromHost) { ld.solver = d; ld.spot = null; }
+        else if (d.t === 'vote' && ld.spot && d.id === ld.spot.id && Number.isInteger(d.a)) ld.votes[m.peer] = d.a;
+        else if (d.t === 'reveal' && fromHost && ld.spot && d.id === ld.spot.id) ld.reveal = true;
+        else if (d.t === 'note' && typeof d.txt === 'string') { ld.log.push({ who: ldName(m.peer), txt: d.txt.slice(0, 200) }); if (ld.log.length > 40) ld.log.shift(); }
+        else if (d.t === 'hello' && ld.host) ldSync();
+        render();
+      });
+      ld.room.onPeers((ch) => { ld.peers = ch?.peers || ld.room.peers(); render(); });
+      await ld.room.presence({ nick: ld.nick.trim().slice(0, 20), host: asHost || null });
+      ld.peers = ld.room.peers();
+      if (!asHost) setTimeout(() => ldEmit({ t: 'hello' }), 400);
+    } catch (e) { ld.err = e.message; ld.phase = 'lobby'; ld.room = null; }
+    render();
+  }
+  function ldSync() { if (ld.spot) ldEmit({ t: 'quiz', id: ld.spot.id, type: ld.spot.type, seed: ld.spot.seed }); else if (ld.solver) ldEmit(ld.solver); }
+  ACT.ldcreate = () => ldEnter(true);
+  ACT.ldjoin = () => ldEnter(false);
+  ACT.ldleave = async () => { try { await ld.room?.leave(); } catch (e) { /* déjà parti */ } Object.assign(ld, { phase: 'lobby', room: null, host: false, peers: [], spot: null, votes: {}, mine: null, reveal: false, solver: null }); render(); };
+  ACT.ldquiz = (t) => {
+    const type = t.dataset.v === 'mix' ? Object.keys(window.Spots.GEN)[(Math.random() * Object.keys(window.Spots.GEN).length) | 0] : t.dataset.v, seed = (Math.random() * 1e9) | 0, id = Date.now().toString(36);
+    ld.spot = { id, type, seed, s: ldSpot(type, seed) }; ld.votes = {}; ld.mine = null; ld.reveal = false; ld.solver = null; ldEmit({ t: 'quiz', id, type, seed }); render();
+  };
+  ACT.ldvote = (t) => { if (!ld.spot || ld.mine !== null) return; ld.mine = +t.dataset.i; const me = ld.room.peers().find((p) => p.isMe)?.peer; if (me) ld.votes[me] = ld.mine; ldEmit({ t: 'vote', id: ld.spot.id, a: ld.mine }); render(); };
+  ACT.ldreveal = () => { if (!ld.spot) return; ld.reveal = true; ldEmit({ t: 'reveal', id: ld.spot.id }); render(); };
+  ACT.ldsolver = () => {
+    const sv = X.solverState; if (!sv || !sv.board) { ld.err = 'Prépare d\'abord un spot dans le Solveur.'; return render(); }
+    const d = { t: 'solver', board: sv.board, names: sv.names.slice(), ranges: sv.r.slice(), pot: sv.pot, stack: sv.stack, note: (sv.note || '').slice(0, 200) };
+    if (JSON.stringify(d).length > 3800) { ld.err = 'Ranges trop longues pour la salle (4 Ko par message) : simplifie-les.'; return render(); }
+    ld.solver = d; ld.spot = null; ldEmit(d); render();
+  };
+  ACT.ldopen = () => { const d = ld.solver; if (d) X.solverLoad({ board: d.board, names: d.names, ranges: d.ranges, pot: d.pot, stack: d.stack, note: 'Spot partagé en étude en direct' + (d.note ? ' : ' + d.note : '') + '. Lance la résolution.' }); };
+  ACT.ldnote = () => { const txt = ld.note.trim().slice(0, 200); if (!txt) return; ld.log.push({ who: ld.nick.trim() || 'Moi', txt }); if (ld.log.length > 40) ld.log.shift(); ld.note = ''; ldEmit({ t: 'note', txt }); render(); };
+  ONCHANGE.push((t) => { if (t.dataset.ldf) { ld[t.dataset.ldf] = t.value; return true; } });
+  ONINPUT.push((t) => { if (t.dataset.ldf) { ld[t.dataset.ldf] = t.value; return true; } });
+  function liveStudyHTML() {
+    if (ld.phase !== 'room') return `<section class="panel"><span class="eyebrow">Étude en direct</span><h2>Étudier ensemble, en même temps</h2>
+      <p>Un animateur choisit un spot ; chacun répond sans voir les autres ; l'animateur révèle les votes et la correction. Il peut aussi partager le spot de son solveur : chacun l'ouvre dans le sien. Rien n'est enregistré, rien ne touche une room ni l'argent : à faire hors de toute session de jeu.</p>
+      <div class="form"><label class="f">Pseudo<input data-ldf="nick" value="${esc(ld.nick)}" maxlength="20" autocomplete="nickname"></label><label class="f">Code de salle (pour rejoindre)<input data-ldf="code" value="${esc(ld.code)}" maxlength="6" spellcheck="false" autocomplete="off" placeholder="K7Q2M"></label></div>
+      <div class="row"><button class="btn primary" data-act="ldcreate">Animer une salle</button><button class="btn" data-act="ldjoin">Rejoindre avec le code</button></div>
+      ${ld.err ? `<div class="advice"><div class="bad">${esc(ld.err)}</div></div>` : ''}</section>`;
+    const who = ld.peers.map((p) => `${esc(p.presence?.nick || 'Anonyme')}${p.presence?.host ? ' (animateur)' : ''}${p.isMe ? ' · toi' : ''}`).join(' · ');
+    const host = ld.host ? `<div class="row"><span class="note">Nouveau spot :</span>${[['mix', 'Au hasard'], ['rfi', 'Ouverture'], ['vsopen', 'Face à une ouverture'], ['odds', 'Cotes'], ['mdf', 'MDF'], ['profils', 'Profils'], ['pushfold', 'Push-fold']].filter(([k]) => k === 'mix' || window.Spots?.GEN[k]).map(([k, l]) => `<button class="chip" data-act="ldquiz" data-v="${k}">${l}</button>`).join('')}<button class="btn small" data-act="ldsolver">Partager mon spot du Solveur</button></div>` : '';
+    let main = '<p class="note">En attente du premier spot de l\'animateur.</p>';
+    if (ld.spot && ld.spot.s) {
+      const s = ld.spot.s, n = Object.keys(ld.votes).length, cnt = s.opts.map((_, i) => Object.values(ld.votes).filter((v) => v === i).length);
+      main = `<p class="note">${esc(s.title)}</p><p style="font-size:17px">${s.prompt}</p>${s.cards ? `<div class="cards">${s.cards.map((c) => cardHTML(c, true)).join('')}</div>` : ''}${s.board ? `<div class="cards">${s.board.map((c) => cardHTML(c, true)).join('')}</div>` : ''}
+        <div class="opts">${s.opts.map((o, i) => `<button class="opt${ld.reveal && i === s.ok ? ' ok' : ''}${ld.mine === i ? ' sel' : ''}" data-act="ldvote" data-i="${i}" ${ld.mine !== null ? 'disabled' : ''}>${esc(o)}${ld.reveal ? ` · ${cnt[i]} vote${cnt[i] > 1 ? 's' : ''}` : ''}</button>`).join('')}</div>
+        <p class="note">${n} réponse${n > 1 ? 's' : ''} sur ${ld.peers.length} participant${ld.peers.length > 1 ? 's' : ''}.${ld.mine !== null && !ld.reveal ? ' Ta réponse est envoyée ; attends la révélation.' : ''}</p>
+        ${ld.reveal ? `<div class="verdict ${ld.mine === s.ok ? 'good' : 'bad'}"><b>Réponse : ${esc(s.opts[s.ok])}.</b><span>${esc(s.why)}</span></div>` : ld.host ? '<div class="row"><button class="btn primary" data-act="ldreveal">Révéler les votes et la correction</button></div>' : ''}`;
+    } else if (ld.solver) {
+      const d = ld.solver;
+      main = `<p>Spot du Solveur partagé : board <strong class="mono">${esc(d.board)}</strong>, ${esc(d.names.join(' contre '))}, pot ${fr(d.pot, 1)} bb, tapis ${fr(d.stack, 1)} bb.</p><div class="row"><button class="btn primary" data-act="ldopen">Ouvrir dans mon Solveur</button></div><p class="note">Chacun résout sur son appareil ; discutez des fréquences dans les notes ci-dessous.</p>`;
+    }
+    return `<section class="panel"><div class="row" style="justify-content:space-between"><div><span class="eyebrow">Salle ${esc(ld.code)}${ld.host ? ' · tu animes' : ''}</span><h2>Étude en direct</h2></div><button class="btn small" data-act="ldleave">Quitter</button></div>
+      <p class="note">${ld.host ? `Donne le code <strong class="mono">${esc(ld.code)}</strong> à tes amis. ` : ''}Présents : ${who || '…'}</p>${host}${main}</section>
+      <section class="panel"><span class="eyebrow">Notes de la salle</span>${ld.log.length ? `<div class="note" style="display:grid;gap:4px">${ld.log.slice(-15).map((x) => `<span><strong>${esc(x.who)}</strong> : ${esc(x.txt)}</span>`).join('')}</div>` : '<p class="note">Aucune note. Elles ne sont pas enregistrées : elles disparaissent en quittant.</p>'}
+        <div class="row"><input data-ldf="note" value="${esc(ld.note)}" maxlength="200" placeholder="Une remarque sur le spot" style="flex:1;min-width:0" aria-label="Note"><button class="btn small" data-act="ldnote">Envoyer</button></div>
+        ${ld.err ? `<div class="advice"><div class="bad">${esc(ld.err)}</div></div>` : ''}</section>`;
+  }
+
   // ---------------- Vue ----------------
   let sub = 'jeu';
   VIEWS.amis = () => {
     initShared();
     if (SH.db && SH.uid && state.progress.sharePub && !SH.autoPub) { SH.autoPub = true; publish(); }
-    const tabs = `<div class="subtabs" role="tablist">${[['jeu', 'Partie en ligne'], ['ligue', 'Classement et ligue'], ['groupe', 'Groupe d\'étude']].map(([k, l]) => `<button class="chip" aria-pressed="${sub === k}" data-act="amsub" data-s="${k}">${l}</button>`).join('')}</div>`;
+    const tabs = `<div class="subtabs" role="tablist">${[['jeu', 'Partie en ligne'], ['direct', 'Étude en direct'], ['ligue', 'Classement et ligue'], ['groupe', 'Groupe d\'étude']].map(([k, l]) => `<button class="chip" aria-pressed="${sub === k}" data-act="amsub" data-s="${k}">${l}</button>`).join('')}</div>`;
     const sharedOk = SH.db && SH.uid;
-    const body = sub === 'jeu' ? (ng.phase === 'table' ? tableHTML() : lobbyHTML()) : !SH.tried ? '<p class="note">Connexion…</p>' : !sharedOk ? offline() : sub === 'ligue' ? boardHTML() : studyHTML();
+    const body = sub === 'jeu' ? (ng.phase === 'table' ? tableHTML() : lobbyHTML()) : sub === 'direct' ? liveStudyHTML() : !SH.tried ? '<p class="note">Connexion…</p>' : !sharedOk ? offline() : sub === 'ligue' ? boardHTML() : studyHTML();
     return head('Entre amis', 'Jouer ensemble à distance en jetons sans valeur, se comparer, étudier des mains à plusieurs. Rien ici ne touche à l\'argent ni à une room.') + tabs + body + (SH.err ? `<p class="note" style="color:var(--bad)">${esc(SH.err)}</p>` : '');
   };
   ACT.amsub = (t) => { sub = t.dataset.s; render(); };

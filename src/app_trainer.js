@@ -46,10 +46,11 @@
     const info = tr.info, node = tr.node, p = tr.p, i = tr.hi, n = tr.g.N[p];
     const evs = info.actEv.map((v) => v[i]), best = Math.max(...evs), loss = best - evs[a], lossPct = loss / info.pot;
     const freq = info.strategy[a * n + i];
-    const grade = lossPct < 0.005 || freq >= 0.25 ? 'Meilleure' : lossPct < 0.02 ? 'Correcte' : lossPct < 0.06 ? 'Inexacte' : 'Erreur';
+    const gi = lossPct < 0.005 || freq >= 0.25 ? 0 : lossPct < 0.02 ? 1 : lossPct < 0.06 ? 2 : 3, grade = ['Parfait', 'Correct', 'Erreur', 'Gaffe'][gi];
+    if (gi >= 2) X.logMistake?.({ src: 'Entraîneur river', label: `${tr.spot?.names?.join(' contre ') || 'décision'} · ${Array.isArray(tr.spot?.board) ? tr.spot.board.map(E.cardStr).join(' ') : String(tr.spot?.board || 'river')}`, lossBB: loss, lossPct, g: gi, go: 'solveur' });
     tr.ans = { a, loss, lossPct, freq, grade, best: evs.indexOf(best) };
     const T = state.progress.trainer || (state.progress.trainer = { n: 0, ok: 0, loss: 0, hist: [] });
-    T.n++; if (grade === 'Meilleure' || grade === 'Correcte') T.ok++; T.loss += lossPct;
+    T.n++; if (gi <= 1) T.ok++; T.loss += lossPct;
     T.hist = [...(T.hist || []), Math.round(lossPct * 1000) / 1000].slice(-50);
     X.award?.('trainer', null, true);
     Store.save('progress'); render();
@@ -80,7 +81,7 @@
       <div class="row">${node.acts.map((_, a) => `<button class="btn${tr.ans && tr.ans.a === a ? ' primary' : ''}" data-act="trans" data-a="${a}" ${tr.ans ? 'disabled' : ''}>${esc(g.label(node, a))}</button>`).join('')}</div>`;
     if (!tr.ans) return stats + intro + head + '</section>';
     const A = tr.ans, evs = info.actEv.map((v) => v[i]);
-    const cls = A.grade === 'Meilleure' ? 'good' : A.grade === 'Correcte' ? 'good' : 'bad';
+    const cls = A.grade === 'Parfait' || A.grade === 'Correct' ? 'good' : 'bad';
     const res = `<div class="verdict ${cls}"><strong>${A.grade}.</strong> ${A.loss < 1e-6 ? 'Meilleure EV.' : `Perte ${fr(A.loss, 2)} bb, soit ${fr(A.lossPct * 100, 2)} % du pot.`}</div>
       <div class="advice">${node.acts.map((_, a) => `<div class="${a === A.best ? 'good' : evs[A.best] - evs[a] > 0.02 * info.pot ? 'bad' : 'warn'}"><strong>${esc(g.label(node, a))}</strong> · solveur ${pct(info.strategy[a * n + i], 0)} · EV ${fr(evs[a], 2)} bb</div>`).join('')}</div>
       <p class="note">Équité de ta main contre la range qui arrive ici : ${pct(info.eq[p][i], 1)}. Range adverse : ${fr(info.reach[1 - p].reduce((x, y) => x + y, 0), 1)} combos pondérés.</p>

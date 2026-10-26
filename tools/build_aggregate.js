@@ -44,6 +44,20 @@ const SCENS = {
   'srp-UTG-BB': { spot: 'UTG contre BB, pot simple, 100 bb', title: 'que fait UTG quand la grosse blinde check ?', actor: 'ip', oop: C.FACING.UTG.BB.call, ipr: C.RFI.UTG.range, pot: 5.5, stack: 97.5, resp: 'BB' },
   '3bp-BTN-BB': { spot: 'BB 3-bet contre BTN, pot 3-bet, 100 bb', title: 'que fait la grosse blinde (3-bettor, hors de position) au flop ?', actor: 'oop', oop: C.FACING.BTN.BB.threebet, ipr: CALL3_BTN, pot: 20.5, stack: 90, resp: 'BTN' },
 };
+// Les 16 scénarios du Solveur (mêmes ranges et tailles que l'onglet) : ceux qui ne sont pas définis ci-dessus sont générés.
+(function addAll() {
+  const ORDER = ['SB', 'BB', 'UTG', 'HJ', 'CO', 'BTN'];
+  const CALL3 = { UTG: 'JJ-99, AQs-AJs, KQs, AQo', HJ: 'JJ-88, AQs-ATs, KQs, KJs, QJs, JTs, AQo', CO: 'JJ-66, AQs-A9s, KQs-KTs, QJs, QTs, JTs, T9s, 98s, AQo, AJo, KQo', BTN: CALL3_BTN, SB: 'JJ-66, AQs-A8s, KQs-KTs, QJs, QTs, JTs, T9s, 98s, 87s, AQo, AJo, KQo' };
+  const mk = (id, x, y, agg, ra, rb, pot, stack, spot) => { if (SCENS[id]) return; const xOOP = ORDER.indexOf(x) < ORDER.indexOf(y), [oN, oR, iN, iR] = xOOP ? [x, ra, y, rb] : [y, rb, x, ra]; const aggOOP = agg === oN; SCENS[id] = { spot, title: aggOOP ? `que fait ${agg} (agresseur, hors de position) au flop ?` : `que fait ${agg} quand ${oN} check ?`, actor: aggOOP ? 'oop' : 'ip', oop: oR, ipr: iR, pot, stack, resp: aggOOP ? iN : oN }; };
+  for (const [x, y] of [['UTG', 'BB'], ['HJ', 'BB'], ['CO', 'BB'], ['BTN', 'BB'], ['SB', 'BB'], ['UTG', 'BTN'], ['HJ', 'BTN'], ['CO', 'BTN'], ['HJ', 'CO']]) {
+    const o = x === 'SB' ? 3 : 2.5, inH = [x, y], pot = 2 * o + (inH.includes('SB') ? 0 : 0.5) + (inH.includes('BB') ? 0 : 1);
+    mk(`srp-${x}-${y}`, x, y, x, C.RFI[x].range, C.FACING[x][y].call, pot, 100 - o, `${x} contre ${y}, pot simple, 100 bb`);
+  }
+  for (const [x, y] of [['BTN', 'BB'], ['BTN', 'SB'], ['CO', 'BTN'], ['CO', 'BB'], ['HJ', 'BTN'], ['UTG', 'BTN'], ['SB', 'BB']]) {
+    const o = x === 'SB' ? 3 : 2.5, yIP = ORDER.indexOf(y) > ORDER.indexOf(x), size = yIP ? 3 * o : x === 'SB' ? 3 * o : 4 * o, inH = [x, y], pot = 2 * size + (inH.includes('SB') ? 0 : 0.5) + (inH.includes('BB') ? 0 : 1);
+    mk(`3bp-${x}-${y}`, x, y, y, CALL3[x], C.FACING[x][y].threebet, pot, 100 - size, `${y} 3-bet contre ${x}, pot 3-bet, 100 bb`);
+  }
+})();
 const SC = SCENS[SCID]; if (!SC) { console.error('scénario inconnu', SCID); process.exit(1); }
 const ra = SC.oop, rb = SC.ipr; // index 0 = hors de position, 1 = en position
 const sizes = { flop: [{ bet: SC.actor === 'oop' ? '33 75' : '', raise: '60' }, { bet: '33 75', raise: '60' }], turn: [{ bet: '75', raise: '' }, { bet: '75', raise: '' }], river: [{ bet: '75', raise: '' }, { bet: '75', raise: '' }] };

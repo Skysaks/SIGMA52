@@ -274,7 +274,9 @@
       <section class="panel"><h2>Badges</h2><div class="badges">${BADGES.map(([n, d, f]) => { const ok = f(); return `<div class="bdg${ok ? ' on' : ''}"><b>${esc(n)}</b><span>${esc(d)}</span></div>`; }).join('')}</div></section>
       <section class="panel"><h2>Mes données</h2><p class="note">${Store.mode === 'db' ? 'Ta progression est enregistrée en ligne avec ton compte et sur cet appareil.' : 'Ta progression est enregistrée sur cet appareil.'} Exporte une sauvegarde pour la garder ou la transférer sur un autre appareil.</p>
         <div class="row"><button class="btn" data-act="dataexp">Exporter une sauvegarde (JSON)</button><label class="btn">Importer une sauvegarde<input type="file" accept=".json,application/json" data-imp="1" hidden></label><button class="btn small" data-act="onbreset">Revoir l'accueil guidé</button></div>
-        <p class="note" id="datamsg"></p></section>`;
+        <p class="note" id="datamsg"></p></section>
+      <section class="panel"><h2>Version hors ligne</h2><p class="note">Un fichier HTML unique (environ 5 Mo) qui s'ouvre dans n'importe quel navigateur, sans connexion ni compte : cours, exercices, solveurs, simulateurs. Dans ce fichier, la progression reste dans le navigateur qui l'ouvre ; pour la reprendre, exporte une sauvegarde ici puis importe-la dans la copie. Les fonctions en ligne (salles d'étude entre amis, classement, relecture par Claude) n'y sont pas disponibles.</p>
+        <div class="row"><button class="btn" data-act="offline">Télécharger pour le hors-ligne</button></div><p class="note" id="offmsg"></p></section>`;
   };
   X.streak = streak; X.sigmaScore = score;
   ACT.onbreset = () => { const p = prog(); p.onboard = false; p.track = null; Store.save('progress'); go('jour'); };
@@ -284,6 +286,19 @@
     const data = JSON.stringify({ app: 'SIGMA 52', version: 10, date: new Date().toISOString(), data: all }), filename = 'sigma52-sauvegarde-' + today() + '.json';
     try { const d = window.claude && (await window.claude.use('downloads')); if (d) { await d.save({ filename, data }); return; } } catch (e) { if (e && e.code === 'declined') return; }
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([data], { type: 'application/json' })); a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+  };
+  // Copie hors ligne : la page elle-même, sans les scripts ajoutés par l'hôte et avec la vue vidée (elle se reconstruit au chargement).
+  X.offlineHTML = () => {
+    const doc = document.documentElement.cloneNode(true);
+    doc.querySelectorAll('script:not([data-s52]), iframe').forEach((n) => n.remove());
+    const v = doc.querySelector('#view'); if (v) v.innerHTML = '';
+    doc.querySelectorAll('dialog[open]').forEach((d) => d.removeAttribute('open'));
+    return '<!doctype html>\n' + doc.outerHTML;
+  };
+  ACT.offline = async () => {
+    const msg = $('#offmsg'), data = new Blob([X.offlineHTML()], { type: 'text/html' }), filename = 'sigma52-hors-ligne-' + today() + '.html';
+    try { const d = window.claude && (await window.claude.use('downloads')); if (d) { await d.save({ filename, data }); if (msg) msg.textContent = 'Fichier proposé au téléchargement.'; return; } } catch (e) { if (e && e.code === 'declined') return; if (msg) msg.textContent = 'Téléchargement indisponible ici.'; }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(data); a.download = filename; document.body.appendChild(a); a.click(); a.remove();
   };
   document.addEventListener('change', async (e) => {
     const inp = e.target.closest && e.target.closest("[data-imp]"); if (!inp || !inp.files?.[0]) return;
