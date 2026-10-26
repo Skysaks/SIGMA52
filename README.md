@@ -168,6 +168,7 @@ node tools/compare_texassolver.js <console_solver> /tmp/ts   # validation extern
 - Défis : **série** jusqu'à la première erreur, record de la semaine partagé entre amis. Entre amis : **étude en direct** (salle, votes cachés puis révélés, spot du solveur partagé).
 - Analyse : archives **.zip PokerCraft** et **résumés de tournoi** GGPoker et Winamax lus et ajoutés au Journal. Main de légende Cada–Moon (WSOP 2009). **Copie hors ligne** téléchargeable.
 - Bots : moins d'abattages (WTSD du régulier ramené à 30 %, mises de « stab » au turn et à la river). Relecture des explications par Claude : désactivée par défaut (elle utilise le quota du spectateur).
+- Expresso : avec le bot régulier renforcé, le héros guidé par le conseil tapis/couché gagne 37,6 % des parties contre 37,2 % pour le bot régulier (4 × 250 parties, 33,3 % = niveau égal) : le conseil bat le niveau égal, il ne bat plus nettement le bot régulier.
 - Validation externe contre TexasSolver sur 20 spots (14 rivers, 6 turns) : écart moyen des fréquences agrégées 1,7 point à la racine, 2,3 après check, 1,0 face à la mise ; écart maximal 9,7 points ; distance main par main (variation totale) 4 à 6 %.
 
 ### Ajouté en v19
