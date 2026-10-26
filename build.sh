@@ -14,3 +14,4 @@ t = t.replace('/*__PFSRC__*/', wsrc)
 open('sigma52.html', 'w', encoding='utf-8').write(t)
 print('sigma52.html', len(t.encode()), 'octets')
 PY
+node tools/build_offline.js

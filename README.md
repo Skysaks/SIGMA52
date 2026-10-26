@@ -30,6 +30,10 @@ Labo de poker personnel, utilisé **hors table** : avant et après les sessions,
 
 Navigation par espaces (Aujourd'hui, Apprendre, Jouer, Étudier, Suivre) avec barre du bas sur mobile, recherche globale (Ctrl+K ou /), thème automatique, clair ou sombre, aide des raccourcis (?).
 
+## Copie hors ligne
+
+`SIGMA52-hors-ligne.html` : un seul fichier, à garder sur l'ordinateur ou une clé USB, qui s'ouvre en double-cliquant sans connexion, sans compte et sans Claude. Tout fonctionne (cours, exercices, solveurs, simulateurs, journal), polices comprises (intégrées, licence OFL) : aucune requête réseau à l'ouverture. Seules les fonctions de la page publiée manquent (classement et étude entre amis, relecture par Claude). La progression reste dans le navigateur qui ouvre le fichier : *Profil › Mes données* pour exporter et importer une sauvegarde JSON. Régénéré à chaque `./build.sh` (`node tools/build_offline.js`).
+
 ## Règle de fair-play
 
 Les rooms sanctionnent l'aide en temps réel (RTA) : fermeture du compte, solde confisqué. SIGMA 52 ne lit aucune table et se ferme avant chaque session. L'aide n'existe que dans la table d'entraînement, qui est un simulateur, et dans la Table live, réservée aux parties privées sans argent ou avec l'accord de tous les joueurs (consentement demandé à l'ouverture). Toute aide en temps réel reste interdite en ligne, en casino, en club et en tournoi. L'analyse ne porte que sur les mains jouées par l'utilisateur. **Ferme SIGMA 52 avant d'ouvrir le logiciel d'une room** : PokerStars interdit les outils de ranges, d'ICM et d'équilibre ouverts en même temps que son client, GGPoker interdit les HUD pendant le jeu.
