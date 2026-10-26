@@ -82,6 +82,21 @@
     // Rake : part du pot final, plafonnée (cfg.rake = { pct: 0.05, cap: 3 } en jetons) ; prélevé sur le pot gagné.
     const RK = cfg.rake && +cfg.rake.pct > 0 ? { pct: +cfg.rake.pct, cap: +cfg.rake.cap > 0 ? +cfg.rake.cap : Infinity } : null;
     const rakeOf = (C) => (RK ? Math.min(RK.cap, RK.pct * (P0 + C[0] + C[1])) : 0);
+    // ICM (tournoi) : cfg.icm = { stacks: tapis de tous les joueurs au début de la rue (jetons derrière), seats: [siège OOP, siège IP], payouts }.
+    // Les gains d'une issue deviennent la variation d'équité ICM (Malmuth-Harville), exprimée en jetons équivalents
+    // (× jetons totaux / prix totaux) et comptée depuis l'issue « je perds le pot sans rien remettre ».
+    const IC = cfg.icm && cfg.icm.payouts?.length && cfg.icm.stacks?.length && cfg.icm.seats ? cfg.icm : null;
+    let icmK = 1, icmBase = null;
+    const icmEq = (st) => { const n = st.length, pay = IC.payouts, val = new Array(n).fill(0), prob = new Map([[0, 1]]); const pc = (x) => { let c = 0; while (x) { x &= x - 1; c++; } return c; }; const order = [...Array(1 << n).keys()].sort((a, b) => pc(a) - pc(b)); for (const mask of order) { const pr = prob.get(mask); if (!pr) continue; const k = pc(mask); if (k >= pay.length || k >= n) continue; let rest = 0; for (let i = 0; i < n; i++) if (!(mask & (1 << i)) && st[i] > 0) rest += st[i]; if (!rest) continue; for (let i = 0; i < n; i++) if (!(mask & (1 << i)) && st[i] > 0) { const q = (pr * st[i]) / rest; val[i] += q * pay[k]; const m2 = mask | (1 << i); prob.set(m2, (prob.get(m2) || 0) + q); } } return val; };
+    const icmU = (p, mine, his) => { const st = IC.stacks.slice(); st[IC.seats[p]] = Math.max(0, mine); st[IC.seats[1 - p]] = Math.max(0, his); return icmEq(st)[IC.seats[p]] * icmK; };
+    if (IC) { const tot = IC.stacks.reduce((a, b) => a + b, 0) + P0, pz = IC.payouts.reduce((a, b) => a + b, 0); icmK = pz > 0 ? tot / pz : 1; icmBase = [0, 1].map((p) => icmU(p, IC.stacks[IC.seats[p]], IC.stacks[IC.seats[1 - p]] + P0)); }
+    // Valeurs d'une issue terminale pour p : [gagne, perd, partage], en ICM.
+    function icmVals(node, p) {
+      if (!node.iv) node.iv = [];
+      if (node.iv[p]) return node.iv[p];
+      const o = 1 - p, sp = IC.stacks[IC.seats[p]], so = IC.stacks[IC.seats[o]], C = node.C, rk = rakeOf(C), b = icmBase[p];
+      return (node.iv[p] = [icmU(p, sp + P0 + C[o] - rk, so - C[o]) - b, icmU(p, sp - C[p], so + P0 + C[p] - rk) - b, icmU(p, sp - C[p] + (P0 + C[0] + C[1] - rk) / 2, so - C[o] + (P0 + C[0] + C[1] - rk) / 2) - b]);
+    }
     if (!(P0 > 0)) throw new Error('Pot invalide');
     if (!(S >= 0)) throw new Error('Tapis invalide');
     const thr = cfg.allinThreshold ?? 0.67;          // une mise qui engage ≥ 67 % du tapis restant devient un tapis
@@ -99,6 +114,17 @@
     // Mains contenant la carte k.
     const withCard = [0, 1].map((p) => { const l = Array.from({ length: 52 }, () => []); hands[p].forEach(([a, b], i) => { l[a].push(i); l[b].push(i); }); return l.map((x) => Int32Array.from(x)); });
 
+    // ---- Isomorphisme de couleurs : permutations σ des couleurs qui laissent les deux ranges inchangées (poids compris). ----
+    // À un nœud de hasard, les cartes images l'une de l'autre par une σ qui fixe le board donnent des sous-arbres identiques
+    // à une permutation des mains près : on ne calcule que le représentant de chaque orbite (exact, pas une approximation).
+    const PERMS = []; (function gen(a, l) { if (!l.length) { PERMS.push(a); return; } l.forEach((x, i) => gen([...a, x], l.filter((_, j) => j !== i))); })([], [0, 1, 2, 3]);
+    const sc = (c, sg) => (c & ~3) | sg[c & 3];
+    const handIdx = [0, 1].map((p) => { const m = new Map(); hands[p].forEach(([a, b], i) => m.set(keyOf(a, b), i)); return m; });
+    const SYM = cfg.iso === false || cfg.include ? [] : PERMS.slice(1).map((sg) => {
+      const hp = [0, 1].map((p) => { const out = new Int32Array(N[p]); for (let i = 0; i < N[p]; i++) { const [a, b, w] = hands[p][i], j = handIdx[p].get(keyOf(sc(a, sg), sc(b, sg))); if (j === undefined || Math.abs(hands[p][j][2] - w) > 1e-9) return null; out[i] = j; } return out; });
+      return hp[0] && hp[1] ? { sg, hp, inv: sg.map((_, s2) => sg.indexOf(s2)) } : null;
+    }).filter(Boolean);
+    const stab = (cards) => { const set = new Set(cards); return SYM.filter((x) => cards.every((c) => set.has(sc(c, x.sg)))); };
     // ---- Boards de river : forces des mains ----
     const boards = [], boardId = new Map();
     function boardOf(cards) {
@@ -122,14 +148,18 @@
       if (nextCards.has(k)) return nextCards.get(k);
       const deck = []; for (let c = 51; c >= 0; c--) if (!cur.includes(c)) deck.push(c);
       const kk = cur.length === 3 ? sample?.turn : sample?.river;
-      const cards = sampleCards(deck, cur, kk, hashStr(k) ^ (cfg.seed || 7), cfg.include || []);
+      // Orbites des cartes sous les permutations qui fixent ce board ; l'échantillon porte sur les représentants (couverture plus large à coût égal).
+      const st = stab(cur), orbit = new Map(), repsOf = [];
+      for (const c of deck) { if (orbit.has(c)) continue; const g = { k: c, mem: [] }; orbit.set(c, g); repsOf.push(c); for (const x of st) { const m = sc(c, x.sg); if (!orbit.has(m)) { orbit.set(m, g); g.mem.push({ k: m, hp: x.hp }); } } }
+      const pickR = st.length ? sampleCards(repsOf, cur, kk, hashStr(k) ^ (cfg.seed || 7), (cfg.include || []).map((c) => orbit.get(c)?.k).filter((c) => c !== undefined)) : sampleCards(deck, cur, kk, hashStr(k) ^ (cfg.seed || 7), cfg.include || []);
+      const groups = pickR.map((c) => orbit.get(c) || { k: c, mem: [] }), cards = groups.flatMap((g) => [g.k, ...g.mem.map((m) => m.k)]).sort((a, b) => b - a);
       // Poids par main : exact si toutes les cartes sont distribuées, normalisé par main sinon.
       const D = deck.length, w = [0, 1].map((p) => {
         const out = new Float64Array(N[p]), set = new Set(cards);
         for (let i = 0; i < N[p]; i++) { const inS = (set.has(c1[p][i]) ? 1 : 0) + (set.has(c2[p][i]) ? 1 : 0), n = cards.length - inS; out[i] = n > 0 ? (D - 2) / ((D - 4) * n) : 0; }
         return out;
       });
-      const r = { cards, w, exact: cards.length === deck.length }; nextCards.set(k, r); return r;
+      const r = { cards, groups, w, exact: cards.length === deck.length }; nextCards.set(k, r); return r;
     }
 
     // ---- Construction de l'arbre ----
@@ -187,12 +217,17 @@
     }
     function chanceNode(cur, C, allin) {
       const d = dealCards(cur); if (!d.exact) approx = true;
-      const node = mk({ t: CHANCE, board: cur, C: C.slice(), cards: d.cards, w: d.w, ch: [], street: cur.length - 2 });
-      for (const k of d.cards) {
-        const nb = [...cur, k];
-        if (allin) node.ch.push(nb.length === 5 ? mk({ t: SHOW, C: C.slice(), bid: boardOf(nb), board: nb }) : chanceNode(nb, C, true));
-        else node.ch.push(actNode({ p: OOP, street: nb.length - 3, cards: nb, C: C.slice(), bets: [0, 0], nr: 0 }));
+      const node = mk({ t: CHANCE, board: cur, C: C.slice(), cards: d.cards, w: d.w, ch: [], street: cur.length - 2, grp: [] });
+      const childOf = new Map();
+      for (const g of d.groups) {
+        const nb = [...cur, g.k];
+        const child = allin ? (nb.length === 5 ? mk({ t: SHOW, C: C.slice(), bid: boardOf(nb), board: nb }) : chanceNode(nb, C, true)) : actNode({ p: OOP, street: nb.length - 3, cards: nb, C: C.slice(), bets: [0, 0], nr: 0 });
+        childOf.set(g.k, child); for (const m of g.mem) childOf.set(m.k, child);
+        node.grp.push({ k: g.k, mem: g.mem });
       }
+      node.ch = node.cards.map((c) => childOf.get(c));
+      // Carte membre d'une orbite -> représentant et permutation des mains (pour la navigation).
+      node.alias = new Map(); for (const g of d.groups) for (const m of g.mem) { const x = SYM.find((y) => y.hp === m.hp); node.alias.set(m.k, { rep: g.k, sym: x }); }
       return node;
     }
     const rootNode = S <= 1e-9
@@ -214,7 +249,7 @@
       return out;
     }
     function foldVal(node, p, ro) {
-      const out = compat(p, ro, get(p)), v = node.winner === p ? P0 + node.C[1 - p] - rakeOf(node.C) : -node.C[p];
+      const out = compat(p, ro, get(p)), v = IC ? icmVals(node, p)[node.winner === p ? 0 : 1] : node.winner === p ? P0 + node.C[1 - p] - rakeOf(node.C) : -node.C[p];
       for (let i = 0; i < N[p]; i++) out[i] *= v;
       return out;
     }
@@ -237,7 +272,7 @@
       }
     }
     function showVal(node, p, ro) {
-      const rk = rakeOf(node.C), out = compat(p, ro, get(p)), win = get(p), lose = get(p), c = node.C[p], vw = P0 + c - rk, vl = -c, vt = (P0 - rk) / 2;
+      const rk = rakeOf(node.C), out = compat(p, ro, get(p)), win = get(p), lose = get(p), c = node.C[p], iv = IC ? icmVals(node, p) : null, vw = iv ? iv[0] : P0 + c - rk, vl = iv ? iv[1] : -c, vt = iv ? iv[2] : (P0 - rk) / 2;
       showMass(node, p, ro, win, lose);
       for (let i = 0; i < N[p]; i++) out[i] = vw * win[i] + vl * lose[i] + vt * (out[i] - win[i] - lose[i]);
       rel(p, win); rel(p, lose);
@@ -254,6 +289,43 @@
       for (let a = 0; a < A; a++) { const b = a * n; for (let i = 0; i < n; i++) { const r = reg[b + i], t = s[i]; out[b + i] = t > 0 ? (r > 0 ? r / t : 0) : u; } }
       return out;
     }
+    // Profil de joueur sur tout l'arbre : à partir de la stratégie moyenne actuelle (l'équilibre), chaque nœud du joueur profilé
+    // est figé sur une version déformée par des transferts de probabilité entre types d'action, main par main :
+    // fp = part du couché transférée au passif (check / call), pf = passif -> couché, pa = passif -> agressif (mise, relance),
+    // ap = agressif -> passif. La masse reçue se répartit au prorata des actions déjà jouées du groupe (la plus petite mise sinon).
+    // L'autre joueur continue d'apprendre : sa stratégie moyenne repart de zéro (regrets conservés) pour refléter la meilleure réponse.
+    // (Déformer la stratégie en cours d'apprentissage ne servirait à rien : le regret matching compenserait la déformation.)
+    const grpOf = (a) => (a.k === 'f' ? 0 : a.k === 'x' || a.k === 'c' ? 1 : 2);
+    function deform(node, out, pr) {
+      const n = N[node.p], A = node.acts.length, G = node.acts.map(grpOf), first = [0, 1, 2].map((g) => G.indexOf(g));
+      const moves = [[0, 1, pr.fp || 0], [1, 0, pr.pf || 0], [1, 2, pr.pa || 0], [2, 1, pr.ap || 0]].filter(([x, y, t]) => t > 0 && first[x] >= 0 && first[y] >= 0);
+      if (!moves.length) return false;
+      const m = new Float64Array(3), d = new Float64Array(3);
+      for (let i = 0; i < n; i++) {
+        m.fill(0); for (let a = 0; a < A; a++) m[G[a]] += out[a * n + i];
+        d.fill(0); for (const [x, y, t] of moves) { const v = m[x] * t; d[x] -= v; d[y] += v; }
+        for (let g = 0; g < 3; g++) {
+          if (first[g] < 0 || d[g] === 0) continue;
+          if (m[g] > 1e-12) { const f = (m[g] + d[g]) / m[g]; for (let a = 0; a < A; a++) if (G[a] === g) out[a * n + i] *= f; }
+          else out[first[g] * n + i] += d[g];
+        }
+      }
+      return true;
+    }
+    function applyProfile(p, pr) {
+      let k = 0;
+      for (const node of nodes) {
+        if (node.t !== ACT) continue;
+        if (node.p === p) {
+          if (node.lock && !node.profLock) continue; // verrou manuel prioritaire
+          if (node.profLock) { node.lock = null; node.profLock = false; }
+          if (!pr) continue;
+          const out = average(node, new Float64Array(node.acts.length * N[p]));
+          if (deform(node, out, pr)) { node.lock = out; node.profLock = true; k++; }
+        } else if (pr) node.sum.fill(0);
+      }
+      return k;
+    }
     function average(node, out) {
       const n = N[node.p], A = node.acts.length;
       if (node.lock) { out.set(node.lock); return out; }
@@ -265,7 +337,7 @@
       return out;
     }
     const strat = new Map(); // tampons de stratégie par nœud
-    const sbuf = (node) => { let b = strat.get(node.id); if (!b) { b = new Float64Array(node.acts.length * N[node.p]); strat.set(node.id, b); } return b; };
+    const sbuf = (node) => { let b = strat.get(node.id); if (!b) { b = new Float32Array(node.acts.length * N[node.p]); strat.set(node.id, b); } return b; };
 
     function maskCopy(p, src, k) { const b = get(p); b.set(src); const l = withCard[p][k]; for (let i = 0; i < l.length; i++) b[l[i]] = 0; return b; }
 
@@ -277,12 +349,14 @@
       if (node.t === SHOW) return showVal(node, p, ro);
       if (node.t === CHANCE) {
         const out = get(p); out.fill(0);
-        const w = node.w[p];
-        for (let ci = 0; ci < node.cards.length; ci++) {
-          const k = node.cards[ci], rp2 = maskCopy(p, rp, k), ro2 = maskCopy(o, ro, k);
-          const v = walk(node.ch[ci], p, rp2, ro2, mode);
+        const w = node.w[p], np = N[p];
+        for (const g of node.grp) {
+          const k = g.k, rp2 = maskCopy(p, rp, k), ro2 = maskCopy(o, ro, k);
+          const v = walk(node.ch[node.cards.indexOf(k)], p, rp2, ro2, mode);
           const l = withCard[p][k]; for (let i = 0; i < l.length; i++) v[l[i]] = 0;
-          for (let i = 0; i < N[p]; i++) out[i] += v[i] * w[i];
+          for (let i = 0; i < np; i++) out[i] += v[i] * w[i];
+          // Membres de l'orbite : même sous-arbre, mains permutées (v_m(σ(i)) = v_rep(i)).
+          for (const m of g.mem) { const hp = m.hp[p]; for (let i = 0; i < np; i++) { const j = hp[i]; out[j] += v[i] * w[j]; } }
           rel(p, v); rel(p, rp2); rel(o, ro2);
         }
         return out;
@@ -345,27 +419,43 @@
     function exploitability() {
       let tot = 0; const br = [];
       for (let p = 0; p < 2; p++) { const v = walk(rootNode, p, w0[p], w0[1 - p], 1); br.push(meanValue(p, v, w0[p], w0[1 - p])); rel(p, v); }
-      tot = (br[0] + br[1] - P0) / 2;
+      // Jeu à somme constante (sans rake ni ICM) : la somme des valeurs vaut le pot. Sinon (rake, ICM), on mesure
+      // directement le gain de chaque meilleure réponse face à la valeur des stratégies moyennes.
+      if (!RK && !IC) tot = (br[0] + br[1] - P0) / 2;
+      else { for (let p = 0; p < 2; p++) { const v = walk(rootNode, p, w0[p], w0[1 - p], 2); tot += (br[p] - meanValue(p, v, w0[p], w0[1 - p])) / 2; rel(p, v); } }
       return { chips: tot, pct: (tot / P0) * 100, br };
     }
 
     // ---- Lecture d'un nœud : chemin = liste d'indices (actions ou cartes) ----
+    // Navigation : un chemin qui passe par une carte membre d'une orbite descend dans le sous-arbre du représentant ;
+    // pm[p][i] = indice réel de la main i du repère représentant, sg = permutation des couleurs repère -> réel.
     function locate(path) {
       let node = rootNode; const rch = [w0[0].slice(), w0[1].slice()]; const steps = [];
-      for (const x of path) {
+      let pm = null, sgm = [0, 1, 2, 3];
+      for (const x0 of path) {
         if (node.t === ACT) {
           const sg = average(node, new Float64Array(node.acts.length * N[node.p])), n = N[node.p];
-          for (let i = 0; i < n; i++) rch[node.p][i] *= sg[x * n + i];
-          steps.push({ node, a: x }); node = node.ch[x];
+          for (let i = 0; i < n; i++) rch[node.p][i] *= sg[x0 * n + i];
+          steps.push({ node, a: x0 }); node = node.ch[x0];
         } else if (node.t === CHANCE) {
+          const x = sc(x0, sgm.map((_, s2) => sgm.indexOf(s2))); // carte réelle -> repère courant
           const ci = node.cards.indexOf(x); if (ci < 0) throw new Error('Carte absente de l\'arbre');
-          const k = x;
-          for (let p = 0; p < 2; p++) for (const i of withCard[p][k]) rch[p][i] = 0;
+          for (let p = 0; p < 2; p++) for (const i of withCard[p][x]) rch[p][i] = 0;
+          const al = node.alias.get(x);
+          if (al) {
+            // Passage au repère du représentant : main i du repère représentant = main hp[i] du repère courant.
+            const hp = al.sym.hp, old = [rch[0].slice(), rch[1].slice()];
+            for (let p = 0; p < 2; p++) for (let i = 0; i < N[p]; i++) rch[p][i] = old[p][hp[p][i]];
+            const prev = pm || [Int32Array.from({ length: N[0] }, (_, i) => i), Int32Array.from({ length: N[1] }, (_, i) => i)];
+            pm = [0, 1].map((p) => Int32Array.from({ length: N[p] }, (_, i) => prev[p][hp[p][i]]));
+            sgm = sgm.map((_, s2) => sgm[al.sym.sg[s2]]);
+          }
           steps.push({ node, a: ci }); node = node.ch[ci];
         } else break;
       }
-      return { node, reach: rch, steps };
+      return { node, reach: rch, steps, pm, sgm };
     }
+    const toReal = (arr, pmp, n, A = 1) => { if (!pmp) return arr; const out = new arr.constructor(arr.length); for (let a = 0; a < A; a++) for (let i = 0; i < n; i++) out[a * n + pmp[i]] = arr[a * n + i]; return out; };
     // Équité (abattage sans autres mises) de chaque main de p contre la reach adverse, en parcourant les cartes restantes de l'arbre.
     function equityVec(cards, p, ro) {
       const o = 1 - p;
@@ -387,7 +477,17 @@
       return { num, den };
     }
     function info(path = []) {
-      const { node, reach, steps } = locate(path);
+      const L = locate(path), res0 = infoRaw(L);
+      if (!L.pm) return res0;
+      // Retour au repère réel : mains réindexées, board et cartes du nœud remis dans leurs vraies couleurs.
+      const { pm, sgm } = L, n0 = N[0], n1 = N[1], mapC = (c) => sc(c, sgm);
+      const node = Object.create(L.node); node.board = L.node.board.map(mapC); if (L.node.cards) node.cards = L.node.cards.map(mapC).sort((a, b) => b - a);
+      const r = { ...res0, node, board: node.board, reach: [toReal(res0.reach[0], pm[0], n0), toReal(res0.reach[1], pm[1], n1)], ev: [toReal(res0.ev[0], pm[0], n0), toReal(res0.ev[1], pm[1], n1)], eq: [toReal(res0.eq[0], pm[0], n0), toReal(res0.eq[1], pm[1], n1)] };
+      if (res0.strategy) { const p = L.node.p, A = L.node.acts.length; r.strategy = toReal(res0.strategy, pm[p], N[p], A); r.actEv = res0.actEv.map((v) => toReal(v, pm[p], N[p])); }
+      return r;
+    }
+    function infoRaw(Lc) {
+      const { node, reach, steps } = Lc;
       const res = { node, steps, reach, t: node.t, pot: P0 + node.C[0] + node.C[1], C: node.C.slice(), board: node.board };
       // EV et équité par main pour les deux joueurs (stratégies moyennes à partir de ce nœud).
       res.ev = []; res.eq = []; res.evMean = []; res.eqMean = []; res.mass = [];
@@ -427,12 +527,19 @@
       if (x.k === 'b') return `Miser ${f(add)} (${Math.round((add / node.pot) * 100)} %)`;
       return `Relancer à ${f(x.to)}`;
     }
-    function lock(path, strat) { const { node } = locate(path); if (node.t !== ACT) throw new Error('Pas un nœud de décision'); node.lock = strat ? Float64Array.from(strat) : null; }
+    function lock(path, strat) {
+      const { node, pm } = locate(path); if (node.t !== ACT) throw new Error('Pas un nœud de décision');
+      if (!strat) { node.lock = null; return; }
+      const n = N[node.p], A = node.acts.length, out = new Float64Array(A * n);
+      for (let a = 0; a < A; a++) for (let i = 0; i < n; i++) out[a * n + i] = strat[a * n + (pm ? pm[node.p][i] : i)];
+      node.lock = out;
+      return { shared: !!pm }; // passage par une carte symétrique : le verrou vaut aussi pour les cartes de la même orbite
+    }
     const stats = () => {
       let acts = 0, mem = 0; const cells = [0, 0]; for (const n of nodes) if (n.t === ACT) { acts++; mem += n.reg.length * 8; cells[n.p] += n.acts.length; }
       return { nodes: nodes.length, acts, cells, boards: boards.length, mb: mem / 1048576, approx, iterations: it };
     };
-    return { cfg, board, P0, S, N, hands, w0, root: rootNode, nodes, iterate, exploitability, info, label, locate, lock, stats, OOP, IP };
+    return { cfg, board, P0, S, N, hands, w0, root: rootNode, nodes, iterate, exploitability, info, label, locate, lock, applyProfile, stats, OOP, IP, sym: SYM.length, icm: IC ? { K: icmK, base: icmBase } : null };
   }
 
   // Estimation de la taille de l'arbre avant de le construire (nœuds de décision et mémoire), sans évaluer de mains.

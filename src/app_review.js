@@ -24,7 +24,7 @@
     const ranges = s.ranges.map((r) => PF.parseWeighted(r, s.board));
     if (!ranges[heroP].some((x) => same(x, h.heroCards[0], h.heroCards[1]))) ranges[heroP].push([h.heroCards[0], h.heroCards[1], 1]);
     const sizes = S.mergeExtraInto(S.presetSizes('fast', s.agg, s.board.length), s.extra);
-    const cfg = { board: s.board, pot: s.pot, stack: s.stack, ranges, sizes, maxRaises: Math.max(1, s.maxR), sample: s.board.length === 3 ? S.SAMPLES.fast : null, include: s.runout };
+    const cfg = { board: s.board, pot: s.pot, stack: s.stack, ranges, sizes, maxRaises: Math.max(1, s.maxR), sample: s.board.length === 3 ? { turn: 8, river: 6 } : null, include: s.runout };
     const job = POOL.solve(cfg, { pct: 1.5, maxMs: 20000 });
     try {
       await job.ready;

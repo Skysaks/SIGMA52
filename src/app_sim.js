@@ -127,6 +127,7 @@
         const sev = Co.severity ? Co.severity(a, type, gr) : (gr.ok ? null : 'petite');
         g.decisions.push({ hand: t.handNo, street: t.street, pos: a.pos, cards: hero.cards.slice(), board: t.board.slice(), act: type, rec: a.rec, recTxt: REC_FR(a, t), ok: gr.ok, note: gr.note, cats: a.cats, why: a.why, eq: a.eq, need: a.need, sev });
         if (g.mode === 'errors' && sev === 'grave') g.stopErr = g.decisions[g.decisions.length - 1];
+        X.logDay?.('dec', { ok: gr.ok, sev });
         const cs = state.progress.coach;
         a.cats.forEach((c) => { const x = cs[c] || (cs[c] = { ok: 0, n: 0 }); x.n++; if (gr.ok) x.ok++; });
         X.award?.('decision', { cats: a.cats, ok: gr.ok, champ: g.champ });
@@ -178,7 +179,7 @@
 
   // ---- Table cash : préparation, jeu avec coach, bilan ----
   const OBJ_MOD = { rfi: 'preflop', iso: 'fish', pfdef: 'preflop2', odds: 'maths', value: 'fish', nobluff: 'fish', bluff: 'postflop' };
-  const prep = { lineup: 'fish', target: 50, mode: 'live', objectives: new Set(['rfi', 'odds', 'value']), straddle: false, ante: 0, bomb: 0 };
+  const prep = { lineup: 'fish', target: 50, mode: 'live', objectives: new Set(['rfi', 'odds', 'value']), straddle: false, ante: 0, bomb: 0, clock: 0 };
   let cash = null, showProfiles = false;
   const sessionDone = () => sub === 'table' && cash && cash.target && cash.tb.done && cash.tb.session.hands >= cash.target;
   SIMVIEWS.table = () => {
@@ -189,6 +190,7 @@
         <div class="row"><span class="note">Coach :</span>${[['live', 'En direct (conseil avant chaque décision)'], ['errors', 'Seulement en cas d\'erreur (une erreur grave arrête la main)'], ['exam', 'Examen (correction après la main)'], ['free', 'Sans aide']].map(([k, l]) => `<button class="chip" aria-pressed="${prep.mode === k}" data-act="prepm" data-v="${k}">${l}</button>`).join('')}</div>
         <div class="row"><span class="note">Règles live :</span><button class="chip" aria-pressed="${prep.straddle}" data-act="prepx" data-k="straddle">Straddle (UTG met 2 bb)</button>${[[0, 'Sans ante'], [0.1, 'Ante 0,1 bb'], [0.25, 'Ante 0,25 bb']].map(([v, l]) => `<button class="chip" aria-pressed="${prep.ante === v}" data-act="prepa" data-v="${v}">${l}</button>`).join('')}${[[0, 'Pas de bomb pot'], [5, 'Bomb pot toutes les 5 mains'], [10, 'Toutes les 10']].map(([v, l]) => `<button class="chip" aria-pressed="${prep.bomb === v}" data-act="prepb" data-v="${v}">${l}</button>`).join('')}</div>
         ${prep.straddle || prep.ante || prep.bomb ? '<p class="note">Bomb pot : chacun met 2 bb, pas de tour préflop, le flop arrive tout de suite (pot multiway gonflé : joue plus serré sans les tirages faibles). Straddle : le préflop se joue à 2 bb, les ranges d\'ouverture se resserrent. Ante : plus d\'argent mort, les vols deviennent rentables plus large.</p>' : ''}
+        <div class="row"><span class="note">Chrono par décision :</span>${[[0, 'Sans'], [20, '20 s'], [10, '10 s']].map(([v, l]) => `<button class="chip" aria-pressed="${prep.clock === v}" data-act="prepc" data-v="${v}">${l}</button>`).join('')}<span class="note">Temps écoulé : check si possible, sinon couché (comme en ligne).</span></div>
         <div><span class="note">Objectifs suivis :</span><div class="row" style="margin-top:6px">${Object.entries(Co.CATS).filter(([k]) => k !== 'pushfold').map(([k, l]) => `<button class="chip" aria-pressed="${prep.objectives.has(k)}" data-act="prepo" data-v="${k}">${l}</button>`).join('')}</div></div>
         <div class="warnbox"><strong>Avant de jouer, relis :</strong> ${[...new Set([...prep.objectives].map((o) => OBJ_MOD[o]).filter(Boolean))].map((id) => { const m = K.MODULES.find((x) => x.id === id); return m ? `<button class="btn small" data-act="openmod" data-id="${id}">${esc(m.title)}</button>` : ''; }).join(' ') || '—'}</div>
         <div class="row"><button class="btn primary" data-act="cashstart">Lancer la session</button></div></section>
@@ -199,7 +201,8 @@
     let out = `<div class="row"><span class="pill acc">${cash.target ? `Main ${Math.min(t.session.hands + (t.done ? 0 : 1), cash.target)}/${cash.target}` : `Main ${t.session.hands + (t.done ? 0 : 1)}`}</span>${t.bomb ? '<span class="pill bad">Bomb pot</span>' : t.straddled >= 0 ? '<span class="pill">Straddle</span>' : ''}<span class="pill">${{ live: 'Coach en direct', errors: 'Coach sur erreur', exam: 'Mode examen', free: 'Sans aide' }[cash.mode]}</span>
       <label class="check"><input type="checkbox" id="showprof" data-act="showprof" ${showProfiles ? 'checked' : ''}><span class="note">Profils visibles</span></label><button class="btn small" data-act="cashstop" style="margin-left:auto">Terminer la session</button></div>
       ${cash.champ && X.champBanner ? X.champBanner(cash) : ''}${cash.stopErr ? stopErrHTML(cash.stopErr) : ''}${tableHTML(t, { showProfiles: showProfiles && !cash.champ?.hidden })}`;
-    if (L) out += `<section class="panel"><span class="eyebrow">À toi · ${TS.posName(t, 0)} · ${E.abstractOf(t.players[0].cards[0], t.players[0].cards[1])}</span>${actionsHTML(t)}</section>` + (cash.mode === 'live' ? coachHTML(adviceFor(cash), t) + rangeAdvHTML(cash) : '');
+    if (L) { armClock(cash); out += `<section class="panel"><span class="eyebrow">À toi · ${TS.posName(t, 0)} · ${E.abstractOf(t.players[0].cards[0], t.players[0].cards[1])}</span>${cash.clock ? ` <span class="pill bad mono" id="simclock">${Math.max(0, Math.ceil((cash.clockEnd - Date.now()) / 1000))} s</span>` : ''}${actionsHTML(t)}</section>`; }
+    if (L) out += '' + (cash.mode === 'live' ? coachHTML(adviceFor(cash), t) + rangeAdvHTML(cash) : '');
     if (t.done && t.notes) {
       const n = t.notes, finished = sessionDone();
       out += `<section class="panel"><div class="row" style="justify-content:space-between"><h2>Débrief : ${n.net >= 0 ? '+' : '−'}${fr(Math.abs(n.net), 1)} bb</h2><div class="row"><button class="btn small" data-act="libtable">Sauvegarder la main</button><button class="btn small" data-act="rptable">Rejouer</button>${finished ? '' : '<button class="btn primary" data-act="cashnext">Main suivante <span style="opacity:.7">Entrée</span></button>'}</div></div>
@@ -221,6 +224,19 @@
       <div class="advice">${[d.note, ...d.why].filter(Boolean).map((w) => `<div>${esc(w)}</div>`).join('')}</div><div class="row"><button class="btn primary" data-act="stoperrok">Compris, continuer</button></div></section>`;
   }
   ACT.stoperrok = () => { if (cash) cash.stopErr = null; render(); };
+  // Chrono de décision au simulateur : la même pression qu'en ligne.
+  let clockInt = null;
+  function armClock(g) {
+    if (!g.clock) return; const key = g.tb.handNo + ':' + g.tb.seq.length;
+    if (g.clockKey === key) return; g.clockKey = key; g.clockEnd = Date.now() + g.clock * 1000;
+    if (clockInt) clearInterval(clockInt);
+    clockInt = setInterval(() => {
+      const el = $('#simclock'), t = g.tb;
+      if (X.getTab() !== 'sim' || sub !== 'table' || t.done || t.toAct !== 0 || g.clockKey !== t.handNo + ':' + t.seq.length) { clearInterval(clockInt); clockInt = null; return; }
+      const left = Math.max(0, Math.ceil((g.clockEnd - Date.now()) / 1000)); if (el) el.textContent = left + ' s';
+      if (left <= 0) { clearInterval(clockInt); clockInt = null; g.timeouts = (g.timeouts || 0) + 1; decide(g, t.legal().canCheck ? 'check' : 'fold'); }
+    }, 250);
+  }
   function catTable(decisions, highlight) {
     const by = {}; decisions.forEach((d) => d.cats.forEach((c) => { const x = by[c] || (by[c] = { ok: 0, n: 0 }); x.n++; if (d.ok) x.ok++; }));
     const rows = Object.entries(Co.CATS).filter(([k]) => by[k]);
@@ -242,13 +258,14 @@
   }
   ACT.prepl = (t) => { prep.lineup = t.dataset.v; render(); };
   ACT.prepx = () => { prep.straddle = !prep.straddle; render(); };
+  ACT.prepc = (t) => { prep.clock = +t.dataset.v; render(); };
   ACT.prepa = (t) => { prep.ante = +t.dataset.v; render(); };
   ACT.prepb = (t) => { prep.bomb = +t.dataset.v; render(); };
   ACT.prept = (t) => { prep.target = +t.dataset.v; render(); };
   ACT.prepm = (t) => { prep.mode = t.dataset.v; render(); };
   ACT.prepo = (t) => { const v = t.dataset.v; prep.objectives.has(v) ? prep.objectives.delete(v) : prep.objectives.add(v); render(); };
   ACT.cashstart = () => {
-    cash = { kind: 'cash', tb: new TS.Table({ lineup: LINEUPS[prep.lineup], straddle: prep.straddle, anteBB: prep.ante, bombEvery: prep.bomb }), mode: prep.mode, target: prep.target, objectives: new Set(prep.objectives), decisions: [], adv: null };
+    cash = { clock: prep.clock, kind: 'cash', tb: new TS.Table({ lineup: LINEUPS[prep.lineup], straddle: prep.straddle, anteBB: prep.ante, bombEvery: prep.bomb }), mode: prep.mode, target: prep.target, objectives: new Set(prep.objectives), decisions: [], adv: null };
     nextHand(cash);
   };
   ACT.cashnext = () => { if (!sessionDone()) nextHand(cash); };
@@ -353,13 +370,22 @@
     }).join('');
     return `<div class="row"><button class="btn small" data-act="gdclose">← Toutes les mains guidées</button><span class="eyebrow">${esc(sc.title)} · décision ${k + 1} sur ${sc.steps.length}</span></div>
       ${k === 0 ? `<p class="lead">${esc(sc.intro)}</p>` : ''}
+      <div class="row"><span class="note">Aide :</span>${[['steps', 'Étapes données'], ['hints', 'Indice sur demande'], ['none', 'Question seule']].map(([v, l]) => `<button class="chip" aria-pressed="${gdLevel() === v}" data-act="gdlvl" data-v="${v}">${l}</button>`).join('')}<span class="note">${gdAuto() !== gdLevel() ? `Niveau conseillé d'après tes résultats : ${{ steps: 'étapes données', hints: 'indice sur demande', none: 'question seule' }[gdAuto()]}.` : ''}</span></div>
       <div class="felt"><div class="row" style="justify-content:space-between"><span class="eyebrow">${{ pre: 'Préflop', flop: 'Flop', turn: 'Turn', river: 'River' }[st.street]} · pot ${String(st.pot).replace('.', ',')} bb${st.toCall ? ` · à payer ${String(st.toCall).replace('.', ',')} bb` : ''}</span><span class="pill">${esc(sc.villain.name)} · ${esc(sc.villain.profile)} · ${esc(sc.villain.pos)}</span></div>
         ${info.board.length ? cardsHTML(info.board) : ''}<span class="eyebrow">Ta main · ${esc(sc.pos)}</span>${cardsHTML(info.hero)}</div>
-      <section class="panel"><p style="font-size:17px">${esc(st.story)}</p><div class="opts">${opts}</div>
+      <section class="panel"><p style="font-size:17px">${esc(st.story)}</p>
+        ${a === undefined && (gdLevel() === 'steps' || (gdLevel() === 'hints' && gd.hint === k)) ? `<div class="advice"><div><strong>${gdLevel() === 'steps' ? 'Raisonne en trois étapes' : 'Indice'}.</strong> ${gdLevel() === 'steps' ? `1. Quelle range pour ${esc(sc.villain.name)} (${esc(sc.villain.profile)}, ${esc(sc.villain.pos)}) avec cette action ? 2. Les chiffres : ` : ''}${esc(/^(Solveur|En jetons)/.test(info.line) ? 'Tapis ou couché : ta main est-elle dans la range de Nash à ce tapis ? Si des places payées sont en jeu, l\'ICM resserre les calls.' : info.line)}${gdLevel() === 'steps' ? ' 3. Compare ton équité à la cote, puis demande-toi ce que paie ce profil.' : ''}</div></div>` : ''}
+        ${a === undefined && gdLevel() === 'hints' && gd.hint !== k ? '<div class="row"><button class="btn small" data-act="gdhint">Voir un indice</button></div>' : ''}
+        <div class="opts">${opts}</div>
         ${a !== undefined ? `<div class="verdict ${G.optionGrade(sc, k, a, info) === 2 ? 'good' : G.optionGrade(sc, k, a, info) === 1 ? '' : 'bad'}" style="background:var(--sunk)"><b>${esc(info.line)}</b></div>
           <div class="advice">${st.options.map((o, oi) => { const grd = G.optionGrade(sc, k, oi, info); return `<div class="${grd === 2 ? 'good' : grd === 1 ? 'warn' : 'bad'}"><strong>${esc(o[0])}</strong> : ${esc(o[2])}</div>`; }).join('')}</div>
           <div class="row"><button class="btn primary" data-act="gdnext">${k + 1 < sc.steps.length ? 'Décision suivante' : 'Voir le bilan'}</button></div>` : ''}</section>`;
   };
+  // Aide qui s'estompe : étapes données, puis indice sur demande, puis question seule, selon tes scores aux mains guidées.
+  const gdLevel = () => state.settings.gdLevel || gdAuto();
+  function gdAuto() { const v = Object.values(state.progress.guided || {}); if (v.length < 3) return 'steps'; const m = v.reduce((a, b) => a + b, 0) / v.length; return m >= 0.9 ? 'none' : m >= 0.75 ? 'hints' : 'steps'; }
+  ACT.gdlvl = (t) => { state.settings.gdLevel = t.dataset.v; save('settings'); render(); };
+  ACT.gdhint = () => { gd.hint = gd.k; gd.hints = (gd.hints || 0) + 1; render(); };
   ACT.gdopen = (t) => { gd = { id: t.dataset.id, k: 0, ans: {}, info: {} }; sub = 'guided'; go('sim'); };
   ACT.gdclose = () => { gd = null; render(); };
   ACT.gdans = (t) => {

@@ -5,6 +5,10 @@
 const E = require('../src/engine.js'), C = require('../src/charts.js'), PF = require('../src/postflop.js'), B = require('../src/board.js');
 const fs = require('fs'), path = require('path');
 const NF = +(process.argv[2] || 48), MAXS = +(process.argv[3] || 90), ONLY = process.argv[4] || '', SCID = process.argv[5] || 'srp-BTN-BB';
+// Échantillon de turns × rivers (ex. 24x16) ; au-delà de 8x6, les stratégies par classe de mains sont aussi enregistrées (bibliothèque de flops).
+const SMP = (process.argv[6] || '8x6').split('x').map(Number), LIB = SMP[0] > 8, TARGET = +(process.argv[7] || 1);
+const ALPH = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_';
+function classStrat(g, info) { const node = info.node, p = node.p, H = g.hands[p], n = H.length, A = node.acts.length, acc = new Map(); for (let i = 0; i < n; i++) { const w = info.reach[p][i]; if (w <= 0) continue; const h = E.abstractOf(H[i][0], H[i][1]); let x = acc.get(h); if (!x) acc.set(h, x = { w: 0, f: new Array(A).fill(0) }); x.w += w; for (let a = 0; a < A; a++) x.f[a] += w * info.strategy[a * n + i]; } return { act: node.acts.map((_, a) => g.label(node, a)), k: node.acts.map((a) => a.k), s: node.acts.map((_, a) => E.ALL169.map((h) => { const x = acc.get(h); return x ? ALPH[Math.round((x.f[a] / x.w) * 63)] : '.'; }).join('')) }; }
 // ---- Les 1 755 flops stratégiquement distincts et leur poids ----
 function canon(cards) {
   // forme canonique par permutation des couleurs
@@ -46,13 +50,17 @@ const sizes = { flop: [{ bet: SC.actor === 'oop' ? '33 75' : '', raise: '60' }, 
 const CATS = ['Deux paires et mieux', 'Top paire, overpair', 'Paire moyenne ou faible', 'Tirage', 'Rien'];
 const catOf = (h, board) => { const k = B.classify(h, board); return k.made <= 7 ? 0 : k.made <= 9 ? 1 : k.made <= 11 ? 2 : k.draws.some((d) => d <= 1) ? 3 : 4; };
 const out = [];
+// Reprise : une bibliothèque interrompue repart des flops déjà résolus.
+if (LIB && !ONLY) { const f = path.join(__dirname, 'data/lib_' + SCID + '.json'); if (fs.existsSync(f)) { const prev = JSON.parse(fs.readFileSync(f, 'utf8')); if (prev.sample === SMP.join('x')) out.push(...prev.flops); } }
+const done = new Set(out.map((f) => f.b));
 const t00 = Date.now();
 for (const f of pick) {
   const board = f.cards.slice(), str = board.map(E.cardStr).join('');
   if (ONLY && ONLY !== '1' && str !== ONLY) continue;
-  const g = PF.create({ board, pot: SC.pot, stack: SC.stack, ranges: [ra, rb], sizes, maxRaises: 1, sample: { turn: 8, river: 6 } });
+  if (done.has(str)) continue;
+  const g = PF.create({ board, pot: SC.pot, stack: SC.stack, ranges: [ra, rb], sizes, maxRaises: 1, sample: { turn: SMP[0], river: SMP[1] } });
   const t0 = Date.now(); let ex = null, it = 0;
-  while (true) { g.iterate(1); it++; if (it % 15 === 0) { ex = g.exploitability(); if (ex.pct <= 1 || (Date.now() - t0) / 1000 > MAXS) break; } }
+  while (true) { g.iterate(1); it++; if (it % 15 === 0) { ex = g.exploitability(); if (ex.pct <= TARGET || (Date.now() - t0) / 1000 > MAXS) break; } }
   // Nœud étudié : le joueur en position après le check (pot simple), ou le premier à parler (3-bettor hors de position).
   const root = g.info([]), ck = root.node.acts.findIndex((a) => a.k === 'x');
   const path1 = SC.actor === 'ip' ? [ck] : [];
@@ -65,10 +73,10 @@ for (const f of pick) {
   const small = n1.node.acts.findIndex((a) => a.k !== 'x');
   const n2 = g.info([...path1, small]), l2 = n2.node.acts.map((_, a) => g.label(n2.node, a));
   out.push({ b: str, w: f.gw, t: f.tags, act: labels, f: n1.freq.map((x) => +x.toFixed(3)), eq: +n1.eqMean[p].toFixed(3), ev: +((n1.evMean[p]) / SC.pot).toFixed(3),
-    cat: byCat.map((x) => [+(x.w / tw).toFixed(3), x.w > 0 ? +(x.bet / x.w).toFixed(3) : null]), bb: { act: l2, f: n2.freq.map((x) => +x.toFixed(3)) }, ex: +ex.pct.toFixed(2), it, s: Math.round((Date.now() - t0) / 1000) });
+    cat: byCat.map((x) => [+(x.w / tw).toFixed(3), x.w > 0 ? +(x.bet / x.w).toFixed(3) : null]), bb: { act: l2, f: n2.freq.map((x) => +x.toFixed(3)) }, ex: +ex.pct.toFixed(2), it, s: Math.round((Date.now() - t0) / 1000), ...(LIB ? { lib: { n1: classStrat(g, n1), n2: classStrat(g, n2) } } : {}) });
   console.log(out.length + '/' + pick.length, str, labels.join('/'), n1.freq.map((x) => (x * 100).toFixed(0)).join('/'), 'expl', ex.pct.toFixed(2) + '%', it + ' it', Math.round((Date.now() - t0) / 1000) + ' s');
   if (ONLY === '1') break;
-  if (!ONLY) { fs.mkdirSync(path.join(__dirname, 'data'), { recursive: true }); fs.writeFileSync(path.join(__dirname, 'data/agg_' + SCID + '.json'), JSON.stringify({ id: SCID, spot: SC.spot, title: SC.title, actor: SC.actor, resp: SC.resp, cats: CATS, flops: out, total: flops.length, built: new Date().toISOString().slice(0, 10) })); assemble(); }
+  if (!ONLY) { fs.mkdirSync(path.join(__dirname, 'data'), { recursive: true }); fs.writeFileSync(path.join(__dirname, 'data/' + (LIB ? 'lib_' : 'agg_') + SCID + '.json'), JSON.stringify({ id: SCID, spot: SC.spot, title: SC.title, actor: SC.actor, resp: SC.resp, cats: CATS, flops: out, total: flops.length, sample: SMP.join('x'), built: new Date().toISOString().slice(0, 10) })); if (!LIB) assemble(); else assembleLib(); }
 }
 console.log('total', Math.round((Date.now() - t00) / 1000), 's');
 
@@ -87,4 +95,16 @@ function assemble() {
   const D = { ...list[0], scenarios: list };
   fs.writeFileSync(out, '// Généré par tools/build_aggregate.js : rapports agrégés (flop 33 % / 75 %, turn et river simplifiés à 75 %).\n(function (root) { const D = ' + JSON.stringify(D) + ";\n  if (typeof module !== 'undefined' && module.exports) module.exports = D; else root.AggregateData = D; })(typeof window !== 'undefined' ? window : globalThis);\n");
 }
+// Bibliothèque : stratégies par classe de mains (nœud étudié et réponse à la petite mise) ; le rapport agrégé est reconstruit avec ces solves plus précis.
+function assembleLib() {
+  const dir = path.join(__dirname, 'data'), list = [];
+  for (const id of Object.keys(SCENS)) { const f = path.join(dir, 'lib_' + id + '.json'); if (fs.existsSync(f)) list.push(JSON.parse(fs.readFileSync(f, 'utf8'))); }
+  const L = { alph: ALPH, scenarios: list.map((x) => ({ id: x.id, sample: x.sample, actor: x.actor, flops: x.flops.map((f) => ({ b: f.b, ex: f.ex, n1: f.lib.n1, n2: f.lib.n2 })) })) };
+  fs.writeFileSync(path.join(__dirname, '../src/flop_library.js'), '// Généré par tools/build_aggregate.js : bibliothèque de flops résolus hors ligne (stratégies par classe de mains).\n(function (root) { const L = ' + JSON.stringify(L) + ";\n  if (typeof module !== 'undefined' && module.exports) module.exports = L; else root.FlopLibrary = L; })(typeof window !== 'undefined' ? window : globalThis);\n");
+  // Rapport agrégé reconstruit à partir des solves de la bibliothèque (mêmes champs, précision supérieure).
+  if (ONLY !== 'assemblelib') return; // le rapport agrégé n'est reconstruit qu'une fois la bibliothèque complète
+  for (const x of list) { const y = { ...x, flops: x.flops.map(({ lib, ...r }) => r) }; fs.writeFileSync(path.join(dir, 'agg_' + x.id + '.json'), JSON.stringify(y)); }
+  assemble();
+}
 if (ONLY === 'assemble') assemble();
+if (ONLY === 'assemblelib') assembleLib();

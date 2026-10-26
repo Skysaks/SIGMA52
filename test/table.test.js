@@ -85,4 +85,13 @@ t('règles live : straddle, ante, bomb pot — jetons conservés, historique rel
     assert(Math.abs(hs - a.me.netBB) < 1e-6 && a.pool.hands === 600 * 5);
   }
 });
+t('bots recalibrés : le régulier ressemble à une population réelle (3 000 mains, noms uniques)', () => {
+  const tb = new T.Table({ random: E.rng(9), lineup: ['reg', 'reg', 'reg', 'reg', 'reg'] }); tb.players.forEach((p, i) => { if (i) p.name = 'reg_' + i; }); const parts = [];
+  for (let h = 1; h <= 3000; h++) { tb.newHand(); let k = 0; while (!tb.done && k++ < 300) { tb.runBots(); if (!tb.done) tb.autoHero('reg'); } if (h % 300 === 0) parts.push(tb.exportHH()); }
+  const P = H.analyze(parts.join('\n\n')).pool, r = (x, n) => x / n;
+  const st = { vpip: r(P.vpip, P.hands), pfr: r(P.pfr, P.hands), f3: r(P.f3, P.f3Opp), cbet: r(P.cbet, P.cbetOpp), ftc: r(P.ftc, P.ftcOpp) };
+  console.log('    régulier : ' + Object.entries(st).map(([k, v]) => k + ' ' + Math.round(v * 100) + ' %').join(' · '));
+  assert(st.vpip > 0.18 && st.vpip < 0.29 && st.pfr > 0.13 && st.pfr < 0.24, JSON.stringify(st));
+  assert(st.f3 > 0.4 && st.f3 < 0.65 && st.cbet > 0.45 && st.cbet < 0.66 && st.ftc > 0.33 && st.ftc < 0.56, JSON.stringify(st));
+});
 console.log(n, 'tests passés au total');

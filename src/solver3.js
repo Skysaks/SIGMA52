@@ -1,7 +1,9 @@
 // Solveur à trois joueurs SIGMA 52 (Hold'em, après le flop) — CFR vectorisé par main, mises simplifiées.
 // Simplification assumée : les cartes d'une main sont retirées exactement de chacune des deux ranges adverses,
-// mais les deux adversaires sont supposés indépendants entre eux (leurs blockers mutuels sont ignorés).
-// C'est l'approximation habituelle des solveurs multiway rapides : l'erreur est faible devant celle des ranges.
+// et la masse jointe des deux adversaires est exacte : A_i = Σ r_j r_k sur les paires (j, k) compatibles avec i ET entre elles,
+// calculée par inclusion-exclusion avec des tables par carte et par paire de cartes (O(52 N) par nœud).
+// La répartition gagne / partage / perd est celle du produit indépendant, remise à l'échelle par ρ_i = A_i / (M_j M_k) :
+// la masse totale (donc la somme des EV) est exacte, la répartition reste une approximation fine.
 // En jeu à trois, CFR ne garantit plus un équilibre de Nash : on mesure la qualité par le gain maximal
 // qu'un joueur obtiendrait en déviant seul (meilleure réponse contre les deux autres), en % du pot.
 (function (root) {
@@ -17,6 +19,7 @@
     if (board.length < 3 || board.length > 5) throw new Error('Board de 3 à 5 cartes');
     if (new Set(board).size !== board.length) throw new Error('Carte du board en double');
     const P0 = +cfg.pot, S = +cfg.stack; if (!(P0 > 0)) throw new Error('Pot invalide'); if (!(S > 0)) throw new Error('Tapis invalide');
+    const exact = cfg.exactBlockers !== false;
     const thr = cfg.allinThreshold ?? 0.67, maxRaises = cfg.maxRaises ?? 1, sample = cfg.sample || null;
     const sizes = {}; for (const st of STREET) { const s = cfg.sizes?.[st] || DEFAULT_SIZES[st]; sizes[st] = { bet: PF.parseSizes(s.bet), raise: PF.parseSizes(s.raise) }; }
     const hands = [0, 1, 2].map((p) => { const r = cfg.ranges[p]; return Array.isArray(r) ? r.filter(([a, b]) => !board.includes(a) && !board.includes(b)) : PF.parseWeighted(r, board); });
@@ -113,6 +116,27 @@
       for (let i = 0; i < N[p]; i++) out[i] = tot - cardTot[c1[p][i]] - cardTot[c2[p][i]] + (sm[i] >= 0 ? ro[sm[i]] : 0);
       return out;
     }
+    // Masse jointe exacte des deux adversaires j et k compatibles avec la main i et entre eux (voir l'en-tête).
+    const Kc = new Float64Array(52), Kp = new Float64Array(52 * 52), Jc = new Float64Array(52), Jp = new Float64Array(52 * 52), Gc = new Float64Array(52);
+    function joint(p, R, Mj, Mk, out) {
+      const [j, k] = [0, 1, 2].filter((q) => q !== p), rj = R[j], rk = R[k];
+      Kc.fill(0); Kp.fill(0); Jc.fill(0); Jp.fill(0); Gc.fill(0);
+      for (let x = 0; x < N[k]; x++) { const r = rk[x]; if (!r) continue; const a = c1[k][x], b = c2[k][x]; Kc[a] += r; Kc[b] += r; Kp[a * 52 + b] += r; Kp[b * 52 + a] += r; }
+      for (let x = 0; x < N[j]; x++) { const r = rj[x]; if (!r) continue; const a = c1[j][x], b = c2[j][x]; Jc[a] += r; Jc[b] += r; Jp[a * 52 + b] += r; Jp[b * 52 + a] += r; }
+      // g_x = r_x × masse de k qui chevauche la main x de j ; somme sur les x compatibles avec i par inclusion-exclusion.
+      let G = 0; const g = get(j);
+      for (let x = 0; x < N[j]; x++) { const r = rj[x]; if (!r) { g[x] = 0; continue; } const a = c1[j][x], b = c2[j][x], v = r * (Kc[a] + Kc[b] - Kp[a * 52 + b]); g[x] = v; G += v; Gc[a] += v; Gc[b] += v; }
+      const sm = same[p][j];
+      for (let i = 0; i < N[p]; i++) {
+        const a = c1[p][i], b = c2[p][i];
+        const t1 = G - Gc[a] - Gc[b] + (sm[i] >= 0 ? g[sm[i]] : 0);
+        // Retrait des k qui touchent aussi la main i (déjà exclus de M_k) : Σ_{y ∈ i} Σ_{x ∉ i} K(x, y) × (masse de j contenant x et compatible avec i).
+        let t2 = 0;
+        for (let yy = 0; yy < 2; yy++) { const y = yy ? b : a, L = withCard[k][y]; for (let q = 0; q < L.length; q++) { const h = L[q], r = rk[h]; if (!r) continue; const x = c1[k][h] === y ? c2[k][h] : c1[k][h]; if (x === a || x === b) continue; t2 += r * (Jc[x] - Jp[x * 52 + a] - Jp[x * 52 + b]); } }
+        out[i] = Math.max(0, Mj[i] * Mk[i] - (t1 - t2));
+      }
+      rel(j, g); return out;
+    }
     // Masse adverse strictement plus faible (low) et strictement plus forte (high), cartes partagées retirées.
     function sweep(bid, p, o, ro, low, high) {
       const B = boards[bid], op = B.ord[p], oo = B.ord[o], sp = B.str[p], so = B.str[o], np = N[p], no = N[o];
@@ -144,8 +168,11 @@
           rel(p, lj); rel(p, hj); rel(p, lk); rel(p, hk);
         }
       }
+      if (exact) { const A = joint(p, R, Mj, Mk, get(p)); for (let i = 0; i < N[p]; i++) { const m = Mj[i] * Mk[i]; out[i] = m > 1e-15 ? (out[i] * A[i]) / m : 0; } rel(p, A); }
       rel(p, Mj); rel(p, Mk); return out;
     }
+    // Masse jointe (exacte ou produit indépendant) dans un tampon neuf.
+    const jm = (p, R) => { const [j, k] = [0, 1, 2].filter((q) => q !== p), Mj = compat(p, j, R[j], new Float64Array(N[p])), Mk = compat(p, k, R[k], new Float64Array(N[p])); if (exact) return joint(p, R, Mj, Mk, new Float64Array(N[p])); for (let i = 0; i < N[p]; i++) Mj[i] *= Mk[i]; return Mj; };
 
     const tmp = N.map((n) => new Float64Array(n));
     function current(node, out) {
@@ -204,9 +231,9 @@
     }
     // Valeur moyenne en jetons (part du pot de départ, mises de p rendues) pour une stratégie / meilleure réponse.
     function mean(p, v, R) {
-      const [j, k] = [0, 1, 2].filter((q) => q !== p), Mj = compat(p, j, R[j], get(p)), Mk = compat(p, k, R[k], get(p)); let num = 0, den = 0;
-      for (let i = 0; i < N[p]; i++) { num += R[p][i] * v[i]; den += R[p][i] * Mj[i] * Mk[i]; }
-      rel(p, Mj); rel(p, Mk); return den > 0 ? num / den : 0;
+      const M = jm(p, R); let num = 0, den = 0;
+      for (let i = 0; i < N[p]; i++) { num += R[p][i] * v[i]; den += R[p][i] * M[i]; }
+      return den > 0 ? num / den : 0;
     }
     // Gain d'une déviation unilatérale : pour chaque joueur, meilleure réponse − valeur actuelle ; on rapporte la moyenne et le maximum.
     function exploitability() {
@@ -231,6 +258,7 @@
         const bid = boardOf(cards), Mj = compat(p, j, R[j], new Float64Array(N[p])), Mk = compat(p, k, R[k], new Float64Array(N[p])), lj = get(p), hj = get(p), lk = get(p), hk = get(p), num = new Float64Array(N[p]), den = new Float64Array(N[p]);
         sweep(bid, p, j, R[j], lj, hj); sweep(bid, p, k, R[k], lk, hk);
         for (let i = 0; i < N[p]; i++) { const tj = Mj[i] - lj[i] - hj[i], tk = Mk[i] - lk[i] - hk[i]; num[i] = lj[i] * lk[i] + (tj * lk[i] + lj[i] * tk) / 2 + tj * tk / 3; den[i] = Mj[i] * Mk[i]; }
+        if (exact) { const A = joint(p, R, Mj, Mk, get(p)); for (let i = 0; i < N[p]; i++) { if (den[i] > 1e-15) num[i] *= A[i] / den[i]; den[i] = A[i]; } rel(p, A); }
         rel(p, lj); rel(p, hj); rel(p, lk); rel(p, hk); return { num, den };
       }
       const d = dealCards(cards), num = new Float64Array(N[p]), den = new Float64Array(N[p]);
@@ -244,9 +272,9 @@
     function info(path = []) {
       const { node, reach } = locate(path), res = { node, reach, t: node.t, pot: P0 + node.C[0] + node.C[1] + node.C[2], C: node.C.slice(), board: node.board, ev: [], eq: [], evMean: [], eqMean: [] };
       for (let p = 0; p < NP; p++) {
-        const [j, k] = [0, 1, 2].filter((q) => q !== p), Mj = compat(p, j, reach[j], new Float64Array(N[p])), Mk = compat(p, k, reach[k], new Float64Array(N[p]));
+        const M = jm(p, reach);
         const v = walk(node, p, reach, 2), ev = new Float64Array(N[p]); let num = 0, den = 0;
-        for (let i = 0; i < N[p]; i++) { const m = Mj[i] * Mk[i]; ev[i] = m > 1e-12 ? v[i] / m + node.C[p] : NaN; num += reach[p][i] * v[i]; den += reach[p][i] * m; }
+        for (let i = 0; i < N[p]; i++) { const m = M[i]; ev[i] = m > 1e-12 ? v[i] / m + node.C[p] : NaN; num += reach[p][i] * v[i]; den += reach[p][i] * m; }
         rel(p, v);
         const eqr = equityVec(node.board, p, reach), eq = new Float64Array(N[p]); let en = 0, ed = 0;
         for (let i = 0; i < N[p]; i++) { eq[i] = eqr.den[i] > 1e-12 ? eqr.num[i] / eqr.den[i] : NaN; en += reach[p][i] * eqr.num[i]; ed += reach[p][i] * eqr.den[i]; }
@@ -256,8 +284,8 @@
         const p = node.p, n = N[p], A = node.acts.length, sg = average(node, new Float64Array(A * n));
         res.strategy = sg;
         res.freq = node.acts.map((_, a) => { let s = 0, t = 0; for (let i = 0; i < n; i++) { s += reach[p][i] * sg[a * n + i]; t += reach[p][i]; } return t > 0 ? s / t : 0; });
-        const [j, k] = [0, 1, 2].filter((q) => q !== p), Mj = compat(p, j, reach[j], new Float64Array(n)), Mk = compat(p, k, reach[k], new Float64Array(n));
-        res.actEv = node.acts.map((_, a) => { const R2 = reach.slice(), v = walk(node.ch[a], p, R2, 2), out = new Float64Array(n); for (let i = 0; i < n; i++) { const m = Mj[i] * Mk[i]; out[i] = m > 1e-12 ? v[i] / m + node.C[p] : NaN; } rel(p, v); return out; });
+        const M = jm(p, reach);
+        res.actEv = node.acts.map((_, a) => { const R2 = reach.slice(), v = walk(node.ch[a], p, R2, 2), out = new Float64Array(n); for (let i = 0; i < n; i++) { const m = M[i]; out[i] = m > 1e-12 ? v[i] / m + node.C[p] : NaN; } rel(p, v); return out; });
       }
       return res;
     }
@@ -267,7 +295,7 @@
       if (x.k === 'b') return `Miser ${f(add)} (${Math.round((add / node.pot) * 100)} %)`; return `Relancer à ${f(x.to)}`;
     }
     const stats = () => { let acts = 0; for (const n of nodes) if (n.t === ACT) acts++; return { nodes: nodes.length, acts, boards: boards.length, approx, iterations: it }; };
-    return { game: '3way', cfg, board, P0, S, N, hands, w0, root: rootNode, nodes, iterate, exploitability, info, label, locate, stats };
+    return { game: '3way', cfg, board, P0, S, N, hands, w0, root: rootNode, nodes, iterate, exploitability, info, label, locate, stats, jointMass: (p) => jm(p, w0) };
   }
   const api = { create, DEFAULT_SIZES, ACT, CHANCE, TERM };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Solver3 = api;

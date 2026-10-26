@@ -19,7 +19,14 @@
 
   // Intervalle de percentile préflop [lo, hi[ joué par un bot selon son profil, son action et le nombre de relances devant lui.
   // Reprend exactement la logique de décision des bots (table.js).
-  function preflopInterval(pr, profile, final, level, cheapCall) {
+  function preflopInterval(pr, profile, final, level, cheapCall, pos, nAct) {
+    // Mêmes seuils que les bots (table.js) : position, niveau de relance, défense de la grosse blinde.
+    if (TS.preThresholds && pos) {
+      const th = TS.preThresholds(pr, profile, pos, Math.min(3, level), pos === 'BB' && level === 2, nAct || 6);
+      if (final === 'raise') return [0, th.raise];
+      if (final === 'call') return [th.raise, Math.max(th.call, th.raise + 0.01)];
+      return [0, 1];
+    }
     if (final === 'raise') {
       if (level <= 1) return [0, pr.pfr];
       if (level === 2) return [0, pr.vpip * pr.cont * pr.three];
@@ -49,7 +56,7 @@
     for (const s of t.seq) {
       if (s.street !== 'pre') break;
       if (s.i === vi) {
-        const [a, b] = preflopInterval(pr, K(p), s.final, level, false);
+        const [a, b] = preflopInterval(pr, K(p), s.final, level, false, TS.posName ? TS.posName(t, vi) : null, t.active ? t.active().length : 6);
         if (s.final !== 'fold') { lo = Math.max(lo, Math.min(a, b)); hi = Math.min(hi, Math.max(a, b)); }
       }
       if (s.final === 'raise') level++;
@@ -259,12 +266,96 @@
     return { pos, hand, rec, to: L.maxTo, eq, need, ev, toCall: L.toCall, pot: L.pot, cats: ['pushfold'], why, ranges: [] };
   }
 
-  // Note une action du héros par rapport à la recommandation.
+  // ---- Notation en EV ----
+  // Préflop : perte d'EV de chaque action par rapport à la meilleure, lue dans les ranges calculées par le solveur préflop
+  // (tools/build_preflop.js), pour les situations qu'il modélise (ouverture, défense face à une ouverture, squeeze, 3-bet subi, limp de SB).
+  const PD = () => root.PreflopData || (typeof require !== 'undefined' ? (() => { try { return require('./preflop_data.js'); } catch (e) { return null; } })() : null);
+  function preflopEV(t) {
+    const D = PD(); if (!D || t.street !== 'pre' || t.players.length !== 6 || !TS.posName) return null;
+    const pre = t.seq.filter((s) => s.street === 'pre'), pos = TS.posName(t, 0), P = (i) => TS.posName(t, i);
+    const vol = pre.filter((s) => s.final === 'raise' || s.final === 'call');
+    let key = null;
+    if (!pre.some((s) => s.i === 0)) {
+      const rs = vol.filter((s) => s.final === 'raise'), cs = vol.filter((s) => s.final === 'call');
+      if (!vol.length && pos !== 'BB') key = `rfi:${pos}`;
+      else if (!rs.length && cs.length === 1 && P(cs[0].i) === 'SB' && pos === 'BB') key = 'lp:SB';
+      else if (rs.length === 1 && vol[0].final === 'raise') { const after = vol.slice(1); if (!after.length) key = `vo:${P(rs[0].i)}:${pos}`; else if (after.length === 1 && after[0].final === 'call') key = `sq:${P(rs[0].i)}:${P(after[0].i)}:${pos}`; }
+    } else {
+      const mine = pre.filter((s) => s.i === 0), k0 = pre.indexOf(mine[0]), before = pre.slice(0, k0).filter((s) => s.final === 'raise' || s.final === 'call'), after = pre.slice(k0 + 1).filter((s) => s.final === 'raise' || s.final === 'call');
+      if (mine.length === 1 && !before.length && mine[0].final === 'raise' && after.length === 1 && after[0].final === 'raise') key = `v3:${pos}:${P(after[0].i)}`;
+      else if (mine.length === 1 && pos === 'SB' && mine[0].final === 'call' && !before.length && after.length === 1 && after[0].final === 'raise' && P(after[0].i) === 'BB') key = 'lpr:SB';
+    }
+    if (!key) return null;
+    const hero = t.players[0], eff = Math.min(hero.stack + hero.put, Math.max(...t.players.filter((p, i) => i && p.inHand).map((p) => p.stack + p.put))) / t.bb;
+    const fmt = (t.anteBB || 0) > 0 ? 'mtt' : 'cash', cfgs = D.configs.filter((c) => c.fmt === fmt); if (!cfgs.length) return null;
+    const cfg = cfgs.reduce((a, c) => (Math.abs(c.stack - eff) < Math.abs(a.stack - eff) ? c : a));
+    const node = cfg.nodes.find((n) => n.key === key); if (!node || !node.l) return null;
+    const i = E.ALL169.indexOf(E.abstractOf(hero.cards[0], hero.cards[1])), mx = D.lossMax || 10;
+    const loss = node.acts.map((a, k) => ({ k: a.k, l: a.l, loss: (D.alph.indexOf(node.l[k][i]) / 63) ** 2 * mx, f: D.alph.indexOf(node.f[k][i]) / 63 }));
+    return { key, cfg: cfg.label, node: node.label, loss };
+  }
+  const actK = (act, to, t) => (act === 'fold' ? ['f'] : act === 'check' ? ['x', 'f'] : act === 'call' ? ['c', 'x'] : to >= t.players[0].stack + t.players[0].put - 1e-9 ? ['a', 'r'] : ['r', 'a']);
+  // River à deux : solve exact de la river (équilibre entre la range estimée de l'adversaire et celle du héros, déduite de ses actions),
+  // puis EV de chaque action pour la main du héros. Taille des mises : celles réellement jouées sur la river (66 % sinon).
+  function heroRangeCombos(t) {
+    const hr = heroPreRange(t); let combos = E.rangeCombos(hr.set, t.board);
+    const hc = t.players[0].cards; if (!combos.some(([a, b]) => (a === hc[0] && b === hc[1]) || (a === hc[1] && b === hc[0]))) combos.push(hc.slice());
+    for (const street of ['flop', 'turn']) {
+      const acts = t.seq.filter((s) => s.i === 0 && s.street === street); if (!acts.length) continue;
+      const bd = t.board.slice(0, STREET_N[street]), last = acts[acts.length - 1].final;
+      if (last !== 'call' && last !== 'raise') continue;
+      const f = combos.filter((c) => { const k = B.classify(c, bd); return k.made <= 11 || k.draws.length > 0; });
+      if (f.length >= 6) combos = f.some(([a, b]) => a === hc[0] && b === hc[1] || a === hc[1] && b === hc[0]) ? f : [...f, hc.slice()];
+    }
+    return combos;
+  }
+  function riverEV(t) {
+    const PFm = root.Postflop || (typeof require !== 'undefined' ? (() => { try { return require('./postflop.js'); } catch (e) { return null; } })() : null);
+    if (!PFm || t.street !== 'river' || t.board.length !== 5 || t.toAct !== 0) return null;
+    const live = t.players.map((p, i) => i).filter((i) => t.players[i].inHand); if (live.length !== 2) return null;
+    const v = live.find((i) => i !== 0), rv = t.seq.filter((s) => s.street === 'river'), oopI = rv.length ? rv[0].i : 0, heroP = oopI === 0 ? 0 : 1;
+    const put = t.players.reduce((a, p) => a + p.put, 0), pot0 = t.pot - put, S = Math.min(t.players[0].stack + t.players[0].put, t.players[v].stack + t.players[v].put);
+    if (!(pot0 > 0) || S <= 0) return null;
+    // Actes de la river avec leur taille (part du pot avant l'action).
+    const cnt = {}, acts = rv.map((s) => { const k = (cnt[s.i] = (cnt[s.i] || 0) + 1), a = t.players[s.i].acts.filter((x) => x.street === 'river')[k - 1]; return { i: s.i, final: s.final, size: a?.size, pot: a?.pot }; });
+    const sz = [[], []]; for (const a of acts) if (a.final === 'raise' && a.size) sz[a.i === oopI ? 0 : 1].push(Math.round(a.size * 100));
+    const sizes = { river: [0, 1].map((p) => ({ bet: sz[p].length ? [...new Set(sz[p])] : [66], raise: ['a'] })) };
+    const vr = villainRange(t, v, true).combos, hr = heroRangeCombos(t);
+    if (vr.length < 3 || hr.length < 3) return null;
+    let g; try { g = PFm.create({ board: t.board.slice(), pot: pot0, stack: S, ranges: heroP === 0 ? [hr.map((c) => [c[0], c[1], 1]), vr.map((c) => [c[0], c[1], 1])] : [vr.map((c) => [c[0], c[1], 1]), hr.map((c) => [c[0], c[1], 1])], sizes, maxRaises: 1 }); } catch (e) { return null; }
+    let ex = 100; for (let k = 0; k < 8 && ex > 1; k++) { g.iterate(20); ex = g.exploitability().pct; }
+    // Chemin : chaque action de la river associée à l'action la plus proche de l'arbre.
+    const path = []; let node = g.root;
+    const pick = (nd, final, add) => {
+      const A = nd.acts; if (final === 'check') return A.findIndex((a) => a.k === 'x'); if (final === 'call') return A.findIndex((a) => a.k === 'c'); if (final === 'fold') return A.findIndex((a) => a.k === 'f');
+      let best = -1, bd = Infinity; A.forEach((a, j) => { if (a.k === 'b' || a.k === 'r' || a.k === 'a') { const d = Math.abs((a.to - nd.bets[nd.p]) - add); if (d < bd) { bd = d; best = j; } } }); return best;
+    };
+    for (const a of acts) { if (node.t !== PFm.ACT) return null; const add = (a.size || 0) * (a.pot || pot0); const j = pick(node, a.final, add); if (j < 0) return null; path.push(j); node = node.ch[j]; }
+    if (node.t !== PFm.ACT || node.p !== heroP) return null;
+    const r = g.info(path), hc = t.players[0].cards, hi = g.hands[heroP].findIndex(([a, b]) => (a === hc[0] && b === hc[1]) || (a === hc[1] && b === hc[0]));
+    if (hi < 0) return null;
+    const n = g.N[heroP], evs = node.acts.map((_, a) => r.actEv[a][hi] / t.bb), best = Math.max(...evs);
+    return { exPct: ex, acts: node.acts.map((a, k) => ({ k: a.k, l: g.label(node, k), loss: best - evs[k], f: r.strategy[k * n + hi], to: a.to, add: a.to - node.bets[heroP] })), pot: (pot0 + put) / t.bb, hr: hr.length, vr: vr.length };
+  }
+
+  // Note une action du héros par rapport à la recommandation ; si un calcul d'EV existe (préflop, river à deux), il prime.
   function grade(adv, act, to, t) {
     const norm = (a) => (a === 'check' ? 'check' : a);
     let ok = norm(act) === norm(adv.rec) || (adv.rec === 'fold' && act === 'check');
     let note = '';
     if (ok && act === 'raise' && adv.cats.includes('value') && adv.to && to < adv.to * 0.7) { ok = false; note = 'Bonne idée de miser, mais trop petit : contre ce profil, la valeur se prend avec une mise plus grosse.'; }
+    let ev = null;
+    try { ev = t ? (t.street === 'pre' ? preflopEV(t) : riverEV(t)) : null; } catch (e) { ev = null; }
+    if (ev) {
+      const L = ev.loss || ev.acts, want = actK(act, to, t);
+      let mine = null; for (const k of want) { const c = L.filter((x) => x.k === k); if (c.length) { mine = act === 'raise' && c.length > 1 && t ? c.reduce((a, x) => (Math.abs((x.add ?? 0) - (to - t.players[0].put)) < Math.abs((a.add ?? 0) - (to - t.players[0].put)) ? x : a)) : c[0]; break; } }
+      if (mine) {
+        const bestA = L.reduce((a, x) => (x.loss < a.loss ? x : a)), tol = t.street === 'pre' ? 0.15 : Math.max(0.15, 0.03 * (ev.pot || 0));
+        ok = mine.loss <= tol;
+        note = (note ? note + ' ' : '') + `${t.street === 'pre' ? `Solveur préflop (${ev.cfg}, ${ev.node.toLowerCase()})` : `Solve de la river (${ev.hr} combos contre ${ev.vr})`} : ${mine.loss <= 0.005 ? 'ton action est la meilleure en EV' : `ton action coûte ${mine.loss.toFixed(2).replace('.', ',')} bb face à « ${bestA.l.toLowerCase()} »`}${ok && mine.loss > 0.005 ? ' (écart négligeable)' : ''}.`;
+        return { ok, note, evLoss: mine.loss, ev };
+      }
+    }
     return { ok, note };
   }
 
@@ -272,6 +363,7 @@
   // ou bluff contre un joueur qui ne se couche pas ; petite sinon (limp, taille, décision serrée).
   function severity(adv, act, gr) {
     if (gr.ok) return null;
+    if (gr.evLoss !== undefined) return gr.evLoss >= (gr.ev?.pot ? Math.max(1, 0.2 * gr.ev.pot) : 1) ? 'grave' : 'petite';
     const eq = adv.eq, need = adv.need ?? 0, has = eq !== null && eq !== undefined;
     if (act === 'fold' && adv.rec !== 'fold' && has && eq - need > 0.15) return 'grave';
     if ((act === 'call' || act === 'raise') && adv.rec === 'fold' && has && need - eq > 0.1) return 'grave';
@@ -280,6 +372,6 @@
     return 'petite';
   }
   const ACT_FR = { fold: 'se coucher', check: 'parole', call: 'suivre', raise: 'miser / relancer' };
-  const api = { CATS, ACT_FR, villainRange, advise, grade, severity, describeRange, preflopInterval, pushFoldAdvice, heroPreRange, rangeAdvice };
+  const api = { CATS, ACT_FR, villainRange, advise, grade, severity, preflopEV, riverEV, describeRange, preflopInterval, pushFoldAdvice, heroPreRange, rangeAdvice };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Coach = api;
 })(typeof window !== 'undefined' ? window : globalThis);

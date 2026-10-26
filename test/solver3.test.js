@@ -27,4 +27,18 @@ t('turn échantillonné : résout et garde des valeurs finies', () => {
   const g = S3.create({ board: 'Ks7d2c5h', pot: 8, stack: 97.5, ranges: R3, sample: { river: 6 } });
   g.iterate(30); const r = g.info([]); assert(r.evMean.every(isFinite) && g.stats().approx);
 });
+t('blocages à trois : masse jointe exacte (comparée à l\'énumération des triplets)', () => {
+  const g = S3.create({ board: 'Ks7d2c5h9s', pot: 8, stack: 20, ranges: ['AA, KQs, QJs, AhQd:0.5', 'AQs, QJs, JTs, AA:0.7', 'AJs, QQ, JTs, AsJd'] });
+  let mx = 0, gap = 0;
+  for (let p = 0; p < 3; p++) {
+    const [j, k] = [0, 1, 2].filter((q) => q !== p), A = g.jointMass(p), H = g.hands;
+    H[p].forEach(([a, b], i) => {
+      let ex = 0, ind = 0, mj = 0, mk = 0;
+      for (const x of H[j]) { if ([x[0], x[1]].some((c) => c === a || c === b)) continue; mj += x[2]; for (const y of H[k]) { if ([y[0], y[1]].some((c) => c === a || c === b || c === x[0] || c === x[1])) continue; ex += x[2] * y[2]; } }
+      for (const y of H[k]) if (![y[0], y[1]].some((c) => c === a || c === b)) mk += y[2];
+      ind = mj * mk; mx = Math.max(mx, Math.abs(A[i] - ex)); gap = Math.max(gap, Math.abs(ind - ex));
+    });
+  }
+  assert(mx < 1e-9, 'écart ' + mx); assert(gap > 0.01, 'le cas teste bien des blocages mutuels');
+});
 console.log(n + ' tests réussis');

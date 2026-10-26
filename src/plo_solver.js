@@ -173,6 +173,7 @@
     }
     const tmpS = [new Float64Array(N[0]), new Float64Array(N[1])];
     function current(node, out) {
+      if (node.lock) { out.set(node.lock); return out; }
       const n = N[node.p], A = node.acts.length, reg = node.reg, s = tmpS[node.p]; s.fill(0);
       for (let a = 0; a < A; a++) { const b = a * n; for (let i = 0; i < n; i++) { const r = reg[b + i]; if (r > 0) s[i] += r; } }
       const u = 1 / A;
@@ -181,6 +182,7 @@
     }
     function average(node, out) {
       const n = N[node.p], A = node.acts.length;
+      if (node.lock) { out.set(node.lock); return out; }
       for (let i = 0; i < n; i++) { let s = 0; for (let a = 0; a < A; a++) s += node.sum[a * n + i]; if (s > 0) for (let a = 0; a < A; a++) out[a * n + i] = node.sum[a * n + i] / s; else return current(node, out); }
       return out;
     }
@@ -210,10 +212,11 @@
           if (mode === 1) { for (let i = 0; i < n; i++) if (v[i] > out[i]) out[i] = v[i]; rel(p, v); }
           else { for (let i = 0; i < n; i++) out[i] += sg[a * n + i] * v[i]; if (vals) vals.push(v); else rel(p, v); }
         }
-        if (mode === 0) {
+        if (mode === 0 && !node.lock) {
           const reg = node.reg, sum = node.sum;
           for (let a = 0; a < A; a++) { const v = vals[a], b = a * n; for (let i = 0; i < n; i++) { const r = reg[b + i]; reg[b + i] = (r > 0 ? r * dPos : r * dNeg) + v[i] - out[i]; sum[b + i] = sum[b + i] * dSum + rp[i] * sg[b + i]; } rel(p, v); }
         }
+        if (mode === 0 && node.lock) vals.forEach((v) => rel(p, v));
         return out;
       }
       const out = get(p); out.fill(0);
@@ -291,23 +294,70 @@
       if (x.k === 'b') return isPot ? `Miser le pot (${f(add)})` : `Miser ${f(add)} (${Math.round((add / node.pot) * 100)} %)`;
       return isPot ? `Relancer le pot (à ${f(x.to)})` : `Relancer à ${f(x.to)}`;
     }
+    // Verrou d'un nœud (stratégie imposée, main par main) et profil appliqué à tout l'arbre : même logique que le solveur Hold'em.
+    function lock(path, strat) { const { node } = locate(path); if (node.t !== ACT) throw new Error('Pas un nœud de décision'); node.lock = strat ? Float64Array.from(strat) : null; node.profLock = false; }
+    const grpOf = (a) => (a.k === 'f' ? 0 : a.k === 'x' || a.k === 'c' ? 1 : 2);
+    function deform(node, out, pr) {
+      const n = N[node.p], A = node.acts.length, G = node.acts.map(grpOf), first = [0, 1, 2].map((g) => G.indexOf(g));
+      const moves = [[0, 1, pr.fp || 0], [1, 0, pr.pf || 0], [1, 2, pr.pa || 0], [2, 1, pr.ap || 0]].filter(([x, y, t]) => t > 0 && first[x] >= 0 && first[y] >= 0);
+      if (!moves.length) return false;
+      const m = new Float64Array(3), d = new Float64Array(3);
+      for (let i = 0; i < n; i++) {
+        m.fill(0); for (let a = 0; a < A; a++) m[G[a]] += out[a * n + i];
+        d.fill(0); for (const [x, y, t] of moves) { const v = m[x] * t; d[x] -= v; d[y] += v; }
+        for (let g = 0; g < 3; g++) { if (first[g] < 0 || d[g] === 0) continue; if (m[g] > 1e-12) { const f = (m[g] + d[g]) / m[g]; for (let a = 0; a < A; a++) if (G[a] === g) out[a * n + i] *= f; } else out[first[g] * n + i] += d[g]; }
+      }
+      return true;
+    }
+    function applyProfile(p, pr) {
+      let k = 0;
+      for (const node of nodes) {
+        if (node.t !== ACT) continue;
+        if (node.p === p) {
+          if (node.lock && !node.profLock) continue;
+          if (node.profLock) { node.lock = null; node.profLock = false; }
+          if (!pr) continue;
+          const out = average(node, new Float64Array(node.acts.length * N[p]));
+          if (deform(node, out, pr)) { node.lock = out; node.profLock = true; k++; }
+        } else if (pr) node.sum.fill(0);
+      }
+      return k;
+    }
     const stats = () => { let acts = 0, mem = 0; for (const n of nodes) if (n.t === ACT) { acts++; mem += n.reg.length * 8; } return { nodes: nodes.length, acts, boards: boards.length, mb: mem / 1048576, approx, iterations: it }; };
-    return { game: 'plo', cfg, board, P0, S, N, hands, holeOf, w0, root: rootNode, nodes, iterate, exploitability, info, label, locate, stats, OOP, IP };
+    return { game: 'plo', cfg, board, P0, S, N, hands, holeOf, w0, root: rootNode, nodes, iterate, exploitability, info, label, locate, lock, applyProfile, stats, OOP, IP };
   }
 
   // ---- Ranges PLO : échantillon de mains tirées par rang préflop ----
   // rank(h) -> rang préflop entre 0 (meilleure main) et 1 ; la range garde les mains de rang dans [lo, hi].
-  function sampleRange(rank, lo, hi, n, dead = [], seed = 1, must = []) {
+  // Échantillon stratifié : on tire d'abord un pilote de 4 n mains, on le range par strate (tiers de rang préflop × main faite
+  // sur ce board × tirage), puis chaque strate reçoit sa part proportionnelle de l'échantillon final. Même espérance qu'un tirage
+  // simple, moins de variance : les proportions de mains faites et de tirages sont celles d'un échantillon quatre fois plus gros.
+  // opt.board absent ou opt.strata = false : tirage simple. opt.accept(h) -> probabilité de garder la main (range pondérée).
+  function sampleRange(rank, lo, hi, n, dead = [], seed = 1, must = [], opt = {}) {
     const R = E.rng(seed), d = new Set(dead), deck = []; for (let c = 0; c < 52; c++) if (!d.has(c)) deck.push(c);
     const out = [], seen = new Set();
     for (const h of must) { if (h && h.length === K && !h.some((c) => d.has(c))) { const k = handKey(h); if (!seen.has(k)) { seen.add(k); out.push([...h, 1]); } } }
+    const strat = opt.board && opt.board.length >= 3 && opt.strata !== false, M = strat ? n * 4 : n, pool = [];
     let tries = 0;
-    while (out.length < n && tries++ < n * 400) {
+    while (pool.length + out.length < M && tries++ < M * 400) {
       for (let k = 0; k < K; k++) { const j = k + Math.floor(R() * (deck.length - k)); const t = deck[k]; deck[k] = deck[j]; deck[j] = t; }
       const h = deck.slice(0, K), key = handKey(h); if (seen.has(key)) continue;
       const r = rank(h); if (r === null || r < lo || r > hi) continue;
-      seen.add(key); out.push([...h, 1]);
+      // Range pondérée (fréquence de jeu par main, ex. solveur préflop) : tirage par acceptation.
+      if (opt.accept) { const pa = opt.accept(h); if (!(pa > 0) || R() >= pa) continue; }
+      seen.add(key); pool.push({ h, r });
     }
+    if (!strat) { for (const x of pool) if (out.length < n) out.push([...x.h, 1]); return out; }
+    const bc = opt.board, W = hi - lo || 1, groups = new Map();
+    for (const x of pool) {
+      const dr = bc.length < 5 ? draws(x.h, bc) : null, key = Math.min(2, Math.floor(((x.r - lo) / W) * 3)) * 100 + madeCat(x.h, bc) * 10 + (dr ? (dr.nutFlush ? 3 : dr.flush ? 2 : dr.wrap ? 1 : 0) : 0);
+      let g = groups.get(key); if (!g) groups.set(key, (g = [])); g.push(x.h);
+    }
+    // Quotas au plus fort reste : exactement n - |must| mains, réparties selon la taille de chaque strate dans le pilote.
+    const need = Math.max(0, n - out.length), G = [...groups.values()], tot = G.reduce((a, g) => a + g.length, 0) || 1;
+    const q = G.map((g) => (g.length * need) / tot), base = q.map(Math.floor); let left = need - base.reduce((a, b) => a + b, 0);
+    q.map((v, i) => [v - base[i], i]).sort((a, b) => b[0] - a[0]).forEach(([, i]) => { if (left > 0 && base[i] < G[i].length) { base[i]++; left--; } });
+    G.forEach((g, i) => { for (let k = 0; k < base[i] && k < g.length; k++) out.push([...g[k], 1]); });
     return out;
   }
   // Catégorie de la main faite (pour les résumés).

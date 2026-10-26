@@ -63,6 +63,23 @@
   const mastery = (t) => { const h = state.progress.hist[t] || []; return h.length ? h.reduce((a, b) => a + b, 0) / h.length : null; };
   const totalStat = () => Object.values(state.progress.stats).reduce((a, s) => ({ ok: a.ok + s.ok, n: a.n + s.n }), { ok: 0, n: 0 });
   const dueReviews = () => state.progress.review.filter((r) => r.due <= today());
+  // Révision espacée FSRS : une erreur entre dans la file (note 1) ; chaque révision la reprogramme selon la rétention cible.
+  const FS = window.FSRS, ymdOf = (ms) => ymd(new Date(ms));
+  function reviewGrade(key, spotObj, g) {
+    const p = state.progress, idx = p.review.findIndex((r) => r.key === key), now = Date.now(), R = +state.settings.retention || 0.9;
+    if (idx < 0) {
+      if (g > 1) return;
+      const f = FS ? FS.init(1, now) : null;
+      p.review.push({ key, spot: JSON.parse(JSON.stringify(spotObj)), f, due: f ? ymdOf(FS.dueAt(f, R)) : addDays(1) });
+      if (p.review.length > 400) p.review.shift();
+      return;
+    }
+    const r = p.review[idx];
+    if (!FS) { if (g > 1) { r.iv = r.iv === 1 ? 3 : Math.round((r.iv || 1) * 2.5); r.due = addDays(r.iv); } else { r.iv = 1; r.due = addDays(1); } return; }
+    if (!r.f) r.f = FS.fromInterval(r.iv || 1, now);
+    r.f = FS.review(r.f, g, now); r.due = ymdOf(FS.dueAt(r.f, R));
+    if (g > 1 && r.f.s > 365) p.review.splice(idx, 1); // mémoire stable sur plus d'un an : l'élément sort de la file
+  }
   const head = (title, lead) => `<section style="display:grid;gap:8px"><h1>${title}</h1>${lead ? `<p class="lead">${lead}</p>` : ''}</section>`;
   // Couleur de chaleur pour les grilles (fréquence 0..1) : du fond vers le bordeaux.
   const heat = (f) => (f <= 0.001 ? '' : `style="background:color-mix(in srgb, var(--accent) ${Math.round(25 + 75 * f)}%, var(--sunk));color:${f >= 0.5 ? 'var(--accent-ink)' : 'var(--ink)'}"`);
@@ -163,11 +180,11 @@
     if (qAns[qi] !== undefined) return;
     qAns[qi] = i;
     const q = m.quiz[qi], ok = q.ok === i, p = state.progress;
+    window.__S52.onQuiz?.(m, qi, ok);
     // Une erreur de quiz rejoint les révisions espacées, comme une erreur de Spots.
     if (!ok) {
       const key = 'quiz:' + m.id + ':' + qi, idx = p.review.findIndex((r) => r.key === key);
-      const item = { key, spot: { type: 'situations', title: 'Quiz · ' + m.title, prompt: esc(q.q), opts: q.opts, ok: q.ok, why: q.why, sid: key }, iv: 1, due: addDays(1) };
-      if (idx >= 0) p.review[idx] = item; else p.review.push(item);
+      void idx; reviewGrade(key, { type: 'situations', title: 'Quiz · ' + m.title, prompt: esc(q.q), opts: q.opts, ok: q.ok, why: q.why, sid: key }, 1);
     }
     if (Object.keys(qAns).length === m.quiz.length) {
       const sc = m.quiz.filter((qq, k) => qAns[k] === qq.ok).length / m.quiz.length;
@@ -217,31 +234,50 @@
 
   // ---------- Spots ----------
   let spotMode = 'mix', sitCat = '', spot = null, answered = null, daily = false, reviewItem = null;
+  // Options d'entraînement : confiance avant de répondre, chrono, explication avant la correction.
+  const train = () => state.settings.train || (state.settings.train = { conf: false, timer: 0, explain: false });
+  let conf = null, explChoice = null, explText = '', tEnd = 0, tInt = null;
+  function stopTimer() { if (tInt) { clearInterval(tInt); tInt = null; } }
+  function armTimer() {
+    stopTimer(); const T = +train().timer; if (!T || !spot) return;
+    tEnd = Date.now() + T * 1000;
+    tInt = setInterval(() => {
+      if (tab !== 'spots') { stopTimer(); return; }
+      const left = Math.max(0, Math.ceil((tEnd - Date.now()) / 1000)), el = $('#sptimer'); if (el) el.textContent = left + ' s';
+      if (left <= 0) { stopTimer(); if (answered === null && spot && explChoice === null) answer(-1); }
+    }, 250);
+  }
   const spotKey = (s) => s.type + ':' + (s.sid || s.prompt.replace(/<[^>]+>/g, '') + (s.cards || []).join('-') + (s.board || []).join('-'));
   function newSpot() {
-    answered = null; reviewItem = null;
+    answered = null; reviewItem = null; conf = null; explChoice = null; explText = '';
+    if (spotMode === 'plan') { const it = window.__S52.planNext?.(); if (!it) { spotMode = 'mix'; return newSpot(); } spot = it.spot; reviewItem = it.review || null; armTimer(); return; }
     if (spotMode === 'review') {
       const due = dueReviews(); if (!due.length) { spotMode = 'mix'; return newSpot(); }
       reviewItem = due[0]; spot = reviewItem.spot; return;
     }
     spot = spotMode === 'mix' ? S.mix(rand, state.progress.stats) : spotMode === 'situations' ? S.GEN.situations(rand, sitCat) : S.GEN[spotMode](rand);
+    armTimer();
   }
   function answer(i) {
     if (answered !== null || !spot) return;
-    answered = i;
-    const ok = spot.ok === i, p = state.progress;
+    if (i >= 0 && train().explain && explChoice === null) { explChoice = i; stopTimer(); return render(); }
+    answered = i; stopTimer();
+    const ok = spot.ok === i, p = state.progress, c = conf, ex = explChoice !== null ? explText : null;
     const st = p.stats[spot.type] || (p.stats[spot.type] = { ok: 0, n: 0 });
     st.n++; if (ok) st.ok++;
     const h = p.hist[spot.type] || (p.hist[spot.type] = []); h.push(ok ? 1 : 0); if (h.length > 30) h.shift();
     p.streak = ok ? p.streak + 1 : 0; p.best = Math.max(p.best, p.streak);
     if (daily) { if (p.daily.date !== today()) p.daily = { date: today(), done: 0, ok: 0 }; p.daily.done++; if (ok) p.daily.ok++; if (p.daily.done >= 10) daily = false; }
     // Répétition espacée : une erreur entre dans la file ; une réussite en révision espace la suivante (1, 3, 7, 18, 45 jours).
-    const key = spotKey(spot), idx = p.review.findIndex((r) => r.key === key);
-    if (!ok) { const item = { key, spot: JSON.parse(JSON.stringify(spot)), iv: 1, due: addDays(1) }; if (idx >= 0) p.review[idx] = item; else p.review.push(item); if (p.review.length > 150) p.review.shift(); }
-    else if (idx >= 0) { const r = p.review[idx]; r.iv = r.iv === 1 ? 3 : Math.round(r.iv * 2.5); r.due = addDays(r.iv); if (r.iv > 40) p.review.splice(idx, 1); }
-    window.__S52.award?.('spot', { type: spot.type, ok }, true);
+    // Note FSRS : raté = 1 ; juste avec confiance 50 % = 2, 70 % ou sans réponse = 3, 90 % = 4.
+    const key = reviewItem ? reviewItem.key : spotKey(spot);
+    reviewGrade(key, spot, !ok ? 1 : c === 50 ? 2 : c === 90 ? 4 : 3);
+    window.__S52.award?.('spot', { type: spot.type, ok, diff: window.__S52.itemDiff?.(spot) }, true);
+    window.__S52.onAnswer?.(spot, ok, { conf: c, expl: ex, timeout: i < 0, choice: i, review: !!reviewItem });
     Store.save('progress'); render();
   }
+  function answerFinal(i) { const keep = train().explain; train().explain = false; try { answer(i); } finally { train().explain = keep; } }
+  window.__S52_spot = { reviewGrade, start: (mode) => { spotMode = mode; daily = false; spot = null; }, get spot() { return spot; } };
   VIEWS.spots = () => {
     if (!spot) newSpot();
     const cats = [...new Set(K.SITUATIONS.map((s) => s.cat))], ok = answered !== null && spot.ok === answered;
@@ -259,11 +295,16 @@
         <button class="chip" aria-pressed="${spotMode === 'review'}" data-act="mode" data-mode="review" ${due ? '' : 'disabled'}>Révisions (${due})</button></div>
       ${spotMode === 'situations' ? `<label class="f" style="max-width:260px">Catégorie<select id="sitcat"><option value="">Toutes</option>${cats.map((c) => `<option ${c === sitCat ? 'selected' : ''}>${c}</option>`).join('')}</select></label>` : ''}
       ${daily ? `<div class="row"><span class="pill acc">Entraînement du jour · ${d.date === today() ? d.done : 0}/10</span></div>` : ''}
-      ${reviewItem ? `<div class="row"><span class="pill acc">Révision · intervalle actuel ${reviewItem.iv} j</span></div>` : ''}
+      ${reviewItem ? `<div class="row"><span class="pill acc">Révision${reviewItem.f ? ` · mémoire stable ${fr(reviewItem.f.s, reviewItem.f.s < 10 ? 1 : 0)} j` : reviewItem.iv ? ` · intervalle ${reviewItem.iv} j` : ''}</span></div>` : ''}
+      ${window.__S52.planBanner ? window.__S52.planBanner(spotMode) : ''}
+      <div class="row"><span class="note">Entraînement :</span><button class="chip" aria-pressed="${train().conf}" data-act="trconf">Confiance avant de répondre</button>${[[0, 'Sans chrono'], [15, 'Chrono 15 s'], [8, 'Chrono 8 s']].map(([v, l]) => `<button class="chip" aria-pressed="${+train().timer === v}" data-act="trtimer" data-v="${v}">${l}</button>`).join('')}<button class="chip" aria-pressed="${train().explain}" data-act="trexpl">Expliquer avant la correction</button></div>
       <section class="panel"><div class="row" style="justify-content:space-between"><span class="eyebrow">${esc(spot.title)}</span><span class="note mono">${st.n ? pct(st.ok / st.n) + ' sur ' + st.n : 'premier essai'} · série ${state.progress.streak}</span></div>
         <p style="font-size:17px">${spot.prompt}</p>${visual}
-        <div class="opts">${spot.opts.map((o, i) => `<button class="opt${answered !== null && i === spot.ok ? ' ok' : ''}${answered === i && i !== spot.ok ? ' ko' : ''}" data-act="ans" data-i="${i}" ${answered !== null ? 'disabled' : ''}><span class="mono note">${i + 1}</span> ${esc(o)}</button>`).join('')}</div>
-        ${answered !== null ? `<div class="verdict ${ok ? 'good' : 'bad'}"><b>${ok ? 'Juste.' : 'Non : ' + esc(spot.opts[spot.ok]) + '.'}</b>${evLine ? `<div>${evLine}</div>` : ''}<span>${esc(spot.why)}</span>${!ok ? '<span class="note">Ajouté à tes révisions : il revient demain.</span>' : ''}</div>
+        ${+train().timer && answered === null && explChoice === null ? `<div class="row"><span class="pill bad mono" id="sptimer">${Math.max(0, Math.ceil((tEnd - Date.now()) / 1000))} s</span><span class="note">Temps écoulé = réponse fausse, comme à la table.</span></div>` : ''}
+        ${train().conf && answered === null ? `<div class="row"><span class="note">Ta confiance :</span>${[50, 70, 90].map((v) => `<button class="chip" aria-pressed="${conf === v}" data-act="spconf" data-v="${v}">${v} %</button>`).join('')}</div>` : ''}
+        <div class="opts">${spot.opts.map((o, i) => `<button class="opt${answered !== null && i === spot.ok ? ' ok' : ''}${answered === i && i !== spot.ok ? ' ko' : ''}${explChoice === i && answered === null ? ' sel' : ''}" data-act="ans" data-i="${i}" ${answered !== null || explChoice !== null ? 'disabled' : ''}><span class="mono note">${i + 1}</span> ${esc(o)}</button>`).join('')}</div>
+        ${explChoice !== null && answered === null ? `<label class="f">Pourquoi « ${esc(spot.opts[explChoice])} » ? Une phrase, avec le chiffre qui décide.<textarea id="spexpl" rows="2" maxlength="400" placeholder="Ex. : il me faut 25 % d'équité, j'en ai environ 35 % avec 9 outs.">${esc(explText)}</textarea></label><div class="row"><button class="btn primary" data-act="explok">Valider et voir la correction</button><button class="btn small" data-act="explcancel">Changer de réponse</button></div>` : ''}
+        ${answered !== null ? `<div class="verdict ${ok ? 'good' : 'bad'}"><b>${answered < 0 ? 'Temps écoulé : ' + esc(spot.opts[spot.ok]) + '.' : ok ? 'Juste.' : 'Non : ' + esc(spot.opts[spot.ok]) + '.'}</b>${evLine ? `<div>${evLine}</div>` : ''}<span>${esc(spot.why)}</span>${!ok ? '<span class="note">Ajouté à tes révisions : il revient quand ta mémoire en a besoin (FSRS).</span>' : ''}</div>${window.__S52.explHTML ? window.__S52.explHTML(spot) : ''}
         <div class="row"><button class="btn primary" data-act="next">Spot suivant</button>${['tirage', 'meilleure', 'outs'].includes(spot.type) ? '<button class="btn" data-act="toEq">Analyser dans Équité</button>' : ''}${spot.type === 'pushfold' ? '<button class="btn" data-act="toPF">Voir le tableau Nash</button>' : ''}</div>` : ''}
       </section>`;
   };
@@ -596,6 +637,12 @@
     if (a === 'drill') { spotMode = t.dataset.type; daily = false; spot = null; return go('spots'); }
     if (a === 'mode') { spotMode = t.dataset.mode; daily = false; spot = null; return render(); }
     if (a === 'ans') return answer(+t.dataset.i);
+    if (a === 'spconf') { conf = +t.dataset.v; return render(); }
+    if (a === 'trconf') { train().conf = !train().conf; Store.save('settings'); return render(); }
+    if (a === 'trtimer') { train().timer = +t.dataset.v; Store.save('settings'); if (answered === null) armTimer(); return render(); }
+    if (a === 'trexpl') { train().explain = !train().explain; Store.save('settings'); return render(); }
+    if (a === 'explok') { explText = ($('#spexpl')?.value || '').trim(); const i = explChoice; return answerFinal(i); }
+    if (a === 'explcancel') { explChoice = null; explText = ''; return render(); }
     if (a === 'next') { newSpot(); render(); $('.opt')?.focus(); return; }
     if (a === 'toEq') {
       if (spot.hands) { eqIn.p = spot.hands.map((h) => h.map(E.cardStr).join('')).concat(['']); eqIn.board = spot.board.slice(0, 3).map(E.cardStr).join(''); }

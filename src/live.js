@@ -563,7 +563,7 @@
     const { keys, eq, w } = VD.plo;
     if (!PLO_PCT) { const idx = keys.map((_, i) => i).sort((x, y) => eq[y] - eq[x]), tot = w.reduce((x, y) => x + y, 0); PLO_PCT = new Float32Array(keys.length); let cum = 0; for (const i of idx) { PLO_PCT[i] = (cum + w[i] / 2) / tot; cum += w[i]; } }
     const k = VV.canon(h); let lo = 0, hi = keys.length - 1; while (lo < hi) { const m = (lo + hi) >> 1; if (keys[m] < k) lo = m + 1; else hi = m; }
-    return keys[lo] === k ? { pct: PLO_PCT[lo], eq: eq[lo] / 1000 } : null;
+    return keys[lo] === k ? { pct: PLO_PCT[lo], eq: eq[lo] / 1000, idx: lo } : null;
   }
   // Short Deck : 81 mains, équité contre 1, 2, 3 mains aléatoires et rang pondéré par le nombre de combinaisons.
   let SD_TAB = null;

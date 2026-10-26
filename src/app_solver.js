@@ -55,13 +55,15 @@
     }
     return out;
   }
-  const SAMPLES = { fast: { turn: 8, river: 6, label: 'Rapide (8 turns × 6 rivers)' }, std: { turn: 12, river: 8, label: 'Standard (12 × 8)' }, fine: { turn: 16, river: 10, label: 'Fin (16 × 10)' } };
+  // Tirages du flop : représentants d'orbites de couleurs (sur un flop bicolore ou monocolore, chaque tirage couvre aussi ses cartes symétriques).
+  const SAMPLES = { fast: { turn: 12, river: 8, label: 'Rapide (12 turns × 8 rivers)' }, std: { turn: 16, river: 10, label: 'Standard (16 × 10)' }, fine: { turn: 24, river: 16, label: 'Fin (24 × 16)' }, exact: { exact: true, label: 'Exact (toutes les cartes)' } };
+  const EXACT_MB = 400;
   const ACC = { fast: { pct: 1, label: '1 % du pot' }, std: { pct: 0.5, label: '0,5 % du pot' }, fine: { pct: 0.3, label: '0,3 % du pot' } };
 
   // ---------------- État ----------------
   const sv = {
     sub: 'solve', scen: 'srp-BTN-BB', names: ['BB', 'BTN'], r: ['', ''], board: 'Ks7d2c', pot: 5.5, stack: 97.5, preset: 'std', sizes: null, maxRaises: 2,
-    acc: 'fast', sample: 'fast', hero: '', maxSec: 300, err: '', note: '',
+    acc: 'fast', sample: 'std', hero: '', maxSec: 300, err: '', note: '',
     game: null, running: false, path: [], info: null, ex: null, t0: 0, elapsed: 0, lastEx: 0, cell: null, view: 'strat', paint: -1, brush: 1, target: null, showSizes: false,
   };
   function applyScenario(id) {
@@ -89,7 +91,18 @@
     if (!(pot > 0)) throw new Error('Pot invalide.'); if (!(stack >= 0)) throw new Error('Tapis invalide.');
     const sizes = {}; for (const st of ST) sizes[st] = sv.sizes[st].map((x) => ({ bet: x.bet, raise: x.raise }));
     const rp = +String(sv.rakePct ?? 0).replace(',', '.') || 0, rc = +String(sv.rakeCap ?? 3).replace(',', '.') || 0;
-    return { rake: rp > 0 ? { pct: rp / 100, cap: rc > 0 ? rc : Infinity } : null, board, pot, stack, ranges: sv.r.slice(), sizes, maxRaises: sv.maxRaises, sample: board.length === 3 ? SAMPLES[sv.sample] : null, include: sv.include || null };
+    let icm = null;
+    if (sv.icmOn) {
+      const nums = (x) => String(x || '').replace(/,/g, '.').split(/[\s;]+/).filter(Boolean).map(Number);
+      const others = nums(sv.icmOthers), pay = nums(sv.icmPay ?? '50 30 20'), own = nums(sv.icmOwn);
+      if (!others.length || others.some((x) => !(x > 0))) throw new Error('ICM : indique le tapis (bb) de chaque autre joueur encore en jeu, séparés par des espaces.');
+      if (!pay.length || pay.some((x) => !(x >= 0))) throw new Error('ICM : indique les prix (1er, 2e, …) séparés par des espaces.');
+      if (others.length + 2 > 9) throw new Error('ICM : neuf joueurs au plus.');
+      const st = own.length === 2 ? own : [stack, stack];
+      if (st.some((x) => x < stack - 1e-9)) throw new Error('ICM : le tapis derrière chaque joueur ne peut pas être inférieur au tapis effectif.');
+      icm = { stacks: [st[0], st[1], ...others], seats: [0, 1], payouts: pay };
+    }
+    return { icm, rake: rp > 0 ? { pct: rp / 100, cap: rc > 0 ? rc : Infinity } : null, board, pot, stack, ranges: sv.r.slice(), sizes, maxRaises: sv.maxRaises, sample: board.length === 3 && !SAMPLES[sv.sample].exact ? SAMPLES[sv.sample] : null, include: sv.include || null };
   }
   function estimateText() {
     try {
@@ -100,14 +113,17 @@
       const work = est.nodes * (N[0] + N[1]) / 2 / 2e4; // ms par itération, mesuré (Node, portable récent)
       const its = { fast: 90, std: 150, fine: 220 }[sv.acc], sec = Math.max(1, Math.round(work * its / 1000 * 1.5));
       sv.estMb = mb;
-      return `Arbre : ${fr(est.acts, 0)} nœuds de décision · ${N[0]} et ${N[1]} combos · mémoire ≈ ${fr(mb, 0)} Mo · durée estimée ≈ ${sec < 60 ? sec + ' s' : Math.round(sec / 60) + ' min'}${est.approx ? ' · <strong>flop approché</strong> (échantillon de tirages)' : ''}${mb > 700 ? ' · <strong style="color:var(--bad)">trop gros : réduis les tailles</strong>' : ''}`;
+      return `Arbre : ${fr(est.acts, 0)} nœuds de décision · ${N[0]} et ${N[1]} combos · mémoire ≈ ${fr(mb, 0)} Mo · durée estimée ≈ ${sec < 60 ? sec + ' s' : Math.round(sec / 60) + ' min'}${est.approx ? ' · <strong>flop approché</strong> (échantillon de tirages)' : ''}${mb > 700 ? ' · <strong style="color:var(--bad)">trop gros : réduis les tailles</strong>' : ''}${cfg.board.length === 3 && SAMPLES[sv.sample].exact && mb > EXACT_MB ? ` · <strong style="color:var(--bad)">flop exact refusé au-delà de ${EXACT_MB} Mo : réduis les tailles ou choisis Fin</strong>` : ''}`;
     } catch (e) { sv.estMb = 0; return esc(e.message); }
   }
   function start() {
     try {
       const cfg = buildCfg();
       estimateText(); if (sv.estMb > 700) throw new Error('Arbre trop gros pour le navigateur : choisis des tailles « Rapide » ou un board plus avancé (turn, river).');
-      sv.game = PF.create(cfg);
+      if (cfg.board.length === 3 && SAMPLES[sv.sample].exact && sv.estMb > EXACT_MB) throw new Error(`Flop exact : l'arbre dépasse ${EXACT_MB} Mo. Réduis les tailles (préréglage Rapide) ou choisis le tirage Fin.`);
+      // Avec des verrous conservés, on désactive l'isomorphisme : un verrou posé sur une carte ne doit pas s'appliquer à ses cartes symétriques.
+      sv.game = PF.create({ ...cfg, iso: !(sv.keepLocks && sv.locks?.length) });
+      stabStop(); sv.stabCfg = cfg.sample ? cfg : null; sv.prof = null; sv.profBase = null; sv.profRes = ''; sv.profTarget = 0; if (sv.simp?.job) try { sv.simp.job.free(); } catch (e) { /* libéré */ } sv.simp = null;
       if (!sv.keepLocks) { sv.locks = []; sv.lockRes = null; sv.lockBase = null; } sv.keepLocks = false;
       for (const l of sv.locks || []) { try { sv.game.lock(l.path, l.strat); } catch (e) { /* chemin absent */ } }
       sv.err = ''; sv.path = []; sv.info = null; sv.ex = null; sv.cell = null; sv.running = true; sv.t0 = performance.now(); sv.elapsed = 0; sv.lastEx = 0;
@@ -126,7 +142,7 @@
     const it = g.stats().iterations, target = ACC[sv.acc].pct;
     if (it - sv.lastEx >= Math.max(10, Math.round(it * 0.15)) || sv.elapsed > sv.maxSec) { sv.ex = g.exploitability(); sv.lastEx = it; }
     // Avec un verrou, le joueur verrouillé ne s'adapte plus : l'exploitabilité ne descend pas, on s'arrête au nombre d'itérations du solve d'équilibre.
-    const done = sv.locks?.length ? it >= Math.max(150, sv.baseIts || 200) || sv.elapsed > sv.maxSec : (sv.ex && sv.ex.pct <= target) || sv.elapsed > sv.maxSec;
+    const done = sv.profTarget ? it >= sv.profTarget || sv.elapsed > sv.maxSec : sv.locks?.length ? it >= Math.max(150, sv.baseIts || 200) || sv.elapsed > sv.maxSec : (sv.ex && sv.ex.pct <= target) || sv.elapsed > sv.maxSec;
     const pr = $('#svprog');
     if (pr) pr.innerHTML = progressHTML();
     if (done) { if (!sv.ex || sv.lastEx !== it) sv.ex = g.exploitability(); finish(); return; }
@@ -134,10 +150,129 @@
   }
   function finish() {
     sv.running = false;
-    if (!sv.locks?.length) sv.baseIts = sv.game.stats().iterations;
+    if (sv.profTarget) { sv.profTarget = 0; profReport(); refreshInfo(); render(); return; }
+    if (!sv.locks?.length && !sv.prof) sv.baseIts = sv.game.stats().iterations;
     state.progress.solves = (state.progress.solves || 0) + 1; X.award?.('solve', null, true); X.Store.save('progress');
     if (sv.target) { try { sv.path = sv.target.seq ? pathFor(sv.game, sv.target.seq) : (sv.target.path || []).slice(); } catch (e) { sv.path = []; } }
-    lockReport(); refreshInfo(); render();
+    lockReport(); refreshInfo(); stabStart(); render();
+  }
+  // ---- Profils de joueurs appliqués à tout l'arbre (exploitation) ----
+  const PROFS = { gto: { label: 'Équilibre', pr: null }, station: { label: 'Calling station', pr: { fp: 0.4, ap: 0.3 }, note: 'se couche 40 % moins, mise et relance 30 % moins' }, nit: { label: 'Nit', pr: { pf: 0.3, ap: 0.3 }, note: 'paie 30 % moins face aux mises, mise 30 % moins' }, maniaque: { label: 'Maniaque', pr: { pa: 0.35, fp: 0.2 }, note: 'check et paie 35 % moins (au profit de mises et relances), se couche 20 % moins' } };
+  function profHTML() {
+    const g = sv.game; if (!g || sv.running) return '';
+    const cur = sv.prof || { p: -1, id: 'gto' };
+    const row = (p) => `<div class="row"><span class="note">${nm(p)} joue comme :</span>${Object.entries(PROFS).map(([k, v]) => `<button class="chip" data-act="svprof" data-p="${p}" data-v="${k}" aria-pressed="${(cur.p === p && cur.id === k) || (k === 'gto' && cur.p !== p)}">${esc(v.label)}</button>`).join('')}</div>`;
+    return `<section class="panel"><h2>Exploiter un profil</h2><p class="note">La stratégie d'équilibre du joueur choisi est déformée sur tout l'arbre (un seul profil à la fois), puis l'autre joueur recalcule sa meilleure réponse. Les verrous manuels restent prioritaires.</p>${row(0)}${row(1)}
+      ${sv.profRes ? `<p>${sv.profRes}</p>` : ''}</section>`;
+  }
+  ACT.svprof = (t) => {
+    const g = sv.game; if (!g || sv.running) return;
+    const p = +t.dataset.p, id = t.dataset.v, P = PROFS[id];
+    if (!sv.profBase) sv.profBase = g.info([]).evMean.slice();
+    if (sv.prof && sv.prof.p !== p) g.applyProfile(sv.prof.p, null);
+    const k = g.applyProfile(p, P.pr);
+    sv.prof = P.pr ? { p, id, k } : null; sv.profRes = '';
+    sv.profTarget = g.stats().iterations + Math.max(120, Math.round((sv.baseIts || 200) * 0.6));
+    sv.running = true; sv.t0 = performance.now(); sv.elapsed = 0; render(); setTimeout(chunk, 30);
+  };
+  function profReport() {
+    const g = sv.game, r = g.info([]), b = sv.profBase; if (!b) return;
+    if (!sv.prof) { sv.profRes = 'Retour à l\'équilibre.'; sv.profBase = null; return; }
+    const p = sv.prof.p, o = 1 - p, P = PROFS[sv.prof.id], gain = r.evMean[o] - b[o];
+    sv.profRes = `<strong>${nm(p)} en ${esc(P.label.toLowerCase())}</strong> (${esc(P.note)}, ${sv.prof.k} nœuds) : ${nm(o)} gagne ${gain >= 0 ? '+' : '−'}${fr(Math.abs(gain), 2)} bb sur le spot (${fr(Math.abs(gain) / g.P0 * 100, 1)} % du pot de départ) en s'adaptant. Navigue dans l'arbre : les nœuds de ${nm(o)} montrent sa meilleure réponse.`;
+  }
+  // ---- Simplification : une seule taille de mise sur la rue du spot, coût en EV ----
+  // Le joueur choisi ne garde qu'une taille (l'autre joueur garde tout et s'adapte) ; second solve sur un autre fil, même précision.
+  function simpOptions() {
+    const g = sv.game; if (!g) return [];
+    const st = ST[g.board.length - 3], out = [];
+    for (let p = 0; p < 2; p++) { const L = String(g.cfg.sizes?.[st]?.[p]?.bet ?? '').split(/[\s,]+/).filter(Boolean); if (L.length >= 2) out.push({ p, st, sizes: L }); }
+    return out;
+  }
+  function simpHTML() {
+    const opts = simpOptions(); if (!opts.length || sv.running) return '';
+    const S = sv.simp;
+    let res = '';
+    if (S && S.state === 'run') res = `<p class="note">Solve simplifié en cours (${nm(S.p)} : ${S.size === 'a' ? 'tapis' : S.size + ' %'} seulement)…</p>`;
+    else if (S && S.state === 'done') {
+      const full = sv.game.info([]).evMean, d = full[S.p] - S.ev[S.p];
+      res = `<p><strong>${nm(S.p)} avec une seule taille (${S.size === 'a' ? 'tapis' : S.size + ' %'})</strong> : ${d <= 0.005 ? 'aucun coût mesurable' : `coût ${fr(d, 2)} bb, soit ${fr((d / sv.game.P0) * 100, 2)} % du pot de départ`} (EV ${fr(S.ev[S.p], 2)} bb contre ${fr(full[S.p], 2)} bb avec toutes les tailles ; exploitabilité du solve simplifié ${fr(S.ex, 2)} %). Racine : ${S.root.acts.map((a, k) => `${esc(a.label.toLowerCase())} ${pct(S.root.freq[k], 0)}`).join(' · ')}.</p>
+        <p class="note">${d < 0.02 * sv.game.P0 ? 'Moins de 2 % du pot : la stratégie à une taille est une simplification raisonnable pour jouer.' : 'Coût notable : la seconde taille sert vraiment ici.'}</p>`;
+    } else if (S && S.state === 'error') res = '<p class="note">Solve simplifié impossible.</p>';
+    return `<section class="panel"><h2>Simplifier : une seule taille</h2><p class="note">Combien coûte de ne garder qu'une taille de mise sur cette rue ? L'adversaire garde ses options et s'adapte.</p>
+      ${opts.map((o) => `<div class="row"><span class="note">${nm(o.p)} :</span>${o.sizes.map((z) => `<button class="chip" data-act="svsimp" data-p="${o.p}" data-v="${esc(z)}" aria-pressed="${S && S.p === o.p && S.size === z}">${z === 'a' ? 'Tapis seulement' : esc(z) + ' % seulement'}</button>`).join('')}</div>`).join('')}${res}</section>`;
+  }
+  ACT.svsimp = (t) => {
+    const g = sv.game; if (!g || !window.PFPool) return;
+    const p = +t.dataset.p, size = t.dataset.v, st = ST[g.board.length - 3];
+    if (sv.simp?.job) try { sv.simp.job.free(); } catch (e) { /* déjà libéré */ }
+    const sizes = JSON.parse(JSON.stringify(g.cfg.sizes)); sizes[st][p].bet = size;
+    const cfg = { ...g.cfg, sizes, ranges: g.cfg.ranges, profiles: null }, job = window.PFPool.solve(cfg, { pct: ACC[sv.acc].pct, maxMs: Math.min(240000, Math.max(20000, sv.elapsed * 1500)) });
+    const S = sv.simp = { p, size, job, state: 'run' }; render();
+    job.ready.then(() => job.node([], {})).then((n) => { if (sv.simp !== S) return; S.state = 'done'; S.ev = n.evMean; S.ex = job.ex; S.root = { acts: n.acts, freq: n.freq }; if (X.svSub() === 'solve') render(); }).catch(() => { if (sv.simp === S) { S.state = 'error'; render(); } });
+  };
+  // ---- Bibliothèque de flops résolus hors ligne : réponse instantanée pour les scénarios standards ----
+  const PERM4 = []; (function gen(a, l) { if (!l.length) { PERM4.push(a); return; } l.forEach((x, i) => gen([...a, x], l.filter((_, j) => j !== i))); })([], [0, 1, 2, 3]);
+  const canonFlop = (cards) => PERM4.map((sg) => cards.map((c) => (c & ~3) | sg[c & 3]).sort((a, b) => b - a).join('.')).sort()[0];
+  const suitPat = (cards) => { const n = new Set(cards.map((c) => c & 3)).size; return n === 1 ? 'mono' : n === 2 ? 'bi' : 'rainbow'; };
+  const pairPat = (cards) => new Set(cards.map((c) => c >> 2)).size;
+  let libIdx = null;
+  function libFind(scen, cards) {
+    const L = window.FlopLibrary; if (!L || cards.length !== 3) return null;
+    if (!libIdx) libIdx = new Map((L.scenarios || []).map((x) => [x.id, x.flops.map((f) => { const c = E.parseCards(f.b); return { f, c, canon: canonFlop(c), sp: suitPat(c), pp: pairPat(c), r: c.map((y) => y >> 2).sort((a, b) => b - a) }; })]));
+    const list = libIdx.get(scen); if (!list?.length) return null;
+    const cn = canonFlop(cards), exact = list.find((x) => x.canon === cn); if (exact) return { ...exact, exact: true };
+    // Sinon : même structure de couleurs et d'appariement, hauteurs les plus proches (la plus haute carte compte double).
+    const r = cards.map((y) => y >> 2).sort((a, b) => b - a), sp = suitPat(cards), pp = pairPat(cards);
+    let best = null, bd = Infinity;
+    for (const x of list) { if (x.sp !== sp || x.pp !== pp) continue; const d = 2 * Math.abs(x.r[0] - r[0]) + Math.abs(x.r[1] - r[1]) + Math.abs(x.r[2] - r[2]); if (d < bd) { bd = d; best = x; } }
+    return best ? { ...best, exact: false, dist: bd } : null;
+  }
+  const LIBK = { x: 'x', c: 'x', f: 'f', a: 'a' };
+  function libGrid(n, alph) {
+    const A = n.act.length, val = (a, i) => { const ch = n.s[a][i]; return ch === '.' ? null : alph.indexOf(ch) / 63; };
+    const bets = n.k.map((k, a) => [k, a]).filter(([k]) => k === 'b' || k === 'r'), cls = n.k.map((k, a) => LIBK[k] || 'b' + Math.min(3, 1 + bets.findIndex(([, j]) => j === a) + (bets.length === 1 ? 1 : 0)));
+    const tot = new Array(A).fill(0); let W = 0;
+    const html = grid169((h) => { const i = E.ALL169.indexOf(h), f = n.act.map((_, a) => val(a, i)); if (f[0] === null) return `<span class="rc" title="${h} : absente">${h}</span>`; const w = E.combos(h).length; W += w; f.forEach((v, a) => (tot[a] += w * v)); return `<span class="rc" style="background:${grad(f.map((v, a) => [cls[a], v]))}" title="${h} : ${n.act.map((l, a) => `${l} ${Math.round(f[a] * 100)} %`).join(', ')}">${h}</span>`; });
+    return { html, freq: tot.map((t) => t / (W || 1)), cls };
+  }
+  function libHTML() {
+    const cards = E.parseCards(sv.board), sc = SCEN.find((x) => x.id === sv.scen); if (cards.length !== 3 || !sc) return '';
+    const L = window.FlopLibrary, m = libFind(sv.scen, cards); if (!m) return '';
+    const [o, i] = seatsOf(sc), dflt = sv.r[0] === o[1] && sv.r[1] === i[1];
+    const which = sv.libNode === 'n2' ? 'n2' : 'n1', n = m.f[which], G = libGrid(n, L.alph);
+    const sc0 = L.scenarios.find((x) => x.id === sv.scen);
+    const title = which === 'n1' ? (sc0.actor === 'ip' ? `${sv.names[1]} après le check` : `${sv.names[0]} premier à parler`) : 'Réponse à la petite mise';
+    return `<details class="panel" ${sv.libOpen !== false ? 'open' : ''}><summary data-act="svlibtog"><strong>Bibliothèque : réponse immédiate</strong> <span class="note">${m.exact ? 'flop identique (à l\'isomorphisme de couleurs près)' : `flop le plus proche : <span class="mono">${esc(m.f.b)}</span>, même texture`}</span></summary>
+      <p class="note">Solve hors ligne (tirages ${esc(sc0.sample)}, exploitabilité ${fr(m.f.ex, 2)} % du pot), ranges et tailles par défaut du scénario : flop 33 % et 75 %, turn et river à 75 %.${dflt ? '' : ' <strong>Tes ranges diffèrent des ranges par défaut : lance un solve pour ton spot exact.</strong>'}${m.exact ? '' : ' Flop voisin : à lire comme une tendance.'}</p>
+      <div class="row"><button class="chip" data-act="svlibn" data-v="n1" aria-pressed="${which === 'n1'}">${esc(sc0.actor === 'ip' ? 'Après le check' : 'Premier à parler')}</button><button class="chip" data-act="svlibn" data-v="n2" aria-pressed="${which === 'n2'}">Réponse à la petite mise</button></div>
+      <p class="note"><strong>${esc(title)}</strong> : ${n.act.map((l, a) => `<i class="mini-sw" style="background:var(--act-${G.cls[a]})"></i> ${esc(l)} ${pct(G.freq[a], 0)}`).join(' · ')}</p>
+      ${G.html}</details>`;
+  }
+  ACT.svlibn = (t) => { sv.libNode = t.dataset.v; render(); };
+  ACT.svlibtog = (t, e) => { e?.preventDefault?.(); sv.libOpen = sv.libOpen === false; render(); };
+  // ---- Stabilité d'un flop échantillonné : second solve indépendant (autre tirage de turns et rivers) sur un autre fil ----
+  // L'exploitabilité affichée est mesurée dans l'arbre échantillonné ; l'écart entre deux tirages mesure l'erreur due à l'échantillon.
+  function stabStop() { if (sv.stab?.job) try { sv.stab.job.free(); } catch (e) { /* déjà libéré */ } sv.stab = null; }
+  function stabStart() {
+    if (!sv.stabCfg || sv.locks?.length || !window.PFPool) return;
+    const cfg = { ...sv.stabCfg, seed: 1009 }, job = window.PFPool.solve(cfg, { pct: ACC[sv.acc].pct, maxMs: Math.min(240000, Math.max(20000, sv.elapsed * 1500)) });
+    sv.stab = { job, state: 'run', cache: new Map() };
+    job.ready.then(() => { if (sv.stab?.job === job) { sv.stab.state = 'done'; sv.stab.ex = job.ex; if (X.svSub() === 'solve') render(); } }).catch(() => { if (sv.stab?.job === job) sv.stab.state = 'error'; });
+  }
+  // Chemin restreint aux nœuds du flop (avant la première carte) : seul endroit où les deux tirages ont le même arbre.
+  const flopPath = () => { const g = sv.game; let node = g.root; for (const x of sv.path) { if (node.t !== PF.ACT) return null; node = node.ch[x]; } return node.t === PF.ACT ? sv.path : null; };
+  function stabHTML(r) {
+    const st = sv.stab; if (!st || !sv.game.stats().approx) return '';
+    if (st.state === 'run') return '<p class="note">Contrôle de stabilité : second tirage de turns et rivers en cours sur un autre fil…</p>';
+    if (st.state !== 'done') return '';
+    const fp = flopPath(); if (!fp) return '<p class="note">Contrôle de stabilité : disponible sur les nœuds du flop.</p>';
+    const k = fp.join(','), c = st.cache.get(k);
+    if (!c) { st.cache.set(k, { wait: true }); st.job.node(fp, {}).then((n) => { st.cache.set(k, n); if (X.svSub() === 'solve') render(); }).catch(() => st.cache.set(k, { err: true })); return '<p class="note">Contrôle de stabilité : lecture du second tirage…</p>'; }
+    if (c.wait || c.err || !c.freq) return '';
+    const d = Math.max(...r.freq.map((f, a) => Math.abs(f - (c.freq[a] ?? 0)))), avg = r.freq.map((f, a) => (f + (c.freq[a] ?? 0)) / 2);
+    const verdict = d <= 0.03 ? ['good', 'stable'] : d <= 0.07 ? ['warn', 'à lire en tendance'] : ['bad', 'instable : choisis Fin ou Exact'];
+    return `<p class="note"><span class="pill ${verdict[0]}">Stabilité : ${verdict[1]}</span> second tirage indépendant (exploitabilité ${fr(st.ex ?? 0, 2)} %) : écart maximal ${fr(d * 100, 1)} points sur les fréquences de ce nœud. Moyenne des deux tirages : ${r.node.acts.map((_, a) => `${esc(sv.game.label(r.node, a).toLowerCase())} ${pct(avg[a], 0)}`).join(' · ')}.</p>`;
   }
   function refreshInfo() { if (!sv.game) return; try { sv.info = sv.game.info(sv.path); } catch (e) { sv.path = []; sv.info = sv.game.info([]); } }
   const progressHTML = () => {
@@ -171,6 +306,9 @@
         <label class="f">Tapis effectif restant (bb)<input data-svf="stack" inputmode="decimal" value="${esc(sv.stack)}"></label>
         <label class="f">Rake (% du pot, 0 = sans)<input data-svf="rakePct" inputmode="decimal" value="${esc(sv.rakePct ?? '0')}"></label>
         <label class="f">Plafond du rake (bb)<input data-svf="rakeCap" inputmode="decimal" value="${esc(sv.rakeCap ?? '3')}"></label>
+        ${sv.icmOn ? `<label class="f">ICM : tapis des autres joueurs (bb)<input class="mono" data-svf="icmOthers" value="${esc(sv.icmOthers ?? '')}" placeholder="12 8 5" spellcheck="false"></label>
+        <label class="f">ICM : prix (1er, 2e, …)<input class="mono" data-svf="icmPay" value="${esc(sv.icmPay ?? '50 30 20')}" placeholder="50 30 20" spellcheck="false"></label>
+        <label class="f">ICM : tapis derrière ${esc(sv.names[0])} / ${esc(sv.names[1])} (bb, vide = tapis effectif)<input class="mono" data-svf="icmOwn" value="${esc(sv.icmOwn ?? '')}" placeholder="25 40" spellcheck="false"></label>` : ''}
         <label class="f">Ta main (facultatif)<input data-svf="hero" value="${esc(sv.hero)}" placeholder="AhKd" spellcheck="false" autocomplete="off"></label>
       </div>
       <div class="row"><button class="btn small" data-act="svrand" data-n="3">Flop au hasard</button><button class="btn small" data-act="svrand" data-n="4">Turn au hasard</button><button class="btn small" data-act="svrand" data-n="5">River au hasard</button></div>
@@ -183,6 +321,7 @@
       ${sv.showSizes ? `<div class="tw"><table class="t sizes"><thead><tr><th>Rue</th><th>Mises ${esc(sv.names[0])}</th><th>Relances ${esc(sv.names[0])}</th><th>Mises ${esc(sv.names[1])}</th><th>Relances ${esc(sv.names[1])}</th></tr></thead><tbody>${sizeRows}</tbody></table></div>
         ${E.parseCards(sv.board).length === 3 ? '<p class="note">Solve depuis le flop : turn et river réduits à une mise de 75 % sans relance pour tenir dans le navigateur. Pour le détail d\'un turn, résous le flop puis « Re-résoudre exactement d\'ici ».</p>' : ''}
         <p class="note">En % du pot, séparées par des espaces ; <span class="mono">a</span> = tapis. Une relance de 60 % = relancer de 60 % du pot après avoir payé. Relances maximum par rue : <input class="mono" data-svf="maxRaises" value="${sv.maxRaises}" style="width:3em" aria-label="Relances maximum par rue">. Une mise qui engage plus de 67 % du tapis restant devient un tapis.</p>` : ''}
+      <div class="row"><span class="note">Format :</span><button class="chip" data-act="svicm" aria-pressed="${!sv.icmOn}" data-v="0">Jetons (cash)</button><button class="chip" data-act="svicm" aria-pressed="${!!sv.icmOn}" data-v="1">Tournoi (ICM)</button></div>
       <div class="row"><span class="note">Précision :</span>${Object.entries(ACC).map(([k, v]) => `<button class="chip" aria-pressed="${sv.acc === k}" data-act="svacc" data-v="${k}">${v.label}</button>`).join('')}</div>
       ${E.parseCards(sv.board).length === 3 ? `<div class="row"><span class="note">Tirages du flop :</span>${Object.entries(SAMPLES).map(([k, v]) => `<button class="chip" aria-pressed="${sv.sample === k}" data-act="svsample" data-v="${k}">${v.label}</button>`).join('')}</div>` : ''}
       <p class="note" id="svest">${estimateText()}</p>
@@ -190,7 +329,7 @@
       <div class="row">${sv.running ? '<button class="btn" data-act="svstop">Arrêter et voir le résultat</button>' : '<button class="btn primary" data-act="svgo">Résoudre</button>'}${g && !sv.running ? '<button class="btn small" data-act="svreset">Nouveau spot</button>' : ''}</div>
     </section>`;
     const prog = g ? `<section class="panel" id="svprog">${progressHTML()}</section>` : '';
-    return (g && !sv.running && sv.info ? resultHTML() + prog + `<details class="panel"${sv.setupOpen ? ' open' : ''}><summary data-act="svsetup"><strong>Modifier le spot</strong></summary>${setup}</details>` : setup + prog);
+    return (g && !sv.running && sv.info ? resultHTML() + prog + `<details class="panel"${sv.setupOpen ? ' open' : ''}><summary data-act="svsetup"><strong>Modifier le spot</strong></summary>${setup}</details>` : setup + (sv.running ? '' : libHTML()) + prog);
   }
 
   // Peintre de range sur la grille 13 × 13 (poids par classe de mains).
@@ -224,16 +363,17 @@
   }
   function resultHTML() {
     const g = sv.game, r = sv.info, node = r.node, st = g.stats();
-    const approx = st.approx ? `<p class="note" style="color:var(--warn)">Flop approché : turns et rivers échantillonnés (${SAMPLES[sv.sample].turn} × ${SAMPLES[sv.sample].river}). Les fréquences du flop sont une bonne indication ; pour un turn ou une river précis, utilise « Re-résoudre exactement d'ici ».</p>` : '';
+    const smp = g.cfg.sample || {};
+    const approx = st.approx ? `<p class="note" style="color:var(--warn)">Flop approché : turns et rivers échantillonnés (${smp.turn} × ${smp.river}${g.sym ? ', cartes symétriques couvertes en plus' : ''}). L'exploitabilité est mesurée dans cet échantillon. Pour un turn ou une river précis, utilise « Re-résoudre exactement d'ici ».</p>${node.t === PF.ACT ? stabHTML(r) : ''}` : '';
     const top = `<section class="panel"><div class="row" style="justify-content:space-between"><span class="eyebrow">${r.board.length === 3 ? 'Flop' : r.board.length === 4 ? 'Turn' : 'River'} · pot ${fr(r.pot, 1)} bb · tapis ${fr(g.S - Math.max(r.C[0], r.C[1]), 1)} bb</span><span class="note mono">exploitabilité ${sv.ex ? fr(sv.ex.pct, 2) : '?'} % du pot</span></div>
       ${crumbs()}
       <div class="felt"><div class="row" style="justify-content:center;gap:16px">${cardsHTML(r.board)}</div>
-      <div class="stats svs">${[0, 1].map((p) => `<div class="stat${node.t === PF.ACT && node.p === p ? ' hero' : ''}"><span>${nm(p)} · ${p ? 'IP' : 'OOP'}</span><b>${isFinite(r.eqMean[p]) ? pct(r.eqMean[p], 1) : '–'}</b><span>équité · EV ${isFinite(r.evMean[p]) ? fr(r.evMean[p], 2) + ' bb' : '–'}</span></div>`).join('')}</div></div>${approx}</section>`;
+      <div class="stats svs">${[0, 1].map((p) => `<div class="stat${node.t === PF.ACT && node.p === p ? ' hero' : ''}"><span>${nm(p)} · ${p ? 'IP' : 'OOP'}</span><b>${isFinite(r.eqMean[p]) ? pct(r.eqMean[p], 1) : '–'}</b><span>équité · EV ${isFinite(r.evMean[p]) ? fr(r.evMean[p], 2) + (g.icm ? ' bb ICM' : ' bb') : '–'}</span></div>`).join('')}</div></div>${approx}${g.icm ? `<p class="note">Tournoi : les gains sont des variations d'équité ICM (Malmuth-Harville) converties en bb équivalents (1 bb ICM = ${fr(1 / g.icm.K, 3)} unité de prix), comptées depuis l'issue où ${nm(0)} ou ${nm(1)} abandonne le pot. La somme des EV n'est plus égale au pot : une partie de l'équité part vers les autres joueurs.</p>` : ''}</section>`;
     let body = '';
     if (node.t === PF.ACT) body = actHTML(r);
     else if (node.t === PF.CHANCE) body = chanceHTML(node);
     else body = `<section class="panel"><h2>${node.t === PF.FOLD ? `${nm(1 - node.winner)} se couche : ${nm(node.winner)} remporte le pot` : 'Abattage'}</h2><p>Fin de la branche. Pot final ${fr(r.pot, 1)} bb. Reviens en arrière avec le fil d'Ariane.</p></section>`;
-    return top + body;
+    return top + body + profHTML() + simpHTML();
   }
   function chanceHTML(node) {
     const g = sv.game, full = node.cards.length === 52 - node.board.length;
@@ -395,7 +535,7 @@
   ACT.svgo = () => { const pt = sv.pendingTarget; sv.target = pt && (!pt.board || pt.board === sv.board) ? pt : null; sv.pendingTarget = null; start(); };
   ACT.svstop = () => { sv.running = false; if (sv.game) { sv.ex = sv.game.exploitability(); finish(); } };
   ACT.svsetup = (t, e) => { e.preventDefault(); sv.setupOpen = !sv.setupOpen; render(); };
-  ACT.svreset = () => { sv.game = null; sv.info = null; sv.path = []; sv.target = null; render(); };
+  ACT.svreset = () => { stabStop(); sv.game = null; sv.info = null; sv.path = []; sv.target = null; render(); };
   ACT.svpath = (t) => { sv.path = sv.path.slice(0, +t.dataset.k); sv.cell = null; refreshInfo(); render(); };
   ACT.svact = (t) => { sv.path.push(+t.dataset.a); sv.cell = null; refreshInfo(); render(); };
   ACT.svcard = (t) => { sv.path.push(+t.dataset.c); sv.cell = null; refreshInfo(); render(); };
@@ -404,6 +544,7 @@
   ACT.svpreset = (t) => { sv.preset = t.dataset.v; sv.sizes = presetSizes(sv.preset, aggIdx()); sv.sizesCustom = false; sv.maxRaises = PRESETS[sv.preset].maxRaises; if (sv.extraSizes) mergeExtra(); render(); };
   ACT.svsizes = () => { sv.showSizes = !sv.showSizes; render(); };
   ACT.svacc = (t) => { sv.acc = t.dataset.v; render(); };
+  ACT.svicm = (t) => { sv.icmOn = t.dataset.v === '1'; render(); };
   ACT.svsample = (t) => { sv.sample = t.dataset.v; render(); };
   ACT.svpaint = (t) => { const p = +t.dataset.p; sv.paint = sv.paint === p ? -1 : p; render(); };
   ACT.svbrush = (t) => { sv.brush = +t.dataset.v; render(); };
@@ -564,9 +705,12 @@
   const ag = { group: 'high', sort: 'w', sc: 'srp-BTN-BB' };
   // ---------------- Préflop : ranges calculées par le solveur préflop simplifié (tools/build_preflop.js) ----------------
   const pf = { fmt: 'cash', id: 'cash100', key: 'rfi:CO', cell: null, cmp: null };
-  const PFCAT = [['rfi', 'Ouverture'], ['vo', 'Face à une ouverture'], ['vsh', 'Face à un tapis d\'ouverture'], ['v3', 'Face à un 3-bet'], ['v3a', 'Face à un 3-bet tapis'], ['v4', 'Face à un 4-bet'], ['v4a', 'Face à un 4-bet tapis'], ['v5', 'Face à un 5-bet tapis'], ['sq', 'Squeeze'], ['sqv', 'Ouvreur face au squeeze'], ['sqc', 'Caller face au squeeze'], ['sqo', 'Squeezer face au tapis de l\'ouvreur'], ['sqa', 'Squeezer face au tapis du caller']];
-  const PFK = { f: 'f', c: 'x', r: 'b2', a: 'a' };
+  const PFCAT = [['rfi', 'Ouverture'], ['vo', 'Face à une ouverture'], ['vsh', 'Face à un tapis d\'ouverture'], ['v3', 'Face à un 3-bet'], ['v3a', 'Face à un 3-bet tapis'], ['v4', 'Face à un 4-bet'], ['v4a', 'Face à un 4-bet tapis'], ['v5', 'Face à un 5-bet tapis'], ['sq', 'Squeeze'], ['sqv', 'Ouvreur face au squeeze'], ['sqc', 'Caller face au squeeze'], ['sqo', 'Squeezer face au tapis de l\'ouvreur'], ['sqa', 'Squeezer face au tapis du caller'], ['lp', 'Grosse blinde face au limp'], ['lpr', 'Petite blinde face à l\'isolation'], ['lps', 'Petite blinde face au tapis après limp'], ['lpa', 'Grosse blinde face au tapis après limp']];
+  const PFK = { f: 'f', c: 'x', x: 'x', r: 'b2', a: 'a' };
   function pfDecode(D, node) { return node.f.map((str) => Float64Array.from(str, (ch) => D.alph.indexOf(ch) / 63)); }
+  // Perte d'EV (bb) de chaque action par rapport à la meilleure, pour une classe de mains (stockée par tools/build_preflop.js).
+  const pfLoss = (D, node, i) => (node.l ? node.l.map((str) => (D.alph.indexOf(str[i]) / 63) ** 2 * (D.lossMax || 10)) : null);
+  X.pfLoss = pfLoss;
   function preflopHTML() {
     const D = window.PreflopData; if (!D) return '<section class="panel"><p>Données préflop absentes.</p></section>';
     const cfgs = D.configs.filter((c) => c.fmt === pf.fmt), cfg = cfgs.find((c) => c.id === pf.id) || cfgs[0]; pf.id = cfg.id;
@@ -591,9 +735,9 @@
       <div class="sbar">${node.acts.map((_, a) => tot[a] > 0.001 ? `<i style="width:${(tot[a] * 100).toFixed(2)}%;background:var(--act-${cls[a]})"></i>` : '').join('')}</div>
       <div class="row">${node.acts.map((a, k) => `<span class="pill"><i class="sw" style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--act-${cls[k]});margin-right:6px"></i>${esc(a.l)} ${pct(tot[k], 1)}</span>`).join('')}</div>
       <div class="svgrid">${grid169(cell)}</div>
-      ${sel >= 0 ? `<p><strong class="mono">${pf.cell}</strong> : ${node.acts.map((a, k) => `${esc(a.l.toLowerCase())} ${pct(F[k][sel], 0)}`).join(' · ')}</p>` : '<p class="note">Touche une main pour ses fréquences exactes.</p>'}
+      ${sel >= 0 ? `<p><strong class="mono">${pf.cell}</strong> : ${node.acts.map((a, k) => `${esc(a.l.toLowerCase())} ${pct(F[k][sel], 0)}`).join(' · ')}</p>${(() => { const L = pfLoss(D, node, sel); return L ? `<p class="note">Coût de chaque action face à la meilleure : ${node.acts.map((a, k) => `${esc(a.l.toLowerCase())} ${L[k] < 0.005 ? '0' : '−' + fr(L[k], 2)} bb`).join(' · ')}.</p>` : ''; })()}` : '<p class="note">Touche une main pour ses fréquences exactes.</p>'}
       ${cmp ? `<p class="note"><strong>Par rapport au tableau de référence (cash 100 bb) :</strong> joue en plus ${cmp[0].length ? cmp[0].join(' ') : 'rien'} ; laisse de côté ${cmp[1].length ? cmp[1].join(' ') : 'rien'}.</p>` : ''}
-      <p class="note">Modèle simplifié, à lire comme une tendance : six joueurs à tapis égaux, ouverture ${String(cfg.open).replace('.', ',')} bb, 3-bet 3 fois (4 fois depuis les blindes), squeezes, mais pas de limp ni de pot à trois. Après le flop, la valeur d'un pot payé est l'équité réalisée : 100 % en position, 72 % hors de position en pot simple (82 % en 3-bet, 90 % au-delà), modulée par la jouabilité de la main (paires et assorties connectées réalisent mieux). Tapis : équité exacte avec les blocages. Validé à 10 bb sans ante : la petite blinde pousse 58,9 % des mains contre 58,4 % pour l'équilibre tête-à-tête exact.</p></section>`;
+      <p class="note">Modèle simplifié, à lire comme une tendance : six joueurs à tapis égaux, ouverture ${String(cfg.open).replace('.', ',')} bb, 3-bet 3 fois (4 fois depuis les blindes), squeezes, limp de la petite blinde (la grosse blinde check ou isole), et pot à trois quand la grosse blinde paie derrière un call (part de chacun ∝ produit de ses équités contre les deux ranges, normalisée : approximation). Seule la grosse blinde peut sur-payer. Après le flop, la valeur d'un pot payé est l'équité réalisée : 100 % en position, 72 % hors de position en pot simple (82 % en 3-bet, 90 % au-delà), modulée par la jouabilité de la main (paires et assorties connectées réalisent mieux). Tapis : équité exacte avec les blocages. Validé à 10 bb sans ante : la petite blinde pousse 58,9 % des mains contre 58,4 % pour l'équilibre tête-à-tête exact.</p></section>`;
   }
   // Comparateur côte à côte : la même situation pour toutes les positions, ou la même position à toutes les profondeurs.
   function miniGrid(D, node, hl) {

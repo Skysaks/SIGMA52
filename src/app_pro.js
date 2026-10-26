@@ -20,7 +20,7 @@
   X.award = (kind, d, noSave) => {
     const L = league(), x = PR.XP, day = today(); d = d || {};
     let xp = 0;
-    if (kind === 'spot') { xp = x.spot + (d.ok ? x.spotOk : 0); PR.eloUpdate(elo(), PR.SPOT_D[d.type] ?? 1200, d.ok ? 1 : 0, day); }
+    if (kind === 'spot') { xp = x.spot + (d.ok ? x.spotOk : 0); PR.eloUpdate(elo(), d.diff ?? PR.SPOT_D[d.type] ?? 1200, d.ok ? 1 : 0, day); }
     else if (kind === 'decision') { xp = x.decision + (d.ok ? x.decisionOk : 0); const c = d.cats?.[0]; if (c) PR.eloUpdate(elo(), (PR.DEC_D[c] ?? 1200) + (PR.LEVEL_BONUS[levelOf(d.champ)] || 0), d.ok ? 1 : 0, day); }
     else xp = x[kind] || 0;
     L.xp = (L.xp || 0) + xp;

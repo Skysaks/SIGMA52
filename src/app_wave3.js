@@ -52,9 +52,15 @@
       <div class="row" style="margin-top:8px">${list}</div>
       <p class="note">Une chart est maîtrisée avec ${OKN} bonnes réponses sur les ${NEED} dernières ; la suivante s'ouvre alors. Les mains proches de la frontière de la range reviennent plus souvent : ce sont celles qu'on rate.</p></section>`;
   }
+  // Question de chart au format « spot » (plan du jour, révisions) : chart en cours de déblocage.
+  X.chartSpot = () => {
+    const P = cg(), i = Math.min(P.lvl, LEVELS.length - 1), L = LEVELS[i], cs = chartSet(L), d = [...Array(52).keys()], a = d.splice(Math.floor(Math.random() * 52), 1)[0], b = d[Math.floor(Math.random() * 51)], h = E.abstractOf(a, b);
+    return { type: 'chart', sid: 'ch:' + L.id + ':' + h, title: 'Charts · ' + L.label, prompt: L.kind === 'rfi' ? `Tout le monde a passé jusqu'à toi. Tu es <strong>${L.pos}</strong> avec <strong>${h}</strong>.` : `<strong>${L.o}</strong> ouvre, tu es <strong>${L.h}</strong> avec <strong>${h}</strong>.`, cards: [a, b], opts: cs.opts.slice(), ok: cs.ans(h), why: `${h} ${cs.ans(h) === cs.opts.length - 1 ? 'est hors de' : 'fait partie de'} la range « ${L.label} » (${fr(cs.size, 0)} % des mains jouées).` };
+  };
   ACT.chans = (t) => {
     const q = chq; if (!q || q.a !== null) return; q.a = +t.dataset.i;
     const P = cg(), ok = q.a === q.cs.ans(q.h), h = P.hist[q.L.id] || (P.hist[q.L.id] = []); h.push(ok ? 1 : 0); if (h.length > 60) h.shift();
+    if (!ok) X.reviewMiss?.({ type: 'chart', sid: 'ch:' + q.L.id + ':' + q.h, title: 'Charts · ' + q.L.label, prompt: q.L.kind === 'rfi' ? `Tout le monde a passé jusqu'à toi. Tu es <strong>${q.L.pos}</strong> avec <strong>${q.h}</strong>.` : `<strong>${q.L.o}</strong> ouvre, tu es <strong>${q.L.h}</strong> avec <strong>${q.h}</strong>.`, cards: q.cards, opts: q.cs.opts.slice(), ok: q.cs.ans(q.h), why: `${q.h} : voir la range « ${q.L.label} ».` });
     P.justUnlocked = false;
     const last = h.slice(-NEED); if (q.i === P.lvl && last.length >= NEED && last.filter(Boolean).length >= OKN && P.lvl < LEVELS.length) { P.lvl++; P.justUnlocked = true; X.award?.('spot', { type: 'rfi', ok: true }, true); }
     X.award?.('spot', { type: q.L.kind === 'rfi' ? 'rfi' : 'vsopen', ok }, true); save(); render();

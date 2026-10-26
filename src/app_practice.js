@@ -28,7 +28,7 @@
     for (let k = deck.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [deck[k], deck[j]] = [deck[j], deck[k]]; }
     const board = deck.slice(0, 5);
     const P = S.PRESETS[setup.depth];
-    const cfg = { board: board.slice(0, 3), pot: sc.pot, stack: sc.stack, ranges, sizes: S.presetSizes(setup.depth, agg, 3), maxRaises: P.maxRaises, sample: S.SAMPLES.fast, include: board.slice(3) };
+    const cfg = { board: board.slice(0, 3), pot: sc.pot, stack: sc.stack, ranges, sizes: S.presetSizes(setup.depth, agg, 3), maxRaises: P.maxRaises, sample: { turn: 8, river: 6 }, include: board.slice(3) };
     const h = { sc, names, heroP, agg, hero, vil, board, cfg, path: [], log: [], decisions: [], stage: 'solving', prog: null, base: [0, 0], pot0: sc.pot, stack0: sc.stack };
     h.job = POOL.solve(cfg, { pct: setup.depth === 'fast' ? 1 : 0.8, maxMs: 30000, onProgress: (j) => { h.prog = j.ex; if (ses && ses.cur === h) paintProgress(); } });
     h.job.ready.then(() => { h.ctx = { job: h.job, path: [], idx: idxOf(h.job, h) }; if (ses && ses.cur === h) advance(h); }, (e) => { h.stage = 'error'; h.err = e.message; if (ses && ses.cur === h) render(); });
@@ -96,7 +96,7 @@
     const best = Math.max(...c.ev), loss = Math.max(0, best - c.ev[a]), lossPct = loss / n.pot, g = gradeOf(lossPct, c.strat[a]);
     h.decisions.push({ street: n.street, board: n.board, acts: n.acts, chosen: a, strat: c.strat, ev: c.ev, best: c.ev.indexOf(best), loss, lossPct, g, pot: n.pot });
     const P = prog(); P.n++; if (g <= 1) P.good++; P.loss += lossPct; P.lossBB += loss; P.hist = [...(P.hist || []), Math.round(lossPct * 1000) / 1000].slice(-100);
-    ses.n++; ses.lossBB += loss; ses.lossPct += lossPct; if (g <= 1) ses.good++; ses.gc = ses.gc || [0, 0, 0, 0]; ses.gc[g]++;
+    ses.n++; ses.lossBB += loss; ses.lossPct += lossPct; if (g <= 1) ses.good++; X.logDay?.('ev', { lossPct, g }); ses.gc = ses.gc || [0, 0, 0, 0]; ses.gc[g]++;
     X.award?.('decision', { cats: ['value'], ok: g <= 1 }, true); X.award?.('trainer', null, true);
     Store.save('progress');
     h.log.push({ who: h.heroP, label: n.acts[a].label, street: n.street, g });
@@ -147,6 +147,7 @@
   function answerQuiz(a) {
     if (!qz || qz.a !== null) return; const q = qz.q, best = Math.max(...q.e), loss = Math.max(0, best - q.e[a]), lossPct = loss / q.pot, g = gradeOf(lossPct, q.f[a]);
     qz.a = a; qz.g = g; qz.lossBB = loss; qz.lossPct = lossPct; qz.n++; if (g <= 1) qz.good++; qz.loss += lossPct;
+    X.logDay?.('ev', { lossPct, g }); if (g >= 2) X.reviewMiss?.(X.hqSpot?.(qz.k));
     const P = prog(); P.n++; if (g <= 1) P.good++; P.loss += lossPct; P.lossBB += loss; P.hist = [...(P.hist || []), Math.round(lossPct * 1000) / 1000].slice(-100); P.quiz = (P.quiz || 0) + 1;
     X.award?.('decision', { cats: ['value'], ok: g <= 1 }, true); Store.save('progress'); render();
   }

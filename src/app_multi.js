@@ -6,6 +6,15 @@
   const prog = () => state.progress.multi || (state.progress.multi = { plo: { n: 0, ok: 0 }, three: { n: 0, ok: 0 } });
 
   // ---------------- Réglages ----------------
+  // Ranges PLO par défaut : fréquences du solveur préflop PLO (tools/build_plo_preflop.js, 120 paquets de mains), action par action.
+  const PPD = () => window.PLOPreflopData || null;
+  const PLO_SRC = { srp: [['vo:BTN:BB', 'c'], ['rfi:BTN', 'r']], '3bp': [['vo:BTN:BB', 'r'], ['v3:BTN:BB', 'c']] };
+  function ploFreq(pre, p) {
+    const D = PPD(); if (!D) return null; const c = D.configs.find((x) => x.id === 'plo100'), [key, k] = PLO_SRC[pre][p], n = c?.nodes.find((x) => x.key === key); if (!n) return null;
+    const a = n.acts.findIndex((x) => x.k === k); if (a < 0) return null;
+    const f = Float64Array.from(n.f[a], (ch) => D.alph.indexOf(ch) / 63), W = D.info.map((x) => x.w), T = W.reduce((x, y) => x + y, 0);
+    return { f, pct: f.reduce((s, x, i) => s + x * W[i], 0) / T, accept: (h) => { const t = window.Live?.ploTable(h); return t ? f[D.map.charCodeAt(t.idx) - 161] : 0; } };
+  }
   const PLO_PRE = {
     srp: { label: 'Pot relancé · BTN contre BB', names: ['BB', 'BTN'], pot: 7.5, stack: 96.5, lo: [0.08, 0], hi: [0.6, 0.45], note: 'BTN relance le pot (3,5 bb), BB paie. BTN : 45 % meilleures mains ; BB : 8 à 60 % (le top 8 % sur-relance).' },
     '3bp': { label: 'Pot 3-bet · BB contre BTN', names: ['BB', 'BTN'], pot: 22.5, stack: 89, lo: [0, 0.03], hi: [0.12, 0.35], note: 'BB sur-relance le pot (11 bb), BTN paie. BB : 12 % meilleures mains ; BTN : 3 à 35 % (le top 3 %, AAxx, 4-bet).' },
@@ -14,18 +23,21 @@
     co: { label: 'CO ouvre, BTN et BB paient', names: ['BB', 'CO', 'BTN'], pot: 8, stack: 97.5, r: ['22-TT, A2s-AJs, K6s-KJs, Q8s-QJs, J8s+, T8s+, 97s+, 86s+, 75s+, 64s+, 54s, A9o-AJo, KTo-KQo, QTo+, JTo', '22+, A2s+, K5s+, Q8s+, J8s+, T8s+, 97s+, 86s+, 75s+, 65s, 54s, A9o+, KTo+, QTo+, JTo', '22-JJ, A9s-AQs, KTs-KQs, QTs+, JTs, T9s, 98s, 87s, 76s, 65s, AQo, KQo'] },
     utg: { label: 'UTG ouvre, BTN et BB paient', names: ['BB', 'UTG', 'BTN'], pot: 8, stack: 97.5, r: ['22-JJ, A2s-AQs, K8s+, Q9s+, J9s+, T8s+, 97s+, 86s+, 75s+, 65s, 54s, ATo-AQo, KJo+, QJo', '22+, A2s+, K9s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, AJo+, KQo', '22-QQ, ATs-AQs, KTs+, QTs+, JTs, T9s, 98s, 87s, AQo'] },
   };
-  const pl = { board: 'Kh8s4c2d', pre: 'srp', n: 200, sizes: 'simple', hero: '', lo: PLO_PRE.srp.lo.slice(), hi: PLO_PRE.srp.hi.slice() };
+  const pl = { board: 'Kh8s4c2d', pre: 'srp', q: 'std', src: 'solver', sizes: 'simple', hero: '', lo: PLO_PRE.srp.lo.slice(), hi: PLO_PRE.srp.hi.slice() };
   const th = { board: 'Ks7d2c5h', pre: 'co', sizes: 'simple', river: 'fast', hero: '', r: THREE_PRE.co.r.slice() };
   const run = { plo: null, three: null }; // résolution en cours ou terminée, par outil
 
+  // Mains par range selon la rue : la river est rapide (800 par défaut), le turn calcule toutes les rivers, le flop échantillonne turns et rivers.
+  const PLO_Q = ['fast', 'std', 'fine'], PLO_N = { 3: [100, 150, 200], 4: [150, 300, 450], 5: [400, 800, 1200] };
+  const ploRanges = (board, n, salt, hero) => [0, 1].map((p) => { const fq = pl.src === 'solver' ? ploFreq(pl.pre, p) : null; return fq ? PS.sampleRange(rankPLO, 0, 1, n, board, 11 + p * 7 + salt, hero.length ? [hero] : [], { board, accept: fq.accept }) : PS.sampleRange(rankPLO, +pl.lo[p], +pl.hi[p], n, board, 11 + p * 7 + salt, hero.length ? [hero] : [], { board }); });
   const rankPLO = (h) => { const t = window.Live?.ploTable(h); return t ? t.pct : null; };
   function ploCfg() {
     const board = E.parseCards(pl.board);
     if (board.length < 3 || board.length > 5 || new Set(board).size !== board.length) throw new Error('Le board fait 3, 4 ou 5 cartes différentes.');
     const P = PLO_PRE[pl.pre], hero = E.parseCards(pl.hero || '');
     if (hero.length && (hero.length !== 4 || new Set(hero).size !== 4 || hero.some((c) => board.includes(c)))) throw new Error('Ta main PLO : 4 cartes différentes, absentes du board (ex. AsAhJdTd).');
-    const n = +pl.n, flop = board.length === 3;
-    const ranges = [0, 1].map((p) => PS.sampleRange(rankPLO, +pl.lo[p], +pl.hi[p], flop ? Math.min(n, 150) : n, board, 11 + p * 7, hero.length ? [hero] : []));
+    const flop = board.length === 3, n = PLO_N[board.length][PLO_Q.indexOf(pl.q)];
+    const ranges = ploRanges(board, n, 0, hero);
     const rich = pl.sizes === 'riche';
     const sizes = flop
       ? { flop: [{ bet: rich ? [33, 66] : [50], raise: [] }, { bet: rich ? [33, 66, 100] : [50, 100], raise: [100] }], turn: [{ bet: [66], raise: [] }, { bet: [66], raise: [] }], river: [{ bet: [66], raise: [] }, { bet: [66], raise: [] }] }
@@ -64,13 +76,75 @@
     const it = g.stats().iterations;
     if (it - R.lastEx >= Math.max(10, Math.round(it * 0.2)) || R.elapsed > R.maxSec) { R.ex = g.exploitability(); R.lastEx = it; }
     const el = $('#mxprog'); if (el) el.innerHTML = progressHTML(R);
-    if ((R.ex && quality(R) <= R.target) || R.elapsed > R.maxSec) { finish(R); return; }
+    if (R.fixedIt ? it >= R.fixedIt || R.elapsed > R.maxSec : (R.ex && quality(R) <= R.target) || R.elapsed > R.maxSec) { finish(R); return; }
     setTimeout(() => chunk(R), 0);
   }
   function finish(R) {
     R.running = false; if (R.lastEx !== R.g.stats().iterations) R.ex = R.g.exploitability();
+    if (R.fixedIt) { R.fixedIt = 0; exReport(R); refresh(R); render(); return; }
+    R.baseIts = R.g.stats().iterations;
     state.progress.solves = (state.progress.solves || 0) + 1; X.award?.('solve', null, true); X.Store.save('progress');
     refresh(R); render();
+    if (R.kind === 'plo' && R.cfg.board.length === 4 && !R.second) setTimeout(() => second(R), 60);
+  }
+  // PLO au turn : second tirage indépendant des ranges, résolu par tranches ; les fréquences des nœuds du turn sont moyennées.
+  function second(R) {
+    if (run.plo !== R) return;
+    const hero = R.cfg.hero || [], cfg = { ...R.cfg, ranges: ploRanges(R.cfg.board, R.cfg.ranges[0].length, 101, hero) };
+    const S2 = R.second = { g: PS.create(cfg), it: 0, done: false, t0: performance.now() };
+    const step = () => {
+      if (run.plo !== R || R.second !== S2) return;
+      const t = performance.now(); do { S2.g.iterate(1); S2.it++; } while (performance.now() - t < 90);
+      if (S2.it % 30 < 3 || performance.now() - S2.t0 > R.maxSec * 1000) { S2.ex = S2.g.exploitability(); if (S2.ex.pct <= R.target || performance.now() - S2.t0 > R.maxSec * 1000) { S2.done = true; if (X.svSub?.() === 'plo') render(); return; } }
+      setTimeout(step, 0);
+    };
+    setTimeout(step, 0);
+  }
+  // ---- PLO : verrou d'un nœud et profils sur tout l'arbre (exploitation) ----
+  const PROFS = { gto: { label: 'Équilibre', pr: null }, station: { label: 'Calling station', pr: { fp: 0.4, ap: 0.3 } }, nit: { label: 'Nit', pr: { pf: 0.3, ap: 0.3 } }, maniaque: { label: 'Maniaque', pr: { pa: 0.35, fp: 0.2 } } };
+  function rerun(R) { R.fixedIt = R.g.stats().iterations + Math.max(100, Math.round((R.baseIts || 150) * 0.6)); R.running = true; R.t0 = performance.now(); R.elapsed = 0; render(); setTimeout(() => chunk(R), 30); }
+  function exBase(R) { if (!R.exBase) R.exBase = R.g.info([]).evMean.slice(); }
+  function exReport(R) {
+    const b = R.exBase; if (!b) return; const r = R.g.info([]);
+    const who = R.prof ? R.prof.p : R.locks?.length ? R.locks[R.locks.length - 1].p : null; if (who === null) { R.exRes = 'Retour à l\'équilibre.'; R.exBase = null; return; }
+    const o = 1 - who, gain = r.evMean[o] - b[o];
+    R.exRes = `${esc(R.names[o])} gagne ${gain >= 0 ? '+' : '−'}${fr(Math.abs(gain), 2)} bb sur le spot (${fr((Math.abs(gain) / R.g.P0) * 100, 1)} % du pot de départ) en s'adaptant${R.prof ? ` à ${esc(R.names[who])} en ${esc(PROFS[R.prof.id].label.toLowerCase())}` : ' au verrou'}.`;
+  }
+  function exploitHTML(R, r) {
+    if (R.kind !== 'plo' || R.running) return '';
+    const node = r.node, isA = isAct(node), cur = R.prof || { p: -1, id: 'gto' };
+    const row = (p) => `<div class="row"><span class="note">${esc(R.names[p])} joue comme :</span>${Object.entries(PROFS).map(([k, v]) => `<button class="chip" data-act="plprof" data-p="${p}" data-v="${k}" aria-pressed="${(cur.p === p && cur.id === k) || (k === 'gto' && cur.p !== p)}">${esc(v.label)}</button>`).join('')}</div>`;
+    const lk = isA ? `<div class="row"><span class="note">Verrouiller ce nœud (${esc(R.names[node.p])}) :</span>${node.acts.map((_, a) => `<button class="chip" data-act="pllock" data-a="${a}" data-m="never">Jamais « ${esc(R.g.label(node, a).toLowerCase())} »</button>`).join('')}${node.acts.map((_, a) => `<button class="chip" data-act="pllock" data-a="${a}" data-m="always">Toujours « ${esc(R.g.label(node, a).toLowerCase())} »</button>`).join('')}</div>` : '';
+    return `<section class="panel"><h2>Exploiter</h2><p class="note">Profil : la stratégie d'équilibre du joueur est déformée sur tout l'arbre, l'autre recalcule sa meilleure réponse. Verrou : ce nœud seulement, à partir de la stratégie d'équilibre.</p>${row(0)}${row(1)}${lk}${R.locks?.length ? `<p class="note">${R.locks.length} verrou${R.locks.length > 1 ? 's' : ''} posé${R.locks.length > 1 ? 's' : ''}. <button class="btn small" data-act="plunlock">Retirer les verrous</button></p>` : ''}${R.exRes ? `<p>${R.exRes}</p>` : ''}</section>`;
+  }
+  ACT.plprof = (t) => {
+    const R = run.plo; if (!R?.g || R.running) return;
+    const p = +t.dataset.p, id = t.dataset.v; exBase(R);
+    if (R.prof && R.prof.p !== p) R.g.applyProfile(R.prof.p, null);
+    R.g.applyProfile(p, PROFS[id].pr); R.prof = PROFS[id].pr ? { p, id } : null; R.exRes = ''; rerun(R);
+  };
+  ACT.pllock = (t) => {
+    const R = run.plo; if (!R?.g || R.running) return;
+    const r = R.g.info(R.path), node = r.node; if (!isAct(node)) return;
+    const a0 = +t.dataset.a, n = R.g.N[node.p], A = node.acts.length, sg = Float64Array.from(r.strategy);
+    for (let i = 0; i < n; i++) {
+      if (t.dataset.m === 'always') { for (let a = 0; a < A; a++) sg[a * n + i] = a === a0 ? 1 : 0; continue; }
+      const rest = 1 - sg[a0 * n + i]; sg[a0 * n + i] = 0;
+      for (let a = 0; a < A; a++) if (a !== a0) sg[a * n + i] = rest > 1e-9 ? sg[a * n + i] / rest : 1 / (A - 1);
+    }
+    exBase(R); R.g.lock(R.path, sg); (R.locks = R.locks || []).push({ path: R.path.slice(), p: node.p });
+    for (const nd of R.g.nodes) if (nd.t === 0 && nd.p !== node.p) nd.sum.fill(0);
+    R.exRes = ''; rerun(R);
+  };
+  ACT.plunlock = () => { const R = run.plo; if (!R?.g || R.running) return; for (const l of R.locks || []) R.g.lock(l.path, null); R.locks = []; if (R.prof) { R.g.applyProfile(R.prof.p, null); R.prof = null; } rerun(R); };
+  // Nœud du turn (avant la carte river) : même arbre d'actions dans les deux tirages.
+  function secondHTML(R, r) {
+    const S2 = R.second; if (!S2 || R.kind !== 'plo') return '';
+    if (!S2.done) return '<p class="note">Second tirage des ranges en cours (moyenne de deux échantillons au turn)…</p>';
+    let node = R.g.root; for (const x of R.path) { if (!isAct(node)) return '<p class="note">Moyenne des deux tirages : disponible sur les nœuds du turn.</p>'; node = node.ch[x]; }
+    let r2; try { r2 = S2.g.info(R.path); } catch (e) { return ''; }
+    const avg = r.freq.map((f, a) => (f + r2.freq[a]) / 2), d = Math.max(...r.freq.map((f, a) => Math.abs(f - r2.freq[a])));
+    return `<p class="note"><span class="pill ${d <= 0.04 ? 'good' : d <= 0.08 ? 'warn' : 'bad'}">Deux tirages : écart ${fr(d * 100, 1)} points</span> moyenne retenue : ${r.node.acts.map((_, a) => `${esc(R.g.label(r.node, a).toLowerCase())} ${pct(avg[a], 0)}`).join(' · ')} (second tirage : exploitabilité ${fr(S2.ex.pct, 2)} %).</p>`;
   }
   function refresh(R) { try { R.info = R.g.info(R.path); } catch (e) { R.path = []; R.info = R.g.info([]); } R.quiz = null; }
   function progressHTML(R) {
@@ -131,7 +205,7 @@
       ${st.approx ? `<p class="note" style="color:var(--warn)">Approché : ${g.board.length === 3 ? `${R.cfg.sample.turn} turns × ${R.cfg.sample.river} rivers échantillonnés` : `${R.cfg.sample.river} rivers échantillonnées sur 48`}. Les fréquences sont une indication ; pour un spot précis, résous depuis la rue suivante.</p>` : ''}
       ${R.kind === 'plo' ? `<p class="note">Ranges : ${g.N[0]} et ${g.N[1]} mains tirées au hasard dans la range (rang préflop exact). Chaque main représente environ ${fr(rangeSize(0) / g.N[0], 0)} et ${fr(rangeSize(1) / g.N[1], 0)} mains réelles : une main précise peut manquer, d'où « Ta main », toujours incluse.</p>` : ''}</section>`;
     let body;
-    if (isAct(node)) body = actHTML(R, r);
+    if (isAct(node)) body = actHTML(R, r).replace('</section>', secondHTML(R, r) + '</section>');
     else if (isChance(node)) {
       const bySuit = [3, 2, 1, 0].map((s) => node.cards.filter((c) => (c & 3) === s).sort((a, b) => b - a));
       body = `<section class="panel"><h2>Choisis la ${node.board.length === 3 ? 'turn' : 'river'}</h2>${bySuit.map((l) => (l.length ? `<div class="cards picks">${l.map((c) => `<button class="cardpick" data-act="mxcard" data-c="${c}" aria-label="${E.cardStr(c)}">${cardHTML(c, true)}</button>`).join('')}</div>` : '')).join('')}</section>`;
@@ -139,7 +213,7 @@
       const w = live.map((x, p) => (x ? p : -1)).filter((p) => p >= 0);
       body = `<section class="panel"><h2>${node.t === 2 && R.kind === 'plo' ? `${esc(R.names[1 - node.winner])} se couche : ${esc(R.names[node.winner])} remporte le pot` : node.show === false ? `${esc(R.names[w[0]])} remporte le pot` : 'Abattage'}</h2><p>Fin de la branche, pot final ${fr(r.pot, 1)} bb. Reviens en arrière avec le fil d'Ariane.</p></section>`;
     }
-    return top + body;
+    return top + body + exploitHTML(R, r);
   }
   const rangeSize = (p) => 270725 * Math.max(0.001, pl.hi[p] - pl.lo[p]);
   function actHTML(R, r) {
@@ -235,21 +309,25 @@
     const P = PLO_PRE[pl.pre];
     const setup = `<p class="lead">Équilibre d'un spot d'Omaha pot-limit à deux joueurs après le flop. Les ranges PLO comptent des dizaines de milliers de mains : le solveur en tire un échantillon par rang préflop exact, puis calcule l'équilibre exact sur cet échantillon (cartes partagées retirées exactement).</p>
       <div class="row"><span class="note">Spot :</span>${Object.entries(PLO_PRE).map(([k, v]) => `<button class="chip" aria-pressed="${pl.pre === k}" data-act="plpre" data-v="${k}">${esc(v.label)}</button>`).join('')}</div>
-      <p class="note">${esc(P.note)} Pot ${fr(P.pot, 1)} bb, tapis ${fr(P.stack, 1)} bb.</p>
+      <p class="note">${pl.src === 'solver' ? '' : esc(P.note) + ' '}Pot ${fr(P.pot, 1)} bb, tapis ${fr(P.stack, 1)} bb.</p>
       <div class="form">
         <label class="f">Board (flop, turn ou river)<input data-plf="board" value="${esc(pl.board)}" spellcheck="false" autocomplete="off"></label>
         <label class="f">Ta main (facultatif, 4 cartes)<input data-plf="hero" value="${esc(pl.hero)}" placeholder="AsAhJdTd" spellcheck="false" autocomplete="off"></label>
+      </div>
+      <div class="row"><span class="note">Ranges :</span><button class="chip" aria-pressed="${pl.src === 'solver'}" data-act="plsrc" data-v="solver">Solveur préflop PLO</button><button class="chip" aria-pressed="${pl.src !== 'solver'}" data-act="plsrc" data-v="window">Fenêtre de rang (manuel)</button></div>
+      ${pl.src === 'solver' ? `<p class="note">${[0, 1].map((p) => { const fq = ploFreq(pl.pre, p); return fq ? `${esc(P.names[p])} : ${PLO_SRC[pl.pre][p][1] === 'r' ? (PLO_SRC[pl.pre][p][0].startsWith('rfi') ? 'ouvre' : 'sur-relance') : 'paie'} ${pct(fq.pct, 0)} des mains` : ''; }).join(' · ')}. Modèle : 6-max, 100 bb, tailles au pot, 120 paquets de mains (structure de couleurs × équité), réalisation hors de position 85 % ; ses défenses sont larges, la fenêtre manuelle permet de resserrer.</p>` : ''}
+      <div class="form"${pl.src === 'solver' ? ' hidden' : ''}>
         ${[0, 1].map((p) => `<label class="f">Range ${esc(P.names[p])} (${p ? 'IP' : 'OOP'}) : rang préflop de … à … %<span class="row" style="gap:6px"><input data-plf="lo${p}" inputmode="decimal" value="${fr(pl.lo[p] * 100, 0)}" style="width:5em" aria-label="Rang minimum ${esc(P.names[p])}"><input data-plf="hi${p}" inputmode="decimal" value="${fr(pl.hi[p] * 100, 0)}" style="width:5em" aria-label="Rang maximum ${esc(P.names[p])}"></span></label>`).join('')}
       </div>
       <div class="row"><button class="btn small" data-act="plrand" data-n="3">Flop au hasard</button><button class="btn small" data-act="plrand" data-n="4">Turn au hasard</button><button class="btn small" data-act="plrand" data-n="5">River au hasard</button></div>
-      <div class="row"><span class="note">Mains par range :</span>${[[120, '120 (rapide)'], [200, '200'], [300, '300 (précis)']].map(([v, l]) => `<button class="chip" aria-pressed="${+pl.n === v}" data-act="pln" data-v="${v}">${l}</button>`).join('')}</div>
+      <div class="row"><span class="note">Mains par range :</span>${PLO_Q.map((q, i) => { const N = PLO_N[Math.min(5, Math.max(3, E.parseCards(pl.board).length))][i]; return `<button class="chip" aria-pressed="${pl.q === q}" data-act="pln" data-v="${q}">${['Rapide', 'Standard', 'Précis'][i]} (${N})</button>`; }).join('')}</div>
       <div class="row"><span class="note">Tailles :</span><button class="chip" aria-pressed="${pl.sizes === 'simple'}" data-act="plsz" data-v="simple">Simples (⅔ pot, relance du pot)</button><button class="chip" aria-pressed="${pl.sizes === 'riche'}" data-act="plsz" data-v="riche">Riches (½, pot, ⅓)</button></div>
-      <p class="note">${E.parseCards(pl.board).length === 3 ? 'Depuis le flop : 120 à 150 mains par range, 6 turns × 5 rivers échantillonnés, une seule taille au turn et à la river. Compte 30 à 90 s.' : E.parseCards(pl.board).length === 4 ? 'Turn exact (toutes les rivers) : 5 à 30 s selon le nombre de mains.' : 'River : quelques dixièmes de seconde.'}</p>`;
+      <p class="note">${E.parseCards(pl.board).length === 3 ? 'Depuis le flop : 6 turns × 5 rivers échantillonnés, une seule taille au turn et à la river. Compte 30 à 90 s.' : E.parseCards(pl.board).length === 4 ? 'Turn exact (toutes les rivers) : 5 à 40 s, puis un second tirage des ranges est résolu et moyenné avec le premier.' : 'River : moins d\'une seconde.'} Échantillon stratifié : les proportions de mains faites et de tirages sur ce board sont tenues exactement.}</p>`;
     return wrap('plo', setup);
   };
   X.threeHTML = () => {
     const P = THREE_PRE[th.pre], nb = E.parseCards(th.board).length;
-    const setup = `<p class="lead">Pot à trois joueurs après le flop (Hold'em). Ordre de parole : ${P.names.map(esc).join(', puis ')}. Simplifications : une taille de mise par rue, les blockers entre les deux adversaires sont ignorés (ceux de ta main sont retirés exactement).</p>
+    const setup = `<p class="lead">Pot à trois joueurs après le flop (Hold'em). Ordre de parole : ${P.names.map(esc).join(', puis ')}. Simplifications : une taille de mise par rue. Blocages : la masse jointe des deux adversaires est exacte (cartes de ta main et cartes communes entre eux retirées) ; la répartition gagne / partage / perd à l'abattage reste approchée.</p>
       <div class="row"><span class="note">Spot :</span>${Object.entries(THREE_PRE).map(([k, v]) => `<button class="chip" aria-pressed="${th.pre === k}" data-act="thpre" data-v="${k}">${esc(v.label)}</button>`).join('')}</div>
       <p class="note">Pot ${fr(P.pot, 1)} bb, tapis ${fr(P.stack, 1)} bb.</p>
       <div class="form">
@@ -284,7 +362,8 @@
   };
   const randBoard = (n) => { const d = E.shuffle ? E.shuffle([...Array(52).keys()]) : [...Array(52).keys()].sort(() => Math.random() - 0.5); return d.slice(0, n).map((c) => E.cardStr(c)).join(''); };
   ACT.plpre = (t) => { pl.pre = t.dataset.v; pl.lo = PLO_PRE[pl.pre].lo.slice(); pl.hi = PLO_PRE[pl.pre].hi.slice(); render(); };
-  ACT.pln = (t) => { pl.n = +t.dataset.v; render(); };
+  ACT.pln = (t) => { pl.q = t.dataset.v; render(); };
+  ACT.plsrc = (t) => { pl.src = t.dataset.v; render(); };
   ACT.plsz = (t) => { pl.sizes = t.dataset.v; render(); };
   ACT.plrand = (t) => { pl.board = randBoard(+t.dataset.n); render(); };
   ACT.thpre = (t) => { th.pre = t.dataset.v; th.r = THREE_PRE[th.pre].r.slice(); render(); };

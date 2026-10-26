@@ -22,7 +22,7 @@
     const games = new Map(), queue = [], dropped = new Set();
     let busy = false;
     function nodeInfo(g, path, combos) {
-      const r = g.info(path), node = r.node, out = { t: T[node.t], p: node.p, pot: r.pot, C: r.C, board: node.board.slice(), street: node.board.length };
+      const r = g.info(path), node = r.node, out = { t: T[node.t], p: node.p, pot: r.pot, C: r.C, board: r.board.slice(), street: r.board.length, evMean: Array.from(r.evMean) };
       if (node.t === PF.FOLD) out.winner = node.winner;
       if (node.t === PF.CHANCE) out.cards = node.cards.slice();
       if (node.t === PF.ACT) {

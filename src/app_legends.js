@@ -50,6 +50,8 @@
   ACT.lgans = (t) => {
     const l = LG.LEGENDS.find((x) => x.id === cur.id); cur.choice = +t.dataset.i;
     const ok = verdict(l, cur.an, l.options[cur.choice][0]); prog()[l.id] = { c: cur.choice, same: cur.choice === l.pro, eng: ok };
+    // Décision contraire au moteur : la main revient en révision espacée.
+    if (ok === false) { const best = l.options.findIndex(([k]) => (cur.an.best === 'fold' ? k === 'fold' : k !== 'fold')); X.reviewMiss?.({ type: 'legend', sid: 'lg:' + l.id, title: 'Main de légende · ' + l.title, prompt: esc(l.story[l.story.length - 1]) + ` Pot ${Math.round(l.pot).toLocaleString('fr-FR')}${l.toCall ? `, à payer ${Math.round(l.toCall).toLocaleString('fr-FR')}` : ''}. À la place de ${esc(l.hero)} ?`, cards: E.parseCards(l.heroCards), board: E.parseCards(l.board), opts: l.options.map(([, lab]) => lab), ok: Math.max(0, best), why: l.lesson }); }
     X.award?.('decision', { cats: ['odds'], ok: ok !== false }, true); Store.save('progress'); render();
   };
   ACT.lgnext = () => { const i = LG.LEGENDS.findIndex((x) => x.id === cur.id), l = LG.LEGENDS[(i + 1) % LG.LEGENDS.length]; cur = { id: l.id, choice: null, an: LG.analyze(l) }; render(); window.scrollTo(0, 0); };
