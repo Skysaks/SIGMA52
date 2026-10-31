@@ -318,7 +318,7 @@
   const TOOLVIEWS = {};
   VIEWS.outils = () => head('Outils', 'Pour étudier hors session : équité exacte, lecture de board, solveur tapis/couché avec ICM, ranges d\'ouverture.') +
     toolNav() + TOOLVIEWS[tool]();
-  const TOOLGROUPS = [['Équités', ['equite', 'variantes', 'omaha', 'probas']], ['Ranges et boards', ['ranges', 'atlas', 'board', 'dist', 'bloq']], ['Tournois', ['pushfold', 'deal', 'pko']], ['Calculs et préparation', ['maths', 'memo', 'partie']]];
+  const TOOLGROUPS = [['Équités', ['equite', 'variantes', 'omaha', 'probas']], ['Ranges et boards', ['ranges', 'dessin', 'atlas', 'board', 'dist', 'runout', 'bloq']], ['Tournois', ['pushfold', 'deal', 'pko', 'reentry']], ['Calculs et préparation', ['maths', 'memo', 'partie']]];
   function toolNav() {
     const name = Object.fromEntries(TOOLS), seen = new Set(TOOLGROUPS.flatMap((g) => g[1]));
     const groups = TOOLGROUPS.map(([l, ks]) => [l, ks.filter((k) => name[k])]).concat([['Autres', TOOLS.map(([k]) => k).filter((k) => !seen.has(k))]]).filter((g) => g[1].length);

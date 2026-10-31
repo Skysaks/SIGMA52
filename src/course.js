@@ -189,6 +189,6 @@
     r.total = r.read + r.exercises + r.drill + r.review + r.practice; r.exo = exo; return r;
   }
   const api = { MODULES: M, SITUATIONS: S, LEVELS, GLOSSARY, mod, extend, learn, mix };
-  if (typeof module !== 'undefined' && module.exports) { module.exports = api; ['l1', 'l2', 'l3', 'l4', 'elite', 'champions', 'live', 'extra', 'ultimate', 'paths', 'more', 'deep', 'deep2', 'deep3', '360'].forEach((n) => require('./course_' + n + '.js')(api)); }
+  if (typeof module !== 'undefined' && module.exports) { module.exports = api; ['l1', 'l2', 'l3', 'l4', 'elite', 'champions', 'live', 'extra', 'ultimate', 'paths', 'more', 'deep', 'deep2', 'deep3', '360', 'v22'].forEach((n) => require('./course_' + n + '.js')(api)); }
   else root.Course = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -128,6 +128,17 @@ table.t td.n, table.t th.n { text-align: right; font-variant-numeric: tabular-nu
 .rc { aspect-ratio: 1; max-width: 100%; border: 0; border-radius: 3px; background: var(--sunk); color: var(--muted); font: 600 clamp(7px, 1.8vw, 11px)/1 var(--f-mono); letter-spacing: -.03em; cursor: pointer; padding: 0; }
 .rc.on { background: var(--accent); color: var(--accent-ink); }
 .rc.heat { color: #fff; }
+.rogrid { display: grid; gap: 3px; }
+.rorow { display: grid; grid-template-columns: 18px repeat(4, minmax(0, 1fr)); gap: 3px; align-items: center; }
+.rocell { display: flex; justify-content: space-between; align-items: baseline; gap: 4px; padding: 3px 6px; border-radius: 4px; border: 1px solid var(--line); font-size: 12px; min-width: 0; }
+.rocell span { font-size: 11px; color: var(--muted); }
+.rocell.off { border-style: dashed; opacity: .4; min-height: 22px; }
+span.rc { display: flex; align-items: center; justify-content: center; cursor: default; }
+.rc.dzmiss { background: transparent; color: var(--bad); box-shadow: inset 0 0 0 2px var(--bad); }
+.rc.dzextra { background: color-mix(in srgb, var(--warn) 60%, transparent); color: var(--ink); }
+.legend i.dzk { display: inline-block; width: 12px; height: 12px; border-radius: 3px; }
+.legend i.dzmiss { box-shadow: inset 0 0 0 2px var(--bad); }
+.legend i.dzextra { background: color-mix(in srgb, var(--warn) 60%, transparent); }
 .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--muted); align-items: center; }
 .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-right: 4px; }
 /* Barres */
@@ -1147,7 +1158,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
     r.total = r.read + r.exercises + r.drill + r.review + r.practice; r.exo = exo; return r;
   }
   const api = { MODULES: M, SITUATIONS: S, LEVELS, GLOSSARY, mod, extend, learn, mix };
-  if (typeof module !== 'undefined' && module.exports) { module.exports = api; ['l1', 'l2', 'l3', 'l4', 'elite', 'champions', 'live', 'extra', 'ultimate', 'paths', 'more', 'deep', 'deep2', 'deep3', '360'].forEach((n) => require('./course_' + n + '.js')(api)); }
+  if (typeof module !== 'undefined' && module.exports) { module.exports = api; ['l1', 'l2', 'l3', 'l4', 'elite', 'champions', 'live', 'extra', 'ultimate', 'paths', 'more', 'deep', 'deep2', 'deep3', '360', 'v22'].forEach((n) => require('./course_' + n + '.js')(api)); }
   else root.Course = api;
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
@@ -3924,6 +3935,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
       <p><strong>Pot 3-bet.</strong> Tu 3-bettes au bouton à 9 bb, le CO paie : pot ≈ 19,5 bb, tapis restants ≈ 91 bb, SPR ≈ 4,7. Avec une overpair, tu es prêt à mettre tapis sur la plupart des boards : un SPR sous 5 engage les mains fortes.</p>`], ['Exercices corrigés', ex([
       ['Pot à 4 joueurs, tu as un tirage couleur max (as assorti). Le premier mise, deux paient. Tu paies ?', 'Oui, presque toujours : à plusieurs, ton tirage aux nuts sera payé par plusieurs joueurs quand il touche, et la cote directe est excellente (le pot a grossi avant ton call).'],
       ['Tu as top paire faible kicker à 4 joueurs ; le flop est checké jusqu\'à toi. Mise ou check ?', 'Check le plus souvent, ou petite mise pour protéger contre les tirages. À 4, au moins un joueur a souvent mieux ou un tirage fort.'],
+      ['Pot de 12 bb au flop à quatre. Le premier mise 6 bb, le suivant paie, à toi. Quelle équité te faut-il pour payer ?', 'Pot final si tu paies : 12 + 6 + 6 + 6 = 30 bb, pour un call de 6 : <strong>6 ÷ 30 = 20 %</strong>, contre 25 % en tête-à-tête (6 ÷ 24). Chaque call devant toi améliore ta cote : c\'est pour cela que les tirages aux nuts se paient à plusieurs.'],
     ])]], quiz: [
       ['À trois joueurs, la valeur d\'une top paire faible kicker…', ['Augmente', 'Baisse nettement'], 1, 'Plus d\'adversaires = plus de chances que quelqu\'un ait mieux.'],
       ['SPR d\'environ 4 en pot 3-bet avec une overpair : plan par défaut ?', ['Contrôler le pot', 'Être prêt à mettre tapis'], 1, 'Sous 5 de SPR, une overpair s\'engage sur la plupart des boards.'],
@@ -3937,6 +3949,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
       <p>Sur 100 mains, l'erreur sur un VPIP de 25 % reste d'environ ± 8 points : confirme ta lecture avec les lignes (qui relance, qui paie tout, quelles mains arrivent à l'abattage).</p>`], ['Exercices corrigés', ex([
       ['Un joueur montre 7♣2♦ après avoir payé une relance et deux mises. Que notes-tu ?', 'Joueur très large qui paie trop : il entre dans la catégorie fish. Ajustement : plus de valeur, plus grosse, et aucun bluff contre lui.'],
       ['Un joueur à 12/10 relance la river après avoir payé le flop et le turn. Tu as top paire. Couche ou paie ?', 'Couche. Chez un nit, une relance river est très forte : deux paires, brelan ou mieux.'],
+      ['Après 40 mains, un joueur affiche 15 % de 3-bet. Tu l\'étiquettes « agressif » ?', 'Pas encore. Sur 40 mains, il n\'a eu qu\'une dizaine d\'occasions de 3-better : 15 % correspond à un ou deux 3-bets, ce qui peut arriver à un joueur serré qui a reçu QQ et AK. Une stat de 3-bet demande plusieurs centaines de mains ; d\'ici là, fie-toi aux mains montrées et aux lignes.'],
     ])]], quiz: [
       ['VPIP 45, PFR 8 sur 200 mains. Profil le plus probable ?', ['Nit', 'Fish passif'], 1, 'Il joue presque une main sur deux et relance très peu.'],
       ['Contre un joueur 38/30, avec une main moyenne face à une mise…', ['Paie plus souvent', 'Couche systématiquement'], 0, 'Sa range de mise contient beaucoup de bluffs.'],
@@ -3946,6 +3959,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
       <p><strong>Exemple</strong> : à NL10 (cave de 10 €), 40 caves = 400 €. Une baisse de 20 caves (200 €) laisse 200 € : tu redescends à NL5 jusqu'à revenir au-dessus de 40 caves de NL10.</p>`], ['Exercices corrigés', ex([
       ['Tu as 600 €. Quelle limite maximale avec la règle des 40 caves ?', 'NL10 (40 × 10 € = 400 €). NL25 demanderait 1 000 €.'],
       ['Tu viens de perdre 15 caves à NL10 en une semaine en appliquant tes règles. Que conclure ?', 'Rien sur ton niveau : c\'est dans la variance normale d\'un gagnant. Vérifie tes décisions (revues, spots), respecte tes règles de descente si la bankroll passe sous le seuil.'],
+      ['Tu as 1 100 € et tu joues NL25 (40 caves = 1 000 €). Tu perds 250 €. Que fais-tu ?', 'Il te reste 850 €, sous les 1 000 € exigés : tu <strong>redescends à NL10</strong> (850 € = 85 caves de NL10) et tu remontes quand la bankroll repasse au-dessus de 1 000 €. Redescendre n\'est pas un échec : c\'est ce qui rend la ruine presque impossible.'],
     ])]], quiz: [
       ['Un gagnant à +5 bb/100 peut-il perdre 20 caves d\'affilée ?', ['Non, c\'est la preuve qu\'il perd', 'Oui, c\'est fréquent sur 100 000 mains'], 1, 'Environ une chance sur deux sur 100 000 mains dans la simulation.'],
       ['Bankroll de 1 000 €, règle des 40 caves. Limite maximale ?', ['NL25', 'NL50'], 0, '40 × 25 € = 1 000 €.'],
@@ -3963,6 +3977,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
     add('lecture', { sections: [['Exercices corrigés', ex([
       ['River, il mise le pot. Tu comptes 12 combos de valeur et 6 de bluff dans sa range. Tu paies avec un bluff-catcher ?', 'Il te faut 33 %. Ses bluffs font 6 ÷ 18 = 33 % : le call est indifférent. Avec 4 combos de bluff seulement (25 %), couche ; avec 8 (40 %), paie.'],
       ['Combien de combos de K-Q reste-t-il s\'il y a un roi au board et que tu tiens une dame ?', 'Rois restants : 3 ; dames restantes : 3. Il reste 3 × 3 = <strong>9 combos de K-Q</strong> (assortis compris), au lieu de 16 sans carte retirée. Tes cartes et le board retirent des combos : c\'est l\'effet de blocage.'],
+      ['Un régulier a payé ton ouverture au bouton sans 3-better. Sa range contient-elle beaucoup de A-A et de K-K ?', 'Très peu : la plupart des réguliers 3-bettent ces mains. Sa range de call est <strong>plafonnée</strong> (pas ou peu de mains premium). Retire ces combos de ta lecture dès le préflop : sur un board bas, ses mains les plus fortes sont surtout des brelans et des deux paires, pas des overpairs.'],
     ])]], quiz: [
       ['Mise du pot à la river, 10 combos de valeur et 2 de bluff. Avec un bluff-catcher…', ['Paie', 'Couche'], 1, '2 ÷ 12 ≈ 17 % de bluffs, il en faut 33 %.'],
     ] });
@@ -3970,6 +3985,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
     add('sizing', { sections: [['Exercices corrigés', ex([
       ['Pot de 20 au turn, tapis effectif 50. Quelle taille pour être à tapis en deux mises égales (turn et river) ?', 'Mise géométrique : f = (√(1 + 2 × 50 ÷ 20) − 1) ÷ 2 = (√6 − 1) ÷ 2 ≈ <strong>72 % du pot</strong>. Turn : 14,5 dans 20 ; river : 35,5 dans 49 ; total 50. L\'outil Calculs le fait pour toi.'],
       ['Pourquoi miser petit (25 à 33 %) sur un board sec qui favorise ta range ?', 'Ta range entière a l\'avantage : une petite mise fait déjà payer ou coucher les mains faibles adverses et coûte peu quand tu es battu. Les grosses mises servent quand ta range est polarisée (très fort ou bluff).'],
+      ['Pot de 10 bb à la river, tu as les nuts. Il paie 60 % du temps une mise de moitié du pot, 35 % du temps une mise du pot. Quelle taille ?', 'Gain moyen : moitié du pot, 0,60 × 5 = 3 bb ; pot, 0,35 × 10 = <strong>3,5 bb</strong>. La grosse mise rapporte plus, même payée moins souvent. Compare toujours fréquence de call × taille, pas la fréquence seule.'],
     ])]], quiz: [
       ['Pot 20, tapis 50, deux rues. Taille géométrique ?', ['≈ 50 %', '≈ 72 %', '≈ 100 %'], 1, '(√6 − 1) ÷ 2 ≈ 0,72.'],
     ] });
@@ -3978,6 +3994,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
       <p>La raison : perdre t'élimine avant le petit tapis qui est presque mort, gagner ne double pas ta part du prize pool.</p>`], ['Exercices corrigés', ex([
       ['Tu es le chip leader à la bulle. Qui attaquer en priorité ?', 'Les tapis moyens : ils risquent le plus (le petit tapis va probablement sauter) et doivent se coucher souvent. Évite de mettre tapis sur le petit tapis avec des mains faibles quand un call ne lui coûte rien.'],
       ['Même main, A♠J♦, mais une seule place payée (le gagnant prend tout). ICM ou jetons ?', 'Jetons : avec une seule place payée, l\'ICM retombe exactement sur l\'équilibre en jetons. Le call redevient rentable avec 62 % contre 44 % requis.'],
+      ['Trois joueurs, tapis 5 000, 3 000 et 2 000, prix 50 / 30 / 20 %. Le chip leader a 50 % des jetons : vaut-il 50 % du prize pool ?', 'Non. ICM (Malmuth-Harville, calcul SIGMA 52) : <strong>38,4 %</strong> pour le chip leader, 32,8 % pour le moyen tapis, 28,9 % pour le petit. Les jetons du gros tapis valent moins chacun, ceux du petit tapis plus : c\'est ce qui rend les gros tapis agressifs et les moyens prudents.'],
     ])]], quiz: [
       ['À la bulle, le facteur de bulle fait que…', ['Il faut plus d\'équité pour payer un tapis', 'Il faut moins d\'équité'], 0, 'Perdre coûte plus que gagner ne rapporte.'],
       ['Une seule place payée : l\'ICM…', ['Retombe sur le calcul en jetons', 'Exige encore plus d\'équité'], 0, 'Avec un seul prix, la valeur des jetons est linéaire.'],
@@ -3986,6 +4003,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
     add('mental', { sections: [['Exemple commenté', `<p><strong>Une session qui dérape.</strong> 21 h : tu perds un gros pot sur un tirage adverse au river (bad beat). 21 h 10 : tu paies une relance au turn avec une paire moyenne « pour voir s'il bluffe encore ». 21 h 25 : tu ouvres 9♦5♦ au HJ, hors de ta chart. À ce moment, trois signaux sont réunis : une perte ressentie comme injuste, un call contre ta lecture, une ouverture hors range. Ta règle s'applique : pause de 10 minutes, relecture de ton script, et fin de session si un nouveau signal arrive. Le lendemain, à froid, tu analyses le bad beat (décision correcte ?) et la relance payée (erreur de lecture causée par la frustration).</p>`], ['Exercices corrigés', ex([
       ['Après un gain de 5 caves, tu commences à jouer des mains hors range « parce que tu es en forme ». Quel tilt ?', 'L\'euphorie : tu crois que la chance est une compétence du moment. Même règle que pour le tilt de perte : retour à la chart, ou fin de session.'],
       ['Écris ta règle d\'arrêt la plus utile pour toi.', 'Exemple : « 3 caves perdues, ou 2 décisions émotionnelles repérées, ou 2 heures de jeu : j\'arrête ». La bonne règle est celle que tu appliques sans négocier ; écris-la dans le Journal.'],
+      ['Tu es en gain de 4 caves après 1 h 50, mais tu sens la fatigue (lectures moins nettes, réponses plus lentes). Tu continues « tant que ça tourne » ?', 'Non. Le gain ne dit rien de la qualité de tes prochaines décisions ; la fatigue, si. Applique ta règle d\'arrêt (durée ou signaux), note la session et arrête : finir sur une bonne décision vaut mieux que rendre les gains en jouant fatigué.'],
     ])]], quiz: [
       ['Trois signaux de tilt en 25 minutes. Règle ?', ['Continuer en se concentrant', 'Pause, puis fin de session au signal suivant'], 1, 'Les règles écrites s\'appliquent sans négociation.'],
     ] });
@@ -3993,6 +4011,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
     add('mtt', { sections: [['Exercices corrigés', ex([
       ['Tu as 25 bb au milieu d\'un tournoi, le bouton ouvre souvent. Tu es en grosse blinde avec A♦T♣. Plan ?', 'Le 3-bet tapis (resteal) est une arme centrale entre 15 et 25 bb : il gagne les blindes, les antes et la relance quand le bouton se couche, et A-T a une bonne équité quand il paie.'],
       ['Ton ROI sur 80 tournois est de +60 %. Que peux-tu en conclure ?', 'Presque rien : en tournoi, la dispersion des résultats est énorme. Il faut plusieurs centaines à milliers de tournois pour qu\'un ROI ait un sens. Juge tes décisions (spots, ICM, revues) en attendant.'],
+      ['Blindes 100/200, ante de grosse blinde 200 : le pot fait 500 avant toi. Tu as 2 400 jetons (12 bb) au bouton. Un tapis en bluff pur doit faire coucher les blindes combien de fois ?', 'Risque ÷ (risque + gain) = 2 400 ÷ (2 400 + 500) ≈ <strong>83 %</strong>. Mais tu n\'es jamais en bluff pur : quand on te paie, tu as souvent 30 à 45 % d\'équité. C\'est pourquoi les ranges de tapis à 12 bb sont larges (voir Outils › Push/Fold).'],
     ])]], quiz: [
       ['80 tournois à +60 % de ROI. Conclusion ?', ['Je suis un gros gagnant', 'Échantillon trop petit'], 1, 'Le ROI en tournoi demande des centaines à des milliers de parties.'],
     ] });
@@ -4000,6 +4019,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
     add('expresso', { sections: [['Exercices corrigés', ex([
       ['Tête-à-tête, 10 bb, tu es au bouton (petite blinde). Quelle part des mains pousses-tu à l\'équilibre ?', 'Environ <strong>58 %</strong> des mains (solveur push/fold SIGMA 52, valeur publiée de référence). Vérifie main par main dans Outils › Push/Fold.'],
       ['Un récréatif paie tous tes tapis avec n\'importe quel as. Ajustement ?', 'Pousse moins de mains faibles (elles n\'ont plus de fold equity) et élargis tes tapis de valeur et tes calls avec les mains qui battent « n\'importe quel as ».'],
+      ['Tête-à-tête, la petite blinde a 5 bb. Quelle part des mains pousse-t-elle à l\'équilibre, et que paie la grosse blinde ?', 'Solveur push/fold SIGMA 52 (jetons, sans ante) : la SB pousse environ <strong>72 %</strong> des mains, la BB paie environ <strong>62 %</strong>. Plus le tapis baisse, plus les deux ranges s\'élargissent : à 5 bb, presque toute main avec un as ou une paire paie.'],
     ])]], quiz: [
       ['Tête-à-tête à 10 bb, la SB pousse environ…', ['25 % des mains', '58 % des mains'], 1, 'Valeur d\'équilibre du push/fold à 10 bb.'],
     ] });
@@ -4007,6 +4027,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
     add('fish', { sections: [['Exercices corrigés', ex([
       ['Un joueur qui paie tout. Tu as top paire bon kicker sur un board sec. Plan de mise ?', 'Mise sur les trois rues, plutôt gros (deux tiers du pot ou plus) : il paie avec toute paire et beaucoup de hauteurs. Ne checke pas pour « piéger » : il ne misera pas pour toi.'],
       ['Tu as raté ton tirage à la river contre ce même joueur. Bluff ?', 'Non. Il ne se couche pas : abandonne le pot. C\'est l\'erreur la plus coûteuse contre les fish.'],
+      ['Un fish limpe en UTG, tout le monde se couche jusqu\'à toi au bouton avec A♦J♣. Que fais-tu ?', 'Isole : relance à environ 4 à 5 bb (une ouverture normale plus 1 bb par limper). Tu joues le pot en position contre la range la plus faible de la table, avec une main qui domine ses as et ses figures. Limper derrière lui laisserait entrer les blindes à bas prix.'],
     ])]], quiz: [
       ['Contre un fish qui paie tout, avec top paire bon kicker…', ['Mise trois rues', 'Check pour piéger'], 0, 'Il paie : la valeur se prend en misant.'],
     ] });
@@ -4014,6 +4035,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
     add('turnriver', { sections: [['Exercices corrigés', ex([
       ['Tu as misé le flop K♠7♦2♣ avec A♥Q♥, il a payé. Turn A♣. Deuxième mise ?', 'Oui : tu viens de toucher top paire, et l\'as améliore ta range de relanceur bien plus que la sienne. Mise pour la valeur et pour faire payer les rois.'],
       ['River, tu as une paire moyenne, il checke. Mise de valeur fine ou check ?', 'Pose-toi la question : quelles mains moins bonnes paient ? S\'il paie avec des paires plus faibles, une petite mise de valeur rapporte ; s\'il ne paie qu\'avec mieux, check.'],
+      ['Pot de 30 bb à la river, tu bluffes 20 bb. Quelle part du temps doit-il se coucher pour que le bluff soit rentable ?', 'Risque ÷ (risque + gain) = 20 ÷ (20 + 30) = <strong>40 %</strong>. S\'il se couche plus souvent que 40 %, le bluff rapporte, même s\'il échoue plus d\'une fois sur deux.'],
     ])]], quiz: [
       ['La valeur fine à la river se justifie si…', ['Des mains moins bonnes paient', 'Tu veux le faire coucher'], 0, 'Une mise de valeur doit être payée par moins bon.'],
     ] });
@@ -4981,6 +5003,405 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
     });
   }
   if (typeof module !== 'undefined' && module.exports) module.exports = register; else register(root.Course);
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+<script data-s52>// Cours — modules v22 : les derniers manques face aux formations du marché.
+// Niveau 2 : petites mises. Niveau 3 : face au check-raise, blind contre blind après le flop, cash avec ante ou straddle,
+// protection et déni d'équité, re-entry et add-on, jeux à tirage. Niveau 4 : lire la carte du turn, jeux-jouets.
+// Chiffres : équités exactes du moteur SIGMA 52 (src/runout.js, toutes les rivers énumérées) avec les charts de référence
+// (ouverture BTN contre défense BB, ouverture SB contre défense BB) ; probabilités de tirage et jeux-jouets : calcul exact.
+(function (root) {
+  const ex = (items) => items.map(([q, a], i) => `<details class="exo"><summary><strong>Exercice ${i + 1}.</strong> ${q}</summary><p>${a}</p></details>`).join('');
+  function register(K) {
+    // Lexique : termes introduits par ces modules, insérés dans l'ordre alphabétique.
+    if (K.GLOSSARY && !K.GLOSSARY.some((g) => g[0] === 'Block bet')) {
+      K.GLOSSARY.push(
+        ['Add-on', "Dernier rachat de jetons à la fin de la période de rebuy d'un tournoi."],
+        ['Badugi', "Jeu à tirage à 4 cartes : on cherche 4 cartes de couleurs et de rangs différents, as bas."],
+        ['Block bet', "Petite mise (20 à 30 % du pot) faite hors de position pour fixer soi-même le prix, souvent à la river."],
+        ['Bomb pot', "Coup où tout le monde mise une somme fixe avant de passer directement au flop."],
+        ["Déni d'équité", "Gain obtenu quand une main qui avait de l'équité se couche face à une mise."],
+        ['Indifférence', "À l'équilibre, état où deux actions d'une main mixte ont la même EV : c'est pourquoi les solveurs mélangent."],
+        ['Lowball (2-7)', "Famille de jeux où la main la plus basse gagne ; en 2-7, l'as est haut et suites et couleurs comptent contre soi."],
+        ['Pat (servi)', "Jeux à tirage : main qui ne tire plus aucune carte."],
+        ['Range bet', "Miser avec toute sa range, en général petit, quand on a l'avantage de range sur un board statique."],
+        ['Re-entry', "Nouvelle inscription au même tournoi après élimination, pendant les inscriptions tardives."],
+        ['Snow', "Jeux à tirage : rester servi avec une main médiocre pour représenter une main faite."],
+      );
+      K.GLOSSARY.sort((a, b) => a[0].localeCompare(b[0], 'fr'));
+    }
+    // ================= Niveau 2 =================
+    K.mod({
+      id: 'petitesmises', level: 2, title: "Les petites mises : range bet, mise d'un tiers, block bet", drill: 'mdf',
+      goals: ["Savoir ce qu'une petite mise demande à l'adversaire", "Reconnaître les boards où miser petit avec toute sa range", "Utiliser le block bet hors de position sans se faire exploiter"],
+      sections: [
+        ["Ce qu'une petite mise demande", `<p>Une mise fixe la cote de l'adversaire et sa défense minimale (MDF) :</p>
+          <table class="t"><thead><tr><th>Mise</th><th class="n">Équité requise pour payer</th><th class="n">Défense minimale</th></tr></thead><tbody>
+          <tr><td>25 % du pot</td><td class="n">16,7 %</td><td class="n">80 %</td></tr><tr><td>33 % du pot</td><td class="n">20 %</td><td class="n">75 %</td></tr>
+          <tr><td>50 % du pot</td><td class="n">25 %</td><td class="n">67 %</td></tr><tr><td>Pot</td><td class="n">33,3 %</td><td class="n">50 %</td></tr></tbody></table>
+          <p>Une petite mise oblige l'adversaire à continuer avec presque tout. Elle ne cherche pas à faire coucher les bonnes mains : elle fait payer les mauvaises, retire un peu d'équité aux mains qui abandonnent et coûte peu quand tu es battu.</p>`],
+        ["Le range bet : miser petit avec toute sa range", `<p>Quand ta range domine celle de l'adversaire et que le board change peu d'une carte à l'autre, une mise d'un quart à un tiers du pot avec toute ta range est une stratégie simple et proche de l'équilibre.</p>
+          <p><strong>Exemple calculé</strong> : ouverture du bouton contre défense de la grosse blinde, flop K♠7♦2♣. Équité exacte du bouton : <strong>52,7 %</strong>, et elle reste entre 51,3 % et 53,8 % quelle que soit la carte du turn. Board sec, statique, favorable au relanceur (plus de rois forts) : petite mise fréquente.</p>
+          <p><strong>Contre-exemple</strong> : même situation sur 9♥8♥6♣. Équité du bouton : <strong>49,9 %</strong>. Plus d'avantage de range, beaucoup de mains fortes chez la grosse blinde (suites, deux paires, brelans) : on mise moins souvent, et plus gros avec une range plus polarisée.</p>`],
+        ["Le block bet hors de position", `<p>À la river, hors de position, avec une main moyenne qui veut voir l'abattage, une petite mise (20 à 30 % du pot) fixe toi-même le prix. Si tu checkes, l'adversaire en position peut miser gros et te poser une décision difficile ; avec un block bet, il paie avec ses mains moins bonnes et ne relance qu'avec ses mains fortes ou ses bluffs.</p>
+          <ul><li><strong>Contre un joueur passif</strong> : le block bet rapporte (il paie avec pire, il relance rarement en bluff).</li>
+          <li><strong>Contre un régulier agressif</strong> : prudence, une petite mise hors de position appelle des relances en bluff. Mélange-la avec des mains fortes, sinon elle annonce une main moyenne.</li></ul>`],
+        ["Quand ne pas miser petit", `<ul><li><strong>Range polarisée</strong> (très fort ou bluff) : la grosse mise rapporte plus (module Ranges polarisées).</li>
+          <li><strong>Board humide avec beaucoup de tirages</strong> : une petite mise donne une très bonne cote aux tirages (module Protection).</li>
+          <li><strong>Contre une calling station</strong> avec une main de valeur : elle paie gros comme petit, mise gros.</li>
+          <li><strong>Profondeur faible</strong> : à SPR bas, deux grosses mises mettent tapis plus simplement.</li></ul>`],
+        ["Exercices corrigés", ex([
+          ["Tu mises 2 bb dans un pot de 6 bb. Quelle équité faut-il à l'adversaire pour payer, et quelle part de sa range doit continuer pour que ton bluff ne gagne pas automatiquement ?", "Équité : 2 ÷ (6 + 2 + 2) = <strong>20 %</strong>. Défense minimale : 6 ÷ (6 + 2) = <strong>75 %</strong>. Une petite mise fait continuer presque toute sa range : elle sert à la valeur fine et au déni d'équité, pas à faire coucher."],
+          ["River, pot de 12 bb, tu es hors de position avec une paire moyenne. Tu mises 3 bb. Quelle cote reçoit l'adversaire, et pourquoi c'est utile contre un joueur passif ?", "Il paie 3 pour un pot final de 18 : <strong>16,7 %</strong>. Il paiera avec beaucoup de mains moins bonnes et ne relancera presque qu'avec mieux : tu gagnes de la valeur et tu évites une grosse mise de sa part quand tu checkes."],
+          ["Bouton contre grosse blinde : sur quel flop mises-tu petit avec toute ta range, K♠7♦2♣ ou 9♥8♥6♣ ?", "K♠7♦2♣ : le bouton y a 52,7 % d'équité et un board statique (de 51,3 % à 53,8 % selon le turn). Sur 9♥8♥6♣, il n'a que 49,9 % et la grosse blinde a plus de mains très fortes : on mise moins souvent, plus gros, avec une range sélectionnée."],
+        ])],
+      ],
+      mistakes: ["Miser petit sur un board humide avec une main vulnérable", "Miser petit avec une range polarisée", "Utiliser le block bet uniquement avec des mains moyennes contre un joueur qui relance", "Croire qu'une petite mise doit faire coucher"],
+      keys: ["⅓ pot : 20 % requis, 75 % de défense", "Range bet : avantage de range + board statique", "Block bet : fixer le prix hors de position, surtout contre les passifs", "Polarisé ou board humide : mise plus grosse"],
+      quiz: [
+        ["Mise d'un tiers du pot : équité requise pour payer ?", ["20 %", "33 %", "25 %", "10 %"], 0, "1 ÷ (3 + 1 + 1) = 20 %."],
+        ["Défense minimale face à une mise d'un quart du pot ?", ["80 %", "50 %", "67 %", "60 %"], 0, "Pot ÷ (pot + mise) = 4 ÷ 5."],
+        ["Le range bet à petite taille convient surtout…", ["Sur un board sec et statique où ta range domine", "Sur un board très connecté", "Avec une range polarisée", "Contre une calling station avec les nuts"], 0, "Avantage de range et peu de changements d'une carte à l'autre."],
+        ["Un block bet sert à…", ["Fixer toi-même un petit prix hors de position avec une main moyenne", "Faire coucher les nuts", "Bluffer un joueur qui ne se couche jamais", "Mettre tapis plus vite"], 0, "Tu évites une grosse mise adverse et tu fais payer pire."],
+        ["Contre une calling station, avec une main de valeur…", ["Mise gros", "Mise petit pour qu'elle paie", "Checke", "Block bet"], 0, "Elle paie gros comme petit : la grosse mise rapporte plus."],
+      ],
+    });
+
+    // ================= Niveau 3 =================
+    K.mod({
+      id: 'face_xr', level: 3, title: "Face au check-raise : payer, relancer, abandonner", drill: 'mdf',
+      goals: ["Lire ce que représente un check-raise au flop", "Calculer la cote et la défense face à la relance", "Choisir les mains qui continuent, et le plan au turn"],
+      sections: [
+        ["Ce que dit un check-raise", `<p>Quand tu as relancé avant le flop et misé au flop, un check-raise de l'adversaire est en général <strong>polarisé</strong> : mains très fortes (deux paires, brelans, suites) et tirages ou bluffs, avec peu de mains moyennes (celles-ci paient ou se couchent). Ta réponse dépend donc de deux choses : ta cote, et la part de ta main contre les deux moitiés de sa range.</p>`],
+        ["La cote et la défense", `<p><strong>Exemple</strong> : pot de 5,5 bb (ouverture du bouton, call de la grosse blinde). Tu mises 1,8 bb (un tiers), la grosse blinde relance à 6 bb.</p>
+          <ul><li>Pour payer : 4,2 bb dans un pot final de 17,5 bb, soit <strong>24 %</strong> d'équité requise.</li>
+          <li>Sa relance risque 6 bb pour gagner 7,3 bb (le pot et ta mise) : elle est rentable en bluff pur si tu te couches plus de 6 ÷ 13,3 = <strong>45 %</strong> du temps. Tu dois donc continuer avec environ <strong>55 %</strong> des mains avec lesquelles tu as misé.</li></ul>
+          <p>Ce chiffre est un repère, pas une obligation : si ta mise d'un tiers contenait toute ta range, beaucoup de mains sans équité se couchent sans regret. Aux micro-limites, les check-raises sont souvent moins bluffés que l'équilibre : on peut se coucher davantage, sauf contre un joueur repéré comme agressif.</p>`],
+        ["Qui continue", `<table class="t"><thead><tr><th>Catégorie</th><th>Plan par défaut</th></tr></thead><tbody>
+          <tr><td>Nuts et quasi-nuts (brelan, deux paires hautes)</td><td>Relance (3-bet) pour la valeur, ou call pour garder ses bluffs</td></tr>
+          <tr><td>Top paire bon kicker, overpair</td><td>Call, puis on réévalue au turn</td></tr>
+          <tr><td>Gros tirages (couleur max, tirage + overcards)</td><td>Call, parfois 3-bet en semi-bluff</td></tr>
+          <tr><td>Paire moyenne, petit tirage</td><td>Selon la cote et l'adversaire : souvent fold contre un joueur serré</td></tr>
+          <tr><td>Hauteur sans tirage</td><td>Fold</td></tr></tbody></table>`],
+        ["Au turn, après avoir payé", `<ul><li>L'adversaire mise souvent à nouveau : ses mains fortes pour la valeur, ses tirages pour la fold equity.</li>
+          <li>Une carte qui complète les tirages <strong>réduit</strong> la part de bluffs de sa range ; une carte blanche la laisse intacte.</li>
+          <li>Avec une main moyenne, prévois avant de payer au flop ce que tu feras au turn : payer le flop pour te coucher au turn sur une carte blanche est la ligne la plus chère.</li></ul>`],
+        ["Exercices corrigés", ex([
+          ["Pot 6 bb, tu mises 3 bb, il relance à 10 bb. Quelle équité te faut-il pour payer ?", "Tu paies 7 bb pour un pot final de 6 + 3 + 10 + 7 = 26 bb : <strong>27 %</strong>. Plus la relance est grosse par rapport à ta mise, plus ta cote se dégrade."],
+          ["Bouton contre grosse blinde sur K♠7♦2♣ : tu as misé un tiers avec A♦Q♣, check-raise. Que fais-tu ?", "Fold le plus souvent : hauteur as sans tirage (board arc-en-ciel, aucune quinte possible avec A-Q), et ses relances contiennent beaucoup de rois et de brelans. Tes mains qui continuent sont les rois, les overpairs, les brelans ; tu ne défends pas « au minimum » avec des mains à 20 % d'équité contre sa range de relance."],
+          ["Sur 9♥8♥6♣, tu as A♥K♥ et la grosse blinde relance ta mise. Plan ?", "Continue : tirage couleur max plus deux overcards, beaucoup d'équité même contre ses mains fortes. Call, ou 3-bet en semi-bluff si tu veux lui faire coucher ses tirages plus faibles et ses paires. C'est le type de main qui protège ta range de continuation."],
+        ])],
+      ],
+      mistakes: ["Payer au flop sans plan pour le turn", "Défendre la MDF avec des mains sans équité", "Ne jamais relancer avec les nuts (range de continuation trop faible et lisible)", "Ignorer que la population micro-limites bluffe peu ses check-raises au turn et à la river"],
+      keys: ["Check-raise = range polarisée", "Exemple : 4,2 bb à payer dans 17,5 bb, 24 %", "Défense ≈ 1 − risque ÷ (risque + gain) de sa relance, à ajuster par la population", "Continuer : valeur, gros tirages ; abandonner : hauteur sèche"],
+      quiz: [
+        ["Un check-raise au flop est en général…", ["Polarisé : mains fortes et tirages ou bluffs", "Composé de mains moyennes", "Toujours un bluff", "Toujours les nuts"], 0, "Les mains moyennes paient ou se couchent ; la relance regroupe les extrêmes."],
+        ["Pot 5,5 bb, mise 1,8 bb, relance à 6 bb. Équité requise pour payer ?", ["≈ 24 %", "≈ 33 %", "≈ 45 %", "≈ 12 %"], 0, "4,2 ÷ 17,5."],
+        ["Avec un tirage couleur max et deux overcards face au check-raise…", ["Continue (call ou 3-bet)", "Fold", "Toujours tapis", "Fold sauf aux nuts"], 0, "Grosse équité contre toute sa range."],
+        ["Une carte du turn qui complète les tirages…", ["Réduit la part de bluffs de sa range", "Augmente ses bluffs", "Ne change rien", "Rend tes mains moyennes plus fortes"], 0, "Ses tirages sont devenus des mains faites : moins de bluffs."],
+        ["Aux micro-limites, face aux check-raises au turn et à la river…", ["On peut se coucher un peu plus que l'équilibre", "Il faut payer plus", "Il faut relancer en bluff", "Il faut tout payer"], 0, "Ces lignes sont souvent sous-bluffées par la population (vérifie dans Analyse › Population)."],
+      ],
+    });
+
+    K.mod({
+      id: 'bvb_post', level: 3, title: "Blind contre blind après le flop", drill: 'situations',
+      goals: ["Comprendre pourquoi les pots entre blindes se jouent avec des ranges très larges", "Choisir quand la petite blinde mise et quand elle checke", "Jouer la grosse blinde en position contre une petite blinde qui checke"],
+      sections: [
+        ["Deux ranges larges, une position", `<p>Quand tout le monde se couche jusqu'à la petite blinde, elle ouvre large (chart SIGMA 52 : <strong>39,7 %</strong> des mains à 3 bb) et la grosse blinde défend large (<strong>41,2 %</strong> en call). Pot au flop : 6 bb, tapis restants 97 bb, SPR ≈ 16. La grosse blinde a l'avantage de la position pendant tout le coup : la petite blinde parle la première à chaque rue.</p>`],
+        ["Quels flops favorisent qui", `<p>Équité exacte de la petite blinde (ouverture contre défense de la grosse blinde) :</p>
+          <table class="t"><thead><tr><th>Flop</th><th class="n">Équité SB</th><th>Lecture</th></tr></thead><tbody>
+          <tr><td>A♥9♥3♣</td><td class="n">60,1 %</td><td>Plus d'as forts chez la SB (la BB 3-bette souvent ses meilleurs as) : mise fréquente</td></tr>
+          <tr><td>K♠7♦2♣</td><td class="n">55,7 %</td><td>Avantage net : petite mise fréquente</td></tr>
+          <tr><td>8♠6♦4♣</td><td class="n">49,4 %</td><td>Plus d'avantage : la SB checke beaucoup</td></tr></tbody></table>
+          <p>La règle générale tient : les flops hauts favorisent celui qui a relancé, les flops bas et connectés neutralisent cet avantage.</p>`],
+        ["La petite blinde : miser ou checker", `<ul><li>Sur les flops hauts et secs : petite mise (un tiers) avec une grande partie de la range.</li>
+          <li>Sur les flops bas et connectés : beaucoup de checks, <strong>avec des mains fortes dans les checks</strong> (overpairs, deux paires), sinon la grosse blinde attaque chaque check sans risque.</li>
+          <li>Hors de position, préfère les mains qui réalisent bien leur équité (paires, tirages forts) pour continuer ; les hauteurs faibles abandonnent vite.</li></ul>`],
+        ["La grosse blinde : profiter de la position", `<ul><li>Quand la petite blinde checke, mise souvent petit : sa range de check est plus faible et elle doit défendre hors de position.</li>
+          <li>Face à une petite mise de la SB, défends large (20 % requis face à un tiers du pot) ; relance avec tes mains fortes et tes meilleurs tirages, surtout sur les flops bas qui t'avantagent.</li>
+          <li>En pot limpé (la SB complète), relance tes bonnes mains avant le flop et mise petit après le flop sur les boards qui te conviennent.</li></ul>
+          <p>Les tendances de ta population (fold de la SB au flop, c-bet de la SB) se mesurent dans <strong>Analyse › Population et fuites</strong> : appuie tes ajustements sur tes mains, pas sur une impression.</p>`],
+        ["Exercices corrigés", ex([
+          ["La SB mise 2 bb dans le pot de 6 bb. Quelle équité faut-il à la BB pour payer ?", "2 ÷ (6 + 2 + 2) = <strong>20 %</strong>. Avec des ranges aussi larges, la BB continue avec la majorité de ses mains, d'autant qu'elle est en position."],
+          ["SB contre BB : sur quel flop la SB mise-t-elle le plus souvent, K♠7♦2♣ ou 8♠6♦4♣ ?", "K♠7♦2♣ : 55,7 % d'équité exacte pour la SB, contre 49,4 % sur 8♠6♦4♣. Sur le flop bas et connecté, la SB checke beaucoup et protège ses checks avec des mains fortes."],
+          ["Tu es en BB avec 7♣5♣ sur 8♠6♦4♣, la SB checke. Plan ?", "Tu as la quinte max (4-5-6-7-8) : mise pour la valeur, et plutôt gros sur ce board où beaucoup de mains de la SB (overpairs, paires, tirages) paient. La position et la force de ta main te permettent de construire le pot sur trois rues."],
+        ])],
+      ],
+      mistakes: ["Jouer la SB comme une ouverture du bouton (elle est hors de position)", "Ne mettre que des mains faibles dans les checks de la SB", "Laisser la BB prendre chaque check sans défendre", "Surdéfendre la SB avec des hauteurs faibles hors de position"],
+      keys: ["SB 39,7 % contre BB 41,2 % : deux ranges larges", "Flops hauts : avantage SB ; bas et connectés : neutres", "Checks de la SB protégés par des mains fortes", "BB : attaquer les checks, défendre large en position"],
+      quiz: [
+        ["Dans un pot blind contre blind, qui a la position après le flop ?", ["La grosse blinde", "La petite blinde", "Celui qui a relancé", "Ça dépend du flop"], 0, "La SB parle la première à chaque rue après le flop."],
+        ["Équité de la SB sur K♠7♦2♣ contre la défense BB ?", ["≈ 56 %", "≈ 45 %", "≈ 50 %", "≈ 70 %"], 0, "55,7 % exact."],
+        ["Sur 8♠6♦4♣, la SB…", ["Checke beaucoup, avec des mains fortes dans ses checks", "Mise toute sa range", "Se couche", "Fait tapis"], 0, "Elle n'a plus d'avantage de range."],
+        ["La SB checke, la BB a une main moyenne. Par défaut…", ["Mise petit souvent", "Checke toujours", "Fait tapis", "Se couche"], 0, "La range de check de la SB est plus faible."],
+        ["Où vérifier les tendances BvB de ta population ?", ["Analyse › Population et fuites", "Studio", "Mental", "Débuter"], 0, "Sur tes propres mains importées."],
+      ],
+    });
+
+    K.mod({
+      id: 'ante_straddle', level: 3, title: "Cash avec ante, straddle ou bomb pot", drill: 'odds',
+      goals: ["Calculer ce que l'ante change au prix d'un vol", "Rejouer les positions et la profondeur avec un straddle", "Savoir aborder un bomb pot"],
+      sections: [
+        ["L'ante grossit le pot avant ton action", `<p>Sans ante, en 6-max, le pot avant ton ouverture vaut 1,5 bb (les blindes). Une ouverture à 2,5 bb en vol pur doit faire coucher tout le monde <strong>62,5 %</strong> du temps (2,5 ÷ (2,5 + 1,5)).</p>
+          <p>Avec une ante de 0,2 bb par joueur à six, le pot vaut 1,5 + 1,2 = 2,7 bb : le même vol n'a plus besoin que de <strong>48,1 %</strong> de folds (2,5 ÷ 5,2). Conséquences :</p>
+          <ul><li>On <strong>ouvre plus large</strong> à toutes les positions, surtout au bouton et au cutoff.</li>
+          <li>Les blindes <strong>défendent plus large</strong> : le pot leur offre une meilleure cote.</li>
+          <li>Les petites ouvertures (2 à 2,3 bb) gagnent en intérêt : le pot est déjà gros, il n'est pas nécessaire de risquer plus.</li></ul>`],
+        ["Le straddle : une blinde de plus", `<p>Un straddle est une mise à l'aveugle (en général 2 bb) posée avant la distribution, souvent par le joueur sous le pistolet. Il devient la nouvelle grosse blinde : il parle en dernier avant le flop, le joueur suivant ouvre la parole.</p>
+          <ul><li><strong>La profondeur se compte en straddles</strong> : 100 bb de tapis avec un straddle de 2 bb, c'est un tapis de 50 straddles. Joue comme à 50 bb : moins de mains spéculatives, plus de 3-bets et de tapis.</li>
+          <li>Les ouvertures se font à 2,5 à 3 straddles (5 à 6 bb).</li>
+          <li>Le straddler paie cher sa position : poser un straddle volontaire est en moyenne perdant, sauf s'il fait jouer la table plus mal.</li></ul>`],
+        ["Le bomb pot", `<p>Tout le monde met une somme fixe (par exemple 2 bb), on passe directement au flop. Pas de préflop : chacun a une main au hasard, le pot est gros et multiway. Conséquences : les ranges sont toutes égales au départ, la valeur se prend avec des mains réellement fortes (deux paires et mieux souvent battues à six), les tirages aux nuts valent cher. Le Simulateur propose straddle, ante et bomb pot pour t'y entraîner.</p>`],
+        ["Exercices corrigés", ex([
+          ["8 joueurs, blindes 1/2 bb, ante de 0,25 bb par joueur. Ton ouverture à 3 bb en vol pur doit faire coucher tout le monde combien de fois ?", "Pot avant ton action : 1,5 + 8 × 0,25 = 3,5 bb. Seuil : 3 ÷ (3 + 3,5) = <strong>46,2 %</strong>, contre 66,7 % sans ante (3 ÷ 4,5)."],
+          ["Tapis de 100 bb, straddle de 2 bb. À quelle profondeur joues-tu réellement ?", "<strong>50 straddles</strong> : la profondeur effective est divisée par deux. Moins de set-mining et de connecteurs assortis, plus de 3-bets qui engagent le tapis."],
+          ["Bomb pot à 6 joueurs, tu as top paire faible kicker au flop. Plan ?", "Prudence : à six, avec des mains au hasard, une top paire faible est souvent battue ou en danger. Contrôle le pot ; garde la grosse valeur pour les deux paires solides et mieux, et les tirages aux nuts."],
+        ])],
+      ],
+      mistakes: ["Garder sa chart sans ante dans une partie avec ante", "Compter la profondeur en bb au lieu de straddles", "Poser des straddles volontaires « pour l'action »", "Surjouer une paire dans un bomb pot à six"],
+      keys: ["Ante : pot plus gros, vols et défenses plus larges", "0,2 bb d'ante à 6 : vol à 2,5 bb rentable dès 48 % de folds", "Straddle : profondeur divisée, comptée en straddles", "Bomb pot : multiway, mains au hasard, valeur réelle seulement"],
+      quiz: [
+        ["Sans ante, une ouverture à 2,5 bb en vol pur doit réussir…", ["62,5 % du temps", "40 % du temps", "50 % du temps", "80 % du temps"], 0, "2,5 ÷ (2,5 + 1,5)."],
+        ["Avec une ante, les blindes…", ["Défendent plus large", "Défendent moins", "Ne changent rien", "Ne défendent plus"], 0, "Le pot leur offre une meilleure cote."],
+        ["100 bb avec un straddle de 2 bb : profondeur effective ?", ["50 straddles", "100 straddles", "200 straddles", "25 straddles"], 0, "100 ÷ 2."],
+        ["Dans une partie avec straddle, qui parle en dernier avant le flop ?", ["Le straddler", "Le bouton", "La grosse blinde", "La petite blinde"], 0, "Le straddle est la dernière blinde."],
+        ["Dans un bomb pot à six, la valeur se prend surtout avec…", ["Deux paires solides et mieux, et les tirages aux nuts", "Toute top paire", "Les hauteurs as", "Les petites paires"], 0, "À six, mains au hasard : il faut une vraie main."],
+      ],
+    });
+
+    K.mod({
+      id: 'protection', level: 3, title: "Protection et déni d'équité", drill: 'outs',
+      goals: ["Mesurer ce qu'on gagne quand une main avec de l'équité se couche", "Distinguer protéger une main et payer pour se faire relancer", "Choisir la taille qui fait payer les tirages au mauvais prix"],
+      sections: [
+        ["Le déni d'équité", `<p>Quand ton adversaire a de l'équité et se couche, sa part du pot te revient. <strong>Exemple calculé</strong> : T♠T♦ contre A♣K♦ sur 9♥5♥3♣. Équité exacte de T-T : <strong>74,4 %</strong> ; A-K garde 25,6 % grâce à ses six outs (et quelques runners). Pot de 10 bb : à l'abattage, T-T « possède » 7,4 bb en moyenne ; si A-K se couche, il en prend 10. La mise qui fait coucher A-K rapporte 2,6 bb de plus que le check.</p>
+          <p>Si tu checkes et qu'il checke derrière, il voit le turn gratuitement : une de ses six cartes tombe <strong>13,3 %</strong> du temps (6 ÷ 45).</p>`],
+        ["Protéger, ce n'est pas se faire relancer", `<p>La protection a du sens contre les mains qui ont de l'équité <strong>et se couchent</strong>. Contre un gros tirage, c'est différent : T-T contre A♥K♥ sur le même board n'a plus que <strong>44,9 %</strong> (tirage couleur max plus deux overcards). Contre 7♥6♥ (couleur et quinte par les deux bouts), 43,7 %. Ces mains ne se couchent pas, elles relancent souvent : miser « pour protéger » ne les élimine pas, cela grossit un pot où tu es légèrement derrière.</p>
+          <p>Contre Q♣J♣ (deux overcards, pas de tirage couleur), T-T a 70,3 % : là, faire coucher Q-J vaut de l'argent.</p>`],
+        ["Qui a besoin de protection", `<ul><li><strong>Les mains moyennes vulnérables</strong> (overpair basse, top paire faible kicker sur un board humide) : elles gagnent le plus à faire coucher les overcards et les petits tirages.</li>
+          <li><strong>Les nuts</strong> n'ont pas besoin de protection : elles veulent être payées.</li>
+          <li><strong>Les mains très faibles</strong> ne protègent rien : elles bluffent ou abandonnent.</li></ul>`],
+        ["La bonne taille", `<p>Contre un tirage couleur (environ 35 % d'équité sur deux cartes, 19 % sur une), une mise d'un tiers du pot lui donne 20 % de cote requise sur une rue : il paie avec raison. Une mise de deux tiers lui demande 28,6 %, il paie une carte au mauvais prix. Sur un board humide, une main vulnérable mise <strong>plus gros</strong>, sans aller jusqu'à la taille qui ne fait payer que les tirages forts et les mains qui la battent.</p>`],
+        ["Exercices corrigés", ex([
+          ["Pot 10 bb, T♠T♦ contre A♣K♦ sur 9♥5♥3♣ (74,4 %). Combien gagnes-tu en moyenne si A-K se couche plutôt que d'aller à l'abattage ?", "Abattage : 0,744 × 10 = 7,44 bb ; s'il se couche : 10 bb. Gain : <strong>2,56 bb</strong>. C'est la valeur du déni d'équité."],
+          ["Turn J♠ sur 9♥5♥3♣, toujours T-T contre A♣K♦. Équité de T-T ?", "<strong>86,4 %</strong> : il reste une carte, A-K a 6 outs sur 44 (13,6 %). Chaque carte blanche augmente ta part, mais lui offrir le turn gratuitement lui donnait 13,3 % de chances de te dépasser."],
+          ["Tirage couleur sur une carte : environ 19 % d'équité. Mise d'un tiers ou de deux tiers pour le faire payer au mauvais prix ?", "Un tiers lui demande 20 % : quasi indifférent. Deux tiers lui demande 28,6 % : il paie au mauvais prix (hors cotes implicites). Avec une main vulnérable sur board humide, choisis la taille plus grosse."],
+        ])],
+      ],
+      mistakes: ["« Protéger » contre des tirages qui ont plus d'équité que toi", "Miser trop petit sur un board humide avec une main vulnérable", "Ralentir avec une main moyenne et offrir des cartes gratuites", "Vouloir protéger les nuts au lieu de les faire payer"],
+      keys: ["Déni d'équité : sa part du pot te revient s'il se couche", "T-T contre A-K sur 9-5-3 : 74,4 %, contre A♥K♥ : 44,9 %", "Protection = mains moyennes vulnérables", "Board humide : taille plus grosse pour faire payer cher"],
+      quiz: [
+        ["T♠T♦ contre A♣K♦ sur 9♥5♥3♣ : équité de T-T ?", ["≈ 74 %", "≈ 50 %", "≈ 90 %", "≈ 60 %"], 0, "74,4 % exact."],
+        ["Pot 10 bb, ton équité 74 %. Si l'adversaire se couche, tu gagnes en moyenne…", ["≈ 2,6 bb de plus qu'à l'abattage", "Rien", "10 bb de plus", "7,4 bb de moins"], 0, "10 − 7,4."],
+        ["Contre A♥K♥ sur 9♥5♥3♣, T-T…", ["Est légèrement derrière (≈ 45 %)", "Est très devant", "N'a aucune chance", "Est à égalité parfaite"], 0, "Tirage couleur max + deux overcards : 44,9 % pour T-T."],
+        ["Quelle main a le plus besoin de protection ?", ["Une overpair basse sur board humide", "La quinte max", "Une hauteur sept", "Un brelan max sur board sec"], 0, "Main moyenne vulnérable."],
+        ["Mise de deux tiers du pot : cote requise pour l'adversaire ?", ["28,6 %", "20 %", "40 %", "16,7 %"], 0, "2 ÷ (3 + 2 + 2) = 2 ÷ 7."],
+      ],
+    });
+
+    K.mod({
+      id: 'reentry', level: 3, title: "Tournois : inscription tardive, re-entry, rebuy, add-on", drill: 'situations',
+      goals: ["Évaluer une règle de re-entry en coût moyen et en gain attendu", "Décider d'une inscription tardive selon le tapis et la structure", "Savoir quand prendre un add-on"],
+      sections: [
+        ["Re-entry : juger par entrée", `<p>Si ton ROI par entrée est positif, chaque nouvelle entrée a la même espérance que la première. Ce qui change : la <strong>dépense engagée</strong> et la variance. Avec un risque p de sortir avant la fin des inscriptions et un maximum de k entrées, le nombre moyen d'entrées vaut 1 + p + p² + … (k termes).</p>
+          <p><strong>Exemple</strong> : buy-in 20 € + 2 € de rake, ROI de 15 % par entrée, 40 % de risque de sortir pendant les inscriptions, 3 entrées maximum. Entrées moyennes : 1 + 0,4 + 0,16 = <strong>1,56</strong> ; dépense moyenne : 34,32 € ; gain attendu : <strong>+5,15 €</strong>. Dépense maximale : 66 €, c'est elle qui compte dans ta bankroll. L'outil <strong>Outils › Re-entry et add-on</strong> fait le calcul pour ta règle.</p>`],
+        ["Quand ne pas re-entrer", `<ul><li><strong>Sous le coup du tilt</strong> : ton ROI de la nouvelle entrée n'est plus celui de tes statistiques.</li>
+          <li><strong>Hors de ta bankroll</strong> : 3 entrées d'un tournoi à 22 € te font jouer, pour la bankroll, un tournoi à 66 €.</li>
+          <li><strong>Tapis de départ très court en fin d'inscription</strong> : une entrée tardive à 15 bb a moins de marge de jeu (voir ci-dessous).</li></ul>`],
+        ["L'inscription tardive", `<p>S'inscrire tard évite les premiers niveaux, où les erreurs des joueurs faibles rapportent pourtant aux bons joueurs, et fait démarrer avec moins de blindes. Règle pratique : arriver tard est raisonnable tant que tu démarres avec une profondeur de jeu confortable (40 bb et plus) ; à 15 à 20 bb, tu joues surtout tapis ou couché, avec moins d'avantage. L'effet exact sur le ROI dépend de la structure et du champ : traite tout chiffre précis comme une hypothèse.</p>`],
+        ["Rebuy et add-on", `<p>Dans un tournoi à rebuy, on peut racheter des jetons pendant une période ; l'add-on est un dernier rachat à la fin de cette période. Compare le prix des jetons :</p>
+          <ul><li>Inscription : 20 € pour 20 000 jetons, soit 1 000 jetons par euro.</li>
+          <li>Add-on : 20 € pour 30 000 jetons, soit 1 500 jetons par euro : <strong>50 % moins cher</strong>.</li></ul>
+          <p>Quand l'add-on vend les jetons moins cher que l'inscription, prends-le dès que tu es gagnant dans ce tournoi, surtout avec un tapis court ou moyen. Pendant la période de rebuy, beaucoup de joueurs jouent très large : resserre tes ranges de call et fais payer la valeur.</p>`],
+        ["Exercices corrigés", ex([
+          ["Risque de sortir pendant les inscriptions : 50 %. Maximum 2 entrées. Combien d'entrées en moyenne ?", "1 + 0,5 = <strong>1,5 entrée</strong>. Avec 3 entrées maximum : 1 + 0,5 + 0,25 = 1,75."],
+          ["Inscription 10 € pour 10 000 jetons, add-on 10 € pour 10 000 jetons. Le prix des jetons est-il meilleur ?", "Identique (1 000 jetons par euro). Prends l'add-on si tu es gagnant dans ce tournoi et que ton tapis n'est pas énorme : tu achètes des jetons au même prix que l'entrée, à un moment où le champ s'est réduit."],
+          ["Tu as perdu deux entrées sur des bad beats et tu veux la troisième « pour te refaire ». Que dit la règle ?", "Ton ROI dans cet état n'est plus celui de tes statistiques, et la dépense dépasse peut-être ta règle de bankroll. Fixe ton nombre d'entrées avant le tournoi et tiens-le."],
+        ])],
+      ],
+      mistakes: ["Compter un tournoi à re-entry comme un seul buy-in dans sa bankroll", "Re-entrer sous le coup du tilt", "S'inscrire au dernier moment avec un tapis de 12 bb par habitude", "Refuser un add-on qui vend les jetons moins cher"],
+      keys: ["Entrées moyennes = 1 + p + p² + …", "Gain attendu = dépense moyenne × ROI", "Bankroll : la dépense maximale compte", "Add-on : compare les jetons par euro"],
+      quiz: [
+        ["Risque de sortie 40 %, 3 entrées max : entrées moyennes ?", ["1,56", "3", "1,4", "2,2"], 0, "1 + 0,4 + 0,16."],
+        ["Dans ta règle de bankroll, un tournoi à 22 € joué jusqu'à 3 entrées compte comme…", ["Un tournoi à 66 €", "Un tournoi à 22 €", "Un tournoi à 34 €", "Rien de plus"], 0, "La dépense maximale."],
+        ["Inscription 1 000 jetons par euro, add-on 1 500 jetons par euro. L'add-on…", ["Vend les jetons moins cher : à prendre si tu es gagnant", "Est à éviter", "Est toujours perdant", "Ne compte pas"], 0, "Jetons 50 % moins chers."],
+        ["Une inscription tardive à 15 bb…", ["Réduit ta marge de jeu (surtout tapis ou couché)", "Augmente toujours ton ROI", "Est interdite", "Ne change rien"], 0, "Moins de profondeur, moins d'avantage."],
+        ["Re-entrer après deux bad beats « pour te refaire » est…", ["Une décision émotionnelle à éviter", "Toujours rentable", "Obligatoire", "Neutre"], 0, "Ton ROI dans cet état n'est pas ton ROI moyen."],
+      ],
+    });
+
+    K.mod({
+      id: 'tirage_jeux', level: 3, title: "Les jeux à tirage : 2-7 Triple Draw, Badugi, 5 cartes", drill: 'situations',
+      goals: ["Connaître les règles et les classements des jeux à tirage", "Calculer ses chances de compléter une main en un, deux ou trois tirages", "Appliquer les principes de base : position, mains servies, bluff au tirage"],
+      sections: [
+        ["Les règles", `<ul><li><strong>2-7 Triple Draw</strong> (lowball) : 5 cartes, trois tirages, la main la plus basse gagne. L'as est haut, les suites et les couleurs comptent contre toi : la meilleure main est 7-5-4-3-2 non assortie. Se joue surtout en limit (petites mises aux deux premiers tours, grosses ensuite).</li>
+          <li><strong>Badugi</strong> : 4 cartes, trois tirages. On cherche quatre cartes de <strong>couleurs et de rangs différents</strong> ; l'as est bas. Meilleure main : A-2-3-4 de quatre couleurs. Une main de quatre cartes valides (« badugi ») bat toute main de trois.</li>
+          <li><strong>5 cartes tirage</strong> (hi) : un seul tirage, main la plus haute. Rare en ligne, encore jouée en partie maison.</li></ul>
+          <p>Ces jeux font partie des formats mixtes (8-Game) ; l'offre est rare chez les rooms agréées en France : vérifie le lobby de ta room.</p>`],
+        ["Compter ses chances", `<p>Calcul exact sur les cartes non vues (sans tenir compte des cartes jetées par les autres) :</p>
+          <table class="t"><thead><tr><th>Main</th><th class="n">Outs</th><th class="n">1 tirage</th><th class="n">2 tirages</th><th class="n">3 tirages</th></tr></thead><tbody>
+          <tr><td>2-7 : 2-3-4-7, tire une carte pour un 7 bas (un 5 ou un 6)</td><td class="n">8 / 47</td><td class="n">17,0 %</td><td class="n">31,5 %</td><td class="n">43,6 %</td></tr>
+          <tr><td>2-7 : même main, un 8 bas accepté (5, 6 ou 8)</td><td class="n">12 / 47</td><td class="n">25,5 %</td><td class="n">45,0 %</td><td class="n">59,6 %</td></tr>
+          <tr><td>Badugi : A♠2♥3♦ + une carte inutile, cherche un trèfle de 4 à K</td><td class="n">10 / 48</td><td class="n">20,8 %</td><td class="n">37,7 %</td><td class="n">51,2 %</td></tr></tbody></table>
+          <p>Formule : 1 − (non-outs ÷ cartes) × (non-outs − 1 ÷ cartes − 1) × … autant de facteurs que de tirages restants.</p>`],
+        ["Principes de base", `<ul><li><strong>La position compte encore plus</strong> : tu vois combien de cartes l'adversaire tire avant de décider.</li>
+          <li><strong>Une main servie (« pat »)</strong> qui ne tire plus est forte au premier tirage ; une main qui tire deux cartes au dernier tour est très faible.</li>
+          <li><strong>Le bluff du « snow »</strong> : rester servi avec une main médiocre pour représenter une main faite. À utiliser rarement, contre des adversaires qui tirent encore plusieurs cartes.</li>
+          <li><strong>Démarrer avec des cartes basses et fluides</strong> en 2-7 (2, 3, 4, 5, 7), sans paires ni cartes qui font suite ensemble ; en Badugi, les cartes basses de couleurs différentes.</li></ul>`],
+        ["Exercices corrigés", ex([
+          ["2-7, tu tiens 2-3-4-7 et tu tires une carte, deux tirages restants. Chances d'un 7 bas ?", "8 outs (quatre 5 et quatre 6) sur 47 : 1 − (39 ÷ 47) × (38 ÷ 46) = <strong>31,5 %</strong>."],
+          ["Badugi, tu as A♠2♥3♦ et une carte inutile, trois tirages. Chances de compléter ?", "10 outs (les trèfles de 4 à K) sur 48 : 1 − (38 ÷ 48) × (37 ÷ 47) × (36 ÷ 46) = <strong>51,2 %</strong>."],
+          ["2-7 : pourquoi 3-4-5-6-7 n'est-elle pas une bonne main ?", "C'est une <strong>suite</strong> : en 2-7, les suites comptent contre toi, et cette main vaut moins que la plus haute des mains sans paire. La bonne main basse évite les rangs consécutifs et les couleurs."],
+        ])],
+      ],
+      mistakes: ["Jouer l'as comme carte basse en 2-7", "Garder une suite ou une couleur en 2-7", "Tirer deux cartes au dernier tour comme si la main était encore vivante", "Bluffer en restant servi contre un adversaire qui est déjà servi"],
+      keys: ["2-7 : as haut, suites et couleurs contre toi, meilleure main 7-5-4-3-2", "Badugi : 4 couleurs et 4 rangs différents, as bas", "Chances = 1 − produit des probabilités de rater", "Position : voir les tirages adverses avant de décider"],
+      quiz: [
+        ["En 2-7 Triple Draw, la meilleure main est…", ["7-5-4-3-2 non assortie", "A-2-3-4-5", "2-3-4-5-6", "A-K-Q-J-T"], 0, "As haut, suites et couleurs comptent contre toi."],
+        ["En Badugi, une main de quatre cartes valides…", ["Bat toute main de trois cartes", "Perd contre trois cartes basses", "N'existe pas", "Vaut une paire"], 0, "Le nombre de cartes valides passe avant les rangs."],
+        ["8 outs sur 47, un seul tirage :", ["≈ 17 %", "≈ 31 %", "≈ 44 %", "≈ 8 %"], 0, "8 ÷ 47."],
+        ["Badugi, 10 outs sur 48, trois tirages :", ["≈ 51 %", "≈ 21 %", "≈ 38 %", "≈ 75 %"], 0, "1 − (38/48)(37/47)(36/46)."],
+        ["Le « snow » consiste à…", ["Rester servi avec une main médiocre pour représenter une main faite", "Tirer cinq cartes", "Se coucher au premier tirage", "Jouer sans regarder"], 0, "Un bluff propre aux jeux à tirage."],
+      ],
+    });
+
+    // ================= Niveau 4 =================
+    K.mod({
+      id: 'turncard', level: 4, title: "Lire la carte du turn : qui elle aide, que faire", drill: 'situations',
+      goals: ["Classer une carte du turn : surcarte, carte qui paire, carte qui connecte, carte de couleur", "Mesurer le déplacement d'équité et de nuts entre les deux ranges", "Décider de continuer ou de ralentir selon la carte et ta main"],
+      sections: [
+        ["Pourquoi le turn décide", `<p>Au turn, le pot est déjà gros et une carte peut faire basculer l'avantage. Deux questions avant de miser à nouveau : <strong>la carte aide-t-elle ma range ou la sienne ?</strong> et <strong>qui a gagné des mains très fortes (des nuts) ?</strong> L'outil <strong>Outils › Cartes du turn</strong> calcule l'équité exacte des deux ranges pour chacun des 49 turns.</p>`],
+        ["Un board statique", `<p>Ouverture du bouton contre défense de la grosse blinde, flop K♠7♦2♣. Équité exacte du bouton au flop : <strong>52,7 %</strong>. Quel que soit le turn, elle reste entre <strong>51,3 %</strong> (un 9) et <strong>53,8 %</strong> (un as). Sur un tel board, la carte change peu l'avantage : ta décision au turn dépend surtout de ta main (valeur, tirage, abattage), pas de la carte.</p>`],
+        ["Un board dynamique", `<p>Même situation sur 9♥8♥6♣ : <strong>49,9 %</strong> pour le bouton au flop.</p>
+          <table class="t"><thead><tr><th>Turn</th><th class="n">Équité du bouton</th><th class="n">Part de nuts de la BB</th><th>Lecture</th></tr></thead><tbody>
+          <tr><td>As</td><td class="n">52,1 %</td><td class="n">≈ 12 %</td><td>Surcarte : le relanceur a plus d'as forts</td></tr>
+          <tr><td>Dame</td><td class="n">51,0 %</td><td class="n">≈ 11 %</td><td>Surcarte : avantage au relanceur</td></tr>
+          <tr><td>2, 3, 4</td><td class="n">≈ 50 %</td><td class="n">≈ 9 %</td><td>Cartes blanches : peu de changement</td></tr>
+          <tr><td>10</td><td class="n">48,1 %</td><td class="n">≈ 17 %</td><td>Complète des suites : avantage au défenseur</td></tr>
+          <tr><td>7</td><td class="n">47,5 %</td><td class="n">≈ 20 %</td><td>Complète beaucoup de suites : le défenseur double sa part de nuts</td></tr></tbody></table>
+          <p>Part de nuts : combos de la range au-dessus de 80 % d'équité. Le joueur dont cette part monte peut miser gros ; celui qui la perd ralentit.</p>`],
+        ["La méthode en quatre questions", `<ol><li><strong>Famille de la carte</strong> : surcarte, carte qui paire le board, carte qui connecte, carte de couleur, carte blanche.</li>
+          <li><strong>Équité</strong> : qui gagne des points ? (outil Cartes du turn)</li>
+          <li><strong>Nuts</strong> : qui gagne des mains très fortes ?</li>
+          <li><strong>Ta main</strong> : est-elle de la valeur, un tirage qui veut de la fold equity, ou une main d'abattage ? Une main d'abattage checke sur les cartes qui aident l'adversaire ; un bon tirage peut continuer ; la valeur forte continue sur presque toutes les cartes.</li></ol>`],
+        ["Exercices corrigés", ex([
+          ["Bouton contre grosse blinde, flop 9♥8♥6♣, tu as misé avec A♠K♦ (deux overcards). Turn 7♣. Deuxième mise ?", "Plutôt check. Le 7 est la pire carte pour ta range (47,5 % d'équité, part de nuts de la BB ≈ 20 %), et ta main n'a que six outs pour une paire qui ne gagnera pas toujours. Sur un as ou une dame, tu aurais touché ta paire et ta range aurait progressé."],
+          ["Sur K♠7♦2♣, ton équité de range varie de 51,3 % à 53,8 % selon le turn. Qu'en déduis-tu pour ta stratégie ?", "Le board est <strong>statique</strong> : la carte du turn change peu de choses, ta décision repose sur ta main. Valeur et bons tirages continuent, les mains sans équité abandonnent la plupart du temps."],
+          ["Turn qui paire le board (7♣ sur K♠7♦2♣). Qui gagne des nuts ?", "Les deux un peu : les 7 deviennent des brelans, les paires de rois des doubles paires. Calcul exact : la part de nuts du bouton passe à environ 24 % et celle de la BB à environ 20 à 23 % selon la couleur du 7. Les cartes qui pairent le board rapprochent souvent les deux ranges au sommet : prudence avec les mains moyennes, valeur avec les mains fortes."],
+        ])],
+      ],
+      mistakes: ["Rebarreler par habitude sur une carte qui complète les tirages adverses", "Ralentir sur une surcarte qui aide ta range", "Oublier la part de nuts et ne regarder que l'équité moyenne", "Décider sur la carte sans se demander quel rôle joue sa propre main"],
+      keys: ["Surcartes : souvent pour le relanceur", "Cartes qui connectent : souvent pour le défenseur", "Board statique : la main décide ; dynamique : la carte compte", "Outil : Outils › Cartes du turn"],
+      quiz: [
+        ["Sur K♠7♦2♣, l'équité du bouton varie selon le turn de…", ["≈ 51 % à 54 %", "≈ 30 % à 70 %", "≈ 45 % à 60 %", "Exactement 52 % partout"], 0, "51,3 % à 53,8 % : board statique."],
+        ["Sur 9♥8♥6♣, quel turn aide le plus la grosse blinde ?", ["Le 7", "L'as", "La dame", "Le 2"], 0, "47,5 % pour le bouton, part de nuts de la BB ≈ 20 %."],
+        ["Une surcarte au turn aide en général…", ["Le relanceur préflop", "Le défenseur", "Personne", "Celui qui a checké"], 0, "Sa range contient plus de cartes hautes."],
+        ["La part de nuts sert à…", ["Savoir qui peut miser gros", "Calculer le rake", "Compter les outs", "Choisir la position"], 0, "Le joueur qui a plus de mains très fortes peut polariser."],
+        ["Sur un board statique, ta décision au turn dépend surtout…", ["De ta main", "De la couleur de la carte", "Du rang de la carte", "Du hasard"], 0, "La carte change peu l'équilibre des ranges."],
+      ],
+    });
+
+    K.mod({
+      id: 'jouets', level: 4, title: "Les jeux-jouets : jeu AKQ et river clairvoyante", drill: 'mdf',
+      goals: ["Résoudre deux jeux simplifiés qui expliquent les fréquences des solveurs", "Retrouver les formules de bluff et de défense à partir de l'indifférence", "Savoir comment exploiter un adversaire qui s'en écarte"],
+      sections: [
+        ["Pourquoi des jeux simplifiés", `<p>Les solveurs donnent des fréquences, pas des raisons. Deux petits jeux, résolus à la main, montrent d'où viennent ces fréquences. Ils viennent de la théorie des jeux appliquée au poker (Chen et Ankenman, <em>The Mathematics of Poker</em>, 2006).</p>`],
+        ["La river clairvoyante", `<p>Le joueur qui mise a soit les nuts, soit rien (range parfaitement polarisée) ; celui qui paie n'a que des bluff-catchers. Mise B dans un pot P. À l'équilibre :</p>
+          <ul><li>Part de bluffs dans la range de mise : <strong>B ÷ (P + 2B)</strong>.</li>
+          <li>Fréquence de call : <strong>P ÷ (P + B)</strong>.</li></ul>
+          <table class="t"><thead><tr><th>Mise</th><th class="n">Bluffs dans la mise</th><th class="n">Call</th></tr></thead><tbody>
+          <tr><td>Moitié du pot</td><td class="n">25 %</td><td class="n">67 %</td></tr><tr><td>Pot</td><td class="n">33 %</td><td class="n">50 %</td></tr><tr><td>Deux fois le pot</td><td class="n">40 %</td><td class="n">33 %</td></tr></tbody></table>
+          <p>Avec une range parfaitement polarisée, le joueur qui mise gagne d'autant plus que la mise est grosse : sa valeur rapporte P + B × P ÷ (P + B), ses bluffs sont indifférents. C'est la raison des overbets avec les ranges polarisées.</p>`],
+        ["Le jeu AKQ", `<p>Trois cartes : as, roi, dame. Chaque joueur en reçoit une. X checke ; Y peut miser 1 dans un pot de P ; X paie ou se couche.</p>
+          <ul><li>Y mise toujours l'as, checke le roi (il ne fait payer que l'as et fait coucher la dame) et <strong>bluffe la dame</strong> avec la fréquence 1 ÷ (P + 1).</li>
+          <li>X paie toujours avec l'as, se couche avec la dame et <strong>paie avec le roi</strong> avec la fréquence (P − 1) ÷ (P + 1).</li></ul>
+          <p>Avec un pot de 2 (mise de moitié du pot) : Y bluffe la dame <strong>1 fois sur 3</strong>, X paie le roi <strong>1 fois sur 3</strong>. À ces fréquences, ni le call du roi ni le bluff de la dame ne gagnent ou ne perdent : c'est l'indifférence.</p>`],
+        ["Ce qu'on en retient à la table", `<ul><li><strong>Indifférence</strong> : à l'équilibre, les mains mixtes (le roi qui paie parfois, la dame qui bluffe parfois) ont la même EV quelle que soit l'action. C'est pourquoi le solveur mélange.</li>
+          <li><strong>Exploitation</strong> : si l'adversaire paie le roi moins souvent que (P − 1) ÷ (P + 1), bluffe toutes tes dames ; s'il paie plus souvent, ne bluffe plus.</li>
+          <li><strong>Les bluffs viennent du bas de la range</strong> : la dame bluffe, le roi checke. Le roi a de la valeur à l'abattage, la dame n'en a aucune.</li></ul>`],
+        ["Exercices corrigés", ex([
+          ["River clairvoyante, mise des trois quarts du pot (P = 4, B = 3). Part de bluffs et fréquence de call ?", "Bluffs : 3 ÷ (4 + 6) = <strong>30 %</strong> de la range de mise. Call : 4 ÷ 7 ≈ <strong>57 %</strong>."],
+          ["Jeu AKQ avec un pot de 4 (mise d'un quart du pot). À quelle fréquence Y bluffe-t-il la dame, et X paie-t-il le roi ?", "Bluff : 1 ÷ 5 = <strong>20 %</strong>. Call du roi : 3 ÷ 5 = <strong>60 %</strong>. Petite mise : peu de bluffs, défense large."],
+          ["Ton adversaire ne paie jamais la river avec ses bluff-catchers. Que fais-tu de tes mains sans valeur ?", "Tu bluffes avec <strong>toutes</strong> : sa défense est sous la fréquence d'équilibre, chaque bluff rapporte. C'est la logique du node locking du Solveur."],
+        ])],
+      ],
+      mistakes: ["Retenir les fréquences sans comprendre l'indifférence", "Bluffer avec des mains qui ont de la valeur à l'abattage", "Appliquer l'équilibre contre un joueur qui s'en écarte nettement", "Croire qu'un overbet est toujours meilleur, même avec une range non polarisée"],
+      keys: ["Bluffs = B ÷ (P + 2B) de la range de mise", "Call = P ÷ (P + B)", "AKQ, pot 2 : bluff dame 1/3, call roi 1/3", "Écart de l'adversaire → exploitation maximale"],
+      quiz: [
+        ["River clairvoyante, mise du pot : part de bluffs dans la mise ?", ["33 %", "50 %", "25 %", "40 %"], 0, "1 ÷ (1 + 2)."],
+        ["River clairvoyante, mise de deux fois le pot : fréquence de call ?", ["33 %", "50 %", "67 %", "20 %"], 0, "1 ÷ (1 + 2)."],
+        ["Jeu AKQ, pot de 2 : Y bluffe la dame…", ["1 fois sur 3", "Toujours", "Jamais", "1 fois sur 2"], 0, "1 ÷ (P + 1)."],
+        ["Dans le jeu AKQ, Y mise-t-il le roi ?", ["Non : il ne ferait payer que l'as et coucher la dame", "Oui, toujours", "Une fois sur deux", "Seulement en position"], 0, "Le roi a de la valeur à l'abattage, pas à la mise."],
+        ["L'adversaire paie le roi plus souvent que l'équilibre. Ajustement ?", ["Ne plus bluffer", "Bluffer plus", "Miser le roi", "Checker l'as"], 0, "Ses calls rendent tes bluffs perdants."],
+      ],
+    });
+  }
+  if (typeof module !== 'undefined' && module.exports) module.exports = register; else register(root.Course);
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+<script data-s52>// Cartes du turn : équité exacte d'une range contre une autre pour chaque carte du turn (énumération complète des rivers).
+// Sert l'outil « Cartes du turn » et le module du même nom. Les ranges sont des ensembles de mains (E.parseRange), sans poids.
+(function (root) {
+  const E = root.Engine || (typeof require !== 'undefined' ? require('./engine.js') : null);
+
+  // Équité exacte sur un board de 4 ou 5 cartes : chaque paire de combos compatibles, chaque river possible.
+  function exactRvR(A, B, board) {
+    const dead = new Set(board), ca = E.rangeCombos(A, [...dead]), cb = E.rangeCombos(B, [...dead]);
+    const na = ca.length, nb = cb.length, winA = new Float64Array(na), cntA = new Float64Array(na), winB = new Float64Array(nb), cntB = new Float64Array(nb);
+    const rivers = [];
+    if (board.length === 5) rivers.push(null); else for (let c = 0; c < 52; c++) if (!dead.has(c)) rivers.push(c);
+    const va = new Float64Array(na), vb = new Float64Array(nb);
+    for (const r of rivers) {
+      const full = r === null ? board : [...board, r];
+      for (let i = 0; i < na; i++) { const h = ca[i]; va[i] = h[0] === r || h[1] === r ? -1 : E.evaluate([h[0], h[1], ...full]); }
+      for (let j = 0; j < nb; j++) { const h = cb[j]; vb[j] = h[0] === r || h[1] === r ? -1 : E.evaluate([h[0], h[1], ...full]); }
+      for (let i = 0; i < na; i++) {
+        const x = va[i]; if (x < 0) continue; const a0 = ca[i][0], a1 = ca[i][1];
+        for (let j = 0; j < nb; j++) {
+          const y = vb[j]; if (y < 0) continue; const b = cb[j];
+          if (b[0] === a0 || b[0] === a1 || b[1] === a0 || b[1] === a1) continue;
+          const w = x > y ? 1 : x === y ? 0.5 : 0;
+          winA[i] += w; cntA[i]++; winB[j] += 1 - w; cntB[j]++;
+        }
+      }
+    }
+    let wa = 0, ta = 0; for (let i = 0; i < na; i++) { wa += winA[i]; ta += cntA[i]; }
+    const perA = Array.from(winA, (w, i) => (cntA[i] ? w / cntA[i] : 0)), perB = Array.from(winB, (w, j) => (cntB[j] ? w / cntB[j] : 0));
+    return { eqA: ta ? wa / ta : 0, wins: wa, pairs: ta, perA, perB, nA: na, nB: nb };
+  }
+  const share = (v, t) => (v.length ? v.filter((x) => x >= t).length / v.length : 0);
+
+  // Rapport du turn : une ligne par carte possible, et l'équité du flop qui en découle (exacte, par agrégation).
+  // Asynchrone par tranches pour laisser respirer l'interface ; onStep(fait, total) facultatif.
+  async function turnReport(A, B, flop, onStep, opts = {}) {
+    const dead = new Set(flop), out = [], nuts = opts.nuts ?? 0.8;
+    let W = 0, T = 0; const cards = []; for (let c = 0; c < 52; c++) if (!dead.has(c)) cards.push(c);
+    for (let k = 0; k < cards.length; k++) {
+      const c = cards[k], r = exactRvR(A, B, [...flop, c]);
+      W += r.wins; T += r.pairs;
+      out.push({ card: c, eqA: r.eqA, nutsA: share(r.perA, nuts), nutsB: share(r.perB, nuts), nA: r.nA, nB: r.nB, pairs: r.pairs });
+      if (onStep) onStep(k + 1, cards.length);
+      if (opts.yield !== false && typeof setTimeout !== 'undefined' && k % 2 === 1) await new Promise((res) => setTimeout(res, 0));
+    }
+    return { flopEq: T ? W / T : 0, turns: out };
+  }
+
+  // Famille d'une carte du turn par rapport au flop : surcarte, carte qui paire le board, couleur (2e ou 3e carte), carte basse connectée.
+  function turnFamily(flop, c) {
+    const r = c >> 2, s = c & 3, fr = flop.map((x) => x >> 2), fs = flop.map((x) => x & 3);
+    const sameSuit = fs.filter((x) => x === s).length, hi = Math.max(...fr);
+    const tags = [];
+    if (fr.includes(r)) tags.push('paire le board');
+    else if (r > hi) tags.push('surcarte');
+    else if (r < Math.min(...fr)) tags.push('sous le board'); else tags.push('carte moyenne');
+    if (sameSuit === 2) tags.push('3e carte de la couleur'); else if (sameSuit === 1 && new Set(fs).size === 3) tags.push('tirage couleur possible');
+    const rs = [...new Set([...fr, r])].sort((a, b) => a - b); let best = 0;
+    for (let lo = -1; lo <= 12; lo++) { const n = rs.filter((x) => (x === 12 && lo === -1) || (x >= lo && x <= lo + 4)).length; best = Math.max(best, n); }
+    if (best >= 3 && !fr.includes(r)) { const before = (() => { const q = [...new Set(fr)].sort((a, b) => a - b); let m = 0; for (let lo = -1; lo <= 12; lo++) m = Math.max(m, q.filter((x) => (x === 12 && lo === -1) || (x >= lo && x <= lo + 4)).length); return m; })(); if (best > before) tags.push('connecte (suites)'); }
+    return tags;
+  }
+
+  const api = { exactRvR, turnReport, turnFamily };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Runout = api;
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
 <script data-s52>// Générateur de spots d'entraînement. Chaque spot : { type, title, prompt, cards?, board?, opts, ok (index ou liste), why }.
@@ -7073,17 +7494,17 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
 (function (root) {
   const TRACKS = [
     { id: 'gagner', title: 'Gagner vite, en jouant pour le plaisir', who: 'Tu joues quelques heures par semaine et tu veux devenir gagnant sans y passer ta vie.', promise: 'En 4 à 6 semaines : préflop solide, maths de base, jeu exploitant contre les joueurs faibles, budget et règles en place.',
-      steps: [['test'], ['mod', 'sprint'], ['mod', 'positions'], ['mod', 'preflop'], ['spot', 'rfi', 0.85, 30], ['mod', 'probas'], ['mod', 'maths'], ['spot', 'odds', 0.85, 30], ['mod', 'fish'], ['mod', 'blindes'], ['mod', 'textures'], ['mod', 'loisir'], ['mod', 'responsable'], ['table', 300], ['mod', 'biais'], ['mod', 'mental'], ['journal', 3]] },
+      steps: [['test'], ['mod', 'sprint'], ['mod', 'positions'], ['mod', 'preflop'], ['spot', 'rfi', 0.85, 30], ['mod', 'probas'], ['mod', 'maths'], ['spot', 'odds', 0.85, 30], ['mod', 'fish'], ['mod', 'blindes'], ['mod', 'textures'], ['mod', 'petitesmises'], ['mod', 'loisir'], ['mod', 'responsable'], ['table', 300], ['mod', 'biais'], ['mod', 'mental'], ['journal', 3]] },
     { id: 'salaire', title: 'Remplacer son salaire', who: 'Tu vises un revenu régulier du poker, à terme à la place ou à côté d\'un emploi.', promise: 'Une méthode de régulier : préflop complet, postflop, exploitation, mental et discipline de pro, économie et fiscalité, preuve par le volume.',
-      steps: [['test'], ['mod', 'sprint'], ['mod', 'bankroll'], ['bankroll'], ['mod', 'preflop2'], ['spot', 'vsopen', 0.8, 30], ['mod', 'postflop'], ['mod', 'textures'], ['mod', 'tirages'], ['mod', 'blindes'], ['mod', 'tailles'], ['mod', 'turnriver'], ['mod', 'fish'], ['mod', 'selection'], ['mod', 'adversaires'], ['mod', 'decision'], ['mod', 'variance'], ['mod', 'biais'], ['mod', 'pots3bet'], ['mod', 'squeeze'], ['mod', 'ev'], ['mod', 'realisation'], ['mod', 'tilt2'], ['mod', 'discipline'], ['mod', 'maths2'], ['mod', 'theorie'], ['mod', 'solveurs'], ['mod', 'mdf'], ['mod', 'exploitpop'], ['mod', 'regs'], ['mod', 'economie'], ['mod', 'rake'], ['mod', 'bankroll2'], ['mod', 'carriere'], ['mod', 'fiscal'], ['mod', 'salaire'], ['import'], ['table', 1000], ['journal', 10]] },
+      steps: [['test'], ['mod', 'sprint'], ['mod', 'bankroll'], ['bankroll'], ['mod', 'preflop2'], ['spot', 'vsopen', 0.8, 30], ['mod', 'postflop'], ['mod', 'textures'], ['mod', 'tirages'], ['mod', 'blindes'], ['mod', 'tailles'], ['mod', 'turnriver'], ['mod', 'fish'], ['mod', 'selection'], ['mod', 'adversaires'], ['mod', 'decision'], ['mod', 'variance'], ['mod', 'biais'], ['mod', 'pots3bet'], ['mod', 'squeeze'], ['mod', 'bvb_post'], ['mod', 'face_xr'], ['mod', 'petitesmises'], ['mod', 'ev'], ['mod', 'realisation'], ['mod', 'protection'], ['mod', 'turncard'], ['mod', 'tilt2'], ['mod', 'discipline'], ['mod', 'maths2'], ['mod', 'theorie'], ['mod', 'solveurs'], ['mod', 'mdf'], ['mod', 'exploitpop'], ['mod', 'regs'], ['mod', 'economie'], ['mod', 'rake'], ['mod', 'bankroll2'], ['mod', 'carriere'], ['mod', 'fiscal'], ['mod', 'salaire'], ['import'], ['table', 1000], ['journal', 10]] },
     { id: 'analyste', title: 'Analyser et comprendre le jeu en profondeur', who: 'Tu aimes comprendre pourquoi : ranges, équilibre, solveur, données.', promise: 'La boîte à outils de l\'analyste : théorie, solveur, rapport agrégé, méthode d\'étude par hypothèses, mesure statistique.',
-      steps: [['test'], ['mod', 'sprint'], ['mod', 'theorie'], ['mod', 'ranges'], ['mod', 'realisation'], ['mod', 'maths2'], ['mod', 'decision'], ['mod', 'bayes'], ['mod', 'analyste'], ['mod', 'solveurs'], ['mod', 'mdf'], ['spot', 'mdf', 0.8, 30], ['mod', 'bloqueurs'], ['spot', 'combos', 0.8, 30], ['mod', 'avantage'], ['mod', 'construire'], ['mod', 'polaris'], ['mod', 'overbets'], ['mod', 'bluffcatch'], ['mod', 'etudes'], ['visit', 'agg', 'Lire le rapport agrégé du solveur', ['agg', 1]], ['solver', 10], ['trainer', 60], ['import'], ['mod', 'etude']] },
+      steps: [['test'], ['mod', 'sprint'], ['mod', 'theorie'], ['mod', 'ranges'], ['mod', 'realisation'], ['mod', 'jouets'], ['mod', 'maths2'], ['mod', 'decision'], ['mod', 'bayes'], ['mod', 'analyste'], ['mod', 'solveurs'], ['mod', 'mdf'], ['spot', 'mdf', 0.8, 30], ['mod', 'bloqueurs'], ['spot', 'combos', 0.8, 30], ['mod', 'avantage'], ['mod', 'turncard'], ['mod', 'construire'], ['mod', 'polaris'], ['mod', 'overbets'], ['mod', 'bluffcatch'], ['mod', 'etudes'], ['visit', 'agg', 'Lire le rapport agrégé du solveur', ['agg', 1]], ['solver', 10], ['trainer', 60], ['import'], ['mod', 'etude']] },
     { id: 'amis', title: 'Dominer les parties entre amis et en live', who: 'Tu joues surtout en physique : parties maison, clubs, casinos.', promise: 'Décider vite à la table, lire les joueurs, organiser la partie, et t\'entraîner à te passer de l\'outil.',
-      steps: [['test'], ['mod', 'sprint'], ['mod', 'eclair'], ['mod', 'home'], ['mod', 'fish'], ['mod', 'multiway'], ['mod', 'multiway_post'], ['mod', 'live_debut'], ['mod', 'live_strat'], ['mod', 'live_tells'], ['mod', 'notes_live'], ['drill', 10], ['mod', 'tilt2'], ['mod', 'responsable']] },
+      steps: [['test'], ['mod', 'sprint'], ['mod', 'eclair'], ['mod', 'home'], ['mod', 'ante_straddle'], ['mod', 'fish'], ['mod', 'multiway'], ['mod', 'multiway_post'], ['mod', 'live_debut'], ['mod', 'live_strat'], ['mod', 'live_tells'], ['mod', 'notes_live'], ['drill', 10], ['mod', 'tilt2'], ['mod', 'responsable']] },
     { id: 'tournois', title: 'Gagner en tournois et Sit & Go', who: 'Tu joues des tournois, des Sit & Go ou des Expresso.', promise: 'Tapis courts, ICM, bulles, primes : les décisions qui font les places payées.',
-      steps: [['test'], ['mod', 'sprint'], ['mod', 'formats'], ['mod', 'icm'], ['spot', 'pushfold', 0.85, 30], ['mod', 'expresso'], ['expresso', 10], ['mod', 'mtt'], ['mod', 'tapiscourts'], ['mod', 'satellites'], ['mod', 'hu_final'], ['mod', 'shorthanded'], ['mod', 'icm2'], ['spot', 'bounty', 0.8, 20], ['mod', 'perf'], ['mod', 'discipline']] },
+      steps: [['test'], ['mod', 'sprint'], ['mod', 'formats'], ['mod', 'icm'], ['spot', 'pushfold', 0.85, 30], ['mod', 'expresso'], ['expresso', 10], ['mod', 'mtt'], ['mod', 'tapiscourts'], ['mod', 'satellites'], ['mod', 'reentry'], ['mod', 'hu_final'], ['mod', 'shorthanded'], ['mod', 'icm2'], ['spot', 'bounty', 0.8, 20], ['mod', 'perf'], ['mod', 'discipline']] },
     { id: 'variantes', title: 'Omaha et autres variantes', who: 'Tu veux jouer PLO, Omaha 5 cartes, Hi-Lo ou Short Deck.', promise: 'Les règles qui piègent, les mains qui gagnent, et les outils pour vérifier.',
-      steps: [['test'], ['mod', 'sprint'], ['mod', 'omaha'], ['mod', 'plo2'], ['mod', 'variantes2'], ['mod', 'shortdeck2'], ['mod', 'stud'], ['mod', 'limit'], ['visit', 'variantes', 'Calculer quelques équités dans l\'outil Variantes', ['tool', 'variantes']], ['mod', 'profondeur'], ['mod', 'hu']] },
+      steps: [['test'], ['mod', 'sprint'], ['mod', 'omaha'], ['mod', 'plo2'], ['mod', 'variantes2'], ['mod', 'shortdeck2'], ['mod', 'stud'], ['mod', 'limit'], ['mod', 'tirage_jeux'], ['visit', 'variantes', 'Calculer quelques équités dans l\'outil Variantes', ['tool', 'variantes']], ['mod', 'profondeur'], ['mod', 'hu']] },
   ];
   // Test de niveau : 3 questions tirées des quiz de chaque niveau 1 à 4 (12 questions).
   function placementQuestions(K, rand = Math.random) {
@@ -7634,7 +8055,7 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
   const TOOLVIEWS = {};
   VIEWS.outils = () => head('Outils', 'Pour étudier hors session : équité exacte, lecture de board, solveur tapis/couché avec ICM, ranges d\'ouverture.') +
     toolNav() + TOOLVIEWS[tool]();
-  const TOOLGROUPS = [['Équités', ['equite', 'variantes', 'omaha', 'probas']], ['Ranges et boards', ['ranges', 'atlas', 'board', 'dist', 'bloq']], ['Tournois', ['pushfold', 'deal', 'pko']], ['Calculs et préparation', ['maths', 'memo', 'partie']]];
+  const TOOLGROUPS = [['Équités', ['equite', 'variantes', 'omaha', 'probas']], ['Ranges et boards', ['ranges', 'dessin', 'atlas', 'board', 'dist', 'runout', 'bloq']], ['Tournois', ['pushfold', 'deal', 'pko', 'reentry']], ['Calculs et préparation', ['maths', 'memo', 'partie']]];
   function toolNav() {
     const name = Object.fromEntries(TOOLS), seen = new Set(TOOLGROUPS.flatMap((g) => g[1]));
     const groups = TOOLGROUPS.map(([l, ks]) => [l, ks.filter((k) => name[k])]).concat([['Autres', TOOLS.map(([k]) => k).filter((k) => !seen.has(k))]]).filter((g) => g[1].length);
@@ -17462,13 +17883,13 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
   const { esc, pct, state, VIEWS, ACT } = X;
   const D360 = [
     { k: 'cadre', t: 'Règles, cadre, jeu responsable', mods: ['cadre', 'regles', 'mains', 'notation', 'responsable', 'online', 'sprint'], go: [['Débuter', 'tab:debuter']] },
-    { k: 'pre', t: 'Préflop', mods: ['positions', 'preflop', 'preflop2', 'tailles', 'blindes', 'squeeze', 'pots3bet', 'construire', 'pots4bet'], go: [['Spots : ouverture', 'spots:rfi'], ['Spots : face à une ouverture', 'spots:vsopen'], ['Ranges', 'tool:ranges'], ['Solveur préflop', 'solver:preflop']] },
-    { k: 'post', t: 'Après le flop', mods: ['postflop', 'sizing', 'textures', 'tirages', 'turnriver', 'caller_ip', 'oopplay', 'avantage', 'barrels', 'polaris', 'overbets', 'bluffcatch'], go: [['Spots : situations', 'spots:situations'], ['Solveur', 'solver:solve'], ['Entraîneur', 'solver:train']] },
-    { k: 'maths', t: 'Maths et théorie', mods: ['maths', 'probas', 'maths2', 'ev', 'theorie', 'ranges', 'realisation', 'mdf', 'bloqueurs', 'bayes', 'solveurs'], go: [['Spots : cotes', 'spots:odds'], ['Spots : MDF', 'spots:mdf'], ['Spots : combos', 'spots:combos'], ['Équité', 'tool:equite']] },
+    { k: 'pre', t: 'Préflop', mods: ['positions', 'preflop', 'preflop2', 'tailles', 'blindes', 'squeeze', 'ante_straddle', 'pots3bet', 'construire', 'pots4bet'], go: [['Spots : ouverture', 'spots:rfi'], ['Spots : face à une ouverture', 'spots:vsopen'], ['Ranges', 'tool:ranges'], ['Dessine la range', 'tool:dessin'], ['Solveur préflop', 'solver:preflop']] },
+    { k: 'post', t: 'Après le flop', mods: ['postflop', 'sizing', 'petitesmises', 'textures', 'tirages', 'protection', 'turnriver', 'turncard', 'caller_ip', 'face_xr', 'oopplay', 'bvb_post', 'avantage', 'barrels', 'polaris', 'overbets', 'bluffcatch'], go: [['Spots : situations', 'spots:situations'], ['Cartes du turn', 'tool:runout'], ['Solveur', 'solver:solve'], ['Entraîneur', 'solver:train']] },
+    { k: 'maths', t: 'Maths et théorie', mods: ['maths', 'probas', 'maths2', 'ev', 'theorie', 'ranges', 'realisation', 'mdf', 'bloqueurs', 'bayes', 'jouets', 'solveurs'], go: [['Spots : cotes', 'spots:odds'], ['Spots : MDF', 'spots:mdf'], ['Spots : combos', 'spots:combos'], ['Équité', 'tool:equite']] },
     { k: 'lect', t: 'Lecture et exploitation', mods: ['adversaires', 'fish', 'lecture', 'exploitpop', 'hud', 'styles', 'regs', 'champions', 'etudes'], go: [['Spots : profils', 'spots:profils'], ['Analyse de tes mains', 'tab:analyse'], ['Champions', 'tab:champions']] },
     { k: 'fmt', t: 'Formats, tables et structures', mods: ['formats', 'online2', 'rapide', 'selection', 'shorthanded', 'multiway', 'multiway_post', 'hu', 'profondeur', 'deep', 'rake'], go: [['Simulateur', 'tab:sim']] },
-    { k: 'mtt', t: 'Tournois', mods: ['icm', 'mtt', 'expresso', 'tapiscourts', 'satellites', 'icm2', 'hu_final'], go: [['Spots : push-fold', 'spots:pushfold'], ['Spots : primes PKO', 'spots:bounty'], ['Push/Fold & ICM', 'tool:pushfold']] },
-    { k: 'var', t: 'Variantes', mods: ['omaha', 'plo2', 'variantes2', 'shortdeck2', 'stud', 'limit'], go: [['Solveur PLO', 'solver:plo']] },
+    { k: 'mtt', t: 'Tournois', mods: ['icm', 'mtt', 'expresso', 'tapiscourts', 'satellites', 'reentry', 'icm2', 'hu_final'], go: [['Spots : push-fold', 'spots:pushfold'], ['Re-entry et add-on', 'tool:reentry'], ['Spots : primes PKO', 'spots:bounty'], ['Push/Fold & ICM', 'tool:pushfold']] },
+    { k: 'var', t: 'Variantes', mods: ['omaha', 'plo2', 'variantes2', 'shortdeck2', 'stud', 'limit', 'tirage_jeux'], go: [['Solveur PLO', 'solver:plo']] },
     { k: 'live', t: 'Tables physiques', mods: ['live', 'live_debut', 'live_regles', 'live_strat', 'live_tells', 'live_table', 'live_mtt', 'eclair', 'home', 'notes_live'], go: [['Table live', 'tab:live']] },
     { k: 'mental', t: 'Mental et méthode', mods: ['mental', 'tilt2', 'discipline', 'decision', 'biais', 'variance', 'perf', 'etude', 'analyste', 'loisir'], go: [['Mental', 'tab:mental'], ['Carnet de décisions', 'tab:debuter']] },
     { k: 'metier', t: 'Bankroll, métier et marché', mods: ['bankroll', 'bankroll2', 'economie', 'salaire', 'carriere', 'staking', 'business', 'fiscal', 'marche', 'integrite', 'longevite', 'progression', 'histoire'], go: [['Journal', 'tab:journal'], ['Carrière', 'tab:carriere']] },
@@ -17507,6 +17928,125 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
     return at >= 0 ? html.slice(0, at) + mapHTML() + html.slice(at) : html + mapHTML();
   };
   X.map360HTML = mapHTML;
+})();
+</script>
+<script data-s52>// Outils (v22) : Cartes du turn (équité exacte de deux ranges pour chaque turn), Dessine la range (mémorisation active des charts,
+// note pondérée par les combos), Tournoi : re-entry et add-on (coût et EV attendus d'un tournoi à plusieurs entrées).
+(function () {
+  const X = window.__S52, R = window.Runout;
+  const { E, C, esc, fr, pct, render, grid169, state, Store, TOOLVIEWS, TOOLS, ACT, ONCHANGE } = X;
+  TOOLS.push(['runout', 'Cartes du turn'], ['dessin', 'Dessine la range'], ['reentry', 'Re-entry et add-on']);
+  const suitCol = (c) => ((c & 3) === 0 ? 'var(--ink)' : `var(--s-${E.SUITS[c & 3]})`), sym = (c) => E.SUIT_SYM[E.SUITS[c & 3]];
+  const cs = (c) => E.cardStr(c);
+  const prog = () => (state.progress.tools3 ||= { dessin: {} });
+
+  // ================= Cartes du turn =================
+  const PRE = [['BTN', 'BB', 'Bouton contre grosse blinde'], ['CO', 'BB', 'Cutoff contre grosse blinde'], ['UTG', 'BB', 'UTG contre grosse blinde'], ['SB', 'BB', 'Petite blinde contre grosse blinde'], ['CO', 'BTN', 'Cutoff contre bouton']];
+  const ro = { a: C.RFI.BTN.range, b: C.FACING.BTN.BB.call, flop: '9h8h6c', res: null, err: '', run: 0, done: 0, total: 0, labels: ['Ouverture BTN', 'Défense BB'] };
+  const famOf = (flop, c) => R.turnFamily(flop, c);
+  function familyRows(flop, turns) {
+    const fam = {};
+    for (const t of turns) for (const k of famOf(flop, t.card)) { const f = (fam[k] ||= { n: 0, eq: 0, na: 0, nb: 0 }); f.n++; f.eq += t.eqA; f.na += t.nutsA; f.nb += t.nutsB; }
+    return Object.entries(fam).sort((x, y) => y[1].eq / y[1].n - x[1].eq / x[1].n);
+  }
+  TOOLVIEWS.runout = () => {
+    const r = ro.res;
+    let out = '';
+    if (r) {
+      const flop = r.flop, d = (t) => t.eqA - r.flopEq, by = r.turns.slice().sort((x, y) => y.eqA - x.eqA);
+      const max = Math.max(0.02, ...r.turns.map((t) => Math.abs(d(t))));
+      const cell = (t) => { const v = d(t), a = Math.round(Math.min(1, Math.abs(v) / max) * 70); return `<div class="rocell" style="background:color-mix(in srgb, var(${v >= 0 ? '--accent' : '--bad'}) ${a}%, transparent)" title="${cs(t.card)} : ${pct(t.eqA, 1)}"><b style="color:${suitCol(t.card)}">${E.RANKS[t.card >> 2]}${sym(t.card)}</b><span class="mono">${v >= 0 ? '+' : '−'}${fr(Math.abs(v) * 100, 1)}</span></div>`; };
+      const rows = [12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0].map((rk) => `<div class="rorow"><span class="mono note">${E.RANKS[rk]}</span>${[0, 1, 2, 3].map((s) => { const t = r.turns.find((x) => x.card === rk * 4 + s); return t ? cell(t) : '<div class="rocell off"></div>'; }).join('')}</div>`).join('');
+      const fam = familyRows(flop, r.turns);
+      out = `<div class="stats"><div class="stat hero"><span>Équité au flop · ${esc(ro.labels[0])}</span><b>${pct(r.flopEq, 1)}</b><span>exacte, ${r.turns[0].nA} contre ${r.turns[0].nB} combos</span></div>
+        <div class="stat"><span>Meilleur turn pour A</span><b>${cs(by[0].card)}</b><span>${pct(by[0].eqA, 1)}</span></div><div class="stat"><span>Meilleur turn pour B</span><b>${cs(by[by.length - 1].card)}</b><span>A tombe à ${pct(by[by.length - 1].eqA, 1)}</span></div>
+        <div class="stat"><span>Écart entre turns</span><b>${fr((by[0].eqA - by[by.length - 1].eqA) * 100, 1)} pts</b><span>${by[0].eqA - by[by.length - 1].eqA < 0.03 ? 'board statique' : by[0].eqA - by[by.length - 1].eqA < 0.06 ? 'board intermédiaire' : 'board dynamique'}</span></div></div>
+        <div class="grid2"><section class="panel"><h2>Chaque turn</h2><p class="note">Variation de l'équité de A par rapport au flop, en points : positive, le turn aide A ; négative, il aide B. Plus la teinte est forte, plus l'écart est grand.</p><div class="rogrid">${rows}</div></section>
+        <section class="panel"><h2>Par famille de cartes</h2><div class="tw"><table class="t"><thead><tr><th>Famille</th><th class="n">Turns</th><th class="n">Équité A</th><th class="n">Nuts A</th><th class="n">Nuts B</th></tr></thead><tbody>${fam.map(([k, f]) => `<tr><td>${esc(k)}</td><td class="n">${f.n}</td><td class="n">${pct(f.eq / f.n, 1)}</td><td class="n">${pct(f.na / f.n, 0)}</td><td class="n">${pct(f.nb / f.n, 0)}</td></tr>`).join('')}</tbody></table></div>
+        <p class="note">Nuts : part des combos de la range au-dessus de 80 % d'équité sur ce turn. Le joueur dont la part de nuts monte peut miser gros ; celui dont l'équité baisse checke plus souvent.</p>
+        <h3>Les cinq meilleurs et les cinq pires turns pour A</h3><p class="mono">${by.slice(0, 5).map((t) => cs(t.card) + ' ' + pct(t.eqA, 1)).join(' · ')}</p><p class="mono">${by.slice(-5).reverse().map((t) => cs(t.card) + ' ' + pct(t.eqA, 1)).join(' · ')}</p></section></div>`;
+    }
+    const busy = ro.run && !r;
+    return `<section class="panel"><p class="note">Pour un flop et deux ranges, l'équité exacte de chaque carte du turn (toutes les rivers énumérées) : quelles cartes changent l'avantage, et de combien. C'est la base du choix entre continuer à miser et checker au turn.</p>
+      <div class="row">${PRE.map(([a, b, l]) => `<button class="btn small" data-act="ropre" data-a="${a}" data-b="${b}">${esc(l)}</button>`).join('')}</div>
+      <div class="form"><label class="f" style="grid-column:1/-1">Range A<input data-ro="a" value="${esc(ro.a)}" spellcheck="false"></label><label class="f" style="grid-column:1/-1">Range B<input data-ro="b" value="${esc(ro.b)}" spellcheck="false"></label><label class="f">Flop (3 cartes)<input id="roflop" data-ro="flop" value="${esc(ro.flop)}" spellcheck="false"></label></div>
+      <div class="row"><button class="btn primary" data-act="rogo" ${busy ? 'disabled' : ''}>${busy ? `Calcul… ${ro.done}/${ro.total}` : 'Calculer les 49 turns'}</button><span class="note">Calcul exact, quelques secondes.</span></div>
+      ${ro.err ? `<p class="pill bad" style="white-space:normal">${esc(ro.err)}</p>` : ''}${busy ? `<div class="meter"><i style="width:${ro.total ? (ro.done / ro.total) * 100 : 0}%"></i></div>` : ''}</section>${out}`;
+  };
+  ACT.ropre = (t) => {
+    const a = t.dataset.a, b = t.dataset.b, f = C.FACING[a][b];
+    ro.a = C.RFI[a].range; ro.b = f.call || f.threebet; ro.labels = ['Ouverture ' + a, (f.call ? 'Call ' : '3-bet ') + b]; ro.res = null; render();
+  };
+  ACT.rogo = async () => {
+    try {
+      const flop = E.parseCards(ro.flop); if (flop.length !== 3) throw new Error('Le flop fait 3 cartes, par exemple 9h8h6c.');
+      if (new Set(flop).size !== 3) throw new Error('Une carte apparaît deux fois.');
+      const A = E.parseRange(ro.a), B = E.parseRange(ro.b); if (!A.size || !B.size) throw new Error('Une des deux ranges est vide.');
+      ro.err = ''; ro.res = null; const id = ++ro.run; ro.done = 0; ro.total = 49; render();
+      let last = 0;
+      const res = await R.turnReport(A, B, flop, (k, n) => { if (id !== ro.run) return; ro.done = k; ro.total = n; const now = Date.now(); if (now - last > 250) { last = now; render(); } });
+      if (id !== ro.run) return; ro.res = { ...res, flop }; ro.run = 0; render();
+    } catch (e) { ro.err = e.message; ro.res = null; ro.run = 0; render(); }
+  };
+  ONCHANGE.push((t) => { if (t.dataset.ro) { ro[t.dataset.ro] = t.value; if (t.dataset.ro !== 'flop') ro.labels = ['Range A', 'Range B']; return true; } });
+
+  // ================= Dessine la range =================
+  const SITS = [...C.POS.map((p) => ({ k: 'rfi-' + p, t: 'Ouverture ' + p, range: () => C.RFI[p].range }))];
+  for (const o of Object.keys(C.FACING)) for (const h of Object.keys(C.FACING[o])) { const f = C.FACING[o][h]; SITS.push({ k: `vs-${o}-${h}`, t: `${h} contre une ouverture ${o} : mains jouées (3-bet ou call)`, range: () => [f.threebet, f.call].filter(Boolean).join(', ') }); }
+  const dz = { k: 'rfi-CO', paint: new Set(), done: null };
+  const cnt = (set) => [...set].reduce((n, h) => n + E.combos(h).length, 0);
+  function score(target, paint) {
+    const inter = new Set([...paint].filter((h) => target.has(h))), miss = new Set([...target].filter((h) => !paint.has(h))), extra = new Set([...paint].filter((h) => !target.has(h)));
+    const u = cnt(target) + cnt(extra);
+    return { inter, miss, extra, pct: u ? cnt(inter) / u : 1, missC: cnt(miss), extraC: cnt(extra) };
+  }
+  TOOLVIEWS.dessin = () => {
+    const s = SITS.find((x) => x.k === dz.k), target = E.parseRange(s.range()), best = prog().dessin[dz.k];
+    const sc = dz.done;
+    const cell = (h) => {
+      if (!sc) return `<button class="rc${dz.paint.has(h) ? ' on' : ''}" data-act="dzcell" data-h="${h}" aria-pressed="${dz.paint.has(h)}" aria-label="${h}">${h}</button>`;
+      const k = sc.inter.has(h) ? ' on' : sc.miss.has(h) ? ' dzmiss' : sc.extra.has(h) ? ' dzextra' : '';
+      return `<span class="rc${k}" aria-label="${h}${sc.miss.has(h) ? ' oubliée' : sc.extra.has(h) ? ' en trop' : ''}">${h}</span>`;
+    };
+    return `<section class="panel"><p class="note">Mémorisation active : colorie de mémoire les mains de la chart, puis compare. La note compte les combos (une paire en vaut 6, une main assortie 4, une dépareillée 12) : oublier A-Q dépareillé coûte plus qu'oublier 7-6 assorti.</p>
+      <label class="f">Situation<select data-dz="k">${SITS.map((x) => `<option value="${x.k}"${x.k === dz.k ? ' selected' : ''}>${esc(x.t)}${prog().dessin[x.k] != null ? ' · meilleur ' + pct(prog().dessin[x.k], 0) : ''}</option>`).join('')}</select></label>
+      <div class="row" style="justify-content:space-between"><h2>${esc(s.t)}</h2><span class="mono">${sc ? `Note ${pct(sc.pct, 0)}` : `${fr(E.rangePct(dz.paint), 1)} % colorié`}${best != null ? ` · meilleur ${pct(best, 0)}` : ''}</span></div>
+      ${grid169(cell)}
+      ${sc ? `<div class="legend"><span><i style="background:var(--accent)"></i>juste</span><span><i class="dzk dzmiss"></i>oubliée (${sc.missC} combos)</span><span><i class="dzk dzextra"></i>en trop (${sc.extraC} combos)</span></div>
+        <div class="advice"><div class="${sc.pct >= 0.9 ? 'good' : sc.pct >= 0.75 ? '' : 'bad'}">${sc.pct >= 0.95 ? 'Chart maîtrisée : passe à la situation suivante ou refais-la dans trois jours.' : sc.pct >= 0.85 ? 'Presque : relis les cases oubliées et en trop, puis refais.' : 'Pas encore : regarde la chart dans Outils › Ranges ou Atlas, puis refais demain. La répétition espacée fixe mieux qu\'une longue séance.'}</div></div>
+        <div class="row"><button class="btn primary" data-act="dzagain">Recommencer</button><button class="btn" data-act="dznext">Situation suivante</button></div>`
+        : `<div class="row"><button class="btn primary" data-act="dzcheck">Comparer à la chart</button><button class="btn" data-act="dzclear">Effacer</button></div>`}
+      <p class="note">Charts de référence de SIGMA 52 (6-max, 100 bb, en ligne), celles de Outils › Ranges et des exercices Spots.</p></section>`;
+  };
+  ACT.dzcell = (t) => { const h = t.dataset.h; dz.paint.has(h) ? dz.paint.delete(h) : dz.paint.add(h); render(); };
+  ACT.dzclear = () => { dz.paint = new Set(); render(); };
+  ACT.dzcheck = () => {
+    const s = SITS.find((x) => x.k === dz.k); dz.done = score(E.parseRange(s.range()), dz.paint);
+    const p = prog(); p.dessin[dz.k] = Math.max(p.dessin[dz.k] ?? 0, dz.done.pct); Store.save('progress'); render();
+  };
+  ACT.dzagain = () => { dz.paint = new Set(); dz.done = null; render(); };
+  ACT.dznext = () => { const i = SITS.findIndex((x) => x.k === dz.k); dz.k = SITS[(i + 1) % SITS.length].k; dz.paint = new Set(); dz.done = null; render(); };
+  ONCHANGE.push((t) => { if (t.dataset.dz === 'k') { dz.k = t.value; dz.paint = new Set(); dz.done = null; render(); return true; } });
+  X.dessinScore = score;
+
+  // ================= Re-entry et add-on =================
+  const re = { buyin: 20, rake: 2, roi: 15, bust: 40, max: 3, stack: 20000, addp: 20, adds: 30000 };
+  TOOLVIEWS.reentry = () => {
+    const cost = re.buyin + re.rake, roi = re.roi / 100, p = Math.min(0.99, Math.max(0, re.bust / 100));
+    const rows = []; for (let k = 1; k <= Math.max(1, Math.min(10, re.max | 0)); k++) { let e = 0; for (let i = 0; i < k; i++) e += Math.pow(p, i); rows.push({ k, e, spend: e * cost, ev: e * cost * roi }); }
+    const ratio = re.stack > 0 && re.buyin > 0 && re.addp > 0 ? (re.adds / re.addp) / (re.stack / re.buyin) : 0;
+    return `<section class="panel"><p class="note">Un tournoi à re-entry se juge par entrée : si ton ROI par entrée est positif, chaque nouvelle entrée a la même espérance que la première, mais elle multiplie la mise engagée et la variance. Le vrai plafond est ta bankroll, pas l'orgueil.</p>
+      <div class="form"><label class="f">Buy-in (€, hors rake)<input type="number" min="0" step="0.5" data-re="buyin" value="${re.buyin}"></label><label class="f">Rake (€)<input type="number" min="0" step="0.1" data-re="rake" value="${re.rake}"></label>
+      <label class="f">Ton ROI par entrée (%)<input type="number" step="1" data-re="roi" value="${re.roi}"></label><label class="f">Risque de sortir avant la fin des inscriptions (%)<input type="number" min="0" max="99" step="1" data-re="bust" value="${re.bust}"></label>
+      <label class="f">Entrées maximum que tu t'autorises<input type="number" min="1" max="10" step="1" data-re="max" value="${re.max}"></label></div></section>
+      <section class="panel"><h2>Ce que coûte et rapporte ta règle</h2><div class="tw"><table class="t"><thead><tr><th>Entrées max</th><th class="n">Entrées en moyenne</th><th class="n">Dépense moyenne</th><th class="n">Gain attendu</th></tr></thead><tbody>${rows.map((x) => `<tr${x.k === (re.max | 0) ? ' style="font-weight:700"' : ''}><td>${x.k}</td><td class="n">${fr(x.e, 2)}</td><td class="n">${fr(x.spend, 2)} €</td><td class="n" style="color:var(${x.ev >= 0 ? '--good' : '--bad'})">${x.ev >= 0 ? '+' : '−'}${fr(Math.abs(x.ev), 2)} €</td></tr>`).join('')}</tbody></table></div>
+      <p class="note">Entrées en moyenne = 1 + p + p² + … (p = risque de sortir avant la fin des inscriptions). Gain attendu = dépense × ROI. Hypothèse : le ROI d'une nouvelle entrée est le même que celui de la première ; en pratique, une entrée tardive avec un tapis court rapporte souvent un peu moins, et une entrée sous le coup du tilt beaucoup moins.</p>
+      <p>Bankroll : compte la <strong>dépense maximale</strong> (${fr((re.max | 0) * cost, 2)} €) comme le buy-in réel de ce tournoi dans ta règle de bankroll (voir le module Bankroll avancée).</p></section>
+      <section class="panel"><h2>Add-on : les jetons sont-ils moins chers ?</h2><div class="form"><label class="f">Tapis de départ<input type="number" min="0" data-re="stack" value="${re.stack}"></label><label class="f">Prix de l'add-on (€)<input type="number" min="0" step="0.5" data-re="addp" value="${re.addp}"></label><label class="f">Jetons de l'add-on<input type="number" min="0" data-re="adds" value="${re.adds}"></label></div>
+      <p>Jetons par euro : inscription <b>${fr(re.buyin > 0 ? re.stack / re.buyin : 0, 0)}</b>, add-on <b>${fr(re.addp > 0 ? re.adds / re.addp : 0, 0)}</b>, soit un rapport de <b>${fr(ratio, 2)}</b>.</p>
+      <div class="advice"><div class="${ratio >= 1 && roi > -0.2 ? 'good' : ''}">${ratio >= 1 ? 'L\'add-on te vend les jetons moins cher que l\'inscription (ou au même prix) : prends-le dès que tu es gagnant dans ce tournoi, surtout avec un tapis court ou moyen. Avec un très gros tapis, un jeton supplémentaire vaut un peu moins (ICM), mais le prix reste en général bon.' : 'L\'add-on vend les jetons plus cher que l\'inscription : il ne se justifie qu\'avec un ROI élevé et un tapis court, où chaque jeton compte davantage.'}</div></div></section>`;
+  };
+  ONCHANGE.push((t) => { if (t.dataset.re) { const v = parseFloat(String(t.value).replace(',', '.')); re[t.dataset.re] = Number.isFinite(v) ? v : 0; render(); return true; } });
 })();
 </script>
 <script data-s52>// Confort d'utilisation : recherche globale (Ctrl+K ou /), thème clair/sombre/auto, aide des raccourcis (?).
