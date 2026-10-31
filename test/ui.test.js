@@ -130,7 +130,9 @@ const SHOTS = process.env.SHOTS || '';
     await p.locator('[data-act=agload]').first().click(); if (!(await has('[data-act=svgo]'))) errs.push(name + ' agrégé : chargement du flop');
 
     // Champions : briefing, session de 25 mains en tête-à-tête, rapport ; défi mystère ; classement
-    await tab('champions'); await p.click('[data-act=chsel][data-id=ivey]'); await p.waitForSelector('.brief');
+    await tab('champions'); await p.click('[data-act=chsel][data-id=predateur]'); await p.waitForSelector('.brief');
+    if (!(await has('text=Comment le reconnaître'))) errs.push(name + ' briefing sans « Comment le reconnaître »');
+    if (/Ivey|Negreanu|Hellmuth|Dwan|inspiré de/.test(await p.locator('main').innerText())) errs.push(name + ' nom de joueur dans Champions');
     await over('champions'); await shot('champions');
     await p.click('[data-act=chtarget][data-v="25"]'); await p.click('[data-act=chplay]');
     let cg = 0;
@@ -141,17 +143,21 @@ const SHOTS = process.env.SHOTS || '';
     await over('champion-rapport');
     // Champions v12 : filtres, parcours, nouveaux styles
     await tab('champions'); await p.click('[data-act=chsub][data-s=styles]'); await p.click('[data-act=chlvl][data-v="Moyen"]');
-    if ((await p.locator('.champ').count()) < 4) errs.push(name + ' filtre niveau'); await p.click('[data-act=chlvl][data-v=all]'); await p.click('[data-act=chera][data-v=moderne]'); await p.click('[data-act=chera][data-v=all]');
+    if ((await p.locator('.champ').count()) < 4) errs.push(name + ' filtre niveau'); await p.click('[data-act=chlvl][data-v=all]'); await p.click('[data-act=chfam][data-v="Serré"]');
+    if ((await p.locator('.champ').count()) < 4) errs.push(name + ' filtre famille'); await p.click('[data-act=chfam][data-v=all]');
     if ((await p.locator('.champ').count()) !== 28) errs.push(name + ' champions : ' + (await p.locator('.champ').count()));
-    for (const id of ['matusow', 'polk', 'elky']) { await p.click(`[data-act=chsel][data-id=${id}]`); await p.waitForSelector('.brief'); await over('champion-' + id); }
+    for (const id of ['volcan', 'specialiste_hu', 'volume']) { await p.click(`[data-act=chsel][data-id=${id}]`); await p.waitForSelector('.brief'); await over('champion-' + id); }
     await shot('champions-v12');
     await tab('champions'); await p.click('[data-act=chsub][data-s=mystery]'); await p.click('[data-act=chmyst]');
     cg = 0; while (!(await has('[data-act=chguess]')) && cg++ < 400) { if (await has('[data-act=hcall]')) await p.click('[data-act=hcall]'); else if (await has('[data-act=cashnext]')) await p.click('[data-act=cashnext]'); else break; }
     if (!(await has('[data-act=chguess]'))) errs.push(name + ' défi mystère sans choix final');
     else { await p.locator('[data-act=chguess]').first().click(); if (!(await has('text=C\'était'))) errs.push(name + ' défi mystère sans révélation'); }
-    await tab('champions'); await p.click('[data-act=chsub][data-s=money]'); if ((await p.locator('[data-act=chgo]').count()) !== 7) errs.push(name + ' classement : liens de style'); await over('classement');
+    await tab('champions'); await p.click('[data-act=chsub][data-s=atlas]'); if ((await p.locator('[data-act=chsort]').count()) < 4) errs.push(name + ' atlas : tri'); await p.locator('[data-act=chsort]').nth(1).click(); await over('atlas'); await shot('atlas');
+    await p.click('[data-act=chsub][data-s=reco]'); await p.click('[data-act=chrecon][data-v="300"]'); await p.click('[data-act=chreco]');
+    if ((await p.locator('[data-act=chrecoans]').count()) !== 4) errs.push(name + ' reconnaître : 4 options'); else { await p.locator('[data-act=chrecoans]').first().click(); if (!(await has('text=Voir le briefing'))) errs.push(name + ' reconnaître : correction'); }
+    await over('reconnaitre'); await shot('reconnaitre');
     // Champions : nouveaux styles et types de partie (cash court, Sit & Go)
-    await tab('champions'); await p.click('[data-act=chsub][data-s=styles]'); await p.click('[data-act=chsel][data-id=dwan]'); await over('champion-dwan');
+    await tab('champions'); await p.click('[data-act=chsub][data-s=styles]'); await p.click('[data-act=chsel][data-id=ultra_lag]'); await over('champion-ultra_lag');
     await p.click('[data-act=chsub][data-s=formats]'); for (const f of ['short', 'deep', 'home', 'hu', 'sng6', 'ft', 'expresso', 'cash100']) { await p.click(`[data-act=fmsel][data-id=${f}]`); await over('format-' + f); }
     await p.click('[data-act=fmsel][data-id=short]'); await p.click('[data-act=fmarch][data-v=classiques]'); await p.click('[data-act=fmplay]'); await p.waitForTimeout(80);
     if ((await p.evaluate(() => window.__S52.getTab())) !== 'sim') errs.push(name + ' format cash non lancé');

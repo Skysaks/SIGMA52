@@ -12,33 +12,33 @@
     reg: { label: 'Régulier', vpip: 0.25, pfr: 0.22, cont: 0.6, three: 0.3, callF: 1.0, value: 0.75, bluff: 0.18, raise: 0.85, size: [0.5, 0.75], cbet: 0.34 },
     // Styles d'entraînement inspirés de descriptions publiques de joueurs connus (voir champions.js) : paramètres choisis par SIGMA 52,
     // pas la stratégie réelle des joueurs. like = profil de base utilisé par le coach pour estimer les ranges.
-    ivey: { label: 'Style Ivey', like: 'reg', vpip: 0.31, pfr: 0.26, cont: 0.72, three: 0.45, callF: 0.95, value: 0.85, bluff: 0.3, raise: 0.8, size: [0.6, 1.0], over: 0.25, raiseBluff: 0.07, adapt: 1, disc: 0.11, cbet: 0.72 },
-    negreanu: { label: 'Style Negreanu', like: 'reg', vpip: 0.33, pfr: 0.24, cont: 0.82, three: 0.25, callF: 1.05, value: 0.78, bluff: 0.22, raise: 0.88, size: [0.25, 0.4], sizeLate: [0.4, 0.6], open: 2.2, flat: 1.45, bigFold: 0.08, adapt: 0.5, cbet: 0.8 },
-    hellmuth: { label: 'Style Hellmuth', like: 'reg', vpip: 0.23, pfr: 0.18, cont: 0.6, three: 0.3, callF: 1.12, value: 0.82, bluff: 0.12, raise: 0.88, size: [0.5, 0.75], adapt: 1.4, cbet: 0.55 },
-    chidwick: { label: 'Style Chidwick', like: 'reg', vpip: 0.25, pfr: 0.22, cont: 0.62, three: 0.35, callF: 1.0, value: 0.75, bluff: 0.2, raise: 0.82, size: [0.33, 0.75], over: 0.15, xr: 0.16, cbet: 0.62 },
-    mizrachi: { label: 'Style Mizrachi', like: 'maniaque', vpip: 0.42, pfr: 0.32, cont: 0.72, three: 0.4, callF: 0.9, value: 0.9, bluff: 0.32, raise: 0.78, size: [0.6, 1.0], over: 0.35, jam: 0.06, disc: 0.08, cbet: 0.8 },
-    antonius: { label: 'Style Antonius', like: 'reg', vpip: 0.3, pfr: 0.27, cont: 0.72, three: 0.45, callF: 0.95, value: 0.85, bluff: 0.33, raise: 0.8, size: [0.66, 1.0], over: 0.25, adapt: 1, cbet: 0.78 },
-    brunson: { label: 'Style Brunson', like: 'reg', vpip: 0.3, pfr: 0.24, cont: 0.75, three: 0.3, callF: 0.95, value: 0.85, bluff: 0.3, raise: 0.8, size: [0.75, 1.0], jam: 0.05, cbet: 0.88, disc: 0.1 },
-    harrington: { label: 'Style Harrington', like: 'reg', vpip: 0.19, pfr: 0.16, cont: 0.5, three: 0.3, callF: 1.15, value: 0.8, bluff: 0.12, raise: 0.88, size: [0.5, 0.66], open: 3, cbet: 0.7 },
-    dwan: { label: 'Style Dwan', like: 'maniaque', vpip: 0.38, pfr: 0.3, cont: 0.75, three: 0.42, callF: 0.92, value: 0.88, bluff: 0.36, raise: 0.78, size: [0.66, 1.1], over: 0.35, raiseBluff: 0.1, adapt: 1.2, disc: 0.09, cbet: 0.75 },
-    hansen: { label: 'Style Hansen', like: 'maniaque', vpip: 0.46, pfr: 0.34, cont: 0.8, three: 0.35, callF: 0.9, value: 0.85, bluff: 0.3, raise: 0.8, size: [0.5, 0.8], flat: 1.5, disc: 0.08, cbet: 0.82 },
-    blom: { label: 'Style Blom', like: 'maniaque', vpip: 0.5, pfr: 0.43, cont: 0.75, three: 0.5, callF: 0.88, value: 0.9, bluff: 0.38, raise: 0.76, size: [0.7, 1.1], over: 0.35, raiseBluff: 0.12, disc: 0.07, cbet: 0.85 },
-    polk: { label: 'Style Polk', like: 'reg', vpip: 0.29, pfr: 0.25, cont: 0.7, three: 0.4, callF: 0.98, value: 0.82, bluff: 0.25, raise: 0.82, size: [0.2, 0.4], sizeLate: [0.33, 0.8], over: 0.18, xr: 0.12, adapt: 1, open: 2.5, cbet: 0.72 },
-    seidel: { label: 'Style Seidel', like: 'reg', vpip: 0.18, pfr: 0.14, cont: 0.55, three: 0.28, callF: 1.1, value: 0.8, bluff: 0.13, raise: 0.86, size: [0.5, 0.75], adapt: 0.8, trap: 0.25, cbet: 0.6 },
-    selbst: { label: 'Style Selbst', like: 'maniaque', vpip: 0.36, pfr: 0.31, cont: 0.7, three: 0.55, callF: 0.92, value: 0.88, bluff: 0.33, raise: 0.78, size: [0.6, 1.0], over: 0.2, raiseBluff: 0.1, jam: 0.06, disc: 0.08, cbet: 0.8 },
-    ungar: { label: 'Style Ungar', like: 'maniaque', vpip: 0.4, pfr: 0.33, cont: 0.75, three: 0.42, callF: 0.95, value: 0.88, bluff: 0.32, raise: 0.8, size: [0.6, 1.0], over: 0.2, adapt: 1.5, disc: 0.09, cbet: 0.82 },
-    obrestad: { label: 'Style Obrestad', like: 'reg', vpip: 0.26, pfr: 0.23, cont: 0.62, three: 0.32, callF: 1.0, value: 0.8, bluff: 0.22, raise: 0.84, size: [0.5, 0.75], pos: 0.8, adapt: 1, cbet: 0.7 },
-    ferguson: { label: 'Style Ferguson', like: 'reg', vpip: 0.23, pfr: 0.2, cont: 0.62, three: 0.33, callF: 1.0, value: 0.8, bluff: 0.2, raise: 0.85, size: [0.5, 1.0], trap: 0.12, cbet: 0.62 },
-    moneymaker: { label: 'Style Moneymaker', like: 'station', vpip: 0.38, pfr: 0.2, cont: 0.8, three: 0.25, callF: 0.85, value: 0.75, bluff: 0.26, raise: 0.85, size: [0.5, 1.0], over: 0.3, loose: 1, cbet: 0.6 },
-    elky: { label: 'Style ElkY', like: 'reg', vpip: 0.3, pfr: 0.27, cont: 0.7, three: 0.45, callF: 0.95, value: 0.85, bluff: 0.27, raise: 0.8, size: [0.5, 0.8], raiseBluff: 0.06, pos: 0.4, cbet: 0.8 },
-    matusow: { label: 'Style Matusow', like: 'reg', vpip: 0.27, pfr: 0.21, cont: 0.65, three: 0.33, callF: 0.98, value: 0.8, bluff: 0.2, raise: 0.84, size: [0.5, 0.9], tilt: 1, cbet: 0.68 },
-    sklansky: { label: 'Style Sklansky', like: 'reg', vpip: 0.2, pfr: 0.16, cont: 0.58, three: 0.3, callF: 1.05, value: 0.82, bluff: 0.16, raise: 0.86, size: [0.5, 0.8], trap: 0.2, xr: 0.08, cbet: 0.62 },
-    esfandiari: { label: 'Style Esfandiari', like: 'reg', vpip: 0.32, pfr: 0.27, cont: 0.7, three: 0.45, callF: 0.95, value: 0.85, bluff: 0.3, raise: 0.82, size: [0.5, 0.7], sizeLate: [0.6, 1.0], pos: 0.9, raiseBluff: 0.05, cbet: 0.82 },
-    cates: { label: 'Style Cates', like: 'reg', vpip: 0.27, pfr: 0.22, cont: 0.66, three: 0.32, callF: 1.05, value: 0.8, bluff: 0.13, raise: 0.85, size: [0.5, 0.75], bbDef: 2.6, adapt: 0.8, cbet: 0.62 },
-    adelstein: { label: 'Style Adelstein', like: 'maniaque', vpip: 0.34, pfr: 0.28, cont: 0.72, three: 0.4, callF: 0.93, value: 0.88, bluff: 0.28, raise: 0.8, size: [0.75, 1.2], over: 0.3, disc: 0.09, open: 3, cbet: 0.78 },
-    caro: { label: 'Style Caro', like: 'station', vpip: 0.44, pfr: 0.26, cont: 0.82, three: 0.25, callF: 0.85, value: 0.8, bluff: 0.18, raise: 0.86, size: [0.5, 0.9], loose: 1, wild: 0.05, cbet: 0.6 },
-    koon: { label: 'Style Koon', like: 'reg', vpip: 0.26, pfr: 0.23, cont: 0.66, three: 0.36, callF: 1.0, value: 0.82, bluff: 0.23, raise: 0.84, size: [0.33, 0.75], sizeLate: [0.66, 1.0], over: 0.2, xr: 0.2, adapt: 1, cbet: 0.66 },
-    reese: { label: 'Style Reese', like: 'reg', vpip: 0.24, pfr: 0.2, cont: 0.64, three: 0.32, callF: 1.0, value: 0.82, bluff: 0.18, raise: 0.85, size: [0.5, 0.75], adapt: 1.2, disc: 0.12, cbet: 0.62 },
+    predateur: { label: 'Prédateur polyvalent', like: 'reg', vpip: 0.31, pfr: 0.26, cont: 0.72, three: 0.45, callF: 0.95, value: 0.85, bluff: 0.3, raise: 0.8, size: [0.6, 1.0], over: 0.25, raiseBluff: 0.07, adapt: 1, disc: 0.11, cbet: 0.72 },
+    small_ball: { label: 'Small-baller', like: 'reg', vpip: 0.33, pfr: 0.24, cont: 0.82, three: 0.25, callF: 1.05, value: 0.78, bluff: 0.22, raise: 0.88, size: [0.25, 0.4], sizeLate: [0.4, 0.6], open: 2.2, flat: 1.45, bigFold: 0.08, adapt: 0.5, cbet: 0.8 },
+    lecteur_serre: { label: 'Lecteur serré', like: 'reg', vpip: 0.23, pfr: 0.18, cont: 0.6, three: 0.3, callF: 1.12, value: 0.82, bluff: 0.12, raise: 0.88, size: [0.5, 0.75], adapt: 1.4, cbet: 0.55 },
+    equilibre: { label: 'Équilibré moderne', like: 'reg', vpip: 0.25, pfr: 0.22, cont: 0.62, three: 0.35, callF: 1.0, value: 0.75, bluff: 0.2, raise: 0.82, size: [0.33, 0.75], over: 0.15, xr: 0.16, cbet: 0.62 },
+    lag_imprevisible: { label: 'LAG imprévisible', like: 'maniaque', vpip: 0.42, pfr: 0.32, cont: 0.72, three: 0.4, callF: 0.9, value: 0.9, bluff: 0.32, raise: 0.78, size: [0.6, 1.0], over: 0.35, jam: 0.06, disc: 0.08, cbet: 0.8 },
+    presseur_hu: { label: 'Presseur de tête-à-tête', like: 'reg', vpip: 0.3, pfr: 0.27, cont: 0.72, three: 0.45, callF: 0.95, value: 0.85, bluff: 0.33, raise: 0.8, size: [0.66, 1.0], over: 0.25, adapt: 1, cbet: 0.78 },
+    barreleur: { label: 'Barreleur à l\'ancienne', like: 'reg', vpip: 0.3, pfr: 0.24, cont: 0.75, three: 0.3, callF: 0.95, value: 0.85, bluff: 0.3, raise: 0.8, size: [0.75, 1.0], jam: 0.05, cbet: 0.88, disc: 0.1 },
+    tournoi_methodique: { label: 'Méthodique de tournoi', like: 'reg', vpip: 0.19, pfr: 0.16, cont: 0.5, three: 0.3, callF: 1.15, value: 0.8, bluff: 0.12, raise: 0.88, size: [0.5, 0.66], open: 3, cbet: 0.7 },
+    ultra_lag: { label: 'Ultra-agressif opaque', like: 'maniaque', vpip: 0.38, pfr: 0.3, cont: 0.75, three: 0.42, callF: 0.92, value: 0.88, bluff: 0.36, raise: 0.78, size: [0.66, 1.1], over: 0.35, raiseBluff: 0.1, adapt: 1.2, disc: 0.09, cbet: 0.75 },
+    joueur_flops: { label: 'Joueur de flops', like: 'maniaque', vpip: 0.46, pfr: 0.34, cont: 0.8, three: 0.35, callF: 0.9, value: 0.85, bluff: 0.3, raise: 0.8, size: [0.5, 0.8], flat: 1.5, disc: 0.08, cbet: 0.82 },
+    suragressif: { label: 'Suragressif', like: 'maniaque', vpip: 0.5, pfr: 0.43, cont: 0.75, three: 0.5, callF: 0.88, value: 0.9, bluff: 0.38, raise: 0.76, size: [0.7, 1.1], over: 0.35, raiseBluff: 0.12, disc: 0.07, cbet: 0.85 },
+    specialiste_hu: { label: 'Spécialiste du tête-à-tête', like: 'reg', vpip: 0.29, pfr: 0.25, cont: 0.7, three: 0.4, callF: 0.98, value: 0.82, bluff: 0.25, raise: 0.82, size: [0.2, 0.4], sizeLate: [0.33, 0.8], over: 0.18, xr: 0.12, adapt: 1, open: 2.5, cbet: 0.72 },
+    patient: { label: 'Patient piégeur', like: 'reg', vpip: 0.18, pfr: 0.14, cont: 0.55, three: 0.28, callF: 1.1, value: 0.8, bluff: 0.13, raise: 0.86, size: [0.5, 0.75], adapt: 0.8, trap: 0.25, cbet: 0.6 },
+    trois_bet: { label: '3-betteur sans peur', like: 'maniaque', vpip: 0.36, pfr: 0.31, cont: 0.7, three: 0.55, callF: 0.92, value: 0.88, bluff: 0.33, raise: 0.78, size: [0.6, 1.0], over: 0.2, raiseBluff: 0.1, jam: 0.06, disc: 0.08, cbet: 0.8 },
+    lecteur_agressif: { label: 'Lecteur agressif', like: 'maniaque', vpip: 0.4, pfr: 0.33, cont: 0.75, three: 0.42, callF: 0.95, value: 0.88, bluff: 0.32, raise: 0.8, size: [0.6, 1.0], over: 0.2, adapt: 1.5, disc: 0.09, cbet: 0.82 },
+    positionnel: { label: 'Joueur de position', like: 'reg', vpip: 0.26, pfr: 0.23, cont: 0.62, three: 0.32, callF: 1.0, value: 0.8, bluff: 0.22, raise: 0.84, size: [0.5, 0.75], pos: 0.8, adapt: 1, cbet: 0.7 },
+    analyste: { label: 'Analyste', like: 'reg', vpip: 0.23, pfr: 0.2, cont: 0.62, three: 0.33, callF: 1.0, value: 0.8, bluff: 0.2, raise: 0.85, size: [0.5, 1.0], trap: 0.12, cbet: 0.62 },
+    amateur_audacieux: { label: 'Amateur audacieux', like: 'station', vpip: 0.38, pfr: 0.2, cont: 0.8, three: 0.25, callF: 0.85, value: 0.75, bluff: 0.26, raise: 0.85, size: [0.5, 1.0], over: 0.3, loose: 1, cbet: 0.6 },
+    volume: { label: 'Régulier de volume', like: 'reg', vpip: 0.3, pfr: 0.27, cont: 0.7, three: 0.45, callF: 0.95, value: 0.85, bluff: 0.27, raise: 0.8, size: [0.5, 0.8], raiseBluff: 0.06, pos: 0.4, cbet: 0.8 },
+    volcan: { label: 'Volcan', like: 'reg', vpip: 0.27, pfr: 0.21, cont: 0.65, three: 0.33, callF: 0.98, value: 0.8, bluff: 0.2, raise: 0.84, size: [0.5, 0.9], tilt: 1, cbet: 0.68 },
+    theoricien: { label: 'Théoricien serré', like: 'reg', vpip: 0.2, pfr: 0.16, cont: 0.58, three: 0.3, callF: 1.05, value: 0.82, bluff: 0.16, raise: 0.86, size: [0.5, 0.8], trap: 0.2, xr: 0.08, cbet: 0.62 },
+    bouton: { label: 'Voleur de bouton', like: 'reg', vpip: 0.32, pfr: 0.27, cont: 0.7, three: 0.45, callF: 0.95, value: 0.85, bluff: 0.3, raise: 0.82, size: [0.5, 0.7], sizeLate: [0.6, 1.0], pos: 0.9, raiseBluff: 0.05, cbet: 0.82 },
+    defenseur: { label: 'Défenseur de blinde', like: 'reg', vpip: 0.27, pfr: 0.22, cont: 0.66, three: 0.32, callF: 1.05, value: 0.8, bluff: 0.13, raise: 0.85, size: [0.5, 0.75], bbDef: 2.6, adapt: 0.8, cbet: 0.62 },
+    cash_live: { label: 'Gros joueur de cash live', like: 'maniaque', vpip: 0.34, pfr: 0.28, cont: 0.72, three: 0.4, callF: 0.93, value: 0.88, bluff: 0.28, raise: 0.8, size: [0.75, 1.2], over: 0.3, disc: 0.09, open: 3, cbet: 0.78 },
+    image_folle: { label: 'Image folle', like: 'station', vpip: 0.44, pfr: 0.26, cont: 0.82, three: 0.25, callF: 0.85, value: 0.8, bluff: 0.18, raise: 0.86, size: [0.5, 0.9], loose: 1, wild: 0.05, cbet: 0.6 },
+    solveur: { label: 'Joueur-solveur', like: 'reg', vpip: 0.26, pfr: 0.23, cont: 0.66, three: 0.36, callF: 1.0, value: 0.82, bluff: 0.23, raise: 0.84, size: [0.33, 0.75], sizeLate: [0.66, 1.0], over: 0.2, xr: 0.2, adapt: 1, cbet: 0.66 },
+    cash_complet: { label: 'Joueur de cash complet', like: 'reg', vpip: 0.24, pfr: 0.2, cont: 0.64, three: 0.32, callF: 1.0, value: 0.82, bluff: 0.18, raise: 0.85, size: [0.5, 0.75], adapt: 1.2, disc: 0.12, cbet: 0.62 },
     sigma: { label: 'Moteur SIGMA', like: 'reg', external: true, vpip: 0.25, pfr: 0.22, cont: 0.6, three: 0.3, callF: 1.0, value: 0.75, bluff: 0.18, raise: 0.85, size: [0.5, 0.75] },
     action: { label: 'Joueur d\'action live', like: 'station', vpip: 0.5, pfr: 0.2, cont: 0.85, three: 0.25, callF: 0.75, value: 0.7, bluff: 0.15, raise: 0.85, size: [0.5, 1.0], open: 4, loose: 1, cbet: 0.45 },
     prolive: { label: 'Pro de cash live', like: 'reg', vpip: 0.27, pfr: 0.22, cont: 0.62, three: 0.33, callF: 1.0, value: 0.8, bluff: 0.16, raise: 0.85, size: [0.5, 0.9], open: 3.5, adapt: 0.8, cbet: 0.62 },
@@ -46,11 +46,6 @@
   // Paramètres hérités des quatre profils d'origine (comportement inchangé pour eux).
   const kindOf = (pr, name) => pr.like || name;
   const NAMES = { station: ['Gégé31', 'Mimi_Lol', 'TontonFlop', 'ChanceuxDu82'], maniaque: ['AllinKevin', 'Turbo_Raz'], nit: ['Roc_Solide', 'PapyNit'], reg: ['GrindZ', 'Reg_6max'],
-    ivey: ['Style Ivey'], negreanu: ['Style Negreanu'], hellmuth: ['Style Hellmuth'], chidwick: ['Style Chidwick'], mizrachi: ['Style Mizrachi'], antonius: ['Style Antonius'],
-    brunson: ['Style Brunson'], harrington: ['Style Harrington'], dwan: ['Style Dwan'],
-    hansen: ['Style Hansen'], blom: ['Style Blom'], polk: ['Style Polk'], seidel: ['Style Seidel'], selbst: ['Style Selbst'], ungar: ['Style Ungar'],
-    obrestad: ['Style Obrestad'], ferguson: ['Style Ferguson'], moneymaker: ['Style Moneymaker'], elky: ['Style ElkY'], matusow: ['Style Matusow'], sklansky: ['Style Sklansky'],
-    esfandiari: ['Style Esfandiari'], cates: ['Style Cates'], adelstein: ['Style Adelstein'], caro: ['Style Caro'], koon: ['Style Koon'], reese: ['Style Reese'],
     sigma: ['Sigma_A', 'Sigma_B', 'Sigma_C', 'Sigma_D'],
     action: ['Whale_Vegas', 'Straddle_Sam', 'Lucky_Lou'], prolive: ['Pro_Live', 'Reg_Bike'] };
 
@@ -120,7 +115,7 @@
       const lineup = opts.lineup || ['station', 'reg', 'maniaque', 'station', 'nit'];
       const used = {};
       this.players = [{ name: 'Toi', hero: true, stack: this.startStack, profile: null }]
-        .concat(lineup.map((p) => { used[p] = (used[p] || 0) + 1; return { name: NAMES[p][(used[p] - 1) % NAMES[p].length], profile: p, stack: this.startStack }; }));
+        .concat(lineup.map((p) => { used[p] = (used[p] || 0) + 1; return { name: (NAMES[p] || [PROFILES[p].label])[(used[p] - 1) % (NAMES[p] || [0]).length], profile: p, stack: this.startStack }; }));
       this.n = this.players.length; this.busted = [];
       // Ce que les bots « lecteurs » observent de toi : mises adverses affrontées après le flop et couchers.
       this.heroObs = { faced: 0, folds: 0, calls: 0, hands: 0, vpip: 0 };

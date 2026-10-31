@@ -15,16 +15,16 @@
           <tr><td>Dépense moyenne par compte</td><td>213 €</td><td>−8,6 %</td></tr></tbody></table>
           <p class="note">Le produit brut des jeux est ce que les opérateurs gardent : mises moins gains reversés, donc essentiellement le rake et les frais de tournoi.</p>`],
         ['Ce que ces chiffres disent', `<ul>
-          <li><strong>Plus de joueurs, qui dépensent moins</strong> : la croissance vient de joueurs venus des paris sportifs (1,38 million de comptes actifs à la fois en poker et en paris), attirés par les formats rapides. Ce sont des récréatifs à petit budget.</li>
+          <li><strong>Plus de joueurs, qui dépensent moins</strong> : 2,5 millions de comptes actifs (+16,5 %) pour une dépense moyenne en baisse (213 €), dont 1,38 million qui jouent aussi aux paris sportifs ; la croissance passe par les formats rapides. Beaucoup de récréatifs à petit budget.</li>
           <li><strong>Le cash game recule</strong> : moins de tables, et une part croissante de réguliers. Le cash reste le meilleur format pour apprendre, mais pas forcément le plus riche en fish.</li>
           <li><strong>Les Sit&Go dominent</strong> : c'est là que se concentre l'argent récréatif, mais aussi le rake intégré aux multiplicateurs.</li></ul>`],
         ['Les rooms et la liquidité', `<p>Le marché est concentré sur quelques opérateurs agréés : PokerStars.fr, Winamax, Betclic, PMU, et d'autres plus petits. Depuis 2018, la liquidité est partagée avec l'Espagne (et le Portugal pour PokerStars) : plus de tables, plus de joueurs à toute heure. Le choix d'une room se fait sur trois critères : le nombre de récréatifs à ta limite et dans ton format, le coût réel (rake moins fidélité), les règles logicielles.</p>`],
       ],
       mistakes: ['Choisir sa room pour un bonus d\'inscription', 'Ignorer que le cash rétrécit', 'Confondre chiffre d\'affaires du marché et argent gagnable'],
-      keys: ['Poker en ligne français : 525 M€ de produit brut en 2025', 'Sit&Go 68 %, cash 19 % et en recul', 'Les nouveaux joueurs viennent des paris sportifs'],
+      keys: ['Poker en ligne français : 525 M€ de produit brut en 2025', 'Sit&Go 68 %, cash 19 % et en recul', 'Plus de comptes, dépense moyenne en baisse : des récréatifs à petit budget'],
       quiz: [
         ["Part du cash game dans le produit brut du poker en ligne français en 2025 ?", ['19 %', '45 %', '68 %'], 0, "100 M€ sur 525 M€, contre 27 % en 2020."],
-        ["D'où vient surtout la croissance du nombre de joueurs ?", ['D\'anciens joueurs de casino', 'Des parieurs sportifs'], 1, "1,38 million de comptes sont actifs en poker et en paris sportifs."],
+        ["Que montre le bilan ANJ 2025 sur les joueurs de poker ?", ['Moins de joueurs, qui dépensent plus', 'Plus de joueurs, qui dépensent moins en moyenne'], 1, "2,5 millions de comptes actifs (+16,5 %), dépense moyenne de 213 € (en baisse). Le bilan ne dit pas d'où viennent les nouveaux joueurs."],
         ["Le produit brut des jeux du poker correspond surtout à…", ['Les gains des joueurs', 'Le rake et les frais de tournoi'], 1, "C'est ce que gardent les opérateurs."],
       ],
     });
@@ -133,7 +133,7 @@
       goals: ['Reconnaître les formes de triche', 'Savoir comment les rooms détectent', 'Protéger son compte et sa réputation'],
       sections: [
         ['Les formes de triche', `<ul><li><strong>RTA</strong> : solveur ou IA consultés pendant la main.</li><li><strong>Collusion</strong> : partage d'informations entre joueurs d'une même table.</li><li><strong>Chip dumping</strong> : perdre volontairement des jetons à un complice.</li><li><strong>Bots</strong> et <strong>multi-comptes</strong>.</li></ul>`],
-        ['La détection', `<p>Les rooms analysent les décisions (proximité anormale avec les solutions de solveur, temps de réaction), les appareils et les connexions. PokerStars annonce détecter plus de 95 % des cas de façon proactive ; GGPoker publie des bilans de comptes fermés et de sommes redistribuées aux victimes. Une suspicion suffit souvent à suspendre un compte le temps de l'enquête.</p>`],
+        ['La détection', `<p>Les rooms analysent les décisions (proximité anormale avec les solutions de solveur, temps de réaction), les appareils et les connexions. PokerStars a indiqué au régulateur de Pennsylvanie (2018) détecter environ 89 % des bots par ses propres systèmes et repérer environ 90 % des cas de collusion par alerte automatique ; GGPoker publie des bilans de comptes fermés et de sommes redistribuées aux victimes. Une suspicion suffit souvent à suspendre un compte le temps de l'enquête.</p>`],
         ['Te protéger', `<ul><li>Double authentification sur ton compte, mot de passe unique.</li><li>Jamais de partage de compte, même pour « une session ».</li><li>Ferme tout outil d'étude avant d'ouvrir le client.</li><li>Signale au support un comportement suspect avec les numéros de mains.</li></ul>`],
       ],
       mistakes: ['Laisser un proche jouer sur son compte', 'Garder un outil d\'étude ouvert « en arrière-plan »'],

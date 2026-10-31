@@ -5,7 +5,7 @@
   const LEVELS = [[50, 100], [75, 150], [100, 200], [150, 300], [200, 400], [300, 600], [400, 800], [500, 1000], [700, 1400], [1000, 2000], [1500, 3000], [2000, 4000], [3000, 6000], [4000, 8000], [6000, 12000], [8000, 16000], [10000, 20000], [15000, 30000], [20000, 40000], [30000, 60000], [50000, 100000]];
   // 15 places payées sur 100 (en % de la dotation).
   const PAYOUTS = [25, 16, 11.5, 8.5, 6.8, 5.5, 4.2, 4.2, 4.2, 3.2, 3.2, 3.2, 1.5, 1.5, 1.5];
-  const MIXES = { standard: ['reg', 'reg', 'station', 'nit', 'maniaque', 'reg', 'station', 'harrington'], fish: ['station', 'station', 'reg', 'moneymaker', 'maniaque', 'station', 'nit', 'reg'], regs: ['reg', 'reg', 'reg', 'nit', 'reg', 'maniaque', 'chidwick', 'station'] };
+  const MIXES = { standard: ['reg', 'reg', 'station', 'nit', 'maniaque', 'reg', 'station', 'tournoi_methodique'], fish: ['station', 'station', 'reg', 'amateur_audacieux', 'maniaque', 'station', 'nit', 'reg'], regs: ['reg', 'reg', 'reg', 'nit', 'reg', 'maniaque', 'equilibre', 'station'] };
   function createField(o) {
     const P = { n: 100, stack: 10000, buyin: 10, mix: 'standard', ...o }, r = P.random || Math.random, mix = MIXES[P.mix] || MIXES.standard;
     const pool = [];

@@ -16,7 +16,7 @@
           <tr><td>Fish qui paie tout</td><td>Plus large : 99+, AJ+, KQ</td><td>Aucun</td></tr></tbody></table>
           <p>Taille : environ 3 fois l'ouverture en position, 4 fois hors de position. Contre un limper puis un ouvreur, ajoute 1 ouverture par joueur entré.</p>
           <p>Pourquoi A5s en bluff : l'As bloque les AA et AK adverses, la main peut faire une couleur ou une roue, et elle domine rarement mal quand elle est payée.</p>`],
-        ['Défendre la grosse blinde', `<p>La BB a déjà payé 1 bb. Contre une ouverture à 2,5 bb, elle paie 1,5 bb pour un pot de 5 bb : il lui faut environ 23 % d'équité. Contre le bouton, la défense est donc large (assorties, connecteurs, As faibles, broadways), et se resserre contre UTG. Une main qui a 35 % d'équité mais réalise mal (ex. dépareillée sans connexion) doit parfois être couchée : hors de position, tu n'encaisses pas toute ton équité.</p>`],
+        ['Défendre la grosse blinde', `<p>La BB a déjà payé 1 bb. Contre une ouverture à 2,5 bb, elle paie 1,5 bb pour un pot final de 5,5 bb (2,5 + 2,5 + la petite blinde morte) : il lui faut environ 27 % d'équité. Contre le bouton, la défense est donc large (assorties, connecteurs, As faibles, broadways), et se resserre contre UTG. Une main qui a 35 % d'équité mais réalise mal (ex. dépareillée sans connexion) doit parfois être couchée : hors de position, tu n'encaisses pas toute ton équité.</p>`],
         ['La petite blinde', `<p>La SB est la pire position : hors de position contre tout le monde après le flop. Face à une ouverture, joue surtout <strong>3-bet ou fold</strong>, peu de calls (un call laisse la BB entrer à bon prix et tu joues le pot à trois hors de position). Premier à entrer, relance à 3 bb plutôt que de compléter.</p>`],
         ['Face à un 3-bet', `<ul>
           <li><strong>4-bet pour la valeur</strong> : QQ+, AK (contre un 3-bet large, aussi JJ et AQs).</li>
@@ -27,7 +27,7 @@
         ['Exemple de main', `<p>NL10. Le CO (régulier, ouvre 28 %) relance à 2,5 bb. Tu as A♦ 4♦ au bouton. Call ? Fold ? Ta main bloque ses As forts, joue bien en position et ne te fait pas perdre gros si elle est payée. 3-bet à 7,5 bb : il couche beaucoup, et s'il paie tu as position et initiative. Contre un fish au CO qui ne couche jamais, la même main se joue en call : pas de bluff contre lui.</p>`],
       ],
       mistakes: ['Payer des 3-bets hors de position avec des mains dominées (AJo, KQo)', 'Défendre la SB comme la BB', 'Bluffer en 3-bet contre des joueurs qui ne se couchent jamais'],
-      keys: ['3-bet ou fold hors de position, call surtout en position', 'BB : défense large contre le bouton, ~23 % d\'équité requise', 'Contre un 3-bet serré, couche les mains moyennes'],
+      keys: ['3-bet ou fold hors de position, call surtout en position', 'BB : défense large contre le bouton, ≈ 27 % d\'équité requise', 'Contre un 3-bet serré, couche les mains moyennes'],
       quiz: [
         ["L'UTG (régulier) ouvre, tu as A♠ J♦ au CO. Meilleure action par défaut ?", ['3-bet', 'Call', 'Fold'], 2, "AJo est dominée par une range UTG (AQ, AK). Elle joue mal en call et ne peut pas 3-bet pour la valeur."],
         ["Un fish ouvre à 3 bb au CO, tu as A♥ Q♣ au bouton. Plan ?", ['3-bet pour la valeur', '3-bet bluff', 'Fold'], 0, "Contre une range large qui paie, AQ est une main de valeur."],
@@ -122,7 +122,7 @@
       id: 'fish', level: 2, title: 'Exploiter les fish', minutes: 16, drill: 'situations',
       goals: ['Reconnaître chaque type de récréatif', 'Adapter tailles et fréquences pour maximiser ce qu\'ils perdent', 'Les garder à la table'],
       sections: [
-        ['Pourquoi c\'est le cœur du jeu', `<p>Ton gain est la somme des erreurs adverses, moins le rake. En micro-limites, l'essentiel de cet argent vient de quelques joueurs récréatifs. Le rapport ANJ 2025 montre que les nouveaux joueurs arrivent surtout des paris sportifs : petits budgets, formats rapides. Ce sont eux qu'il faut savoir exploiter.</p>`],
+        ['Pourquoi c\'est le cœur du jeu', `<p>Ton gain est la somme des erreurs adverses, moins le rake. En micro-limites, l'essentiel de cet argent vient de quelques joueurs récréatifs. Le bilan ANJ 2025 compte 2,5 millions de comptes actifs (+16,5 %), une dépense moyenne en baisse (213 € par compte) et 1,38 million de joueurs qui jouent aussi aux paris sportifs ; la croissance vient des Sit&Go et des tournois. Beaucoup de nouveaux joueurs, petits budgets, formats rapides : ce sont eux qu'il faut savoir exploiter.</p>`],
         ['Profils et stats', `<table class="t"><thead><tr><th>Profil</th><th>VPIP / PFR</th><th>Comment il perd</th></tr></thead><tbody>
           <tr><td>Fish passif (calling station)</td><td>40+ / moins de 10</td><td>Paie trop, bluffe rarement</td></tr>
           <tr><td>Récréatif agressif</td><td>35+ / 15-25</td><td>Mise trop avec des mains faibles, puis paie</td></tr>
@@ -206,7 +206,7 @@
       id: 'formats', level: 2, title: 'Formats : cash, Sit&Go, Expresso, tournois', minutes: 12, drill: 'pushfold',
       goals: ['Comparer les formats sur le rake, la variance et la difficulté', 'Choisir un format principal', 'Connaître les spécificités de chacun'],
       sections: [
-        ['Ce que dit le marché', `<p>En 2025, selon l'ANJ, les Sit&Go (dont les Expresso) représentent 68 % du produit brut du poker en ligne en France, les tournois 13 % environ, et le cash game 19 % seulement, en recul de 6,5 % sur l'année. Les nouveaux joueurs, venus des paris sportifs, préfèrent les formats rapides.</p>`],
+        ['Ce que dit le marché', `<p>En 2025, selon l'ANJ, les Sit&Go (dont les Expresso) représentent 68 % du produit brut du poker en ligne en France, les tournois 13 % environ, et le cash game 19 % seulement, en recul de 6,5 % sur l'année. La croissance vient des formats rapides : Sit&Go et tournois.</p>`],
         ['Comparatif', `<table class="t"><thead><tr><th>Format</th><th>Variance</th><th>Profondeur</th><th>Pour apprendre</th></tr></thead><tbody>
           <tr><td>Cash game</td><td>Moyenne</td><td>100 bb constante</td><td>Le meilleur : décisions comparables, winrate mesurable</td></tr>
           <tr><td>Expresso / Spin</td><td>Extrême (multiplicateur tiré au sort)</td><td>Courte, push/fold</td><td>Rapide à apprendre, edge difficile à cause du rake intégré</td></tr>

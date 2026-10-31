@@ -8,10 +8,10 @@
     // ---------------- Niveau 1 ----------------
     add('cadre', { sections: [['Exercices corrigés', ex([
       ["Un site inconnu propose un bonus de 500 % aux joueurs français. Il n'apparaît pas sur la liste de l'ANJ. Tu t'inscris ?", "Non. Hors liste, tes gains ne sont pas protégés et tu n'as aucun recours en cas de litige ou de compte bloqué. Le bonus ne compense pas un risque de perte totale du solde."],
-      ["Pendant une session, tu gardes ouverte une chart préflop dans un onglet de ton navigateur « juste pour vérifier ». Risque ?", "Chez PokerStars, même une chart préflop ouverte pendant le jeu est interdite. Ferme tout outil d'étude avant d'ouvrir le client : la règle simple est « rien d'autre que le client pendant le jeu »."],
+      ["Pendant une session, tu gardes ouverte une chart préflop dans un onglet de ton navigateur « juste pour vérifier ». Risque ?", "Ça dépend de la room et de la chart : PokerStars ne tolère que des charts simples d'ouverture (relance ou couche, sans fréquences, neuf grilles au plus) et interdit celles qui disent quoi faire face à une relance ; Winamax autorise les tableaux de mains de départ mais interdit les ranges dynamiques. Le plus sûr reste de fermer tout outil d'étude avant d'ouvrir le client : « rien d'autre que le client pendant le jeu »."],
       ["Tu joues chaque soir, tu gagnes régulièrement et tu as un emploi à côté. Tes gains sont-ils forcément non imposables ?", "Non. Depuis la décision du Conseil d'État de 2018, une pratique habituelle, où le savoir-faire maîtrise l'aléa et qui rapporte des revenus significatifs, peut être imposée en BNC même avec un autre métier. Garde tes historiques et vois le module Fiscalité."],
     ])]], quiz: [
-      ["Le HUD intégré de Winamax pendant le jeu est…", ['Autorisé', 'Interdit'], 0, "C'est un outil fourni et autorisé par la room."],
+      ["Chez Winamax, un calculateur d'ICM ouvert pendant un tournoi est…", ['Interdit', 'Autorisé'], 0, "Le règlement poker de Winamax interdit explicitement les calculateurs d'ICM et d'équité pendant le jeu."],
       ["Baisser ta limite de dépôt s'applique…", ['Tout de suite', 'Après un délai'], 0, "Une baisse s'applique immédiatement ; une hausse demande un délai, pour te protéger."],
     ] });
 
@@ -34,8 +34,8 @@
     ] });
 
     add('preflop', { sections: [['Exercices corrigés', ex([
-      ["Deux joueurs limpent, tu es au bouton avec A♠J♦. Que fais-tu ?", "Tu isoles : relance à environ <strong>6 bb</strong> (4 bb + 1 par limper). AJ domine les mains que les limpers jouent, et la position te donne l'avantage dans le pot."],
-      ["AKo contre QQ, tout à tapis préflop. Qui est favori ?", "QQ, environ <strong>57,5 %</strong> contre 42,5 % pour AKo (moteur SIGMA 52). Une paire contre deux overcards est un « coin flip » légèrement en faveur de la paire."],
+      ["Deux joueurs limpent, tu es au bouton avec A♠J♦. Que fais-tu ?", "Tu isoles : relance à environ <strong>5,5 bb</strong> (3,5 bb + 1 par limper). AJ domine les mains que les limpers jouent, et la position te donne l'avantage dans le pot."],
+      ["AKo contre QQ, tout à tapis préflop. Qui est favori ?", "QQ, environ <strong>57 %</strong> contre 43 % pour AKo (moteur SIGMA 52, moyenne sur les couleurs). Une paire contre deux overcards est un « coin flip » légèrement en faveur de la paire."],
       ["Pourquoi limper 8♥7♥ en début de parole est-il une erreur, même si la main est jouable ?", "Le limp n'a ni fold equity ni initiative : tu invites les joueurs derrière à relancer ou à entrer à bas prix, et tu joues un pot multiway hors de position. Soit la main est dans ta range d'ouverture et tu relances, soit tu couches."],
     ])]], quiz: [
       ["AKs contre 77 à tapis préflop ?", ['≈ 48 % pour AKs', '≈ 65 % pour AKs'], 0, "Moteur SIGMA 52 : AKs 47,9 %, 77 52,1 %."],
@@ -107,7 +107,7 @@
     ] });
 
     add('decision', { sections: [['Exercices corrigés', ex([
-      ["Tu paies un tapis avec QQ contre AKo préflop et tu perds. Bonne ou mauvaise décision ?", "Probablement bonne : QQ a environ 57,5 % contre AKo. Juge la décision avec la range de l'adversaire et la cote, pas avec la carte de la river."],
+      ["Tu paies un tapis avec QQ contre AKo préflop et tu perds. Bonne ou mauvaise décision ?", "Probablement bonne : QQ a environ 57 % contre AKo. Juge la décision avec la range de l'adversaire et la cote, pas avec la carte de la river."],
       ["Tu bluffes la river, il se couche. Ton bluff était-il bon ?", "On ne sait pas encore. Il faut estimer combien de fois il se couche dans ce spot et comparer à la cote du bluff : misé un pot, le bluff doit réussir plus d'une fois sur deux."],
       ["Combien de mains faut-il pour qu'un winrate de 4 bb/100 soit distinct de zéro avec un écart-type de 90 bb/100 ?", "Environ <strong>195 000 mains</strong> (intervalle à 95 %). Avant, c'est surtout la qualité des décisions qui renseigne sur ton niveau."],
     ])]], quiz: [
@@ -116,9 +116,9 @@
     ] });
 
     add('tilt2', { sections: [['Exercices corrigés', ex([
-      ["Après un bad beat, tu relances trois mains de suite hors range. Que fais-tu maintenant ?", "Applique le plan en temps réel : pause de 5 minutes, respiration, relis ton script. Si deux décisions émotionnelles se sont déjà produites, la session s'arrête."],
+      ["Après un bad beat, tu relances trois mains de suite hors range. Que fais-tu maintenant ?", "Applique le plan en temps réel : pause de 10 minutes, respiration, relis ton script. Si deux décisions émotionnelles se sont déjà produites, la session s'arrête."],
       ["Tu gagnes 5 caves en une heure et commences à jouer plus de mains « parce que tu es chaud ». Est-ce du tilt ?", "Oui : le tilt de confiance (ou de gagnant) existe. Les résultats récents ne changent pas les cotes ; reviens à tes ranges."],
-      ["Après la session, comment traiter la cause d'un tilt de « méritocratie » (« je mérite de gagner ») ?", "Écris la croyance, puis la correction : sur une main, le meilleur joueur perd souvent ; sur un grand échantillon, la qualité des décisions finit par compter. Relis-la avant la session suivante."],
+      ["Après la session, comment traiter la cause d'un tilt du « dû » (« je mérite de gagner ») ?", "Écris la croyance, puis la correction : sur une main, le meilleur joueur perd souvent ; sur un grand échantillon, la qualité des décisions finit par compter. Relis-la avant la session suivante."],
     ])]], quiz: [
       ["Deux décisions émotionnelles dans une session…", ['Stop', 'Continuer en se concentrant'], 0, "C'est une règle d'arrêt."],
       ["Le tilt de gagnant…", ['Existe', 'N\'existe pas'], 0, "L'excès de confiance déforme aussi les décisions."],
@@ -172,7 +172,7 @@
 
     add('hu', { sections: [['Exercices corrigés', ex([
       ["En tête-à-tête, tu es au bouton avec K♣4♦. Ouvrir ?", "Oui. Au bouton en tête-à-tête, on ouvre environ 75 à 85 % des mains : K4o est largement dans la range."],
-      ["Tu es en grosse blinde, il relance à 2,5 bb. Quelle équité te faut-il pour payer ?", "Tu paies 1,5 bb pour un pot final de 5 bb : 1,5 ÷ 5 = <strong>30 %</strong> (sans compter la position). D'où une défense très large."],
+      ["Tu es en grosse blinde, il relance à 2,5 bb. Quelle équité te faut-il pour payer ?", "Tu paies 1,5 bb pour un pot final de 5,5 bb (la petite blinde couchée reste dans le pot) : 1,5 ÷ 5,5 ≈ <strong>27 %</strong> (sans compter la position). D'où une défense très large."],
       ["Tu perds 8 caves en un soir de tête-à-tête. Signe que tu joues mal ?", "Pas forcément : la variance du tête-à-tête est énorme. Revois les mains clés (gros pots, tapis), juge les décisions, et protège-toi avec des sessions plus courtes ou des tapis plus courts."],
     ])]], quiz: [
       ["En tête-à-tête, une paire de 4 vaut…", ['Beaucoup plus qu\'à 6', 'Pareil qu\'à 6'], 0, "Contre une seule range large, les petites paires gagnent souvent."],

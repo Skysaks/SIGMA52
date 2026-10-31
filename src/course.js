@@ -149,7 +149,7 @@
     ['Préflop', 'Bouton, tout le monde a passé, tu as R♠ 7♠. Action ?', ['Ouvrir à 2,5 bb', 'Limper', 'Se coucher'], 0, 'K7s est dans la range d\'ouverture au bouton (K2s+). On ne limpe jamais en premier.'],
     ['Préflop', 'UTG, tu as R♦ V♣ (KJo). Action ?', ['Ouvrir', 'Se coucher'], 1, 'Depuis UTG, cinq joueurs parlent après toi. KJo est dominée par AJ, AK, KQ : hors range (AJo+, KQo).'],
     ['Préflop', 'NL10. Un fish limpe. Tu as A♣ V♦ au cutoff. Action ?', ['Limper derrière', 'Relancer à 2 bb', 'Relancer à ~4,5 bb', 'Se coucher'], 2, 'Isole le fish avec une taille qui lui fait payer trop cher : 3,5 bb + 1 par limper, voire plus contre un joueur qui paie tout.'],
-    ['Préflop', 'Grosse blinde. Le bouton ouvre à 2,5 bb, la SB se couche. Tu as 9♥ 7♥. Action ?', ['Se coucher', 'Suivre', 'Tapis'], 1, 'Tu paies 1,5 bb pour un pot de 5 bb (~23 % d\'équité requise). 97s a assez d\'équité et de jouabilité contre une range de bouton large.'],
+    ['Préflop', 'Grosse blinde. Le bouton ouvre à 2,5 bb, la SB se couche. Tu as 9♥ 7♥. Action ?', ['Se coucher', 'Suivre', 'Tapis'], 1, 'Tu paies 1,5 bb pour un pot final de 5,5 bb (≈ 27 % d\'équité requise). 97s a assez d\'équité et de jouabilité contre une range de bouton large.'],
     ['Préflop', 'Bouton, tu as D♠ D♦. Le cutoff ouvre à 2,5 bb. Action ?', ['Suivre', '3-bet à ~7,5 bb', 'Tapis 100 bb'], 1, 'QQ est une main de valeur : 3-bet environ 3 fois l\'ouverture en position. Le tapis direct ne fait payer que les mains qui te battent.'],
     ['Préflop', 'Grosse blinde, tout le monde limpe, tu as 7♣ 2♦. Action ?', ['Se coucher', 'Checker', 'Relancer'], 1, 'Voir le flop est gratuit. Se coucher sans mise à payer est une erreur pure.'],
     ['Préflop', 'Tu ouvres UTG avec A♦ D♦. Un joueur passif (VPIP 25, 3-bet 2 %) te sur-relance. Action par défaut ?', ['4-bet', 'Suivre ou se coucher, sans 4-bet', 'Tapis'], 1, 'Un 3-bet à 2 % ne contient presque que QQ+ et AK. AQs est dominée : pas de 4-bet bluff contre une range aussi forte.'],
@@ -177,8 +177,8 @@
     ['Mental', 'Bankroll 250 €, règle des 40 caves en cash. Limite maximale ?', ['NL5', 'NL10', 'NL25'], 0, 'NL5 : 40 × 5 € = 200 €. NL10 demanderait 400 €.'],
     ['Mental', 'Après 5 000 mains à +10 bb/100, tu sais que tu es gagnant ?', ['Oui', 'Non'], 1, 'Avec un écart-type de ~90 bb/100, l\'intervalle à 95 % sur 5 000 mains fait environ ±25 bb/100. Rien n\'est prouvé.'],
     ['Légal', 'Un ami regarde ton écran et te conseille pendant la main. C\'est…', ['Autorisé', 'Interdit'], 1, 'Aide extérieure pendant le jeu : sanction possible jusqu\'à la fermeture du compte.'],
-    ['Légal', 'Tu veux vérifier un spot dans un solveur entre deux mains, tables ouvertes. C\'est…', ['Autorisé', 'Interdit'], 1, 'PokerStars interdit solveurs et charts pendant le jeu ; les autres rooms sanctionnent le RTA. Note la main et étudie après la session.'],
-    ['Légal', 'Utiliser le HUD intégré de Winamax pendant le jeu. C\'est…', ['Autorisé', 'Interdit'], 0, 'Le HUD intégré est fourni par la room. Les HUD dynamiques de logiciels tiers, eux, sont interdits chez Winamax.'],
+    ['Légal', 'Tu veux vérifier un spot dans un solveur entre deux mains, tables ouvertes. C\'est…', ['Autorisé', 'Interdit'], 1, 'Les solveurs sont interdits pendant le jeu dans toutes les rooms (PokerStars ne tolère que des charts préflop simples, sans fréquences). Note la main et étudie après la session.'],
+    ['Légal', 'Ouvrir un calculateur d\'ICM pendant un tournoi Winamax. C\'est…', ['Interdit', 'Autorisé'], 0, 'Le règlement poker de Winamax interdit les calculateurs d\'ICM et d\'équité, les solveurs et les logiciels de ranges dynamiques pendant le jeu.'],
   ].map(([cat, q, opts, ok, why], i) => ({ id: 's' + i, cat, q, opts, ok, why }));
 
   // Temps d'apprentissage réel d'un module (en minutes) : lecture et quiz, exercices corrigés, entraînement ciblé

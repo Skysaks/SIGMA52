@@ -11,7 +11,7 @@
   };
   const TPL = [['main', 'Main jouée'], ['quiz', 'Quiz'], ['lecon', 'Leçon'], ['solveur', 'Solveur'], ['champion', 'Champion'], ['bilan', 'Bilan']];
   const MENTION = 'Jouer comporte des risques : endettement, dépendance… Appelez le 09 74 75 13 13 (appel non surtaxé). Interdit aux moins de 18 ans.';
-  const st = { tpl: 'main', fmt: 'short', theme: 'bordeaux', hook: '', handle: '', mention: true, frame: 0, handSrc: '', quiz: null, quizType: 'mix', mod: 'mdf', champ: 'ivey', rec: null, msg: '' };
+  const st = { tpl: 'main', fmt: 'short', theme: 'bordeaux', hook: '', handle: '', mention: true, frame: 0, handSrc: '', quiz: null, quizType: 'mix', mod: 'mdf', champ: 'predateur', rec: null, msg: '' };
 
   // ---------------- Sources ----------------
   function handSources() {
@@ -198,13 +198,13 @@
     },
     champion(g, F, T) {
       const s = CH.STYLES.find((x) => x.id === st.champ) || CH.STYLES[0], pad = F.w > F.h ? 90 : 70, land = F.w > F.h;
-      let y = header(g, F, T, `Style inspiré de ${s.inspired}`, st.hook || s.name);
+      let y = header(g, F, T, `Profil d'adversaire · ${s.family}`, st.hook || s.name);
       y = text(g, s.tagline, pad, y + 30, { size: land ? 34 : 40, color: T.muted, maxW: F.w - pad * 2, lh: 1.3, maxLines: 3 }) + 20;
       text(g, 'COMMENT LE BATTRE', pad, y + 20, { size: 28, color: T.acc, font: FM, weight: 600 }); y += 50;
       for (const a of s.adapt.slice(0, land ? 3 : 4)) { rr(g, pad, y, F.w - pad * 2, land ? 90 : 128, 18); g.fillStyle = T.panel; g.fill(); text(g, a, pad + 26, y + 50, { size: land ? 30 : 34, color: T.ink, maxW: F.w - pad * 2 - 52, lh: 1.25, maxLines: 2 }); y += (land ? 90 : 128) + 16; }
-      if (s.stats) { y += 20; const keys = [['VPIP', s.stats.vpip], ['PFR', s.stats.pfr], ['3-bet', s.stats.three], ['C-bet', s.stats.cbet]]; const bw = (F.w - pad * 2 - 30 * 3) / 4;
+      if (s.stats) { y += 20; const M = s.stats.six, P = (v) => Math.round((v || 0) * 100); const keys = [['VPIP', P(M.vpip)], ['PFR', P(M.pfr)], ['3-bet', P(M.three)], ['C-bet', P(M.cbet)]]; const bw = (F.w - pad * 2 - 30 * 3) / 4;
         keys.forEach(([l, v], i) => { const x = pad + i * (bw + 30); text(g, v + ' %', x, y + 50, { size: 50, font: FM, weight: 600, color: T.ink }); text(g, l, x, y + 92, { size: 26, color: T.muted, font: FM }); }); }
-      text(g, 'Style d\'entraînement SIGMA 52 tiré de descriptions publiques, pas la stratégie réelle du joueur.', pad, F.h - F.safeB - 20, { size: 22, color: T.muted, maxW: F.w - pad * 2, maxLines: 2 });
+      text(g, 'Profil d\'entraînement SIGMA 52 (archétype), statistiques mesurées sur le bot à 6 joueurs.', pad, F.h - F.safeB - 20, { size: 22, color: T.muted, maxW: F.w - pad * 2, maxLines: 2 });
       footer(g, F, T); return 1;
     },
     bilan(g, F, T) {
@@ -234,7 +234,7 @@
     const m = st.mention ? '\n\n' + MENTION : '';
     if (st.tpl === 'quiz') { if (!st.quiz) newQuiz(); return `${st.hook || 'Tu fais quoi ?'} Réponse en commentaire 👇\n\n${pretty(st.quiz.prompt)}\n\n${tags}${m}`; }
     if (st.tpl === 'lecon') { const md = K.MODULES.find((x) => x.id === st.mod); return `${st.hook || md.title}\n\n${md.keys.map((k) => '• ' + k).join('\n')}\n\n${tags}${m}`; }
-    if (st.tpl === 'champion') { const s = CH.STYLES.find((x) => x.id === st.champ); return `${st.hook || s.name} : comment s'adapter à ce style (inspiré de ${s.inspired}).\n\n${s.adapt.map((a) => '• ' + a).join('\n')}\n\nStyle d'entraînement construit à partir de descriptions publiques, pas la stratégie réelle du joueur.\n\n${tags}${m}`; }
+    if (st.tpl === 'champion') { const s = CH.STYLES.find((x) => x.id === st.champ); return `${st.hook || s.name} : comment s'adapter à ce profil d'adversaire.\n\n${s.adapt.map((a) => '• ' + a).join('\n')}\n\nProfil d'entraînement construit par SIGMA 52 : un archétype, pas un joueur réel.\n\n${tags}${m}`; }
     if (st.tpl === 'solveur') return `${st.hook || 'Ce que fait l\'équilibre ici'} : la stratégie GTO, main par main.\n\n${tags} #gto${m}`;
     if (st.tpl === 'bilan') return `${st.hook || 'Mon suivi poker'} : le résultat se juge sur le volume, pas sur une session.\n\n${tags}${m}`;
     return `${st.hook || 'Comment tu joues cette main ?'} Dis-moi en commentaire ce que tu fais à chaque rue.\n\n${tags}${m}`;

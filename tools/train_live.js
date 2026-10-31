@@ -6,7 +6,7 @@
 const E = require('../src/engine.js'), TS = require('../src/table.js'), B = require('../src/board.js'), fs = require('fs'), path = require('path');
 const HANDS = +(process.argv[2] || 120000), ONLY = process.argv[3] ? process.argv[3].split(',') : null, SEED0 = +(process.argv[4] || 1), SHARD = process.argv[5] || '';
 // Type de la Table live -> profil de bot simulé
-const MAP = { serre: 'nit', normal: 'reg', large: 'mizrachi', fish: 'station', maniaque: 'maniaque', action: 'action' };
+const MAP = { serre: 'nit', normal: 'reg', large: 'lag_imprevisible', fish: 'station', maniaque: 'maniaque', action: 'action' };
 const STREETS = ['flop', 'turn', 'river'];
 const BUCKETS = ['Monstre (suite ou mieux)', 'Brelan ou deux paires', 'Top paire ou overpair', 'Paire moyenne', 'Petite paire', 'Gros tirage', 'Petit tirage', 'Rien'];
 function bucket(cards, board) {
@@ -40,7 +40,7 @@ for (const [type, prof] of Object.entries(MAP)) {
   // post[street][facing][sizeClass][mw][ip][bucket][action]
   const post = STREETS.map(mk), post3 = STREETS.map(mk3); let obs = 0;
   for (const cf of CONFIGS) {
-    const others = SHARD ? [['reg', 'station', 'reg', 'nit', 'station', 'maniaque', 'reg', 'station'], ['station', 'reg', 'action', 'reg', 'nit', 'station', 'mizrachi', 'reg'], ['nit', 'reg', 'station', 'maniaque', 'reg', 'action', 'station', 'nit']][seed % 3] : ['reg', 'station', 'reg', 'nit', 'station', 'maniaque', 'reg', 'station'];
+    const others = SHARD ? [['reg', 'station', 'reg', 'nit', 'station', 'maniaque', 'reg', 'station'], ['station', 'reg', 'action', 'reg', 'nit', 'station', 'lag_imprevisible', 'reg'], ['nit', 'reg', 'station', 'maniaque', 'reg', 'action', 'station', 'nit']][seed % 3] : ['reg', 'station', 'reg', 'nit', 'station', 'maniaque', 'reg', 'station'];
     const heroPol = HEROES[seed % HEROES.length];
     const lineup = Array.from({ length: cf.n - 1 }, (_, k) => (k % 2 === 0 ? prof : others[k % others.length]));
     const tb = new TS.Table({ lineup, stack: cf.bb * 0.1, random: E.rng(seed++ * 7919 + 13) });

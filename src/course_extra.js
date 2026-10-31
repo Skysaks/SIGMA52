@@ -12,13 +12,13 @@
           <li>Connexion stable, notifications du téléphone et de l'ordinateur coupées.</li></ul>`],
         ['Combien de tables', `<ol><li>Commence à 2 tables ; passe à 3 puis 4 quand ton winrate se maintient sur au moins 20 000 mains et que tu ne rates plus de décisions par manque de temps.</li>
           <li>Chaque table ajoutée baisse un peu ton winrate par main : le bon nombre maximise <em>winrate × mains par heure</em>, pas les mains.</li>
-          <li>Le format rapide (« fast-fold » : Go Fast chez Winamax, Zoom chez PokerStars) te change de table à chaque coucher : beaucoup de mains, peu d'informations sur chaque adversaire. Les tables classiques permettent d'exploiter un fish identifié.</li></ul>`],
+          <li>Le format rapide (« fast-fold » : Zoom chez PokerStars ; vérifie l'offre de ta room) te change de table à chaque coucher : beaucoup de mains, peu d'informations sur chaque adversaire. Les tables classiques permettent d'exploiter un fish identifié.</li></ul>`],
         ['Sélection de table et horaires', `<ul><li>Les récréatifs jouent surtout le soir et le week-end : concentre ton volume sur ces créneaux.</li>
           <li>Repère les tables avec un gros pot moyen et un pourcentage élevé de joueurs au flop ; quitte une table quand le fish qui la rendait rentable s'en va.</li>
           <li>Place-toi à gauche des joueurs faibles quand le client permet de choisir sa place.</li></ul>`],
         ['Ce qui est autorisé, ce qui est interdit', `<table class="t"><thead><tr><th>Outil</th><th>Statut sur le marché français</th></tr></thead><tbody>
           <tr><td>Aide en temps réel (solveur, tableau, programme ou personne qui conseille pendant la main)</td><td><strong>Interdit</strong> partout : fermeture de compte, gains confisqués</td></tr>
-          <tr><td>HUD tiers en temps réel</td><td>Interdit ou très restreint (Winamax interdit les HUD dynamiques de logiciels tiers ; PokerStars publie une liste limitée) : vérifie la page officielle de ta room</td></tr>
+          <tr><td>HUD tiers en temps réel</td><td>Selon la room : Winamax autorise les logiciels de suivi alimentés par tes propres mains, sans fonctions dynamiques ; PokerStars publie une liste limitée ; d'autres rooms interdisent tout HUD tiers. Vérifie la page officielle de ta room</td></tr>
           <tr><td>Statistiques et notes intégrées au client</td><td>Autorisées (fournies par la room)</td></tr>
           <tr><td>Analyse de tes historiques après la session</td><td>Autorisée : c'est le rôle de l'onglet Analyse</td></tr>
           <tr><td>Prêter son compte, jouer sur celui d'un autre</td><td>Interdit</td></tr>
@@ -34,7 +34,7 @@
       quiz: [
         ['Quand passer de 2 à 3 tables ?', ['Quand le winrate tient sur ≥ 20 000 mains sans décisions précipitées', 'Après une bonne soirée'], 0, 'Le volume ne vaut que si la qualité suit.'],
         ['Un ami te conseille par message pendant que tu joues. C\'est…', ['Autorisé entre amis', 'De l\'aide en temps réel, interdite'], 1, 'Toute aide extérieure pendant le jeu est sanctionnée.'],
-        ['Format qui te donne le moins d\'informations sur chaque adversaire ?', ['Tables classiques', 'Fast-fold (Go Fast, Zoom)'], 1, 'Tu changes d\'adversaires à chaque main.'],
+        ['Format qui te donne le moins d\'informations sur chaque adversaire ?', ['Tables classiques', 'Fast-fold (Zoom chez PokerStars)'], 1, 'Tu changes d\'adversaires à chaque main.'],
         ['Statistiques intégrées au client de la room : utilisation pendant le jeu ?', ['Autorisée', 'Interdite'], 0, 'Elles sont fournies par la room elle-même.'],
       ],
     });

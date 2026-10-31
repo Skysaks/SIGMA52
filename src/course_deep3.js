@@ -53,7 +53,7 @@
 
     add('barrels', { sections: [['Exercices corrigés', ex([
       ["Tu as misé le flop 9♣7♦3♠ avec A♥Q♥, il a payé. Turn A♠. Deuxième mise ?", "Oui : l'as améliore ta range de relanceur bien plus que la sienne (il a souvent 9x, 7x, tirages). Tu as top paire : mise pour la valeur et la protection."],
-      ["Flop K♠8♦3♣, turn 6♠ (deuxième pique). Tu as A♦Q♦ sans rien. Deuxième barrel ?", "Faible candidat : la carte complète des tirages et des deux paires qu'il paie, et tu n'as ni tirage ni bloqueur utile. Préfère abandonner ou choisir un bluff avec un pique."],
+      ["Flop K♠8♦3♣, turn 6♠ (deuxième pique). Tu as A♦Q♦ sans rien. Deuxième barrel ?", "Faible candidat : le 6♠ donne des deux paires (8-6, 6-3) et de nouveaux tirages (couleur pique, suites) à la range qui a payé, et tu n'as ni tirage ni bloqueur utile. Préfère abandonner, ou choisis un deuxième barrel avec un pique (tirage couleur)."],
       ["River, tu as une deuxième paire contre une calling station qui paie toute paire. Valeur fine ?", "Oui, mise pour la valeur, même assez gros : elle paie avec des paires plus faibles. Contre un nit, la même main checkerait."],
     ])]], quiz: [
       ["L'overbet demande…", ['Avantage de nuts et range adverse plafonnée', 'Juste un board effrayant'], 0, "Sans avantage de nuts, l'overbet se fait exploiter."],
@@ -84,13 +84,13 @@
       ["Écris une note correcte sur un joueur qui a relancé la river avec une deuxième paire.", "« 12/10 : relance river avec 2e paire (K-9 sur K-9-5-2-7) face à une mise de 1/2 pot. » Un fait daté et vérifiable, pas une étiquette (« bluffeur »)."],
     ])]], quiz: [
       ["Écart VPIP − PFR de plus de 15 points signale…", ['Un joueur qui paie trop préflop', 'Un joueur très agressif'], 0, "La cible prioritaire."],
-      ["En France, un HUD tiers en temps réel…", ['Est à considérer comme interdit ou restreint : vérifie ta room', 'Est toujours autorisé'], 0, "Les règles varient par room et changent."],
+      ["En France, un HUD tiers pendant le jeu…", ['Dépend de la room : vérifie son règlement', 'Est toujours autorisé', 'Est toujours interdit'], 0, "Winamax autorise un logiciel de suivi alimenté par tes propres mains, d'autres rooms interdisent tout HUD tiers ; les règles changent."],
     ] });
 
     add('icm2', { sections: [['Exercices corrigés', ex([
       ["Trois joueurs, prix 50/30/20, tapis 5 000 / 3 000 / 2 000. Quelle part du prize pool vaut chaque tapis en ICM ?", "Moteur SIGMA 52 : <strong>38,4 % / 32,8 % / 28,9 %</strong>. Le gros tapis possède 50 % des jetons mais seulement 38,4 % de la valeur : en ICM, les jetons gagnés valent moins que les jetons perdus."],
       ["Tapis moyen, tu reçois un tapis du gros tapis, juste avant la bulle. Tu as A♠J♦. Pourquoi le call est-il plus serré qu'en cash ?", "La prime de risque : perdre te sort sans gain, doubler te rapporte moins en valeur. Dans le tableau du module, un tapis moyen qui paie le gros doit avoir environ 72 % d'équité au lieu de 50 %."],
-      ["PKO, prime de départ ≈ 2 500 jetons. Un joueur à 2 800 pousse, tu as 11 500 en BB. Pourquoi élargir ton call ?", "Tu gagnes le pot et environ 2 500 jetons d'équivalent prime : l'équité requise baisse nettement. La prime compte comme de l'argent mort dans le pot."],
+      ["PKO, tapis de départ 10 000 : la part encaissée d'une prime de départ vaut ≈ 5 000 jetons. Un joueur à 2 800 pousse, tu as 11 500 en BB. Pourquoi élargir ton call ?", "Tu gagnes le pot et environ 5 000 jetons d'équivalent prime (il te faut ≈ 24 % au lieu de 44 %) : l'équité requise baisse nettement. La prime compte comme de l'argent mort dans le pot."],
     ])]], quiz: [
       ["Dans un chip chop, qui est avantagé par rapport à l'ICM ?", ['Les gros tapis', 'Les petits tapis'], 0, "Le partage au prorata des jetons ignore la prime de risque."],
       ["En satellite à places égales, une fois ta place quasi acquise…", ['Coucher AA peut être correct', 'Il faut tout jouer'], 0, "La prime de risque devient extrême."],
@@ -107,33 +107,33 @@
 
     add('champions', { sections: [['Exercices corrigés', ex([
       ["Un joueur a 60 millions de gains bruts en tournois live. Peut-on dire qu'il est le plus rentable ?", "Non : les gains bruts ne déduisent ni les buy-ins, ni les parts vendues, ni les frais. Un gros volume de high rollers fait monter les gains bruts sans prouver le profit."],
-      ["Quelle idée de Negreanu (small ball) peux-tu appliquer en NL10 ?", "Jouer plus de petits pots en position et éviter les gros pots marginaux hors de position. Pas besoin de son niveau de lecture pour appliquer ce principe."],
-      ["Quelle leçon de Chidwick (l'équilibre comme base) appliquer à ton niveau ?", "Partir d'une stratégie solide par défaut (charts, tailles simples), puis dévier seulement face à un écart mesuré de l'adversaire."],
+      ["Quelle idée du small-baller peux-tu appliquer en NL10 ?", "Jouer plus de petits pots en position et éviter les gros pots marginaux hors de position. Pas besoin d'un niveau de lecture d'élite pour appliquer ce principe."],
+      ["Quelle leçon de l'équilibré moderne appliquer à ton niveau ?", "Partir d'une stratégie solide par défaut (charts, tailles simples), puis dévier seulement face à un écart mesuré de l'adversaire."],
     ])]], quiz: [
       ["Un classement des gains bruts mesure…", ['Les gains en tournois, sans les coûts', 'Le profit net'], 0, "Buy-ins non déduits."],
       ["Ce qui se transpose le mieux à ton niveau…", ['Les principes (position, discipline, sélection)', 'Les bluffs spectaculaires'], 0, "Les principes, pas les coups d'éclat."],
     ] });
 
-    add('champions', { sections: [['Douze styles de plus : ce que chacun t\'apprend', `<p>Les styles ajoutés dans Champions sont construits, comme les autres, à partir de descriptions publiques (sources dans chaque briefing). Chacun sert à travailler une compétence précise.</p>
-      <div class="tw"><table class="t"><thead><tr><th>Style (inspiré de)</th><th>Ce qu'il fait</th><th>Ce qu'il t'apprend</th></tr></thead><tbody>
-      <tr><td>Le joueur de flops (Gus Hansen)</td><td>Voit beaucoup de flops, ne limpe pas, paie en position</td><td>Value-bet plus fin, ne pas bluffer sur une seule rue</td></tr>
-      <tr><td>Le prodige suragressif (Viktor Blom)</td><td>3-bets, overbets, relances-bluffs</td><td>Payer avec les bons bluff-catchers, 4-bet pour la valeur</td></tr>
-      <tr><td>Le spécialiste du tête-à-tête (Doug Polk)</td><td>Petites mises au flop, grosses ensuite, check-raises</td><td>Défendre face aux petites mises, lire une ligne sur trois rues</td></tr>
-      <tr><td>Le cérébral patient (Erik Seidel)</td><td>Serré, réfléchi, pièges occasionnels</td><td>Voler un joueur serré, respecter ses relances</td></tr>
-      <tr><td>La pression sans peur (Vanessa Selbst)</td><td>Squeezes, 3-bets, tapis préflop</td><td>Ouvrir moins large devant elle, payer ses 3-bets avec les mains fortes</td></tr>
-      <tr><td>Le génie agressif (Stu Ungar)</td><td>Large, bluffs bien placés, lit vite tes habitudes</td><td>Changer de rythme, ne pas devenir prévisible</td></tr>
-      <tr><td>La position d'abord (Annette Obrestad)</td><td>Très large au bouton, serrée en début de parole</td><td>Jouer la position, 3-better les ouvertures de bouton</td></tr>
-      <tr><td>L'analyste (Chris Ferguson)</td><td>Tailles variées, bluffs mesurés</td><td>Jouer solide quand il n'y a pas de faille à exploiter</td></tr>
-      <tr><td>L'amateur qui ose (Chris Moneymaker)</td><td>Large, paie beaucoup, gros bluffs parfois</td><td>Value-bet gros, payer ses overbets avec les mains fortes</td></tr>
-      <tr><td>Le stratège du volume (ElkY)</td><td>Agressif, plus large en position</td><td>Défendre face aux c-bets fréquents, 4-bet la valeur</td></tr>
-      <tr><td>Le volcan (Mike Matusow)</td><td>Solide, puis 12 mains en tilt après un gros pot perdu</td><td>Repérer le tilt adverse, et ne pas le reproduire</td></tr>
-      <tr><td>Le théoricien (The Theory of Poker)</td><td>Serré, valeur, semi-bluffs, pièges</td><td>Penser en ranges, bluffer les boards qui ratent sa range</td></tr>
+    add('champions', { sections: [['Douze profils de plus : ce que chacun t\'apprend', `<p>Chaque profil de l'onglet Champions sert à travailler une compétence précise. Ce sont des archétypes, pas des portraits de joueurs réels.</p>
+      <div class="tw"><table class="t"><thead><tr><th>Profil</th><th>Ce qu'il fait</th><th>Ce qu'il t'apprend</th></tr></thead><tbody>
+      <tr><td>Le joueur de flops</td><td>Voit beaucoup de flops, ne limpe pas, paie en position</td><td>Value-bet plus fin, ne pas bluffer sur une seule rue</td></tr>
+      <tr><td>Le suragressif</td><td>3-bets, overbets, relances-bluffs</td><td>Payer avec les bons bluff-catchers, 4-bet pour la valeur</td></tr>
+      <tr><td>Le spécialiste du tête-à-tête</td><td>Petites mises au flop, grosses ensuite, check-raises</td><td>Défendre face aux petites mises, lire une ligne sur trois rues</td></tr>
+      <tr><td>Le patient piégeur</td><td>Serré, réfléchi, pièges occasionnels</td><td>Voler un joueur serré, respecter ses relances</td></tr>
+      <tr><td>Le 3-betteur sans peur</td><td>Squeezes, 3-bets, tapis préflop</td><td>Ouvrir moins large devant lui, payer ses 3-bets avec les mains fortes</td></tr>
+      <tr><td>Le lecteur agressif</td><td>Large, bluffs bien placés, lit vite tes habitudes</td><td>Changer de rythme, ne pas devenir prévisible</td></tr>
+      <tr><td>Le joueur de position</td><td>Très large au bouton, serré en début de parole</td><td>Jouer la position, 3-better les ouvertures de bouton</td></tr>
+      <tr><td>L'analyste</td><td>Tailles variées, bluffs mesurés</td><td>Jouer solide quand il n'y a pas de faille à exploiter</td></tr>
+      <tr><td>L'amateur audacieux</td><td>Large, paie beaucoup, gros bluffs parfois</td><td>Value-bet gros, payer ses overbets avec les mains fortes</td></tr>
+      <tr><td>Le régulier de volume</td><td>Agressif, plus large en position</td><td>Défendre face aux c-bets fréquents, 4-bet la valeur</td></tr>
+      <tr><td>Le volcan</td><td>Solide, puis 12 mains en tilt après un gros pot perdu</td><td>Repérer le tilt adverse, et ne pas le reproduire</td></tr>
+      <tr><td>Le théoricien serré</td><td>Serré, valeur, semi-bluffs, pièges</td><td>Penser en ranges, bluffer les boards qui ratent sa range</td></tr>
       </tbody></table></div>
-      <p>Parcours conseillé dans l'onglet Champions : les styles de niveau Moyen d'abord, puis Difficile, puis Très difficile. Un style compte comme battu avec un résultat positif sur au moins 50 mains.</p>`]] });
+      <p>Parcours conseillé dans l'onglet Champions : du profil le plus facile au plus difficile, classés selon le résultat mesuré d'un héros régulier en tête-à-tête. Un profil compte comme battu avec un résultat positif sur au moins 50 mains : c'est un repère de progression, pas une preuve (sur 50 mains, l'écart type d'un résultat dépasse 100 bb/100).</p>`]] });
 
     add('styles', { sections: [['Exercices corrigés', ex([
       ["En 50 mains, un adversaire affiche VPIP 40 / PFR 32 et 3-bet 15 %. Contre-stratégie ?", "Agressif large : paie plus large face à ses mises, 4-bet tes mains fortes pour la valeur, piège plutôt que bluffer. (Attention : 50 mains, ce sont des repères, pas des certitudes.)"],
-      ["Un adversaire change de comportement après un gros pot perdu (plus de mains, plus de mises). Que fais-tu ?", "C'est probablement du tilt : élargis ta valeur et tes calls contre lui, réduis tes bluffs. Dans SIGMA 52, le style « Le volcan » reproduit ce schéma."],
+      ["Un adversaire change de comportement après un gros pot perdu (plus de mains, plus de mises). Que fais-tu ?", "C'est probablement du tilt : élargis ta valeur et tes calls contre lui, réduis tes bluffs. Dans SIGMA 52, le profil « Le volcan » reproduit ce schéma."],
       ["Contre un joueur plus fort que toi, quelle stratégie ?", "Réduis ta variance face à lui : joue serré et solide, évite les gros pots marginaux, change de table si possible. La sélection de table est un choix stratégique."],
     ])]], quiz: [
       ["Contre un adversaire qui s'adapte à toi…", ['Reste proche de l\'équilibre et varie tes lignes', 'Garde un exploit fixe'], 0, "Un exploit fixe se fait contre-exploiter."],
@@ -225,7 +225,7 @@
     // ---------------- Niveau 6 ----------------
     add('marche', { sections: [['Exercices corrigés', ex([
       ["Selon l'ANJ, combien pèse le cash game dans le produit brut du poker en ligne en 2025 ?", "Environ <strong>100 M€ sur 525 M€</strong>, soit 19 %, contre 27 % en 2020 : un format en recul."],
-      ["Plus de comptes, dépense moyenne en baisse : qu'en déduire pour toi ?", "Des récréatifs plus nombreux mais à petit budget, venus surtout des paris sportifs et des formats rapides. Les parties faibles se trouvent plutôt en Sit&Go et à petites limites."],
+      ["Plus de comptes, dépense moyenne en baisse : qu'en déduire pour toi ?", "Des récréatifs plus nombreux mais à petit budget, attirés surtout par les formats rapides (Sit&Go, tournois). Les parties faibles se trouvent plutôt en Sit&Go et à petites limites."],
       ["Comment choisir une room ?", "Trois critères : le nombre de récréatifs à ta limite et dans ton format, le coût réel (rake moins fidélité), les règles logicielles (outils autorisés)."],
     ])]], quiz: [
       ["Le produit brut des jeux, c'est…", ['Mises moins gains reversés (surtout rake et frais)', 'Le total des mises'], 0, "Ce que les opérateurs gardent."],

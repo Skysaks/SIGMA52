@@ -142,7 +142,7 @@
           <li>Les petites ouvertures (2 à 2,3 bb) gagnent en intérêt : le pot est déjà gros, il n'est pas nécessaire de risquer plus.</li></ul>`],
         ["Le straddle : une blinde de plus", `<p>Un straddle est une mise à l'aveugle (en général 2 bb) posée avant la distribution, souvent par le joueur sous le pistolet. Il devient la nouvelle grosse blinde : il parle en dernier avant le flop, le joueur suivant ouvre la parole.</p>
           <ul><li><strong>La profondeur se compte en straddles</strong> : 100 bb de tapis avec un straddle de 2 bb, c'est un tapis de 50 straddles. Joue comme à 50 bb : moins de mains spéculatives, plus de 3-bets et de tapis.</li>
-          <li>Les ouvertures se font à 2,5 à 3 straddles (5 à 6 bb).</li>
+          <li>Les ouvertures se font à 2,5 à 4 straddles (5 à 8 bb) selon la table.</li>
           <li>Le straddler paie cher sa position : poser un straddle volontaire est en moyenne perdant, sauf s'il fait jouer la table plus mal.</li></ul>`],
         ["Le bomb pot", `<p>Tout le monde met une somme fixe (par exemple 2 bb), on passe directement au flop. Pas de préflop : chacun a une main au hasard, le pot est gros et multiway. Conséquences : les ranges sont toutes égales au départ, la valeur se prend avec des mains réellement fortes (deux paires et mieux souvent battues à six), les tirages aux nuts valent cher. Le Simulateur propose straddle, ante et bomb pot pour t'y entraîner.</p>`],
         ["Exercices corrigés", ex([
@@ -264,20 +264,20 @@
       sections: [
         ["Pourquoi le turn décide", `<p>Au turn, le pot est déjà gros et une carte peut faire basculer l'avantage. Deux questions avant de miser à nouveau : <strong>la carte aide-t-elle ma range ou la sienne ?</strong> et <strong>qui a gagné des mains très fortes (des nuts) ?</strong> L'outil <strong>Outils › Cartes du turn</strong> calcule l'équité exacte des deux ranges pour chacun des 49 turns.</p>`],
         ["Un board statique", `<p>Ouverture du bouton contre défense de la grosse blinde, flop K♠7♦2♣. Équité exacte du bouton au flop : <strong>52,7 %</strong>. Quel que soit le turn, elle reste entre <strong>51,3 %</strong> (un 9) et <strong>53,8 %</strong> (un as). Sur un tel board, la carte change peu l'avantage : ta décision au turn dépend surtout de ta main (valeur, tirage, abattage), pas de la carte.</p>`],
-        ["Un board dynamique", `<p>Même situation sur 9♥8♥6♣ : <strong>49,9 %</strong> pour le bouton au flop.</p>
+        ["Un board dynamique", `<p>Même situation sur 9♥8♥6♣ : <strong>49,9 %</strong> pour le bouton au flop. Valeurs pour un turn à trèfle (un turn à cœur, qui donne aussi des couleurs, change un peu les chiffres).</p>
           <table class="t"><thead><tr><th>Turn</th><th class="n">Équité du bouton</th><th class="n">Part de nuts de la BB</th><th>Lecture</th></tr></thead><tbody>
           <tr><td>As</td><td class="n">52,1 %</td><td class="n">≈ 12 %</td><td>Surcarte : le relanceur a plus d'as forts</td></tr>
-          <tr><td>Dame</td><td class="n">51,0 %</td><td class="n">≈ 11 %</td><td>Surcarte : avantage au relanceur</td></tr>
+          <tr><td>Dame</td><td class="n">50,9 %</td><td class="n">≈ 11 %</td><td>Surcarte : avantage au relanceur</td></tr>
           <tr><td>2, 3, 4</td><td class="n">≈ 50 %</td><td class="n">≈ 9 %</td><td>Cartes blanches : peu de changement</td></tr>
-          <tr><td>10</td><td class="n">48,1 %</td><td class="n">≈ 17 %</td><td>Complète des suites : avantage au défenseur</td></tr>
-          <tr><td>7</td><td class="n">47,5 %</td><td class="n">≈ 20 %</td><td>Complète beaucoup de suites : le défenseur double sa part de nuts</td></tr></tbody></table>
+          <tr><td>10</td><td class="n">48,0 %</td><td class="n">≈ 18 %</td><td>Complète des suites : avantage au défenseur</td></tr>
+          <tr><td>7</td><td class="n">47,3 %</td><td class="n">≈ 21 %</td><td>Complète beaucoup de suites : le défenseur double sa part de nuts</td></tr></tbody></table>
           <p>Part de nuts : combos de la range au-dessus de 80 % d'équité. Le joueur dont cette part monte peut miser gros ; celui qui la perd ralentit.</p>`],
         ["La méthode en quatre questions", `<ol><li><strong>Famille de la carte</strong> : surcarte, carte qui paire le board, carte qui connecte, carte de couleur, carte blanche.</li>
           <li><strong>Équité</strong> : qui gagne des points ? (outil Cartes du turn)</li>
           <li><strong>Nuts</strong> : qui gagne des mains très fortes ?</li>
           <li><strong>Ta main</strong> : est-elle de la valeur, un tirage qui veut de la fold equity, ou une main d'abattage ? Une main d'abattage checke sur les cartes qui aident l'adversaire ; un bon tirage peut continuer ; la valeur forte continue sur presque toutes les cartes.</li></ol>`],
         ["Exercices corrigés", ex([
-          ["Bouton contre grosse blinde, flop 9♥8♥6♣, tu as misé avec A♠K♦ (deux overcards). Turn 7♣. Deuxième mise ?", "Plutôt check. Le 7 est la pire carte pour ta range (47,5 % d'équité, part de nuts de la BB ≈ 20 %), et ta main n'a que six outs pour une paire qui ne gagnera pas toujours. Sur un as ou une dame, tu aurais touché ta paire et ta range aurait progressé."],
+          ["Bouton contre grosse blinde, flop 9♥8♥6♣, tu as misé avec A♠K♦ (deux overcards). Turn 7♣. Deuxième mise ?", "Plutôt check. Le 7 est la pire carte pour ta range (47,3 % d'équité, part de nuts de la BB ≈ 21 %), et ta main n'a que six outs pour une paire qui ne gagnera pas toujours. Sur un as, tu aurais touché ta paire et ta range aurait progressé (52,1 %) ; sur un roi, ta paire est là mais ta range ne gagne presque rien (50,4 %)."],
           ["Sur K♠7♦2♣, ton équité de range varie de 51,3 % à 53,8 % selon le turn. Qu'en déduis-tu pour ta stratégie ?", "Le board est <strong>statique</strong> : la carte du turn change peu de choses, ta décision repose sur ta main. Valeur et bons tirages continuent, les mains sans équité abandonnent la plupart du temps."],
           ["Turn qui paire le board (7♣ sur K♠7♦2♣). Qui gagne des nuts ?", "Les deux un peu : les 7 deviennent des brelans, les paires de rois des doubles paires. Calcul exact : la part de nuts du bouton passe à environ 24 % et celle de la BB à environ 20 à 23 % selon la couleur du 7. Les cartes qui pairent le board rapprochent souvent les deux ranges au sommet : prudence avec les mains moyennes, valeur avec les mains fortes."],
         ])],
@@ -286,7 +286,7 @@
       keys: ["Surcartes : souvent pour le relanceur", "Cartes qui connectent : souvent pour le défenseur", "Board statique : la main décide ; dynamique : la carte compte", "Outil : Outils › Cartes du turn"],
       quiz: [
         ["Sur K♠7♦2♣, l'équité du bouton varie selon le turn de…", ["≈ 51 % à 54 %", "≈ 30 % à 70 %", "≈ 45 % à 60 %", "Exactement 52 % partout"], 0, "51,3 % à 53,8 % : board statique."],
-        ["Sur 9♥8♥6♣, quel turn aide le plus la grosse blinde ?", ["Le 7", "L'as", "La dame", "Le 2"], 0, "47,5 % pour le bouton, part de nuts de la BB ≈ 20 %."],
+        ["Sur 9♥8♥6♣, quel turn aide le plus la grosse blinde ?", ["Le 7", "L'as", "La dame", "Le 2"], 0, "47,3 % pour le bouton, part de nuts de la BB ≈ 21 %."],
         ["Une surcarte au turn aide en général…", ["Le relanceur préflop", "Le défenseur", "Personne", "Celui qui a checké"], 0, "Sa range contient plus de cartes hautes."],
         ["La part de nuts sert à…", ["Savoir qui peut miser gros", "Calculer le rake", "Compter les outs", "Choisir la position"], 0, "Le joueur qui a plus de mains très fortes peut polariser."],
         ["Sur un board statique, ta décision au turn dépend surtout…", ["De ta main", "De la couleur de la carte", "Du rang de la carte", "Du hasard"], 0, "La carte change peu l'équilibre des ranges."],

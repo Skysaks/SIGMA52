@@ -55,7 +55,7 @@
           </tbody></table></div>
           <p>Leçon : deux fois sur trois, une main non appariée rate complètement le flop. C'est pour cela que l'initiative (la relance préflop) gagne tant de pots sans abattage.</p>`],
         ['Les outs en deux règles', `<p><strong>Règle de 2 et de 4</strong> : outs × 2 ≈ chances sur une carte ; outs × 4 ≈ chances sur deux cartes (au flop, si tu vas jusqu'à la river). Au-delà de 8 outs, la règle de 4 surestime un peu : 15 outs × 4 = 60 %, la vraie valeur est 54 %.</p>
-          <p>Tirage couleur arrière (trois cartes de la couleur au flop, il en faut deux de plus) : 10 × 9 ÷ (47 × 46 ÷ 2) ≈ <strong>4,2 %</strong>. Petit, mais il ajoute de l'équité à une mise de continuation.</p>`],
+          <p>Tirage couleur arrière (trois cartes de la couleur au flop, il en faut deux de plus) : (10 × 9 ÷ 2) ÷ (47 × 46 ÷ 2) = 45 ÷ 1 081 ≈ <strong>4,2 %</strong>. Petit, mais il ajoute de l'équité à une mise de continuation.</p>`],
         ['Exercices corrigés', ex([
           ["Sur 1 000 mains, combien de fois reçois-tu une paire, en moyenne ? Et AA ?", "Paire : 1 000 × 5,9 % ≈ <strong>59</strong>. AA : 1 000 ÷ 221 ≈ <strong>4,5</strong>."],
           ["Tu as 7♣6♣. Probabilité de flopper une couleur ? Un tirage couleur ?", "Couleur : <strong>0,84 %</strong>. Tirage couleur : <strong>10,9 %</strong>. Les assorties gagnent surtout par les tirages et les paires, rarement par la couleur au flop."],
@@ -140,12 +140,12 @@
       goals: ['Savoir pourquoi les blindes perdent de l\'argent (et combien c\'est normal)', 'Défendre la grosse blinde selon la cote', 'Jouer la petite blinde en 3-bet ou couché'],
       sections: [
         ['Les blindes perdent : c\'est normal', `<p>Tu paies une mise forcée hors de position : même un excellent joueur perd de l'argent depuis les blindes. L'objectif est de perdre <strong>moins</strong> que les autres, pas de gagner. Dans l'Analyse, compare ton résultat en BB et SB aux autres positions : c'est souvent là que se cache la plus grosse fuite.</p>`],
-        ['La grosse blinde : la cote d\'abord', `<p>Face à une ouverture à 2,5 bb, tu paies 1,5 bb pour un pot de 5 bb : il te faut <strong>30 %</strong> d'équité brute. Face à 2 bb (min-relance), 1 bb pour 4 bb : <strong>25 %</strong>. La défense s'élargit donc quand la relance est petite et que l'ouvreur est en position tardive (range large).</p>
+        ['La grosse blinde : la cote d\'abord', `<p>Face à une ouverture à 2,5 bb (petite blinde couchée), tu paies 1,5 bb pour un pot final de 5,5 bb : il te faut <strong>27 %</strong> d'équité brute. Face à 2 bb (min-relance), 1 bb pour un pot final de 4,5 bb : <strong>22 %</strong>. La défense s'élargit donc quand la relance est petite et que l'ouvreur est en position tardive (range large).</p>
           <p>Réduis tes calls face aux grosses ouvertures (3-4 bb, fréquentes en live) et face à UTG : le prix monte et la range adverse est plus forte.</p>`],
         ['La petite blinde : 3-bet ou couché', `<p>Hors de position contre l'ouvreur <strong>et</strong> avec la grosse blinde derrière, payer depuis la SB invite la BB à squeezer ou à entrer à bon prix. La stratégie simple et solide : <strong>3-bet ou couché</strong> depuis la SB (avec quelques calls pour les joueurs avancés). Taille : environ 4 fois l'ouverture hors de position.</p>`],
         ['Après le flop en grosse blinde', `<p>Tu défends une range large et faible : tu rates souvent. Check-fold sans honte quand tu n'as rien, check-call avec paires et tirages, check-raise tes deux paires, brelans et gros tirages sur les boards qui te favorisent (module Jouer hors de position).</p>`],
         ['Exercices corrigés', ex([
-          ["Le bouton ouvre à 2 bb, tu es BB avec K♣6♦. Défendre ?", "Oui : il te faut 25 % d'équité, K6o en a bien plus contre une range de bouton large. Défends, mais joue prudemment après le flop sans paire."],
+          ["Le bouton ouvre à 2 bb, tu es BB avec K♣6♦. Défendre ?", "Oui : il te faut 22 % d'équité (1 bb pour un pot final de 4,5 bb), K6o en a bien plus contre une range de bouton large. Défends, mais joue prudemment après le flop sans paire."],
           ["UTG ouvre à 3 bb en live, tu es BB avec Q♠9♦. Défendre ?", "Plutôt couché : il te faut 2 ÷ 6,5 ≈ 31 % contre une range forte qui domine Q9 (AQ, KQ, QJ). Hors de position, la main réalise mal son équité."],
           ["Le CO ouvre, tu es SB avec A♦J♣. Que fais-tu ?", "3-bet (≈ 4 fois l'ouverture). AJo domine une partie de sa range ; payer hors de position avec la BB derrière est la pire option."],
         ])],
@@ -153,7 +153,7 @@
       mistakes: ['Vouloir « gagner » depuis les blindes', 'Payer depuis la SB par habitude', 'Défendre la BB face aux grosses relances comme face aux petites'],
       keys: ['Perdre moins depuis les blindes', 'BB : la cote fixe la défense', 'SB : 3-bet ou couché'],
       quiz: [
-        ['Équité requise en BB face à une ouverture à 2 bb ?', ['25 %', '33 %', '40 %'], 0, '1 bb pour un pot de 4 bb.'],
+        ['Équité requise en BB face à une ouverture à 2 bb (petite blinde couchée) ?', ['22 %', '33 %', '40 %'], 0, '1 bb pour un pot final de 4,5 bb (2 + 2 + 0,5).'],
         ['Stratégie simple en petite blinde face à une ouverture ?', ['3-bet ou couché', 'Payer souvent', 'Limp'], 0, 'Payer invite la BB.'],
         ['Les blindes sont…', ['Des positions perdantes pour tout le monde', 'Les plus rentables', 'Neutres'], 0, 'Mise forcée hors de position.'],
         ['Face à une ouverture UTG à 3 bb, ta défense BB…', ['Se resserre', 'S\'élargit', 'Ne change pas'], 0, 'Prix plus élevé, range plus forte.'],
@@ -198,11 +198,11 @@
       id: 'pots3bet', level: 3, title: 'Les pots 3-bet : relanceur et défenseur', drill: 'vsopen',
       goals: ['Comprendre le SPR d\'un pot 3-bet', 'Jouer en relanceur : petite c-bet fréquente', 'Défendre sans payer trop large'],
       sections: [
-        ['Un pot plus gros, des tapis plus courts', `<p>À 100 bb, une ouverture à 2,5 bb, un 3-bet à 9 bb en position et un call donnent un pot d'environ 19,5 bb pour ≈ 91 bb derrière : <strong>SPR ≈ 4,5</strong>. Une top paire bon kicker et une surpaire sont presque toujours prêtes pour le tapis. Hors de position, le 3-bet est plus gros (≈ 11-12 bb) et le SPR plus bas.</p>`],
+        ['Un pot plus gros, des tapis plus courts', `<p>À 100 bb, une ouverture à 2,5 bb, un 3-bet à 9 bb en position et un call donnent un pot d'environ 19,5 bb pour ≈ 91 bb derrière : <strong>SPR ≈ 4,7</strong>. Une top paire bon kicker et une surpaire sont presque toujours prêtes pour le tapis. Hors de position, le 3-bet est plus gros (≈ 11-12 bb) et le SPR plus bas.</p>`],
         ['En relanceur (3-bettor)', `<p>Ta range est plus forte que celle du défenseur sur la plupart des flops, surtout hauts : <strong>petite c-bet (25-33 %) très fréquente</strong>. Sur les boards bas et connectés (7-6-5), le défenseur a plus de deux paires et de suites : mise moins souvent. Avec une surpaire, pas de contrôle de pot : vise le tapis en trois rues ou moins.</p>`],
         ['En défenseur', `<p>Paie un 3-bet avec des mains qui jouent bien après le flop et ne sont pas dominées : paires moyennes, assorties fortes (AQs, KQs, JTs). Couche les mains dépareillées dominées (AJo, KQo hors de position contre un 3-bettor serré). Face à un 3-bettor très agressif, ajoute des 4-bets (valeur et quelques bluffs à bloqueurs, A5s).</p>`],
         ['Exercices corrigés', ex([
-          ["Tu as 3-bet au bouton avec A♠K♠, le CO paie. Flop K♦7♣2♥. Plan ?", "Petite c-bet (≈ 33 %) avec ta range, AK compris : SPR ≈ 4,5, tu vises le tapis en trois rues avec top paire meilleur kicker."],
+          ["Tu as 3-bet au bouton avec A♠K♠, le CO paie. Flop K♦7♣2♥. Plan ?", "Petite c-bet (≈ 33 %) avec ta range, AK compris : SPR ≈ 4,7, tu vises le tapis en trois rues avec top paire meilleur kicker."],
           ["Tu ouvres au CO avec A♥Q♦, le bouton 3-bet. Sa range est QQ+, AK, A5s-A4s, KQs. Ton équité ?", "Moteur SIGMA 52 : <strong>36,4 %</strong> (33 combos). Hors de position, contre une range aussi forte, AQo se couche souvent, ou paie seulement contre un 3-bettor plus large."],
           ["Pot 3-bet, flop 7♥6♥5♠, tu es le 3-bettor avec A♣A♦. Mises-tu ?", "Plutôt check ou petite mise selon l'adversaire : le board touche la range du défenseur (suites, deux paires). Tu gardes une main forte dans ta range de check et évites de te faire relancer hors de prix."],
         ])],
@@ -210,7 +210,7 @@
       mistakes: ['Contrôler le pot avec une surpaire à SPR 4', 'Payer les 3-bets avec AJo, KQo hors de position', 'C-better automatiquement les boards bas connectés'],
       keys: ['SPR ≈ 4-5 : une paire forte va à tapis', 'Relanceur : petite c-bet fréquente', 'Défense : mains jouables, pas dominées'],
       quiz: [
-        ['SPR typique d\'un pot 3-bet en position à 100 bb ?', ['≈ 4,5', '≈ 12', '≈ 1'], 0, 'Pot ≈ 19,5 bb, ≈ 91 bb derrière.'],
+        ['SPR typique d\'un pot 3-bet en position à 100 bb ?', ['≈ 4,7', '≈ 12', '≈ 1'], 0, 'Pot ≈ 19,5 bb, ≈ 91 bb derrière.'],
         ['En 3-bettor sur un flop haut, la c-bet est…', ['Petite et fréquente', 'Grosse et rare', 'Toujours un overbet'], 0, 'Avantage de range.'],
         ['AQo contre QQ+, AK, A5s-A4s, KQs ?', ['≈ 36 %', '≈ 55 %', '≈ 20 %'], 0, 'Moteur SIGMA 52 : 36,4 %.'],
         ['Face à un 3-bettor très agressif, tu ajoutes…', ['Des 4-bets', 'Plus de folds', 'Des limps'], 0, 'Valeur plus large et quelques bluffs à bloqueurs.'],
@@ -351,8 +351,8 @@
       id: 'etudes', level: 4, title: 'Études de cas : huit mains commentées de bout en bout', drill: 'situations',
       goals: ['Appliquer toute la méthode sur des mains complètes', 'Chiffrer chaque décision', 'Repérer les erreurs fréquentes en situation'],
       sections: [
-        ['Main 1 : la c-bet de valeur', `<p>NL25, 100 bb. Tu ouvres au CO avec K♥J♥, la BB paie. Flop K♦7♣2♠ (pot 5,5 bb). Contre une range de défense BB large, K♥J♥ a <strong>85,2 %</strong> (moteur SIGMA 52, 267 combos). Mise 1/3 du pot : les paires de 7, les as hauteur et les Kx plus faibles paient. Turn 4♥ : continue (≈ 50-66 %). River brique : troisième mise de valeur, plus petite si l'adversaire est passif et serré.</p>`],
-        ['Main 2 : la surpaire qui doit ralentir', `<p>NL50. UTG ouvre, tu paies au CO avec J♣J♦. Flop A♠8♦3♣, UTG mise. Contre une range d'ouverture UTG serrée qui continue (TT+, AQ+, AJs, KQs), JJ n'a que <strong>23,5 %</strong>. Paie une fois si l'adversaire bluffe assez, couche face à une deuxième grosse mise d'un joueur serré.</p>`],
+        ['Main 1 : la c-bet de valeur', `<p>NL25, 100 bb. Tu ouvres au CO avec K♥J♥, la BB paie. Flop K♦7♣2♠ (pot 5,5 bb). Contre la range de défense de la BB face au CO (onglet Ranges), K♥J♥ a <strong>83,0 %</strong> (moteur SIGMA 52, calcul exact sur 254 combos une fois les cartes connues retirées). Mise 1/3 du pot : les paires de 7, les as hauteur et les Kx plus faibles paient. Turn 4♥ : continue (≈ 50-66 %). River brique : troisième mise de valeur, plus petite si l'adversaire est passif et serré.</p>`],
+        ['Main 2 : la surpaire qui doit ralentir', `<p>NL50. UTG ouvre, tu paies au CO avec J♣J♦. Flop A♠8♦3♣, UTG mise. Contre une range d'ouverture UTG serrée qui continue (TT+, AQ+, AJs, KQs), JJ n'a que <strong>23,6 %</strong>. Paie une fois si l'adversaire bluffe assez, couche face à une deuxième grosse mise d'un joueur serré.</p>`],
         ['Main 3 : le gros tirage', `<p>Tu as 9♥8♥ sur 7♥6♥2♣ contre un tapis : même contre un brelan, <strong>42,1 %</strong>. Contre une surpaire, bien plus. C'est un call de tapis presque automatique.</p>`],
         ['Main 4 : AQ face au 3-bet', `<p>Tu ouvres au CO avec A♥Q♦, le bouton 3-bet, sa range est QQ+, AK, A5s-A4s, KQs : <strong>36,4 %</strong>. Hors de position contre une range aussi serrée, le fold est correct ; contre un 3-bettor large, le call ou le 4-bet redeviennent bons.</p>`],
         ['Main 5 : le brelan contre le tirage', `<p>8♠8♦ sur 9♣8♥4♥ contre A♥9♥ (paire + tirage couleur à l'as) : <strong>70,2 %</strong> pour le brelan. Mise grosse au flop : son tirage paie, et le turn peut te coûter cher.</p>`],
@@ -366,8 +366,8 @@
       mistakes: ['Juger une main sans range adverse', 'Ne pas chiffrer l\'équité', 'Appliquer une ligne contre tous les profils'],
       keys: ['Une main = une suite de décisions chiffrées', 'Le profil adverse change la meilleure ligne', 'Cash et tournoi ne se jouent pas pareil près de la bulle'],
       quiz: [
-        ['K♥J♥ sur K♦7♣2♠ contre une range de défense BB large ?', ['≈ 85 %', '≈ 55 %', '≈ 40 %'], 0, 'Moteur SIGMA 52 : 85,2 %.'],
-        ['JJ sur A♠8♦3♣ contre une range UTG qui continue ?', ['≈ 24 %', '≈ 50 %', '≈ 70 %'], 0, 'Moteur SIGMA 52 : 23,5 %.'],
+        ['K♥J♥ sur K♦7♣2♠ contre la range de défense de la BB face au CO ?', ['≈ 83 %', '≈ 55 %', '≈ 40 %'], 0, 'Moteur SIGMA 52 : 83,0 %.'],
+        ['JJ sur A♠8♦3♣ contre une range UTG qui continue ?', ['≈ 24 %', '≈ 50 %', '≈ 70 %'], 0, 'Moteur SIGMA 52 : 23,6 %.'],
         ['88 sur 9♣8♥4♥ contre A♥9♥ ?', ['≈ 70 %', '≈ 50 %', '≈ 90 %'], 0, 'Moteur SIGMA 52 : 70,2 %.'],
         ['Contre une station, avec un tirage raté à la river…', ['Abandonne', 'Bluffe gros', 'Bluffe petit'], 0, 'Elle paie.'],
         ['Quelle main change en ICM ?', ['Le call de tapis à la bulle', 'La c-bet de valeur', 'Le gros tirage'], 0, 'Prime de risque.'],
@@ -683,7 +683,7 @@
       ['Tirages', 'A♥5♥ sur K♥8♥2♣ contre K♠Q♦ : ton équité ?', ['≈ 46 %', '≈ 20 %', '≈ 75 %'], 0, 'Moteur SIGMA 52 : 45,9 %.'],
       ['Tirages', 'Tirage couleur au turn, mise du pot. ?', ['Coucher sans cotes implicites', 'Payer toujours', 'Relancer'], 0, '19,6 % pour 33 % requis.'],
       ['Tirages', '9♥8♥ sur 7♥6♥2♣, il pousse. ?', ['Payer : gros tirage', 'Coucher', 'Ça dépend du kicker'], 0, '≈ 42 % même contre un brelan.'],
-      ['Blindes', 'BB, ouverture à 2 bb du bouton, tu as J♣4♦. ?', ['Défense possible : 25 % requis', 'Toujours coucher', 'Tapis'], 0, 'Petite relance, range de bouton large.'],
+      ['Blindes', 'BB, ouverture à 2 bb du bouton, tu as J♣4♦. ?', ['Défense possible : ≈ 22 % requis', 'Toujours coucher', 'Tapis'], 0, 'Petite relance : 1 bb pour un pot final de 4,5 bb, contre une range de bouton large.'],
       ['Blindes', 'BB face à UTG 3 bb en live, tu as Q♠9♦. ?', ['Coucher le plus souvent', 'Payer toujours', '3-bet'], 0, 'Prix élevé, range forte qui domine.'],
       ['Bankroll', 'NL25, bankroll 500 €. Règle de 40 caves ?', ['Descendre en NL10', 'Rester', 'Monter'], 0, '500 ÷ 25 = 20 caves.'],
       ['Bankroll', '4 bb/100, écart-type 90, 40 caves : risque de ruine ?', ['≈ 2 %', '≈ 20 %', '0 %'], 0, 'e^(−2 × 4 × 4 000 ÷ 8 100).'],

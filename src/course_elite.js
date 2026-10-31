@@ -92,7 +92,7 @@
           <tr><td>Non appariée (ex. AK)</td><td class="n">16 (4 assorties, 12 dépareillées)</td><td>Un As visible : 3 × 4 = 12. Un As et un Roi visibles : 3 × 3 = 9.</td></tr>
           <tr><td>Assortie précise (ex. AKs)</td><td class="n">4</td><td>Un As visible : 3 combos.</td></tr></tbody></table>
           <p>Exemple : board K♠ 9♦ 4♣, tu tiens A♥ K♦. Combien de AK chez l'adversaire ? As restants : 3. Rois restants : 4 − 1 (board) − 1 (ta main) = 2. Donc 3 × 2 = <strong>6 combos</strong> au lieu de 16.</p>`],
-        ['Qu\'est-ce qu\'un bloqueur', `<p>Une carte que tu tiens ne peut pas être dans la main adverse. Elle retire donc des combos à sa range. L'effet est fort quand la catégorie est petite : tenir l'As de la couleur sur un board à trois cœurs retire <em>toutes</em> les couleurs max adverses ; tenir un Roi sur K-9-4 retire un quart des combos de top paire.</p>
+        ['Qu\'est-ce qu\'un bloqueur', `<p>Une carte que tu tiens ne peut pas être dans la main adverse. Elle retire donc des combos à sa range. L'effet est fort quand la catégorie est petite : tenir l'As de la couleur sur un board à trois cœurs retire <em>toutes</em> les couleurs max adverses ; tenir un Roi sur K-9-4 retire un tiers des combos de top paire adverses (il ne reste que 2 rois sur 3).</p>
           <p>Les bloqueurs comptent surtout à la river, quand les ranges sont étroites et que les décisions sont binaires. Au flop, l'équité et la jouabilité pèsent plus.</p>`],
         ['Choisir ses bluffs', `<p>Un bon bluff river :</p><ol><li>n'a <strong>aucune valeur à l'abattage</strong> (sinon, checke et gagne parfois) ;</li>
           <li><strong>bloque les mains qui paient</strong> (ex. tenir une Dame quand l'adversaire paie avec ses Dames) ;</li>
@@ -201,7 +201,7 @@
         ['Condition principale d\'un overbet ?', ['Range adverse plafonnée et avantage de nuts', 'Main moyenne à protéger'], 0, 'On polarise : nuts et bluffs, les mains moyennes checkent.'],
         ['Mise de valeur river : quand est-elle rentable ?', ['Quand tu gagnes plus de 50 % du temps quand il paie', 'Quand tu as top paire'], 0, 'Seules les mains qui paient comptent.'],
         ['Un joueur passif relance ta mise river. Tu as top paire. Par défaut ?', ['Payer', 'Coucher'], 1, 'Les relances river des passifs sont presque toujours de la valeur.'],
-        ['Flop K♠ 8♦ 3♣ misé et payé, turn 2♠. Classification ?', ['Brique', 'Carte qui complète tout'], 0, 'Elle ne change presque rien : avantage au joueur qui menait.'],
+        ['Flop K♠ 8♦ 3♣ misé et payé, turn 2♥. Classification ?', ['Brique', 'Carte qui complète tout'], 0, 'Elle ne change presque rien : avantage au joueur qui menait.'],
       ],
     });
 
@@ -295,11 +295,11 @@
           <tr><td>24 / 20</td><td>Régulier solide</td><td>Équilibre, évite les gros pots marginaux</td></tr>
           <tr><td>32 / 26</td><td>Régulier agressif</td><td>3-bet en valeur plus large, piège plus souvent</td></tr></tbody></table>
           <p>Un grand écart VPIP − PFR (plus de 15 points) signale un joueur qui paie trop préflop : la cible prioritaire.</p>`],
-        ['Combiner les chiffres', `<ul><li>WTSD élevé (> 33 %) + W$SD bas (< 48 %) : va trop à l'abattage avec des mains faibles. Valeur fine.</li>
+        ['Combiner les chiffres', `<ul><li>WTSD élevé (plus de 33 %) + W$SD bas (moins de 48 %) : va trop à l'abattage avec des mains faibles. Valeur fine.</li>
           <li>WTSD bas + fold to c-bet élevé : abandonne trop. Mise souvent.</li>
           <li>C-bet flop élevé (> 75 %) + c-bet turn bas : abandonne après le flop. Paie le flop, joue le turn.</li>
           <li>Agression postflop très faible : ses mises sont fortes.</li></ul>`],
-        ['Ce qui est autorisé (France)', `<p>Sur le marché français, considère le HUD tiers en temps réel comme interdit ou fortement restreint : Winamax interdit les outils d'aide à la décision et les HUD dynamiques de logiciels tiers (son client propose ses propres statistiques) ; PokerStars publie une liste de logiciels autorisés ; les autres rooms appliquent des règles proches. Les listes changent : vérifie la page officielle de ta room et, en cas de doute, demande par écrit au support.</p>
+        ['Ce qui est autorisé (France)', `<p>Les règles changent d'une room à l'autre. Winamax autorise les logiciels de suivi alimentés par les mains que tu as toi-même jouées (HUD classique), mais interdit solveurs, calculateurs d'ICM et d'équité, logiciels de ranges dynamiques et certaines fonctions dynamiques de Hand2Note ; PokerStars publie une liste d'outils autorisés et ne tolère que des charts simples d'ouverture ; d'autres rooms interdisent tout HUD tiers. Les listes changent : vérifie la page officielle de ta room et, en cas de doute, demande par écrit au support.</p>
           <p>Toujours possible : prendre des notes et des couleurs dans le client, analyser tes historiques <em>après</em> la session (onglet Analyse de SIGMA 52).</p>`],
         ['Système de notes', `<ul><li>Une couleur par profil : rouge = fish passif, orange = maniaque, bleu = nit, gris = régulier.</li>
           <li>Une note = un fait daté et vérifiable : « 03/10 : relance river avec 2e paire », pas « bluffeur ».</li>
@@ -329,19 +329,19 @@
           <p>Leçon : le gros tapis peut attaquer, les tapis moyens doivent se serrer énormément face à lui, et le plus petit tapis a parfois une prime plus faible que les moyens (il bénéficie qu'un autre saute).</p>`],
         ['Bulle et pression', `<p>Le gros tapis ouvre et pousse très large contre les tapis moyens qui ne peuvent pas payer. Les tapis moyens jouent serré entre eux et volent le petit tapis. En satellite (places toutes égales), la prime devient extrême : une fois ta place quasiment acquise, coucher AA peut être correct.</p>`],
         ['PKO : valeur d\'une prime', `<p>Dans un PKO standard, la moitié du buy-in va au prize pool et la moitié aux primes. Quand tu élimines un joueur, tu encaisses la moitié de sa prime ; l'autre moitié s'ajoute à la tienne. Seule la part encaissée tout de suite compte dans les décisions immédiates.</p>
-          <p><strong>Jetons par euro</strong> = jetons en jeu ÷ prize pool régulier restant. Au début, la part encaissée d'une prime vaut environ un quart du buy-in, donc environ <strong>25 % du tapis de départ</strong> ; plus tard, environ 30 à 40 %.</p>
-          <p>Exemple : blindes 100/200, tapis de départ 10 000, prime de départ ≈ 2 500 jetons. Le bouton pousse 2 800, tu es BB avec 11 500 et tu le couvres. Sans prime : 2 600 à payer pour 2 800 + 500 de blindes et antes, il faut 2 600 ÷ (2 600 + 3 300) ≈ 44 %. Avec la prime (≈ 2 600) : 2 600 ÷ (2 600 + 5 900) ≈ 31 %. Des mains comme J9s deviennent des calls. Plus le tapis adverse est court, plus la prime pèse.</p>`],
+          <p><strong>Jetons par euro</strong> = jetons en jeu ÷ prize pool régulier restant. Au début, la part encaissée d'une prime de départ vaut un quart du buy-in, soit environ <strong>la moitié du tapis de départ</strong> en jetons (le prize pool régulier ne reçoit que la moitié du buy-in : 1 € de prime vaut deux fois plus de jetons que le tapis n'en coûte).</p>
+          <p>Exemple : blindes 100/200, tapis de départ 10 000, part encaissée de la prime ≈ 5 000 jetons. Le bouton pousse 2 800, tu es BB avec 11 500 et tu le couvres. Sans prime : 2 600 à payer pour 2 800 + 500 de blindes et antes, il faut 2 600 ÷ (2 600 + 3 300) ≈ 44 %. Avec la prime (≈ 5 000 jetons) : 2 600 ÷ (2 600 + 3 300 + 5 000) ≈ 24 %. Une grande partie des mains devient un call. Plus le tapis adverse est court, plus la prime pèse.</p>`],
         ['Table finale et deals', `<ul><li>Les écarts de gains entre places sont maximaux : la prime de risque monte.</li>
           <li>Un deal ICM partage selon l'équité de chaque tapis (outil Deal ICM) ; un « chip chop » partage au prorata des jetons et avantage les gros tapis.</li>
           <li>Garde une part en jeu pour la victoire si les écarts de niveau sont nets en ta faveur.</li></ul>`],
         ['Méthode d\'étude', `<p>Outil Push/Fold & ICM : compare les ranges de tapis en jetons et en ICM pour la même structure. Note les mains qui changent de décision : c'est ta zone d'erreur probable en tournoi.</p>`],
       ],
       mistakes: ['Payer à 50 % d\'équité sur la bulle', 'Oublier la prime en PKO quand on couvre un tapis court', 'Compter toute la prime adverse au lieu de la part encaissée', 'Accepter un chip chop avec un petit tapis'],
-      keys: ['ICM : équité requise > 50 % pour un call à tapis', 'Le gros tapis attaque, les moyens se serrent', 'PKO : prime encaissée ≈ 25 % du tapis de départ au début', 'Deal ICM ≠ chip chop'],
+      keys: ['ICM : équité requise > 50 % pour un call à tapis', 'Le gros tapis attaque, les moyens se serrent', 'PKO : part encaissée d\'une prime ≈ la moitié du tapis de départ au début', 'Deal ICM ≠ chip chop'],
       quiz: [
         ['Tapis égaux sur la bulle (4 joueurs, 3 payés). Équité requise pour payer un tapis ?', ['50 %', 'Environ 69 %'], 1, 'Calcul ICM SIGMA 52 : 68,8 %.'],
         ['Qui a la plus faible prime de risque ?', ['Le gros tapis qui paie un petit', 'Le tapis moyen qui paie le gros'], 0, 'Il risque une petite partie de son tapis.'],
-        ['PKO standard, début de tournoi. La part encaissée d\'une prime vaut environ…', ['10 % du tapis de départ', '25 % du tapis de départ', '100 % du tapis de départ'], 1, 'La moitié de la prime (un quart du buy-in) est encaissée immédiatement.'],
+        ['PKO standard, début de tournoi. La part encaissée d\'une prime vaut environ…', ['10 % du tapis de départ', 'La moitié du tapis de départ', '100 % du tapis de départ'], 1, 'Un quart du buy-in est encaissé ; le prize pool régulier ne reçoit que la moitié du buy-in, donc ce quart vaut la moitié du tapis de départ en jetons.'],
         ['Satellite, ta place est presque acquise. Tu reçois AA face à un tapis. Décision possible ?', ['Toujours payer', 'Coucher peut être correct'], 1, 'Toutes les places valent pareil : risquer sa place ne rapporte rien.'],
         ['Chip chop : qui avantage-t-il ?', ['Les gros tapis', 'Les petits tapis'], 0, 'Il partage au prorata des jetons, alors que l\'ICM valorise plus les petits tapis.'],
       ],

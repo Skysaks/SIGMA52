@@ -28,7 +28,7 @@
     K.MODULES.forEach((m) => out.push({ kind: 'Module', title: m.title, desc: `Niveau ${m.level} · ${K.LEVELS[m.level - 1].title} · ${m.minutes} min`, extra: m.sections.map((s) => s[0]).join(' '), run: () => { X.setOpenMod(m.id); X.go('cours'); } }));
     Object.entries(S.TYPES).forEach(([k, l]) => out.push({ kind: 'Exercice', title: l, desc: 'Spots corrigés', run: () => { X.setSpotMode(k); X.go('spots'); } }));
     TOOLS.forEach(([k, l]) => out.push({ kind: 'Outil', title: l, desc: 'Onglet Outils', run: () => { X.setTool(k); X.go('outils'); } }));
-    if (CH) CH.STYLES.forEach((s) => out.push({ kind: 'Champion', title: s.name, desc: 'Inspiré de ' + s.inspired, extra: s.inspired, run: () => { X.champSelect?.(s.id); X.go('champions'); } }));
+    if (CH) CH.STYLES.forEach((s) => out.push({ kind: 'Champion', title: s.name, desc: s.family + ' · ' + s.tagline, extra: s.family, run: () => { X.champSelect?.(s.id); X.go('champions'); } }));
     K.GLOSSARY.forEach(([t, d]) => out.push({ kind: 'Lexique', title: t, desc: d, run: () => { X.go('cours'); } }));
     out.push({ kind: 'Action', title: 'Résoudre une river au hasard', desc: 'Solveur exact, en une seconde', run: () => { const sv = X.solverState; const d = [...Array(52).keys()].sort(() => Math.random() - 0.5); sv.sub = 'solve'; sv.board = d.slice(0, 5).map(window.Engine.cardStr).join(''); sv.game = null; X.go('solveur'); } });
     out.push({ kind: 'Action', title: 'Entraîneur river', desc: 'Décisions notées en perte d\'EV', run: () => { X.solverState.sub = 'train'; X.go('solveur'); } });

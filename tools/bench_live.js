@@ -3,7 +3,7 @@
 // Usage : node tools/bench_live.js [mains par table] [graine]
 const E = require('../src/engine.js'), TS = require('../src/table.js'), L = require('../src/live.js');
 const HANDS = +(process.argv[2] || 1500), SEED = +(process.argv[3] || 1);
-const TYPE = { nit: 'serre', reg: 'normal', station: 'fish', maniaque: 'maniaque', mizrachi: 'large', action: 'fish', prolive: 'normal' };
+const TYPE = { nit: 'serre', reg: 'normal', station: 'fish', maniaque: 'maniaque', lag_imprevisible: 'large', action: 'fish', prolive: 'normal' };
 const ORDER = ['SB', 'BB', 'UTG', 'HJ', 'CO', 'BTN'];
 const typeOf = (tb, i) => TYPE[tb.players[i].profile] || TYPE[TS.kindOf(TS.PROFILES[tb.players[i].profile] || {}, tb.players[i].profile)] || 'normal';
 function inputs(tb) {
@@ -55,7 +55,7 @@ function run(lineup, policy, seed) {
   for (let h = 0; h < HANDS; h++) { tb.newHand(); let g = 0; while (!tb.done && g++ < 150) { if (tb.toAct === 0 && !tb.players[0].out) { dec++; if (policy === 'live') { if (!L.actTable(tb, 0)) tb.autoHero('reg'); } else tb.autoHero(policy); } else tb.runBots(); } }
   return { bb100: (tb.session.net / tb.session.hands) * 100, dec, ms: (Date.now() - t0) / Math.max(1, dec) };
 }
-const LINEUPS = { mixte: ['station', 'reg', 'maniaque', 'station', 'nit'], fish: ['station', 'station', 'action', 'reg', 'station'], reguliers: ['reg', 'reg', 'nit', 'reg', 'prolive'], agressive: ['maniaque', 'mizrachi', 'reg', 'maniaque', 'reg'], difficile: ['sigma', 'sigma', 'reg', 'sigma', 'nit'] };
+const LINEUPS = { mixte: ['station', 'reg', 'maniaque', 'station', 'nit'], fish: ['station', 'station', 'action', 'reg', 'station'], reguliers: ['reg', 'reg', 'nit', 'reg', 'prolive'], agressive: ['maniaque', 'lag_imprevisible', 'reg', 'maniaque', 'reg'], difficile: ['sigma', 'sigma', 'reg', 'sigma', 'nit'] };
 const out = {};
 for (const [k, lu] of Object.entries(LINEUPS)) {
   const a = run(lu, 'live', SEED), b = run(lu, 'reg', SEED);

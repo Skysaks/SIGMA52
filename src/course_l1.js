@@ -6,25 +6,25 @@
       goals: ['Savoir où jouer légalement en France et pourquoi', 'Connaître précisément ce qui fait fermer un compte', 'Comprendre quand les gains deviennent imposables'],
       sections: [
         ['Où jouer', `<p>En France, le poker en ligne n'est légal que chez les opérateurs agréés par l'<strong>ANJ</strong> (Autorité nationale des jeux) : PokerStars.fr, Winamax, Betclic, PMU, et quelques autres. La liste à jour est sur anj.fr. Un site hors liste ne te protège pas : gains bloqués, aucun recours, et l'ANJ fait bloquer ces sites.</p>
-          <p>Depuis 2018, certaines rooms partagent leurs tables avec d'autres pays : PokerStars avec l'Espagne et le Portugal, Winamax, PMU et partypoker avec l'Espagne. Plus de joueurs veut dire plus de tables ouvertes à toute heure, donc plus de récréatifs à trouver.</p>`],
+          <p>Depuis 2018, la loi autorise certaines rooms à partager leurs tables avec d'autres pays européens (l'Espagne et le Portugal surtout) : PokerStars le fait avec l'Espagne et le Portugal, Winamax avec l'Espagne. L'offre évolue : vérifie le lobby de ta room. Plus de joueurs veut dire plus de tables ouvertes à toute heure, donc plus de récréatifs à trouver.</p>`],
         ['La règle d\'or du fair-play', `<p><strong>Pendant une main, toi seul décides.</strong> Tout ce qui t'aide pendant le jeu est sanctionné : fermeture du compte et, chez la plupart des rooms, confiscation du solde. Ces règles sont appliquées : GGPoker a déjà banni des dizaines de comptes et confisqué plus d'un million de dollars pour aide en temps réel.</p>
           <table class="t"><thead><tr><th>Interdit</th><th>Pourquoi c'est sanctionné</th></tr></thead><tbody>
-          <tr><td>Solveur, tableau de ranges, appli ou IA consultés pendant le jeu (RTA)</td><td>Avantage déloyal. PokerStars interdit même un chart préflop ouvert</td></tr>
+          <tr><td>Solveur, tableau de ranges, appli ou IA consultés pendant le jeu (RTA)</td><td>Avantage déloyal. Chez PokerStars, seules des charts simples d'ouverture (relance ou couche, sans fréquences, neuf grilles au plus) sont tolérées ; une chart face à une relance ou avec des fréquences est interdite</td></tr>
           <tr><td>Conseils d'une autre personne pendant une main</td><td>Aide extérieure</td></tr>
           <tr><td>Échanger ses cartes ou jouer « en équipe »</td><td>Collusion</td></tr>
           <tr><td>Plusieurs comptes, prêter le sien</td><td>Fraude à l'identité</td></tr>
           <tr><td>Bot, script qui clique à ta place</td><td>Jeu automatisé</td></tr>
           <tr><td>Acheter des bases de mains jouées par d'autres</td><td>Data mining</td></tr></tbody></table>
-          <p><strong>Autorisé</strong> : le HUD intégré de Winamax, les logiciels que la room liste comme autorisés, toute étude avant ou après la session. Les HUD « dynamiques », qui changent selon le board, sont interdits sur Winamax. Doute sur un logiciel ? Demande au support avant de l'installer et garde la réponse écrite.</p>`],
+          <p><strong>Chez Winamax</strong> (règlement poker) : autorisés, les logiciels de suivi de tes statistiques, y compris des statistiques sur les adversaires collectées pendant ton propre jeu (HUD classique), et les tableaux de probabilités et de mains de départ ; interdits, les solveurs, les calculateurs d'ICM et d'équité, les logiciels de ranges dynamiques, certaines fonctions dynamiques de Hand2Note, les scripts de placement, les machines virtuelles et le data mining. Chaque room a sa propre liste, et toute étude avant ou après la session reste libre. Doute sur un logiciel ? Demande au support avant de l'installer et garde la réponse écrite.</p>`],
         ['La fiscalité', `<p>Principe : les gains de jeu d'un joueur occasionnel ne sont pas imposables, car ils dépendent du hasard. Le poker fait exception : pour le Conseil d'État (2018), les gains tirés d'une pratique <strong>habituelle</strong>, où le savoir-faire maîtrise l'aléa et qui rapporte des revenus significatifs, sont imposables en bénéfices non commerciaux (BNC), même si tu as un autre métier. Le module « Fiscalité et statut du pro » du niveau 6 détaille la suite.</p>`],
         ['Jeu responsable', `<p>Avant la première session, fixe dans le client des plafonds de dépôt et de perte. En général une baisse s'applique tout de suite et une hausse avec un délai : c'est voulu, pour te protéger d'un soir de tilt. Joueurs Info Service : 09 74 75 13 13, appel non surtaxé. L'auto-exclusion se demande auprès de l'ANJ et couvre tous les opérateurs.</p>`],
       ],
       mistakes: ['Jouer sur un site non agréé « parce que le bonus est meilleur »', 'Garder un tableau de ranges ouvert « juste pour vérifier »', 'Croire qu\'un HUD tiers est autorisé partout parce qu\'il l\'est sur une room'],
       keys: ['Uniquement les rooms agréées ANJ', 'Rien d\'autre que toi pendant une main', 'Les gains habituels et significatifs deviennent imposables en BNC'],
       quiz: [
-        ["Tu veux vérifier un spot dans un solveur pendant qu'une table est ouverte. C'est…", ['Autorisé si tu ne joues pas la main en cours', 'Interdit'], 1, "Les rooms sanctionnent l'aide pendant le jeu, et PokerStars interdit même d'avoir un solveur ou un chart ouvert avec le client. Note la main, étudie après."],
+        ["Tu veux vérifier un spot dans un solveur pendant qu'une table est ouverte. C'est…", ['Autorisé si tu ne joues pas la main en cours', 'Interdit'], 1, "Les rooms sanctionnent l'aide pendant le jeu ; Winamax cite explicitement les solveurs parmi les logiciels interdits. Note la main, étudie après."],
         ["Un site non agréé propose un meilleur bonus. Le risque principal ?", ['Le rake est plus élevé', 'Aucun recours si tes gains sont bloqués', 'Les joueurs y sont plus forts'], 1, "Hors agrément ANJ, rien ne garantit le paiement de tes gains."],
-        ["Le HUD intégré de Winamax pendant le jeu est…", ['Autorisé', 'Interdit'], 0, "Il est fourni par la room elle-même. Ce sont les HUD dynamiques de logiciels tiers qui sont interdits."],
+        ["Chez Winamax, un logiciel de suivi (HUD) qui n'affiche que des statistiques tirées des mains que tu as toi-même jouées est…", ['Autorisé', 'Interdit'], 0, "Le règlement autorise le stockage de tes statistiques et de celles des adversaires collectées pendant ton jeu ; il interdit le data mining et certaines fonctions dynamiques."],
         ["Selon le Conseil d'État, les gains de poker sont imposables quand…", ['Tu gagnes plus de 1 000 € dans l\'année', 'La pratique est habituelle, maîtrisée et rapporte des revenus significatifs', 'Tu joues en tournoi'], 1, "Le critère est l'habitude, le savoir-faire et l'importance des revenus, pas un montant fixe."],
       ],
     });
@@ -139,7 +139,7 @@
           <tr><td>Paire contre deux cartes supérieures</td><td>QQ contre AKo</td><td>57 % / 43 %</td></tr>
           <tr><td>Paire contre paire inférieure</td><td>JJ contre 55</td><td>80 % / 20 %</td></tr>
           <tr><td>Main dominée</td><td>AKo contre AQo</td><td>74 % / 26 %</td></tr>
-          <tr><td>Deux hautes contre deux basses</td><td>AKo contre 87s</td><td>59 % / 41 %</td></tr>
+          <tr><td>Deux hautes contre deux basses</td><td>AKo contre 87s</td><td>58,5 % / 41,5 %</td></tr>
           <tr><td>Petite paire contre deux hautes</td><td>22 contre AKo</td><td>53 % / 47 %</td></tr>
           <tr><td>AA contre la pire main</td><td>AA contre 72o</td><td>88 % / 12 %</td></tr></tbody></table>
           <p class="note">Valeurs de la matrice préflop de SIGMA 52 (moyenne sur les couleurs, effet de blocage inclus).</p>`],

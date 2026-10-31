@@ -64,14 +64,14 @@
           <tr><td>As-As-Roi-Roi double assortie contre une main aléatoire</td><td class="n">≈ 71 %</td></tr>
           <tr><td>As-As-Roi-Roi double assortie contre Valet-10-9-8 double assortie</td><td class="n">≈ 61 %</td></tr>
           <tr><td>Paire d'as « sèche » (A-A-7-2 dépareillée) contre une main aléatoire</td><td class="n">≈ 61 %</td></tr>
-          <tr><td>A-A-7-2 dépareillée contre Valet-10-9-8 assortie</td><td class="n">≈ 50 %</td></tr></tbody></table>
+          <tr><td>A-A-7-2 dépareillée contre Valet-10-9-8 double assortie</td><td class="n">≈ 50 % (54 % contre la version simple assortie)</td></tr></tbody></table>
           <p>À comparer au hold'em, où AA domine KK à 82 %. Conséquence : en PLO, la main de départ est un avantage modeste ; c'est le jeu après le flop qui fait la différence.</p>`],
         ['Bonnes mains de départ', `<ul><li><strong>Coordonnées</strong> : les 4 cartes travaillent ensemble (paires hautes, cartes connectées, couleurs). Ex. AAKK, AAJT, KQJT, JT98.</li>
           <li><strong>Double assortie</strong> &gt; simple assortie &gt; dépareillée. Les couleurs à l'as (« nut flush ») valent bien plus que les petites couleurs, souvent battues par une couleur supérieure.</li>
           <li>À éviter : trois ou quatre cartes de la même couleur (des outs perdus), brelan en main (une carte inutile), cartes éloignées sans lien (« danglers »), petites paires sans connexion.</li></ul>`],
         ['Jouer après le flop', `<ul><li><strong>Joue les nuts et les tirages aux nuts</strong>. Une deuxième couleur ou une suite basse perdent souvent de gros pots.</li>
           <li>Board apparié : un full est probable chez quelqu'un. Board à trois cartes d'une couleur : la couleur max est souvent présente dès qu'il y a plusieurs joueurs.</li>
-          <li>Les tirages ont souvent 13 à 20 outs (« wraps » : 4 cartes qui encadrent le board). Un brelan max au flop peut être à peine favori contre un gros tirage : vérifie dans l'outil Omaha (brelan de rois contre tirage couleur max : ≈ 55 %).</li>
+          <li>Les tirages ont souvent 13 à 20 outs (« wraps » : 4 cartes qui encadrent le board). Un brelan max au flop n'est pas toujours favori : sur K♥8♥3♣, K♠K♦7♣2♦ a ≈ 69 % contre A♥5♥Q♠J♦ (couleur max seule) ; sur K♥T♥9♣, il tombe à ≈ 36 % contre A♥Q♥J♠8♠ (couleur max et wrap). Vérifie tes propres spots dans l'outil Omaha.</li>
           <li>Les variances sont plus fortes qu'en hold'em : prévois une bankroll nettement plus large qu'en no-limit.</li></ul>`],
       ],
       mistakes: ['Utiliser une seule carte de sa main (ou trois) dans sa combinaison', 'Surestimer AA sèche préflop', 'Payer avec une couleur ou une suite qui ne sont pas les meilleures', 'Jouer trop de mains : quatre cartes donnent l\'impression que tout est jouable'],
@@ -80,7 +80,7 @@
         ['Board : Qh Jh 9h 3h 4s. Tu as Ah Ks 7d 2c. Ta main ?', ['Couleur max', 'Hauteur as, pas de couleur', 'Suite'], 1, 'Il faut deux cœurs en main pour faire couleur en Omaha.'],
         ['Pot de 10, l\'adversaire mise 10. Relance maximale (total) ?', ['20', '30', '40'], 2, 'Tu suis 10 (pot 30) puis tu relances de 30 : 40 au total.'],
         ['Quelle main de départ est la plus faible ?', ['KQJT double assortie', 'AAKK double assortie', '7-7-7-2 avec trois piques'], 2, 'Brelan en main et trois cartes de la même couleur : des cartes perdues.'],
-        ['AA sèche contre JT98 assortie avant le flop : équité environ ?', ['80 %', '65 %', '50 %'], 2, 'En PLO, les mains coordonnées rattrapent facilement une paire seule.'],
+        ['AA sèche contre JT98 double assortie avant le flop : équité environ ?', ['80 %', '65 %', '50 %'], 2, 'En PLO, les mains coordonnées rattrapent facilement une paire seule.'],
       ],
     });
 
@@ -94,10 +94,10 @@
           <li><strong>À plusieurs</strong> : resserre tout ; un adversaire de plus = moins de bluffs, plus de valeur requise.</li>
           <li><strong>Type d'adversaire</strong> : contre un joueur qui paie tout, pas de bluff et plus de valeur ; contre un joueur serré, crédite ses grosses mises.</li></ol>`],
         ['Les chiffres à connaître par cœur', `<table class="t"><thead><tr><th>Mise adverse</th><th class="n">Équité requise</th><th class="n">Outs ≈ sur une carte</th></tr></thead><tbody>
-          <tr><td>1/3 du pot</td><td class="n">20 %</td><td class="n">10</td></tr>
-          <tr><td>1/2 pot</td><td class="n">25 %</td><td class="n">12 à 13</td></tr>
-          <tr><td>2/3 du pot</td><td class="n">28,6 %</td><td class="n">14</td></tr>
-          <tr><td>Pot</td><td class="n">33,3 %</td><td class="n">17</td></tr></tbody></table>
+          <tr><td>1/3 du pot</td><td class="n">20 %</td><td class="n">9 à 10</td></tr>
+          <tr><td>1/2 pot</td><td class="n">25 %</td><td class="n">12</td></tr>
+          <tr><td>2/3 du pot</td><td class="n">28,6 %</td><td class="n">13 à 14</td></tr>
+          <tr><td>Pot</td><td class="n">33,3 %</td><td class="n">16</td></tr></tbody></table><p class="note">Outs nécessaires = équité requise × 46 ou 47 cartes inconnues (sans cotes implicites).</p>
           <p>Tirage couleur : 9 outs, ≈ 19 % sur une carte, 35 % sur deux. Suite deux bouts : 8 outs, 17 % et 31,5 %. Ventrale : 4 outs, 8,5 % et 16,5 %. Les cotes implicites (ce que tu gagneras en plus quand tu touches) permettent de payer un peu plus que la cote directe, surtout contre un joueur qui paie.</p>`],
         ['L\'outil Table live', `<p>Dans <em>Jouer › Table live</em> : tu tapes tes deux cartes (rang puis couleur, ou au clavier : <span class="mono">a s k h</span>), puis le board au fil de la main, et l'outil donne une décision avec ton équité contre une range estimée en une à quelques dizaines de millisecondes. Le mode discret assombrit l'écran et n'affiche que la décision. Le minuteur de blindes et la préparation de la partie (structure, jetons, places) sont dans le même onglet.</p>
           <div class="warnbox"><strong>Où c'est autorisé</strong> : uniquement dans une partie privée, sans argent ou avec l'accord explicite de tous les joueurs. Toute aide en temps réel est <strong>interdite</strong> en ligne, en casino, en club et en tournoi : exclusion, gains confisqués. Annonce l'outil à tes amis avant la partie ; mieux encore, mettez-le à disposition de tous.</div>`],
@@ -140,7 +140,7 @@
     });
 
     K.extend('eclair', { sections: [['Comment la Table live raisonne', `<ol><li><strong>Sa range de départ</strong> vient de son action avant le flop (ouverture, call, 3-bet) et de son type, à partir des charts.</li>
-      <li><strong>Chaque action la met à jour</strong> : un modèle appris sur des plusieurs millions de mains simulées donne, pour chaque type, la probabilité de checker, miser petit, moyen ou gros, payer ou relancer avec chaque catégorie de main. Une relance rend sa range bien plus forte ; un check répété la rend plus faible.</li>
+      <li><strong>Chaque action la met à jour</strong> : un modèle appris sur plusieurs millions de mains simulées donne, pour chaque type, la probabilité de checker, miser petit, moyen ou gros, payer ou relancer avec chaque catégorie de main. Une relance rend sa range bien plus forte ; un check répété la rend plus faible.</li>
       <li><strong>Ton équité</strong> est calculée main par main contre cette range (exacte au turn et à la river).</li>
       <li><strong>Chaque option est chiffrée</strong> : EV de check, des mises de 33 % à l'overbet, du call, de la relance et du tapis, avec la part de sa range qui se couche. La meilleure est affichée ; si deux options sont proches, l'outil le dit.</li></ol>
       <p>C'est un modèle d'exploitation sur la rue en cours, pas un solveur : il ne planifie pas les rues suivantes. Pour l'étude, envoie le spot au Solveur depuis la Table live.</p>`]], quiz: [

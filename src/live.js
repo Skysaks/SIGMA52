@@ -19,7 +19,7 @@
   const TYPES = {
     serre: { label: 'Serré', raise: 0.07, call: 0.16, keep: 'strong', bot: 'nit' },
     normal: { label: 'Normal', raise: 0.16, call: 0.3, keep: 'pair', bot: 'reg' },
-    large: { label: 'Large', raise: 0.28, call: 0.45, keep: 'pair', bot: 'mizrachi' },
+    large: { label: 'Large', raise: 0.28, call: 0.45, keep: 'pair', bot: 'lag_imprevisible' },
     fish: { label: 'Fish (paie tout)', raise: 0.1, call: 0.6, keep: 'any', bot: 'station' },
     maniaque: { label: 'Maniaque', raise: 0.45, call: 0.65, keep: 'wide', bot: 'maniaque' },
   };
@@ -681,7 +681,7 @@
 
 
   // ---------------- Adaptateur pour la table simulée : n'importe quel siège peut jouer avec ce moteur ----------------
-  const BOT_TYPE = { nit: 'serre', reg: 'normal', station: 'fish', maniaque: 'maniaque', mizrachi: 'large', action: 'action', prolive: 'normal', sigma: 'normal' };
+  const BOT_TYPE = { nit: 'serre', reg: 'normal', station: 'fish', maniaque: 'maniaque', lag_imprevisible: 'large', action: 'action', prolive: 'normal', sigma: 'normal' };
   const ORDER6 = ['SB', 'BB', 'UTG', 'HJ', 'CO', 'BTN'];
   function fromTable(tb, i, fast = true) {
     const L0 = tb.legal(), me = tb.players[i], bb = tb.bb, pos = TS.posName(tb, i);

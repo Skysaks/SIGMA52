@@ -162,7 +162,7 @@
           <li><strong>Au turn, après flop misé-payé, il checke</strong> : il abandonne souvent. Mise avec tes floats qui ont gardé de l'équité ou un bloqueur ; checke derrière avec tes mains d'abattage.</li></ul>`],
         ["Le plan sur trois rues", `<p>Avant de payer le flop, demande-toi : « Sur quelles turns je continue, sur lesquelles je mise s'il checke, sur lesquelles j'abandonne ? ». Un float sans plan devient un call perdu.</p>`],
         ["Exercices corrigés", ex([
-          ["BTN contre BB qui a 3-betté, tu as payé avec J♠T♠. Flop K♥7♠3♠, il mise un tiers du pot. Ton plan ?", "Payer : tirage couleur et deux backdoors. Relancer est possible en semi-bluff, mais avec un tiers du pot, payer garde ses bluffs dans sa range. Sur une turn pique, tu as une couleur ; sur un Q ou un 9, tu gagnes un tirage suite."],
+          ["BTN contre BB qui a 3-betté, tu as payé avec J♠T♠. Flop K♥7♠3♠, il mise un tiers du pot. Ton plan ?", "Payer : tirage couleur, plus un tirage suite par la porte de derrière. Relancer est possible en semi-bluff, mais avec un tiers du pot, payer garde ses bluffs dans sa range. Sur une turn pique, tu as une couleur ; sur un Q ou un 9, tu gagnes un tirage suite."],
           ["Il mise un tiers du pot. Quelle part de ta range dois-tu continuer pour ne pas le laisser bluffer gratuitement ?", "Alpha = 0,33 ÷ 1,33 ≈ 25 % : continue avec environ <strong>75 %</strong> de ta range."],
           ["Flop Q♦8♣3♥, il checke. Tu as 6♣6♦. Mise ou check ?", "Check derrière le plus souvent : 66 a de la valeur d'abattage, une mise fait coucher les mains plus faibles et payer les plus fortes. Exception : contre un joueur qui abandonne tout au turn, une petite mise de protection se défend."],
         ])],
@@ -245,7 +245,7 @@
         ["Après le flop : petit et souvent", `<p>Ranges serrées et SPR bas : le 4-bettor mise souvent <strong>petit</strong> (environ un tiers du pot) au flop. La petite mise suffit pour engager le tapis sur trois rues, protège contre les overcards et garde les bluffs dans la range adverse. Sur les flops bas (8-5-2), le caller de la 4-bet a plus de paires moyennes : le 4-bettor checke plus souvent.</p>`],
         ["Face à une 5-bet à tapis", `<p>Tu 4-bettes à 22 bb, l'adversaire part à tapis à 100 bb (blindes hors du coup). Pot final si tu paies : 100 + 100 + 1,5 = 201,5 bb ; tu paies 78 bb. Il te faut 78 ÷ 201,5 ≈ <strong>38,7 %</strong> d'équité.</p>
           <div class="tw"><table class="t"><thead><tr><th>A♥K♦ contre…</th><th class="n">Équité</th></tr></thead><tbody>
-          <tr><td>QQ+, AKs</td><td class="n">33,4 %</td></tr><tr><td>QQ+, AK</td><td class="n">38,9 %</td></tr><tr><td>JJ+, AK, A5s, A4s</td><td class="n">45,2 %</td></tr></tbody></table></div>
+          <tr><td>QQ+, AKs</td><td class="n">33,3 %</td></tr><tr><td>QQ+, AK</td><td class="n">38,9 %</td></tr><tr><td>JJ+, AK, A5s, A4s</td><td class="n">45,2 %</td></tr></tbody></table></div>
           <p>Contre une range de 5-bet très serrée, AK est juste à l'équilibre ; dès que l'adversaire y met des bluffs ou JJ, le call devient clair. <strong>Tes bluffs de 4-bet, eux, se couchent</strong> face à la 5-bet : c'est leur rôle.</p>`],
         ["Exercices corrigés", ex([
           ["BTN ouvre 2,5 bb, BB 3-bette à 11 bb, BTN 4-bette à 25 bb, BB paie. Pot et SPR à 100 bb ?", "Pot = 25 + 25 = <strong>50 bb</strong> (la SB a couché ses 0,5 bb : pot 50,5). Tapis restants 75 bb. SPR ≈ 75 ÷ 50,5 ≈ <strong>1,5</strong>."],

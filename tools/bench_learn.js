@@ -39,7 +39,7 @@ function run(lineup, mode, seed) {
   }
   return +((tb.session.net / tb.session.hands) * 100).toFixed(1);
 }
-const LINEUPS = { mixte: ['station', 'reg', 'maniaque', 'station', 'nit'], fish: ['station', 'station', 'action', 'reg', 'station'], agressive: ['maniaque', 'mizrachi', 'reg', 'maniaque', 'reg'] };
+const LINEUPS = { mixte: ['station', 'reg', 'maniaque', 'station', 'nit'], fish: ['station', 'station', 'action', 'reg', 'station'], agressive: ['maniaque', 'lag_imprevisible', 'reg', 'maniaque', 'reg'] };
 const out = {};
 for (const [k, lu] of Object.entries(LINEUPS)) { out[k] = { aveugle: run(lu, 'aveugle', SEED), apprend: run(lu, 'apprend', SEED), connu: run(lu, 'connu', SEED) }; console.log(k, JSON.stringify(out[k])); }
 console.log(JSON.stringify(out));

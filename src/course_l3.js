@@ -61,9 +61,9 @@
           <p>Elle répartit le tapis pour qu'il soit entièrement engagé à la river en misant la même fraction du pot à chaque rue. Pot relancé simple (6,5 bb) avec 97,5 bb de tapis et 3 rues : environ 107 % du pot à chaque rue. Moralité : pour mettre 100 bb en jeu en trois mises, il faut des mises de la taille du pot, pas des tiers.</p>`],
         ['Overbet, block bet, donk', `<ul>
           <li><strong>Overbet</strong> (plus que le pot) : avantage de nuts net et adversaire plafonné. Exemple : river qui complète une couleur que seul ton profil peut avoir.</li>
-          <li><strong>Block bet</strong> (petite mise hors de position) : fixer le prix de la river avec une main moyenne, plutôt que de faire face à une grosse mise. Contre les régulièrs agressifs, ils relancent ; contre un fish, c'est souvent juste une value bet trop petite.</li>
+          <li><strong>Block bet</strong> (petite mise hors de position) : fixer le prix de la river avec une main moyenne, plutôt que de faire face à une grosse mise. Contre les réguliers agressifs, ils relancent ; contre un fish, c'est souvent juste une value bet trop petite.</li>
           <li><strong>Donk bet</strong> (miser dans le relanceur, hors de position) : utile quand la carte favorise nettement ta range (turn qui complète tes suites). Chez un récréatif, c'est souvent une main moyenne ou un tirage.</li></ul>`],
-        ['Exemple', `<p>Tu as 8♥ 8♣ sur 8♠ 6♦ 2♣ (pot relancé simple, 97,5 bb derrière) contre une calling station. Mise géométrique : environ 7 bb au flop, 22 bb au turn, 69 bb à la river : tout le tapis sans jamais miser plus que le pot. Trois petites mises de 33 % n'auraient engagé que 20 bb.</p>`],
+        ['Exemple', `<p>Tu as 8♥ 8♣ sur 8♠ 6♦ 2♣ (pot relancé simple de 6,5 bb, 97,5 bb derrière) contre une calling station. Mise géométrique : environ 7 bb au flop, 22 bb au turn, 69 bb à la river, soit 107 % du pot à chaque rue : tout le tapis en trois mises à peine plus grosses que le pot. Trois mises d'un tiers du pot n'auraient engagé qu'environ 12 bb.</p>`],
       ],
       mistakes: ['Une seule taille de mise pour tout', 'Value bet petit contre un joueur qui paie gros', 'Overbet avec une range qui n\'a pas les nuts'],
       keys: ['Petite mise = range large ; grosse mise = range polarisée', 'Pour un tapis en 3 rues : environ des mises pot', 'Contre un fish : la taille qu\'il paie avec pire'],
@@ -86,7 +86,7 @@
         ['Main complète', `<p>NL25. Un régulier UTG ouvre, tu paies au bouton avec A♥ J♥. Flop J♣ 8♦ 3♠ : il mise 33 %, tu paies. Turn 2♥ : il mise 66 %, tu paies. River K♦ : il mise 100 %.</p>
           <ul><li><strong>Préflop</strong> : range UTG ≈ 22+, A2s+, K9s+, QTs+, JTs, T9s, 98s, AJo+, KQo.</li>
           <li><strong>Flop + turn</strong> (deux mises) : surtout valeur (JJ, 88, 33, AA-QQ, AJ, KJs, QJs) et quelques tirages (T9s, QTs).</li>
-          <li><strong>River K</strong> : sa valeur gagne AK (12 combos moins ceux qui auraient checké), KK (3 après blocage), KJ, AA, QQ. Ses bluffs : T9s et QTs ratés, environ 8 combos, contre plus de 20 combos de valeur.</li>
+          <li><strong>River K</strong> : sa valeur gagne AK (9 combos : ton as et le roi du board en retirent, moins ceux qui auraient checké), KK (3 après blocage), KJ, AA, QQ. Ses bluffs : T9s et QTs ratés, environ 8 combos, contre plus de 20 combos de valeur.</li>
           <li>Il te faut 33 %. Ses bluffs pèsent moins d'un tiers de sa range de mise, et un régulier UTG ne bluffe pas tous ses tirages ratés : <strong>fold</strong>.</li></ul>`],
         ['Les raccourcis qui trompent', `<ul><li>« Il ne peut pas avoir ça » : vérifie avec les combos, pas avec l'intuition.</li><li>« Il me bluffe toujours » : sur combien de mains l'as-tu vu ?</li><li>« Mon As bloque » : un bloqueur change quelques combos, pas une décision entière.</li></ul>`],
       ],
@@ -142,7 +142,7 @@
       id: 'expresso', level: 3, title: 'Expresso et Spin : stratégie à 3', minutes: 12, drill: 'pushfold',
       goals: ['Comprendre l\'économie du format', 'Jouer les phases à 3 et en tête-à-tête', 'Savoir pourquoi la variance est extrême'],
       sections: [
-        ['L\'économie du format', `<p>Trois joueurs, tapis courts, niveaux rapides, gain multiplié tiré au sort avant la partie. Le rake est intégré dans la grille des multiplicateurs : le prize pool moyen est inférieur à la somme des buy-ins. Ton edge doit couvrir ce prélèvement. En 2025, selon l'ANJ, les Sit&Go (dont ces formats) pèsent 68 % du poker en ligne français : c'est là que sont les récréatifs venus des paris sportifs.</p>`],
+        ['L\'économie du format', `<p>Trois joueurs, tapis courts, niveaux rapides, gain multiplié tiré au sort avant la partie. Le rake est intégré dans la grille des multiplicateurs : le prize pool moyen est inférieur à la somme des buy-ins. Ton edge doit couvrir ce prélèvement. En 2025, selon l'ANJ, les Sit&Go (dont ces formats) pèsent 68 % du poker en ligne français : c'est le format qui attire le plus de joueurs loisir.</p>`],
         ['La partie à 3', `<ul><li>Profondeur de départ courte : le jeu postflop compte peu, le préflop décide presque tout.</li><li>Bouton : ouvre large, en mini-relance ou tapis selon la profondeur.</li><li>SB contre BB : c'est le duel du solveur push/fold. Entraîne-toi jusqu'à 90 %.</li><li>Contre les récréatifs qui paient trop : pousse moins de bluffs, élargis tes calls de valeur.</li></ul>`],
         ['Le tête-à-tête', `<p>Le bouton est la SB. Sous 12 bb, joue les tableaux de Nash (Outils → Push/Fold, mode en jetons). Au-dessus, relances petites et beaucoup de flops : l'adversaire récréatif joue mal postflop, profite-en.</p>`],
         ['La variance', `<p>Le multiplicateur rend chaque résultat très dispersé : la plupart des parties rapportent le petit multiplicateur, quelques-unes beaucoup plus. Il faut des milliers de parties pour juger un résultat. Bankroll : au moins 100 buy-ins, et une échelle de limites prudente.</p>`],

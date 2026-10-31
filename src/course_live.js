@@ -42,7 +42,7 @@
       id: 'live_regles', level: 5, title: 'Règles et procédure en salle : ce qui engage, ce qui coûte', drill: 'situations',
       goals: ['Connaître les règles de procédure qui créent le plus de litiges', 'Ne jamais perdre un pot sur une erreur de procédure', 'Savoir appeler le floor et faire valoir ses droits'],
       sections: [
-        ['Le cadre', `<p>Les tournois suivent en général les règles de la <strong>Poker TDA</strong> (Tournament Directors Association), révisées tous les deux ans (édition 2024, sommet de 2026). Le cash game suit les règles maison, presque toujours proches. En cas de doute, la décision appartient au floor : demande-le calmement (« Floor, s'il vous plaît »).</p>`],
+        ['Le cadre', `<p>Les tournois suivent en général les règles de la <strong>Poker TDA</strong> (Tournament Directors Association), révisées lors de sommets réguliers (règles 2024, mises à jour au sommet de juillet 2026). Le cash game suit les règles maison, presque toujours proches. En cas de doute, la décision appartient au floor : demande-le calmement (« Floor, s'il vous plaît »).</p>`],
         ['Ce qui engage', `<ul><li><strong>Annonce verbale à ton tour</strong> : elle engage. « Je suis » = call, même si tu poses un autre montant.</li>
           <li><strong>Action hors tour</strong> : elle peut te pénaliser ; elle t'engage si l'action qui te revient n'a pas changé. Un check, un call ou un fold devant toi ne change pas l'action ; une mise ou une relance la change. Un fold hors tour est toujours définitif.</li>
           <li><strong>Jetons lâchés dans le pot à ton tour</strong> : ils y restent.</li></ul>`],
@@ -50,7 +50,7 @@
           <tr><td>Un seul gros jeton face à une mise, sans annonce</td><td>C'est un <strong>call</strong>. Pour relancer, annonce « relance » avant que le jeton touche la table.</td></tr>
           <tr><td>Plusieurs jetons face à une mise, sans annonce</td><td>Call si retirer un seul jeton laisse moins que le montant à payer.</td></tr>
           <tr><td>Relance en plusieurs allers-retours (« string bet »)</td><td>Interdite : seul le premier mouvement compte (souvent un call).</td></tr>
-          <tr><td>Montant de relance minimum</td><td>Au moins la plus grosse mise ou relance précédente du tour. Si tu mets au moins 50 % de la relance minimum, tu dois compléter au minimum.</td></tr>
+          <tr><td>Montant de relance minimum</td><td>Au moins la plus grosse mise ou relance précédente du tour. Si ta relance (au-delà du call) atteint au moins la moitié de la dernière mise ou relance sans atteindre le minimum, tu dois compléter au minimum ; en dessous, c'est un call.</td></tr>
           <tr><td>Tapis court qui ne fait pas une relance complète</td><td>Il ne rouvre pas les relances pour les joueurs qui ont déjà agi.</td></tr>
           <tr><td>Tapis (règles 2026)</td><td>Tous tes jetons ou aucun : pas de jeton gardé derrière ; dis au croupier si tu n'es pas à tapis.</td></tr></tbody></table>
           <p>Méthode infaillible : annonce le montant (« relance à 40 ») puis pose les jetons.</p>`],
