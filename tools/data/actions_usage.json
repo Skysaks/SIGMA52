@@ -1,7 +1,7 @@
 {
  "2026-10": {
-  "minutes": 745,
-  "runs": 1,
+  "minutes": 1505,
+  "runs": 2,
   "note": "premier calcul de la bibliothèque (13 jobs), mesuré sur les check-runs"
  }
 }
