@@ -1,0 +1,84 @@
+# Calcul de la bibliothèque de flops sur les machines de GitHub : un job par scénario (tous en parallèle),
+# deux parts par job (une par cœur), puis un job d'assemblage qui fusionne, reconstruit la page et pousse le résultat.
+# Déclenchement : modification de tools/library_queue.json poussée sur main, ou bouton « Run workflow » (onglet Actions).
+# Reprise : chaque job dépose ses flops même s'il est interrompu ; un nouveau lancement ne recalcule jamais un flop déjà résolu.
+name: Bibliothèque de flops
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [tools/library_queue.json]
+permissions:
+  contents: write
+concurrency:
+  group: flop-library
+  cancel-in-progress: false
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      scenarios: ${{ steps.q.outputs.scenarios }}
+      flops: ${{ steps.q.outputs.flops }}
+      maxit: ${{ steps.q.outputs.maxit }}
+      target: ${{ steps.q.outputs.target }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: q
+        run: |
+          node -e "const q=require('./tools/library_queue.json');const o=require('fs').createWriteStream(process.env.GITHUB_OUTPUT,{flags:'a'});o.write('scenarios='+JSON.stringify(q.scenarios)+'\nflops='+q.flops+'\nmaxit='+q.maxit+'\ntarget='+q.target+'\n');o.end()"
+  solve:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    strategy:
+      fail-fast: false
+      matrix:
+        scenario: ${{ fromJson(needs.plan.outputs.scenarios) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Résoudre (une part par cœur)
+        run: |
+          N=$(nproc); echo "$N cœurs"
+          for k in $(seq 0 $((N-1))); do
+            SHARD=$k/$N MAXIT=${{ needs.plan.outputs.maxit }} node tools/build_aggregate.js ${{ needs.plan.outputs.flops }} 600 '' ${{ matrix.scenario }} 16x10 ${{ needs.plan.outputs.target }} > part$k.log 2>&1 &
+          done
+          wait
+          tail -n 3 part*.log
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lib-${{ matrix.scenario }}
+          path: tools/data/lib_${{ matrix.scenario }}.part*.json
+          if-no-files-found: ignore
+          retention-days: 30
+  assemble:
+    needs: solve
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: lib-*
+          merge-multiple: true
+          path: tools/data
+      - name: Fusionner, assembler, reconstruire la page
+        run: |
+          node tools/build_aggregate.js 0 0 assemblelib
+          ./build.sh
+          node -e "const L=require('./src/flop_library.js');console.log(L.scenarios.map(s=>s.id+':'+s.flops.length).join(' '))"
+      - name: Pousser le résultat
+        run: |
+          git config user.name "Florian Iglesias"
+          git config user.email "florian.iglesias@protonmail.com"
+          git add -A tools/data src/flop_library.js src/aggregate_data.js sigma52.html SIGMA52-hors-ligne.html
+          git diff --cached --quiet && { echo "rien de nouveau"; exit 0; }
+          git commit -m "Bibliothèque de flops : calcul GitHub Actions du $(date -u +%F)"
+          for i in 1 2 3 4 5; do git pull --rebase -X theirs origin main && git push origin HEAD:main && exit 0; sleep 10; done
+          exit 1

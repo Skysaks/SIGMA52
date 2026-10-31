@@ -34,8 +34,14 @@ const groups = new Map();
 for (const f of flops) { const g = `${f.tags.high}|${f.tags.suits}|${f.tags.paired === 'non pairé' ? 'np' : 'p'}`; if (!groups.has(g)) groups.set(g, []); groups.get(g).push(f); }
 const total = 22100, gl = [...groups].map(([g, L]) => ({ g, L, w: L.reduce((a, f) => a + f.w, 0) }));
 gl.forEach((x) => (x.q = Math.max(1, Math.round((x.w / total) * NF))));
-let rng = E.rng(52); const pick = [];
-for (const x of gl) { const L = x.L.slice().sort(() => rng() - 0.5); for (let i = 0; i < Math.min(x.q, L.length); i++) pick.push({ ...L[i], gw: x.w / Math.min(x.q, L.length) }); }
+let rng = E.rng(52); const pick0 = [];
+for (const x of gl) { const L = x.L.slice().sort(() => rng() - 0.5), sel = []; for (let i = 0; i < Math.min(x.q, L.length); i++) sel.push({ ...L[i], gw: x.w / Math.min(x.q, L.length) }); pick0.push(sel); }
+// Ordre tourniquet : un flop de chaque groupe de texture, puis le deuxième, etc. Un calcul interrompu couvre déjà toutes les textures.
+// (Les listes mélangées ne dépendent pas du nombre de flops demandé : passer de 45 à 90 flops réutilise tous les flops déjà résolus.)
+const pick = []; for (let r = 0; pick0.some((sel) => sel.length > r); r++) for (const sel of pick0.slice().sort((a, b) => b.length - a.length)) if (sel[r]) pick.push(sel[r]);
+// Parts : SHARD=k/N ne résout qu'un flop sur N (calcul réparti sur plusieurs cœurs ou machines), écrit lib_<scénario>.part<k>.json.
+if (process.env.PRINTPICK) { console.log(JSON.stringify(pick.map((f) => f.cards.map(E.cardStr).join('') + '|' + f.tags.high + '|' + f.tags.suits + '|' + f.tags.paired))); process.exit(0); }
+const [SHK, SHN] = (process.env.SHARD || '0/1').split('/').map(Number), MAXIT = +(process.env.MAXIT || 0);
 console.log(flops.length, 'flops distincts ;', pick.length, 'résolus');
 // ---- Spot ----
 const CALL3_BTN = 'JJ-55, AQs-A6s, KQs-K9s, QJs-Q9s, JTs, J9s, T9s, 98s, 87s, 76s, AQo-ATo, KQo, KJo';
@@ -65,16 +71,21 @@ const CATS = ['Deux paires et mieux', 'Top paire, overpair', 'Paire moyenne ou f
 const catOf = (h, board) => { const k = B.classify(h, board); return k.made <= 7 ? 0 : k.made <= 9 ? 1 : k.made <= 11 ? 2 : k.draws.some((d) => d <= 1) ? 3 : 4; };
 const out = [];
 // Reprise : une bibliothèque interrompue repart des flops déjà résolus.
-if (LIB && !ONLY) { const f = path.join(__dirname, 'data/lib_' + SCID + '.json'); if (fs.existsSync(f)) { const prev = JSON.parse(fs.readFileSync(f, 'utf8')); if (prev.sample === SMP.join('x')) out.push(...prev.flops); } }
+const OUTF = path.join(__dirname, 'data/' + (LIB ? 'lib_' : 'agg_') + SCID + (SHN > 1 ? '.part' + SHK : '') + '.json');
+const readLib = (f) => { if (!fs.existsSync(f)) return []; const prev = JSON.parse(fs.readFileSync(f, 'utf8')); return prev.sample === SMP.join('x') ? prev.flops : []; };
+if (LIB && !ONLY) out.push(...readLib(OUTF));
+// Flops déjà résolus ailleurs (fichier principal ou autres parts) : sautés, jamais recalculés.
 const done = new Set(out.map((f) => f.b));
+if (LIB && !ONLY) for (const f of [path.join(__dirname, 'data/lib_' + SCID + '.json'), ...fs.readdirSync(path.join(__dirname, 'data')).filter((x) => x.startsWith('lib_' + SCID + '.part')).map((x) => path.join(__dirname, 'data', x))]) if (f !== OUTF) for (const x of readLib(f)) done.add(x.b);
 const t00 = Date.now();
-for (const f of pick) {
+for (const [pi, f] of pick.entries()) {
+  if (pi % SHN !== SHK) continue;
   const board = f.cards.slice(), str = board.map(E.cardStr).join('');
   if (ONLY && ONLY !== '1' && str !== ONLY) continue;
   if (done.has(str)) continue;
   const g = PF.create({ board, pot: SC.pot, stack: SC.stack, ranges: [ra, rb], sizes, maxRaises: 1, sample: { turn: SMP[0], river: SMP[1] } });
   const t0 = Date.now(); let ex = null, it = 0;
-  while (true) { g.iterate(1); it++; if (it % 15 === 0) { ex = g.exploitability(); if (ex.pct <= TARGET || (Date.now() - t0) / 1000 > MAXS) break; } }
+  while (true) { g.iterate(1); it++; if (it % 15 === 0) { ex = g.exploitability(); if (ex.pct <= TARGET || (MAXIT ? it >= MAXIT : (Date.now() - t0) / 1000 > MAXS)) break; } }
   // Nœud étudié : le joueur en position après le check (pot simple), ou le premier à parler (3-bettor hors de position).
   const root = g.info([]), ck = root.node.acts.findIndex((a) => a.k === 'x');
   const path1 = SC.actor === 'ip' ? [ck] : [];
@@ -90,7 +101,7 @@ for (const f of pick) {
     cat: byCat.map((x) => [+(x.w / tw).toFixed(3), x.w > 0 ? +(x.bet / x.w).toFixed(3) : null]), bb: { act: l2, f: n2.freq.map((x) => +x.toFixed(3)) }, ex: +ex.pct.toFixed(2), it, s: Math.round((Date.now() - t0) / 1000), ...(LIB ? { lib: { n1: classStrat(g, n1), n2: classStrat(g, n2) } } : {}) });
   console.log(out.length + '/' + pick.length, str, labels.join('/'), n1.freq.map((x) => (x * 100).toFixed(0)).join('/'), 'expl', ex.pct.toFixed(2) + '%', it + ' it', Math.round((Date.now() - t0) / 1000) + ' s');
   if (ONLY === '1') break;
-  if (!ONLY) { fs.mkdirSync(path.join(__dirname, 'data'), { recursive: true }); fs.writeFileSync(path.join(__dirname, 'data/' + (LIB ? 'lib_' : 'agg_') + SCID + '.json'), JSON.stringify({ id: SCID, spot: SC.spot, title: SC.title, actor: SC.actor, resp: SC.resp, cats: CATS, flops: out, total: flops.length, sample: SMP.join('x'), built: new Date().toISOString().slice(0, 10) })); if (!LIB) assemble(); else assembleLib(); }
+  if (!ONLY) { fs.mkdirSync(path.join(__dirname, 'data'), { recursive: true }); fs.writeFileSync(OUTF, JSON.stringify({ id: SCID, spot: SC.spot, title: SC.title, actor: SC.actor, resp: SC.resp, cats: CATS, flops: out, total: flops.length, sample: SMP.join('x'), built: new Date().toISOString().slice(0, 10) })); if (!LIB) assemble(); else if (SHN === 1) assembleLib(); }
 }
 console.log('total', Math.round((Date.now() - t00) / 1000), 's');
 
@@ -110,9 +121,24 @@ function assemble() {
   fs.writeFileSync(out, '// Généré par tools/build_aggregate.js : rapports agrégés (flop 33 % / 75 %, turn et river simplifiés à 75 %).\n(function (root) { const D = ' + JSON.stringify(D) + ";\n  if (typeof module !== 'undefined' && module.exports) module.exports = D; else root.AggregateData = D; })(typeof window !== 'undefined' ? window : globalThis);\n");
 }
 // Bibliothèque : stratégies par classe de mains (nœud étudié et réponse à la petite mise) ; le rapport agrégé est reconstruit avec ces solves plus précis.
+// Fusionne les parts (lib_<scénario>.part<k>.json) dans lib_<scénario>.json, sans doublon, puis les supprime.
+function mergeParts() {
+  const dir = path.join(__dirname, 'data');
+  for (const id of Object.keys(SCENS)) {
+    const parts = fs.readdirSync(dir).filter((x) => x.startsWith('lib_' + id + '.part') && x.endsWith('.json')); if (!parts.length) continue;
+    const main = path.join(dir, 'lib_' + id + '.json'), base = fs.existsSync(main) ? JSON.parse(fs.readFileSync(main, 'utf8')) : null, seen = new Set(), flops = [];
+    let meta = base;
+    for (const f of [main, ...parts.map((x) => path.join(dir, x))]) { if (!fs.existsSync(f)) continue; const j = JSON.parse(fs.readFileSync(f, 'utf8')); if (!meta) meta = j; if (j.sample !== meta.sample) continue; for (const x of j.flops) if (!seen.has(x.b)) { seen.add(x.b); flops.push(x); } }
+    fs.writeFileSync(main, JSON.stringify({ ...meta, flops, built: new Date().toISOString().slice(0, 10) }));
+    for (const x of parts) fs.unlinkSync(path.join(dir, x));
+    console.log('fusion', id, flops.length, 'flops');
+  }
+}
 function assembleLib() {
+  mergeParts();
   const dir = path.join(__dirname, 'data'), list = [];
-  for (const id of Object.keys(SCENS)) { const f = path.join(dir, 'lib_' + id + '.json'); if (fs.existsSync(f)) list.push(JSON.parse(fs.readFileSync(f, 'utf8'))); }
+  // Un scénario n'entre dans la bibliothèque qu'à partir de 15 flops (l'ordre tourniquet couvre alors chaque grande famille de texture).
+  for (const id of Object.keys(SCENS)) { const f = path.join(dir, 'lib_' + id + '.json'); if (fs.existsSync(f)) { const j = JSON.parse(fs.readFileSync(f, 'utf8')); if (j.flops.length >= 15) list.push(j); } }
   const L = { alph: ALPH, scenarios: list.map((x) => ({ id: x.id, sample: x.sample, actor: x.actor, flops: x.flops.map((f) => ({ b: f.b, ex: f.ex, n1: f.lib.n1, n2: f.lib.n2 })) })) };
   fs.writeFileSync(path.join(__dirname, '../src/flop_library.js'), '// Généré par tools/build_aggregate.js : bibliothèque de flops résolus hors ligne (stratégies par classe de mains).\n(function (root) { const L = ' + JSON.stringify(L) + ";\n  if (typeof module !== 'undefined' && module.exports) module.exports = L; else root.FlopLibrary = L; })(typeof window !== 'undefined' ? window : globalThis);\n");
   // Rapport agrégé reconstruit à partir des solves de la bibliothèque (mêmes champs, précision supérieure).
@@ -122,3 +148,4 @@ function assembleLib() {
 }
 if (ONLY === 'assemble') assemble();
 if (ONLY === 'assemblelib') assembleLib();
+if (ONLY === 'merge') mergeParts();

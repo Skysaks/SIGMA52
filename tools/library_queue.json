@@ -1,0 +1,7 @@
+{
+  "note": "File d'attente du calcul de la bibliothèque sur GitHub Actions. Modifier ce fichier (ou cliquer « Run workflow ») relance le calcul ; les flops déjà résolus ne sont jamais recalculés.",
+  "flops": 90,
+  "maxit": 180,
+  "target": 0.5,
+  "scenarios": ["srp-HJ-BB", "srp-SB-BB", "srp-UTG-BTN", "srp-HJ-BTN", "srp-CO-BTN", "srp-HJ-CO", "3bp-CO-BB", "3bp-HJ-BTN", "3bp-UTG-BTN", "3bp-SB-BB", "srp-CO-BB", "3bp-BTN-SB", "3bp-CO-BTN"]
+}
