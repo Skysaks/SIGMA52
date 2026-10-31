@@ -32,8 +32,9 @@ const SHOTS = process.env.SHOTS || '';
 
     // Cours : quelques modules et leurs quiz
     await tab('cours');
-    if ((await p.locator('.mod').count()) !== 92) errs.push(name + ' modules ' + (await p.locator('.mod').count()));
-    for (let i = 0; i < 92; i++) { await p.locator('.mod').nth(i).click(); await over('module ' + i); await p.click('[data-act=closemod]'); }
+    const window_MODS = await p.evaluate(() => window.Course.MODULES.length);
+    if ((await p.locator('.mod').count()) !== window_MODS) errs.push(name + ' modules ' + (await p.locator('.mod').count()));
+    for (let i = 0; i < window_MODS; i++) { await p.locator('.mod').nth(i).click(); await over('module ' + i); await p.click('[data-act=closemod]'); }
     for (const i of [0, 5, 20, 30, 38, 91]) {
       await p.locator('.mod').nth(i).click(); await over('module ' + i);
       const nq = await p.locator('[data-act=qans][data-i="0"]').count();

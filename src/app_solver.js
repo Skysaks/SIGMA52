@@ -226,7 +226,11 @@
     const r = cards.map((y) => y >> 2).sort((a, b) => b - a), sp = suitPat(cards), pp = pairPat(cards);
     let best = null, bd = Infinity;
     for (const x of list) { if (x.sp !== sp || x.pp !== pp) continue; const d = 2 * Math.abs(x.r[0] - r[0]) + Math.abs(x.r[1] - r[1]) + Math.abs(x.r[2] - r[2]); if (d < bd) { bd = d; best = x; } }
-    return best ? { ...best, exact: false, dist: bd } : null;
+    if (best) return { ...best, exact: false, dist: bd };
+    // Aucune texture identique résolue (scénario encore partiel) : flop le plus proche avec pénalité de texture, signalé comme tel.
+    const SPD = { mono: { bi: 6, rainbow: 10 }, bi: { mono: 6, rainbow: 4 }, rainbow: { mono: 10, bi: 4 } };
+    for (const x of list) { const d = 2 * Math.abs(x.r[0] - r[0]) + Math.abs(x.r[1] - r[1]) + Math.abs(x.r[2] - r[2]) + (x.sp === sp ? 0 : SPD[sp][x.sp]) + (x.pp === pp ? 0 : 8); if (d < bd) { bd = d; best = x; } }
+    return best ? { ...best, exact: false, relaxed: true, dist: bd } : null;
   }
   const LIBK = { x: 'x', c: 'x', f: 'f', a: 'a' };
   function libGrid(n, alph) {
@@ -243,8 +247,8 @@
     const which = sv.libNode === 'n2' ? 'n2' : 'n1', n = m.f[which], G = libGrid(n, L.alph);
     const sc0 = L.scenarios.find((x) => x.id === sv.scen);
     const title = which === 'n1' ? (sc0.actor === 'ip' ? `${sv.names[1]} après le check` : `${sv.names[0]} premier à parler`) : 'Réponse à la petite mise';
-    return `<details class="panel" ${sv.libOpen !== false ? 'open' : ''}><summary data-act="svlibtog"><strong>Bibliothèque : réponse immédiate</strong> <span class="note">${m.exact ? 'flop identique (à l\'isomorphisme de couleurs près)' : `flop le plus proche : <span class="mono">${esc(m.f.b)}</span>, même texture`}</span></summary>
-      <p class="note">Solve hors ligne (tirages ${esc(sc0.sample)}, exploitabilité ${fr(m.f.ex, 2)} % du pot), ranges et tailles par défaut du scénario : flop 33 % et 75 %, turn et river à 75 %.${dflt ? '' : ' <strong>Tes ranges diffèrent des ranges par défaut : lance un solve pour ton spot exact.</strong>'}${m.exact ? '' : ' Flop voisin : à lire comme une tendance.'}</p>
+    return `<details class="panel" ${sv.libOpen !== false ? 'open' : ''}><summary data-act="svlibtog"><strong>Bibliothèque : réponse immédiate</strong> <span class="note">${m.exact ? 'flop identique (à l\'isomorphisme de couleurs près)' : `flop le plus proche : <span class="mono">${esc(m.f.b)}</span>, ${m.relaxed ? '<strong>texture différente</strong>' : 'même texture'}`}</span></summary>
+      <p class="note">Solve hors ligne (tirages ${esc(sc0.sample)}, exploitabilité ${fr(m.f.ex, 2)} % du pot), ranges et tailles par défaut du scénario : flop 33 % et 75 %, turn et river à 75 %.${dflt ? '' : ' <strong>Tes ranges diffèrent des ranges par défaut : lance un solve pour ton spot exact.</strong>'}${m.exact ? '' : m.relaxed ? ' Aucun flop de cette texture n\'est encore résolu pour ce scénario : tendance très approximative, lance un solve pour ton flop.' : ' Flop voisin : à lire comme une tendance.'}</p>
       <div class="row"><button class="chip" data-act="svlibn" data-v="n1" aria-pressed="${which === 'n1'}">${esc(sc0.actor === 'ip' ? 'Après le check' : 'Premier à parler')}</button><button class="chip" data-act="svlibn" data-v="n2" aria-pressed="${which === 'n2'}">Réponse à la petite mise</button></div>
       <p class="note"><strong>${esc(title)}</strong> : ${n.act.map((l, a) => `<i class="mini-sw" style="background:var(--act-${G.cls[a]})"></i> ${esc(l)} ${pct(G.freq[a], 0)}`).join(' · ')}</p>
       ${G.html}</details>`;
