@@ -32,6 +32,9 @@
     return L;
   }
   const SCEN = scenarios();
+  // Situations étendues (pots 4-bet, autres profondeurs, tournoi) : ranges pondérées du solveur préflop (src/scen_ext.js).
+  if (window.ScenExt && window.PreflopData) for (const x of window.ScenExt.build(window.PreflopData)) SCEN.push({ id: x.id, label: x.label.replace(/^[^·]+· /, ''), type: x.type, agg: x.agg, a: x.a, b: x.b, ra: x.ra, rb: x.rb, pot: x.pot, stack: x.stack, ext: true, note: x.note });
+  const SCTYPES = [...new Set(SCEN.map((s) => s.type))];
   // OOP = celui qui parle en premier après le flop.
   const seatsOf = (sc) => (ORDER.indexOf(sc.a) < ORDER.indexOf(sc.b) ? [[sc.a, sc.ra], [sc.b, sc.rb]] : [[sc.b, sc.rb], [sc.a, sc.ra]]);
 
@@ -70,7 +73,7 @@
     const sc = SCEN.find((s) => s.id === id); if (!sc) return;
     const [o, i] = seatsOf(sc);
     sv.scen = id; sv.agg = sc.agg === o[0] ? 0 : 1; sv.names = [o[0], i[0]]; sv.r = [o[1], i[1]]; sv.pot = sc.pot; sv.stack = sc.stack;
-    sv.sizes = presetSizes(sv.preset, sc.agg === o[0] ? 0 : 1, E.parseCards(sv.board).length); sv.sizesCustom = false; sv.maxRaises = PRESETS[sv.preset].maxRaises; sv.note = '';
+    sv.sizes = presetSizes(sv.preset, sc.agg === o[0] ? 0 : 1, E.parseCards(sv.board).length); sv.sizesCustom = false; sv.maxRaises = PRESETS[sv.preset].maxRaises; sv.note = sc.ext ? `Ranges pondérées du solveur préflop (${sc.note}). Pot ${String(sc.pot).replace('.', ',')} bb, tapis ${String(sc.stack).replace('.', ',')} bb.` : '';
   }
   applyScenario(sv.scen);
   const aggIdx = () => sv.agg ?? 1;
@@ -300,7 +303,7 @@
   }
   function solveHTML() {
     const sc = SCEN.find((s) => s.id === sv.scen), g = sv.game;
-    const scOpts = ['Pot simple', 'Pot 3-bet'].map((t) => `<optgroup label="${t}">${SCEN.filter((s) => s.type === t).map((s) => `<option value="${s.id}"${s.id === sv.scen ? ' selected' : ''}>${esc(s.label)}</option>`).join('')}</optgroup>`).join('') + `<option value="custom"${!sc ? ' selected' : ''}>Personnalisé / main importée</option>`;
+    const scOpts = SCTYPES.map((t) => `<optgroup label="${t}">${SCEN.filter((s) => s.type === t).map((s) => `<option value="${s.id}"${s.id === sv.scen ? ' selected' : ''}>${esc(s.label)}</option>`).join('')}</optgroup>`).join('') + `<option value="custom"${!sc ? ' selected' : ''}>Personnalisé / main importée</option>`;
     const sizeRows = ST.map((st) => `<tr><th>${st}</th>${[0, 1].map((p) => `<td><input class="mono" data-svsz="${st}.${p}.bet" value="${esc(sv.sizes[st][p].bet)}" aria-label="Mises ${st} ${sv.names[p]}" placeholder="aucune"></td><td><input class="mono" data-svsz="${st}.${p}.raise" value="${esc(sv.sizes[st][p].raise)}" aria-label="Relances ${st} ${sv.names[p]}" placeholder="aucune"></td>`).join('')}</tr>`).join('');
     const setup = `<section class="panel">
       <div class="form">
@@ -878,7 +881,7 @@
   function onDemandHTML() {
     const pool = window.PFPool, w = pool ? pool.workers() : 0, est = Math.ceil((od.n * 11) / Math.max(1, w || 1) / 60);
     return `<section class="panel"><span class="eyebrow">Rapport à la demande</span><h2>Ton spot, tes tailles, ta profondeur</h2>
-      <label class="f">Spot préflop<select data-od="scen">${['Pot simple', 'Pot 3-bet'].map((t) => `<optgroup label="${t}">${SCEN.filter((x) => x.type === t).map((x) => `<option value="${x.id}"${x.id === od.scen ? ' selected' : ''}>${esc(x.label)}</option>`).join('')}</optgroup>`).join('')}</select></label>
+      <label class="f">Spot préflop<select data-od="scen">${SCTYPES.map((t) => `<optgroup label="${t}">${SCEN.filter((x) => x.type === t).map((x) => `<option value="${x.id}"${x.id === od.scen ? ' selected' : ''}>${esc(x.label)}</option>`).join('')}</optgroup>`).join('')}</select></label>
       <div class="row"><span class="note">Tailles de l'agresseur au flop :</span>${Object.entries(FLOPSIZES).map(([k, [, l]]) => `<button class="chip" aria-pressed="${od.size === k}" data-act="odsize" data-v="${k}">${l}</button>`).join('')}</div>
       <div class="row"><span class="note">Profondeur :</span>${[40, 100, 150].map((d) => `<button class="chip" aria-pressed="${od.depth === d}" data-act="oddepth" data-v="${d}">${d} bb</button>`).join('')}<span class="note">Flops :</span>${[12, 24, 48].map((n) => `<button class="chip" aria-pressed="${od.n === n}" data-act="odn" data-v="${n}">${n}</button>`).join('')}</div>
       <div class="row">${od.running ? '<button class="btn" data-act="odstop">Arrêter et afficher</button>' : '<button class="btn primary" data-act="odgo">Calculer le rapport</button>'}<span class="note">≈ ${est} min avec ${w || 1} fil${w > 1 ? 's' : ''} de calcul (environ 11 s par flop et par fil).</span></div>

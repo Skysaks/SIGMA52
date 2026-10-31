@@ -1,10 +1,14 @@
-# Calcul de la bibliothèque de flops sur les machines de GitHub : un job par scénario (tous en parallèle),
-# deux parts par job (une par cœur), puis un job d'assemblage qui fusionne, reconstruit la page et pousse le résultat.
-# Déclenchement : modification de tools/library_queue.json poussée sur main, ou bouton « Run workflow » (onglet Actions).
-# Reprise : chaque job dépose ses flops même s'il est interrompu ; un nouveau lancement ne recalcule jamais un flop déjà résolu.
-name: Bibliothèque de flops
+# Calculs sur les machines de GitHub, dans un budget de minutes : bibliothèque de flops (toutes situations, palier par palier)
+# et entraînement du modèle de la Table live. tools/plan_queue.js répartit le budget du lancement (tools/library_queue.json) ;
+# chaque job s'arrête à son échéance et dépose ce qu'il a calculé ; le job d'assemblage fusionne, compte les minutes consommées,
+# reconstruit la page et pousse le résultat sur main.
+# Déclenchement : chaque nuit (reprend là où le calcul s'est arrêté, tant que le budget du mois n'est pas atteint), modification
+# de tools/library_queue.json poussée sur main, ou bouton « Run workflow » (onglet Actions). Rien n'est jamais recalculé.
+name: Bibliothèque de flops et Table live
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '17 2 * * *'
   push:
     branches: [main]
     paths: [tools/library_queue.json]
@@ -16,48 +20,100 @@ concurrency:
 jobs:
   plan:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
-      scenarios: ${{ steps.q.outputs.scenarios }}
-      flops: ${{ steps.q.outputs.flops }}
+      matrix: ${{ steps.q.outputs.matrix }}
+      has_lib: ${{ steps.q.outputs.has_lib }}
+      live: ${{ steps.q.outputs.live }}
+      has_live: ${{ steps.q.outputs.has_live }}
+      live_hands: ${{ steps.q.outputs.live_hands }}
+      job_minutes: ${{ steps.q.outputs.job_minutes }}
       maxit: ${{ steps.q.outputs.maxit }}
       target: ${{ steps.q.outputs.target }}
-    steps:
-      - uses: actions/checkout@v4
-      - id: q
-        run: |
-          node -e "const q=require('./tools/library_queue.json');const o=require('fs').createWriteStream(process.env.GITHUB_OUTPUT,{flags:'a'});o.write('scenarios='+JSON.stringify(q.scenarios)+'\nflops='+q.flops+'\nmaxit='+q.maxit+'\ntarget='+q.target+'\n');o.end()"
-  solve:
-    needs: plan
-    runs-on: ubuntu-latest
-    timeout-minutes: 330
-    strategy:
-      fail-fast: false
-      matrix:
-        scenario: ${{ fromJson(needs.plan.outputs.scenarios) }}
+      sample: ${{ steps.q.outputs.sample }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Résoudre (une part par cœur)
+      - id: q
+        run: node tools/plan_queue.js
+  solve:
+    needs: plan
+    if: needs.plan.outputs.has_lib == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        job: ${{ fromJson(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Résoudre jusqu'à l'échéance (une part par cœur)
+        env:
+          SCEN: ${{ matrix.job.scen }}
+          K: ${{ matrix.job.k }}
+          N: ${{ matrix.job.n }}
+          NF: ${{ matrix.job.nf }}
         run: |
-          N=$(nproc); echo "$N cœurs"
-          for k in $(seq 0 $((N-1))); do
-            SHARD=$k/$N MAXIT=${{ needs.plan.outputs.maxit }} node tools/build_aggregate.js ${{ needs.plan.outputs.flops }} 600 '' ${{ matrix.scenario }} 16x10 ${{ needs.plan.outputs.target }} > part$k.log 2>&1 &
+          T0=$(date +%s); C=$(nproc); echo "$C cœurs, $SCEN, part $K/$N, palier $NF"
+          export DEADLINE=$(( (T0 + ${{ needs.plan.outputs.job_minutes }} * 60) * 1000 )) MAXIT=${{ needs.plan.outputs.maxit }}
+          for i in $(seq 0 $((C-1))); do
+            SHARD=$((K*C+i))/$((N*C)) node tools/build_aggregate.js $NF 600 '' $SCEN ${{ needs.plan.outputs.sample }} ${{ needs.plan.outputs.target }} > part$i.log 2>&1 &
           done
           wait
-          tail -n 3 part*.log
+          tail -n 2 part*.log
+          node -e "const fs=require('fs'),d='tools/data';let n=0,t=0;for(const f of fs.readdirSync(d).filter(x=>x.startsWith('lib_'+process.env.SCEN+'.part')))for(const x of JSON.parse(fs.readFileSync(d+'/'+f)).flops){n++;t+=x.s||0}fs.writeFileSync(d+'/run_'+process.env.SCEN+'_'+process.env.K+'.json',JSON.stringify({seconds:Math.round(Date.now()/1000)-$T0+60,flops:{[process.env.SCEN]:{n,t}}}));console.log(n,'flops')"
       - if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: lib-${{ matrix.scenario }}
-          path: tools/data/lib_${{ matrix.scenario }}.part*.json
+          name: lib-${{ matrix.job.scen }}-${{ matrix.job.k }}
+          path: |
+            tools/data/lib_${{ matrix.job.scen }}.part*.json
+            tools/data/run_*.json
+          if-no-files-found: ignore
+          retention-days: 30
+  live:
+    needs: plan
+    if: needs.plan.outputs.has_live == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        job: ${{ fromJson(needs.plan.outputs.live) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Entraîner le modèle de la Table live (un lot par cœur, graines uniques)
+        run: |
+          T0=$(date +%s); C=$(nproc)
+          for i in $(seq 0 $((C-1))); do
+            SEED=$((2000000 + (${{ github.run_number }} * 50 + ${{ matrix.job }} * 2 + i) * 1000))   # 252 graines consommées par lot : espacement de 1 000
+            node tools/train_live.js ${{ needs.plan.outputs.live_hands }} '' $SEED tools/data/live_part_${{ matrix.job }}_$i.json > live$i.log 2>&1 &
+          done
+          wait
+          tail -n 2 live*.log
+          echo "{\"seconds\":$(( $(date +%s) - T0 + 60 ))}" > tools/data/run_live_${{ matrix.job }}.json
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-${{ matrix.job }}
+          path: |
+            tools/data/live_part_*.json
+            tools/data/run_*.json
           if-no-files-found: ignore
           retention-days: 30
   assemble:
-    needs: solve
-    if: always()
+    needs: [plan, solve, live]
+    if: always() && (needs.plan.outputs.has_lib == 'true' || needs.plan.outputs.has_live == 'true')
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -65,20 +121,27 @@ jobs:
           node-version: 22
       - uses: actions/download-artifact@v4
         with:
-          pattern: lib-*
           merge-multiple: true
           path: tools/data
-      - name: Fusionner, assembler, reconstruire la page
+      - name: Fusionner la bibliothèque et le modèle, compter les minutes
         run: |
           node tools/build_aggregate.js 0 0 assemblelib
-          ./build.sh
-          node -e "const L=require('./src/flop_library.js');console.log(L.scenarios.map(s=>s.id+':'+s.flops.length).join(' '))"
-      - name: Pousser le résultat
+          ls tools/data/live_part_*.json >/dev/null 2>&1 && { node tools/merge_live.js tools/data/live_part_*.json && rm -f tools/data/live_part_*.json; } || echo "pas de lot Table live"
+          node tools/record_run.js tools/data 6
+          node -e "const L=require('./src/flop_library.js');console.log(L.scenarios.length+' scénarios, '+L.scenarios.reduce((a,s)=>a+s.flops.length,0)+' flops');console.log(L.scenarios.map(s=>s.id+':'+s.flops.length).join(' '))"
+      - name: Pousser les données, puis reconstruire la page sur la dernière version du code
         run: |
           git config user.name "Florian Iglesias"
           git config user.email "florian.iglesias@protonmail.com"
-          git add -A tools/data src/flop_library.js src/aggregate_data.js sigma52.html SIGMA52-hors-ligne.html
+          git add -A tools/data src/flop_library.js src/aggregate_data.js src/live_model.js
           git diff --cached --quiet && { echo "rien de nouveau"; exit 0; }
-          git commit -m "Bibliothèque de flops : calcul GitHub Actions du $(date -u +%F)"
-          for i in 1 2 3 4 5; do git pull --rebase -X theirs origin main && git push origin HEAD:main && exit 0; sleep 10; done
+          git commit -m "Calcul GitHub du $(date -u +%F) : bibliothèque de flops et Table live"
+          for i in 1 2 3 4 5; do
+            git pull --rebase -X theirs origin main || { sleep 10; continue; }
+            ./build.sh
+            git add sigma52.html SIGMA52-hors-ligne.html
+            git diff --cached --quiet || git commit -m "Reconstruction de la page après le calcul GitHub du $(date -u +%F)"
+            git push origin HEAD:main && exit 0
+            sleep 10
+          done
           exit 1

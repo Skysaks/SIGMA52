@@ -1,0 +1,70 @@
+{
+ "3bp-BTN-BB": {
+  "sec": 65,
+  "n": 91
+ },
+ "3bp-BTN-SB": {
+  "sec": 79,
+  "n": 91
+ },
+ "3bp-CO-BB": {
+  "sec": 32,
+  "n": 91
+ },
+ "3bp-CO-BTN": {
+  "sec": 45,
+  "n": 91
+ },
+ "3bp-HJ-BTN": {
+  "sec": 17,
+  "n": 91
+ },
+ "3bp-SB-BB": {
+  "sec": 41,
+  "n": 91
+ },
+ "3bp-UTG-BTN": {
+  "sec": 12,
+  "n": 91
+ },
+ "srp-BTN-BB": {
+  "sec": 76,
+  "n": 91
+ },
+ "srp-CO-BB": {
+  "sec": 92,
+  "n": 91
+ },
+ "srp-CO-BTN": {
+  "sec": 156,
+  "n": 91
+ },
+ "srp-HJ-BB": {
+  "sec": 78,
+  "n": 91
+ },
+ "srp-HJ-BTN": {
+  "sec": 68,
+  "n": 91
+ },
+ "srp-HJ-CO": {
+  "sec": 102,
+  "n": 91
+ },
+ "srp-SB-BB": {
+  "sec": 303,
+  "n": 91
+ },
+ "srp-UTG-BB": {
+  "sec": 72,
+  "n": 91
+ },
+ "srp-UTG-BTN": {
+  "sec": 95,
+  "n": 91
+ },
+ "4bp-BTN-BB": {
+  "sec": 8,
+  "n": 56
+ }
+}

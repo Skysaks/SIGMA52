@@ -42,6 +42,7 @@ const pick = []; for (let r = 0; pick0.some((sel) => sel.length > r); r++) for (
 // Parts : SHARD=k/N ne résout qu'un flop sur N (calcul réparti sur plusieurs cœurs ou machines), écrit lib_<scénario>.part<k>.json.
 if (process.env.PRINTPICK) { console.log(JSON.stringify(pick.map((f) => f.cards.map(E.cardStr).join('') + '|' + f.tags.high + '|' + f.tags.suits + '|' + f.tags.paired))); process.exit(0); }
 const [SHK, SHN] = (process.env.SHARD || '0/1').split('/').map(Number), MAXIT = +(process.env.MAXIT || 0);
+const DEADLINE = +(process.env.DEADLINE || 0); let nDone = 0, tSum = 0;
 console.log(flops.length, 'flops distincts ;', pick.length, 'résolus');
 // ---- Spot ----
 const CALL3_BTN = 'JJ-55, AQs-A6s, KQs-K9s, QJs-Q9s, JTs, J9s, T9s, 98s, 87s, 76s, AQo-ATo, KQo, KJo';
@@ -64,6 +65,10 @@ const SCENS = {
     mk(`3bp-${x}-${y}`, x, y, y, CALL3[x], C.FACING[x][y].threebet, pot, 100 - size, `${y} 3-bet contre ${x}, pot 3-bet, 100 bb`);
   }
 })();
+// Scénarios étendus (src/scen_ext.js) : pots 4-bet, pot limpé, autres profondeurs, tournoi ; ranges pondérées du solveur préflop.
+const SX = require('../src/scen_ext.js'), EXT = SX.build(require('../src/preflop_data.js'));
+for (const s of EXT) { const r = SX.roles(s); SCENS[s.id] = { spot: s.spot, title: r.title, actor: r.actor, oop: r.oR, ipr: r.iR, pot: s.pot, stack: s.stack, resp: r.resp, ext: true }; }
+if (process.env.LISTSCENS) { console.log(JSON.stringify(Object.keys(SCENS))); process.exit(0); }
 const SC = SCENS[SCID]; if (!SC) { console.error('scénario inconnu', SCID); process.exit(1); }
 const ra = SC.oop, rb = SC.ipr; // index 0 = hors de position, 1 = en position
 const sizes = { flop: [{ bet: SC.actor === 'oop' ? '33 75' : '', raise: '60' }, { bet: '33 75', raise: '60' }], turn: [{ bet: '75', raise: '' }, { bet: '75', raise: '' }], river: [{ bet: '75', raise: '' }, { bet: '75', raise: '' }] };
@@ -83,6 +88,8 @@ for (const [pi, f] of pick.entries()) {
   const board = f.cards.slice(), str = board.map(E.cardStr).join('');
   if (ONLY && ONLY !== '1' && str !== ONLY) continue;
   if (done.has(str)) continue;
+  // Échéance (DEADLINE, ms epoch) : on ne commence pas un flop qui finirait après ; durée estimée = moyenne des flops de ce lot.
+  if (DEADLINE && Date.now() + (nDone ? tSum / nDone : 60000) * 1.2 > DEADLINE) { console.log('échéance atteinte'); break; }
   const g = PF.create({ board, pot: SC.pot, stack: SC.stack, ranges: [ra, rb], sizes, maxRaises: 1, sample: { turn: SMP[0], river: SMP[1] } });
   const t0 = Date.now(); let ex = null, it = 0;
   while (true) { g.iterate(1); it++; if (it % 15 === 0) { ex = g.exploitability(); if (ex.pct <= TARGET || (MAXIT ? it >= MAXIT : (Date.now() - t0) / 1000 > MAXS)) break; } }
@@ -99,6 +106,7 @@ for (const [pi, f] of pick.entries()) {
   const n2 = g.info([...path1, small]), l2 = n2.node.acts.map((_, a) => g.label(n2.node, a));
   out.push({ b: str, w: f.gw, t: f.tags, act: labels, f: n1.freq.map((x) => +x.toFixed(3)), eq: +n1.eqMean[p].toFixed(3), ev: +((n1.evMean[p]) / SC.pot).toFixed(3),
     cat: byCat.map((x) => [+(x.w / tw).toFixed(3), x.w > 0 ? +(x.bet / x.w).toFixed(3) : null]), bb: { act: l2, f: n2.freq.map((x) => +x.toFixed(3)) }, ex: +ex.pct.toFixed(2), it, s: Math.round((Date.now() - t0) / 1000), ...(LIB ? { lib: { n1: classStrat(g, n1), n2: classStrat(g, n2) } } : {}) });
+  nDone++; tSum += Date.now() - t0;
   console.log(out.length + '/' + pick.length, str, labels.join('/'), n1.freq.map((x) => (x * 100).toFixed(0)).join('/'), 'expl', ex.pct.toFixed(2) + '%', it + ' it', Math.round((Date.now() - t0) / 1000) + ' s');
   if (ONLY === '1') break;
   if (!ONLY) { fs.mkdirSync(path.join(__dirname, 'data'), { recursive: true }); fs.writeFileSync(OUTF, JSON.stringify({ id: SCID, spot: SC.spot, title: SC.title, actor: SC.actor, resp: SC.resp, cats: CATS, flops: out, total: flops.length, sample: SMP.join('x'), built: new Date().toISOString().slice(0, 10) })); if (!LIB) assemble(); else if (SHN === 1) assembleLib(); }
@@ -139,6 +147,10 @@ function assembleLib() {
   const dir = path.join(__dirname, 'data'), list = [];
   // Un scénario n'entre dans la bibliothèque qu'à partir de 15 flops (l'ordre tourniquet couvre alors chaque grande famille de texture).
   for (const id of Object.keys(SCENS)) { const f = path.join(dir, 'lib_' + id + '.json'); if (fs.existsSync(f)) { const j = JSON.parse(fs.readFileSync(f, 'utf8')); if (j.flops.length >= 15) list.push(j); } }
+  // Poids d'échantillonnage recalculés sur l'ensemble des flops résolus (les lots successifs ont été tirés avec des tailles différentes) :
+  // poids du groupe de texture ÷ nombre de flops résolus dans ce groupe.
+  const gW = new Map(gl.map((x) => [x.g, x.w]));
+  for (const x of list) { const cnt = new Map(); const key = (f) => `${f.t.high}|${f.t.suits}|${f.t.paired === 'non pairé' ? 'np' : 'p'}`; for (const f of x.flops) cnt.set(key(f), (cnt.get(key(f)) || 0) + 1); for (const f of x.flops) f.w = +(gW.get(key(f)) / cnt.get(key(f))).toFixed(3); }
   const L = { alph: ALPH, scenarios: list.map((x) => ({ id: x.id, sample: x.sample, actor: x.actor, flops: x.flops.map((f) => ({ b: f.b, ex: f.ex, n1: f.lib.n1, n2: f.lib.n2 })) })) };
   fs.writeFileSync(path.join(__dirname, '../src/flop_library.js'), '// Généré par tools/build_aggregate.js : bibliothèque de flops résolus hors ligne (stratégies par classe de mains).\n(function (root) { const L = ' + JSON.stringify(L) + ";\n  if (typeof module !== 'undefined' && module.exports) module.exports = L; else root.FlopLibrary = L; })(typeof window !== 'undefined' ? window : globalThis);\n");
   // Rapport agrégé reconstruit à partir des solves de la bibliothèque (mêmes champs, précision supérieure).
