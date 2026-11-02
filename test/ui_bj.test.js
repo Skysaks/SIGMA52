@@ -16,7 +16,7 @@ const path = require('path'), fs = require('fs');
     const go = async (t) => { await p.evaluate((x) => window.__S52.go(x), t); await p.waitForTimeout(120); };
     // Espace présent dans la navigation.
     if (!(await p.locator('[data-group=blackjack]').count())) errs.push(name + ' espace Blackjack absent');
-    for (const t of ['bj', 'bjcours', 'bjstrat', 'bjentr', 'bjcompte', 'bjsys', 'bjtable', 'bjbank', 'bjmaths', 'bjjournal']) {
+    for (const t of ['bj', 'bjcours', 'bjstrat', 'bjentr', 'bjcompte', 'bjsys', 'bjtable', 'bjbank', 'bjsim', 'bjadv', 'bjmaths', 'bjjournal']) {
       await go(t); const h = await p.locator('#view h1').first().textContent().catch(() => '');
       if (!h) errs.push(name + ' ' + t + ' sans titre'); await over(t); await shot(t);
     }
@@ -112,8 +112,10 @@ const path = require('path'), fs = require('fs');
     const lz = await p.evaluate(() => { const A = window.__S52.BJAPP; return A.tagOf(A.sysOf(), A.cd.cards[51]); });
     await p.click(`[data-act=bjlast][data-v="${lz}"]`); await p.waitForTimeout(40);
     if (!(await p.locator('.verdict.good').count())) errs.push(name + ' paquet chrono Zen refusé');
-    await go('bjtable');
+    await go('bjtable'); await p.click('[data-act=bjspots][data-v="2"]').catch(() => p.evaluate(() => { window.__S52.BJAPP.getTbl().spots = 2; }));
+    let saw2 = false;
     for (let h = 0; h < 12; h++) {
+      saw2 = saw2 || (await p.evaluate(() => window.__S52.BJAPP.getTbl().hands.some((x) => x.spot === 1)));
       for (let guard = 0; guard < 20; guard++) {
         const ph = await p.evaluate(() => { const t = window.__S52.BJAPP.getTbl(); return t.ask ? 'ask' : t.phase; });
         if (ph === 'ask') { const rc2 = await p.evaluate(() => window.__S52.BJAPP.getTbl().rc); await p.fill('#bjtrc input', String(rc2)); await p.press('#bjtrc input', 'Enter'); continue; }
@@ -125,6 +127,24 @@ const path = require('path'), fs = require('fs');
     }
     const zs = await p.evaluate(() => window.__S52.BJAPP.getTbl().sess);
     if (zs.err) errs.push(name + ' table Zen : ' + zs.err + ' erreurs en jouant la recommandation');
+    if (!saw2) errs.push(name + ' table : deuxième main jamais distribuée');
+    await over('table 2 mains'); await shot('table2');
+    // Techniques : étude de suivi, partie de coupe, calculateur d'équipe.
+    await go('bjadv'); await p.click('[data-act=bjtrkstudy]'); await p.waitForTimeout(200);
+    const tr = await p.evaluate(() => window.__S52.BJAPP.tq.res);
+    if (!tr || !(tr.corr > 0.3)) errs.push(name + ' suivi de mélange : corrélation ' + (tr && tr.corr));
+    await p.click('[data-act=bjtrknew]'); await p.waitForTimeout(80); await p.locator('[data-act=bjtrkpick]').first().click(); await p.waitForTimeout(60);
+    if ((await p.evaluate(() => window.__S52.BJAPP.tq.score.n)) !== 1) errs.push(name + ' coupe : choix non compté');
+    const tx = await p.locator('#view').innerText(); if (/NaN|undefined/.test(tx)) errs.push(name + ' techniques : valeur cassée');
+    await over('techniques'); await shot('techniques');
+    // Simulateur : petite simulation en travailleurs, deux mains.
+    await go('bjsim'); await p.evaluate(() => { const c = window.__S52.BJAPP.sm.cfg; c.hands = 400000; c.spots = 2; });
+    await p.click('[data-act=bjsmrun]');
+    await p.waitForFunction(() => window.__S52.BJAPP.sm.res, null, { timeout: 180000 }).catch(() => errs.push(name + ' simulateur sans résultat'));
+    const sr = await p.evaluate(() => window.__S52.BJAPP.sm.res);
+    if (!sr || sr.hands < 400000) errs.push(name + ' simulateur : ' + (sr && sr.hands) + ' tours');
+    const sx = await p.locator('#view').innerText(); if (/NaN|undefined/.test(sx)) errs.push(name + ' simulateur : valeur cassée');
+    await over('simulateur'); await shot('simulateur');
     if (zs.cnt && zs.cntOk !== zs.cnt) errs.push(name + ' table Zen : contrôle de compte faux');
     await go('bjmaths');
     await p.click('[data-act=bjmtrand]'); await p.click('[data-act=bjmtexact]'); await p.waitForTimeout(100);

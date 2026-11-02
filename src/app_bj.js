@@ -5,7 +5,7 @@
   const X = window.__S52, BJ = window.BJ, D = window.BJDATA, K = window.BJCourse, FS = window.FSRS, CT = window.BJCounts;
   if (!X || !BJ || !D || !K || !CT) return;
   const { $, esc, fr, eur, pct, today, addDays, state, Store, render, go, head, cardHTML, backHTML, VIEWS, AFTER, ACT, ONCHANGE, ONINPUT, ONKEY, TABS, GROUPS, drawLines } = X;
-  const TB = [['bj', 'Séance BJ'], ['bjcours', 'Cours BJ'], ['bjstrat', 'Stratégie'], ['bjentr', 'Entraîneur'], ['bjcompte', 'Comptage'], ['bjsys', 'Systèmes'], ['bjtable', 'Table BJ'], ['bjbank', 'Bankroll BJ'], ['bjmaths', 'Maths BJ'], ['bjjournal', 'Journal BJ']];
+  const TB = [['bj', 'Séance BJ'], ['bjcours', 'Cours BJ'], ['bjstrat', 'Stratégie'], ['bjentr', 'Entraîneur'], ['bjcompte', 'Comptage'], ['bjsys', 'Systèmes'], ['bjtable', 'Table BJ'], ['bjbank', 'Bankroll BJ'], ['bjsim', 'Simulateur'], ['bjadv', 'Techniques'], ['bjmaths', 'Maths BJ'], ['bjjournal', 'Journal BJ']];
   TABS.push(...TB);
   GROUPS.push(['blackjack', 'Blackjack', TB.map((t) => t[0])]);
   if (X.ICON) X.ICON.blackjack = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="10" height="14" rx="2"/><rect x="10.5" y="3" width="10" height="14" rx="2"/><path d="M13.5 8.5h3.5l-2.2 5.5"/></svg>';
@@ -189,7 +189,7 @@
   // Cours
   // =====================================================================
   let openMod = null, qAns = {};
-  const CX = { D, BJ, CT };
+  const CX = { D, BJ, CT, Shuffle: window.BJShuffle };
   VIEWS.bjcours = () => {
     const b = P();
     if (openMod) {
@@ -626,10 +626,10 @@
     }
     t.betTC = tc;
     t.oth = []; for (let i = 0; i < t.others; i++) t.oth.push({ cards: [] });
-    t.hands = [{ cards: [], bet: t.bet, done: false, split: false }]; t.cur = 0; t.dealer = []; t.holeUp = false;
+    t.nsp = t.spots || 1; t.hands = Array.from({ length: t.nsp }, (_, k) => ({ cards: [], bet: t.bet, done: false, split: false, spot: k })); t.cur = 0; t.dealer = []; t.holeUp = false;
     for (let round = 0; round < 2; round++) {
       for (const o of t.oth) o.cards.push(tDraw(t));
-      t.hands[0].cards.push(tDraw(t));
+      for (const h of t.hands) h.cards.push(tDraw(t));
       if (round === 0) t.dealer.push(tDraw(t)); else if (t.rules.peek) t.dealer.push(tDraw(t, false));
     }
     t.phase = 'play'; t.insTaken = null;
@@ -640,19 +640,20 @@
   function tblAfterIns() {
     const t = tbl, up = val(t.dealer[0]);
     if (t.rules.peek && (up === 1 || up === 10) && isBJ(t.dealer)) { t.holeUp = true; reveal(t, t.dealer[1]); for (const o of t.oth) void o; return tblSettle(); }
-    if (isBJ(t.hands[0].cards)) { t.hands[0].done = true; }
+    for (const h of t.hands) if (isBJ(h.cards)) h.done = true;
     // Les autres joueurs (assis avant toi) jouent la stratégie de base.
     for (const o of t.oth) { while (!isBJ(o.cards)) { const h = handOf(o.cards); const row = rowOf(o.cards, false), a = row && row !== 'soft12' && t.G.table[row] ? recommend(t.G, row, up, { stand: true, hit: true, double: o.cards.length === 2 && t.G.table[row][up].ev.double !== undefined, split: false, surrender: false }, null) : h.t < 17 ? 'hit' : 'stand'; if (h.t >= 21 || a === 'stand' || a === 'surrender') break; o.cards.push(tDraw(t)); if (a === 'double') break; } }
-    t.phase = t.hands[0].done ? 'dealer' : 'play';
+    while (t.cur < t.hands.length && t.hands[t.cur].done) t.cur++;
+    t.phase = t.cur >= t.hands.length ? 'dealer' : 'play';
     if (t.phase === 'dealer') tblDealer();
     else tblMaybeAskCount();
   }
   function tblMaybeAskCount() { const t = tbl; if (t.mode !== 'free' && rnd() < 0.12) t.ask = { at: 'play' }; }
   function availFor(t, h) {
-    const cs = h.cards, two = cs.length === 2, hh = handOf(cs), r = t.rules, nH = t.hands.length;
+    const cs = h.cards, two = cs.length === 2, hh = handOf(cs), r = t.rules, nH = t.hands.filter((x) => x.spot === h.spot).length;
     const pair = two && val(cs[0]) === val(cs[1]), canSplit = pair && nH < r.maxHands && (val(cs[0]) !== 1 || !h.split || r.rsa);
     const dOk = two && (r.double === 'any' || (!hh.soft && (r.double === '9-11' ? hh.t >= 9 && hh.t <= 11 : hh.t >= 10 && hh.t <= 11))) && (!h.split || r.das);
-    return { stand: true, hit: !(h.aces && !r.hsa), double: dOk && !(h.aces && !r.hsa), split: canSplit, surrender: two && !h.split && nH === 1 && r.surrender && r.peek };
+    return { stand: true, hit: !(h.aces && !r.hsa), double: dOk && !(h.aces && !r.hsa), split: canSplit, surrender: two && !h.split && r.surrender && r.peek };
   }
   function tblRecommend(t, h) {
     const up = val(t.dealer[0]), avail = availFor(t, h), row = rowOf(h.cards, avail.split), tc = t.bal ? tcOf(t) : null;
@@ -687,7 +688,7 @@
     else if (a === 'split') {
       const c2 = h.cards.pop(), aces = val(c2) === 1;
       h.split = true; h.aces = aces; h.cards.push(tDraw(t));
-      t.hands.splice(t.cur + 1, 0, { cards: [c2, tDraw(t)], bet: h.bet, done: false, split: true, aces });
+      t.hands.splice(t.cur + 1, 0, { cards: [c2, tDraw(t)], bet: h.bet, done: false, split: true, aces, spot: h.spot });
       if (aces && !t.rules.hsa) { h.done = true; t.hands[t.cur + 1].done = true; }
     }
     if (handOf(h.cards).t >= 21) h.done = true;
@@ -703,7 +704,7 @@
     if (t.rules.peek) { t.holeUp = true; reveal(t, t.dealer[1]); } else { t.dealer.push(tDraw(t)); t.holeUp = true; }
     const live = t.hands.some((h) => !h.surr && handOf(h.cards).t <= 21) || t.oth.some((o) => handOf(o.cards).t <= 21);
     const dBJ = isBJ(t.dealer);
-    if (!dBJ && live && !(t.hands.length === 1 && isBJ(t.hands[0].cards) && !t.oth.length)) {
+    if (!dBJ && live && !(t.hands.every((h) => isBJ(h.cards) && !h.split) && !t.oth.length)) {
       for (;;) { const h = handOf(t.dealer); if (h.t > 17 || (h.t === 17 && !(t.rules.h17 && h.soft))) break; t.dealer.push(tDraw(t)); }
     }
     tblSettle();
@@ -711,14 +712,14 @@
   function tblSettle() {
     const t = tbl, b = P(), d = handOf(t.dealer), dBJ = isBJ(t.dealer);
     if (!t.holeUp) { t.holeUp = true; if (t.rules.peek) reveal(t, t.dealer[1]); }
-    let net = 0, obo = false;
-    if (t.insTaken) net += dBJ ? t.bet : -t.bet / 2;
+    let net = 0, obo = null;
+    if (t.insTaken) net += (dBJ ? t.bet : -t.bet / 2) * (t.nsp || 1);
     for (const h of t.hands) {
-      const hh = handOf(h.cards), nat = isBJ(h.cards) && t.hands.length === 1;
+      const hh = handOf(h.cards), nat = isBJ(h.cards) && !h.split;
       if (h.surr) { net -= h.bet / 2; continue; }
       if (nat) { net += dBJ ? 0 : t.rules.bj * h.bet; continue; }
       if (hh.t > 21) { net -= h.bet; continue; }
-      if (dBJ) { if (!t.rules.peek && t.rules.obo) { if (!obo) { net -= t.bet; obo = true; } } else net -= t.rules.peek ? t.bet : h.bet; if (t.rules.peek) break; continue; }
+      if (dBJ) { if (!t.rules.peek && t.rules.obo) { obo ||= {}; if (!obo[h.spot]) { net -= t.bet; obo[h.spot] = 1; } } else net -= h.bet; continue; }
       if (d.t > 21 || hh.t > d.t) net += h.bet; else if (hh.t < d.t) net -= h.bet;
     }
     t.last = net; t.sess.net += net; t.sess.hands++; b.tbl.hands++;
@@ -744,7 +745,7 @@
       const opts = [...new Set([1, 2, 3, 4, 5, 6, 8, 10, 12, ...b.ramp])].sort((x, y) => x - y);
       ctrl = `${t.phase === 'done' ? `<div class="verdict ${t.last > 0 ? 'good' : t.last < 0 ? 'bad' : ''}"><b>${t.last > 0 ? 'Gagné' : t.last < 0 ? 'Perdu' : 'Égalité'} : ${t.last > 0 ? '+' : ''}${fr(t.last, 1)} unité${Math.abs(t.last) > 1 ? 's' : ''}</b></div>` : ''}
         ${t.pos >= t.cut ? '<p class="pill warn">Carte de coupe atteinte : mélange à la prochaine donne.</p>' : ''}
-        <div class="row"><span class="note">Mise :</span>${opts.map((u) => `<button class="chip" aria-pressed="${t.bet === u}" data-act="bjbet" data-v="${u}">${u}</button>`).join('')}</div>
+        <div class="row"><span class="note">Mise :</span>${opts.map((u) => `<button class="chip" aria-pressed="${t.bet === u}" data-act="bjbet" data-v="${u}">${u}</button>`).join('')}<span class="note">Mains :</span>${[1, 2].map((n) => `<button class="chip" aria-pressed="${(t.spots || 1) === n}" data-act="bjspots" data-v="${n}">${n}</button>`).join('')}</div>
         <div class="row"><button class="btn primary" data-act="bjdeal">Distribuer (Entrée)</button></div>`;
     } else if (t.phase === 'ins') ctrl = `<p>Le croupier montre un as. ${isBJ(t.hands[0].cards) ? 'Even money (assurance) ?' : 'Assurance ?'}</p><div class="row"><button class="btn" data-act="bjtins" data-v="1">Prendre (O)</button><button class="btn" data-act="bjtins" data-v="0">Refuser (N)</button></div>`;
     else if (t.phase === 'play') { const h = t.hands[t.cur], av = availFor(t, h); ctrl = `<div class="row">${['hit', 'stand', 'double', 'split', 'surrender'].filter((k) => av[k]).map((k) => `<button class="btn" data-act="bjtact" data-a="${k}">${NAMEC[k]} <kbd>${KEYS[k].toUpperCase()}</kbd></button>`).join('')}</div>`; }
@@ -771,6 +772,7 @@
   };
   AFTER.bjtable = () => { const f = $('#bjtrc input'); if (f) f.focus(); };
   ACT.bjbet = (t) => { tbl.bet = +t.dataset.v; render(); };
+  ACT.bjspots = (t) => { tbl.spots = +t.dataset.v; render(); };
   ACT.bjdeal = () => { if (!tbl || tbl.ask || (tbl.phase !== 'bet' && tbl.phase !== 'done')) return; tbl.shuffleNote = false; tblDeal(); render(); };
   ACT.bjtins = (t) => {
     const T = tbl, b = P(); if (T.phase !== 'ins') return;
@@ -825,77 +827,119 @@
       ${optPanel()}
       <p class="note">Simulation SIGMA 52 : sabot mélangé, carte de coupe, stratégie du tableau, indices au true count tronqué, assurance à l'indice. Le moteur exact et la simulation donnent le même avantage à environ 0,05 point près (effet de la carte de coupe et des mains de plus de deux cartes jouées au tableau). Elle ne modélise pas les contre-mesures du casino.</p>`;
   };
-  // ---------- Optimiseur de rampe (mise Kelly par true count sous contraintes, wonging, ruine sur une durée) ----------
+  // ---------- Optimiseur de rampe (mise Kelly par true count sous contraintes, deux mains, wonging, ruine sur une durée) ----------
   let optRun = null;
   const PHI2 = (z) => { const t = 1 / (1 + 0.2316419 * Math.abs(z)), d = 0.3989423 * Math.exp(-z * z / 2), q = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274)))); return z > 0 ? 1 - q : q; };
   // Probabilité de toucher −B avant T heures (mouvement brownien avec dérive μ, écart-type σ par heure).
   const tripRoR = (mu, sd, B, T) => { if (sd <= 0 || T <= 0) return 0; const s = sd * Math.sqrt(T); return Math.min(1, PHI2((-B - mu * T) / s) + Math.exp(Math.max(-700, Math.min(700, -2 * mu * B / (sd * sd)))) * PHI2((-B + mu * T) / s)); };
-  function optBuckets(d) {
-    const agg = {}; for (const [tc, [n, sm, s2]] of Object.entries(d.buckets)) { const k = Math.max(-6, Math.min(10, +tc)), q = (agg[k] ||= [0, 0, 0]); q[0] += n; q[1] += sm; q[2] += s2; }
-    const rows = Object.entries(agg).map(([tc, [n, sm, s2]]) => { const mu = sm / n; return { tc: +tc, f: n / d.hands, raw: mu, v: Math.max(0.5, s2 / n - mu * mu), n }; }).sort((a, b) => a.tc - b.tc);
-    // Lissage : droite des moindres carrés pondérés (poids n ÷ variance) de l'avantage sur le TC, appliquée de −6 à +10.
-    let sw = 0, sx = 0, sy = 0, sxx = 0, sxy = 0; for (const r of rows) { const w = r.n / r.v; sw += w; sx += w * r.tc; sy += w * r.raw; sxx += w * r.tc * r.tc; sxy += w * r.tc * r.raw; }
-    const b1 = (sw * sxy - sx * sy) / (sw * sxx - sx * sx), b0 = (sy - b1 * sx) / sw;
-    for (const r of rows) r.mu = b0 + b1 * r.tc;
+  // Lignes par true count à partir de compteurs [mains, somme, somme des carrés]. Petites simulations : avantage lissé par une droite
+  // pondérée ; grandes simulations (≥ 50 M de mains) : valeurs mesurées telles quelles, avec leur erreur type.
+  function bucketRows(B, hands, smooth) {
+    const agg = {}; for (const [tc, [n, sm, s2]] of Object.entries(B || {})) { const k = Math.max(-6, Math.min(10, +tc)), q = (agg[k] ||= [0, 0, 0]); q[0] += n; q[1] += sm; q[2] += s2; }
+    const rows = Object.entries(agg).filter(([, q]) => q[0] > 50).map(([tc, [n, sm, s2]]) => { const mu = sm / n, v = Math.max(0.3, s2 / n - mu * mu); return { tc: +tc, f: n / hands, raw: mu, mu, v, n, se: Math.sqrt(v / n) }; }).sort((a, b) => a.tc - b.tc);
+    if (smooth) { let sw = 0, sx = 0, sy = 0, sxx = 0, sxy = 0; for (const r of rows) { const w = r.n / r.v; sw += w; sx += w * r.tc; sy += w * r.raw; sxx += w * r.tc * r.tc; sxy += w * r.tc * r.raw; } const b1 = (sw * sxy - sx * sy) / (sw * sxx - sx * sx), b0 = (sy - b1 * sx) / sw; for (const r of rows) r.mu = b0 + b1 * r.tc; }
     return rows;
   }
-  function optEval(rows, bets, H, unit, Bu, T) {
-    let m = 0, e2 = 0, F = 0, wsum = 0; rows.forEach((r, i) => { const bb = bets[i]; if (bb > 0) F += r.f; m += r.f * bb * r.mu; e2 += r.f * bb * bb * (r.v + r.mu * r.mu); wsum += r.f * bb; });
+  const optBuckets = (d) => bucketRows(d.buckets, d.hands, d.hands < 5e7);
+  // Mises optimales : à chaque TC, une ou deux mains, mise de Kelly fractionnaire bornée [1, écart]. rows2 : tours à deux mains
+  // (résultat total pour 1 unité par main). Choix de l'option qui maximise la croissance m·x − V·x²/(2·B).
+  function optimize(rows, rows2, o, Bu) {
+    return rows.map((r) => {
+      if (o.entry !== null && r.tc < o.entry) return { n: 0, b: 0 };
+      if (r.mu <= 0) return { n: 1, b: 1 };
+      const opts = [{ n: 1, m: r.mu, V: r.v + r.mu * r.mu - r.mu * r.mu }];
+      const r2 = rows2 && rows2.find((x) => x.tc === r.tc);
+      if (r2 && o.two) opts.push({ n: 2, m: r2.raw, V: r2.v });
+      let best = null;
+      for (const q of opts) { const x = Math.max(1, Math.min(o.spread, Math.round(o.frac * Bu * q.m / q.V))), g = q.m * x - q.V * x * x / (2 * Bu); if (!best || g > best.g) best = { n: q.n, b: x, g }; }
+      return best;
+    });
+  }
+  function optEval(rows, rows2, bets, H, unit, Bu, T) {
+    let m = 0, e2 = 0, F = 0, wsum = 0;
+    rows.forEach((r, i) => { const { n, b } = bets[i]; if (!b) return; F += r.f; const r2 = n === 2 && rows2 ? rows2.find((x) => x.tc === r.tc) : null; const M = r2 ? r2.raw : r.mu, V = r2 ? r2.v : r.v; m += r.f * b * M; e2 += r.f * b * b * (V + M * M); wsum += r.f * b * n; });
     const s2 = Math.max(1e-9, e2 - m * m), sd = Math.sqrt(s2), di = 1e4 * m / sd;
     return { m, sd, F, avgBet: F ? wsum / F : 0, evh: H * m * unit, sdh: Math.sqrt(H * s2) * unit, di, score: di * di / 100, n0: m > 0 ? s2 / (m * m) : null, ror: BJ.riskOfRuin(m, sd, Bu), trip: tripRoR(H * m, Math.sqrt(H * s2), Bu, T), loseT: PHI2(-(H * m * T) / Math.sqrt(H * s2 * T)) };
   }
+  // Données de référence (tools/bj_bigsim.js) pour le jeu courant : Hi-Lo, pénétration la plus proche.
+  function refJob(pen, sys = 'hilo', spots = 1, cover = 'none') {
+    const G = game(), key = countKey(G), J = D.big?.jobs; if (!J) return null;
+    const pens = [0.67, 0.75, 0.83], p = pens.reduce((a, x) => (Math.abs(x - pen) < Math.abs(a - pen) ? x : a), 0.75);
+    return J[`${key}|${sys}|${spots === 2 || sys !== 'hilo' || cover !== 'none' ? 0.75 : p}|${spots}|${cover}`] || null;
+  }
+  function optData() {
+    const b = P(), o = b.opt;
+    if (o.src === 'ref') { const j = refJob(b.bank.pen); if (j) { const j2 = refJob(0.75, 'hilo', 2); return { rows: bucketRows(j.b1, j.hands, false), rows2: j2 ? bucketRows(j2.b2, j2.hands, false) : null, hands: j.hands, label: D.presets[j.key].label, pen: j.pen, others: 2, idx: 'ev', ref: true }; } }
+    const d = b.optData; if (!d) return null;
+    return { rows: optBuckets(d), rows2: null, hands: d.hands, label: d.label, pen: d.pen, others: d.others, idx: d.idx, ref: false };
+  }
   function optPanel() {
-    const b = P(), k = b.bank, o = (b.opt ||= { spread: 12, frac: 0.5, wong: 'none', hours: 100 }), d = b.optData, Bu = k.bankroll / k.unit;
+    const b = P(), k = b.bank, o = (b.opt ||= { spread: 12, frac: 0.5, wong: 'none', hours: 100 }), Bu = k.bankroll / k.unit;
+    o.src ??= D.big ? 'ref' : 'mesure'; o.two ??= false;
+    const d = optData();
     let res = '';
     if (d) {
-      const rows = optBuckets(d), entry = o.wong === 'none' ? null : +o.wong;
-      const optB = rows.map((r) => (entry !== null && r.tc < entry ? 0 : r.mu <= 0 ? 1 : Math.max(1, Math.min(o.spread, Math.round(o.frac * Bu * r.mu / r.v)))));
-      const mine = rows.map((r) => rampUnits(b.ramp, r.tc));
-      const A = optEval(rows, optB, k.hph, k.unit, Bu, o.hours), M = optEval(rows, mine, k.hph, k.unit, Bu, o.hours);
+      const rows = d.rows, entry = o.wong === 'none' ? null : +o.wong;
+      const optB = optimize(rows, d.rows2, { ...o, entry }, Bu), mine = rows.map((r) => ({ n: 1, b: rampUnits(b.ramp, r.tc) }));
+      const A = optEval(rows, d.rows2, optB, k.hph, k.unit, Bu, o.hours), M = optEval(rows, null, mine, k.hph, k.unit, Bu, o.hours);
       const line = (l, f) => `<tr><td>${l}</td><td class="n">${f(A)}</td><td class="n">${f(M)}</td></tr>`;
       res = `<div class="tw"><table class="t bjt"><thead><tr><th>TC</th>${rows.map((r) => `<th class="n">${r.tc <= -6 ? '≤ −6' : r.tc >= 10 ? '≥ +10' : tcS(r.tc)}</th>`).join('')}</tr></thead><tbody>
           <tr><td>Mains</td>${rows.map((r) => `<td class="n">${pc(r.f, 1)}</td>`).join('')}</tr>
-          <tr><td>Avantage mesuré</td>${rows.map((r) => `<td class="n" style="color:var(${r.raw > 0 ? '--good' : '--bad'})">${sgnP(r.raw, 1)}</td>`).join('')}</tr>
-          <tr><td>Avantage lissé</td>${rows.map((r) => `<td class="n" style="color:var(${r.mu > 0 ? '--good' : '--bad'})">${sgnP(r.mu, 1)}</td>`).join('')}</tr>
+          <tr><td>Avantage ${d.ref ? 'mesuré' : 'lissé'}</td>${rows.map((r) => `<td class="n" style="color:var(${r.mu > 0 ? '--good' : '--bad'})">${sgnP(r.mu, 2)}</td>`).join('')}</tr>
+          ${d.ref ? `<tr><td>± 95 %</td>${rows.map((r) => `<td class="n">${fr(1.96 * r.se * 100, 2)}</td>`).join('')}</tr>` : ''}
           <tr><td>Variance</td>${rows.map((r) => `<td class="n">${fr(r.v, 2)}</td>`).join('')}</tr>
-          <tr><td><strong>Mise optimale</strong></td>${optB.map((x) => `<td class="n"><strong>${x || '—'}</strong></td>`).join('')}</tr>
-          <tr><td>Ta rampe</td>${mine.map((x) => `<td class="n">${x}</td>`).join('')}</tr></tbody></table></div>
+          <tr><td><strong>Mise optimale</strong></td>${optB.map((x) => `<td class="n"><strong>${x.b ? (x.n === 2 ? '2 × ' : '') + x.b : '—'}</strong></td>`).join('')}</tr>
+          <tr><td>Ta rampe</td>${mine.map((x) => `<td class="n">${x.b}</td>`).join('')}</tr></tbody></table></div>
         <div class="tw"><table class="t bjt"><thead><tr><th></th><th class="n">Rampe optimale</th><th class="n">Ta rampe</th></tr></thead><tbody>
-          ${line('Espérance par heure', (x) => eur(x.evh))}${line('Écart-type par heure', (x) => eur(x.sdh))}${line('Mise moyenne (mains jouées)', (x) => fr(x.avgBet, 2) + ' u')}${line('Mains jouées', (x) => pc(x.F, 0))}
+          ${line('Espérance par heure', (x) => eur(x.evh))}${line('Écart-type par heure', (x) => eur(x.sdh))}${line('Mise moyenne par tour joué', (x) => fr(x.avgBet, 2) + ' u')}${line('Tours joués', (x) => pc(x.F, 0))}
           ${line('DI · SCORE', (x) => fr(x.di, 1) + ' · ' + fr(x.score, 1))}${line('N0', (x) => (x.n0 ? Math.round(x.n0).toLocaleString('fr-FR') + ' tours' : '∞'))}
           ${line('Risque de ruine (sans fin)', (x) => pc(x.ror, 1))}${line(`Ruine en ${o.hours} h`, (x) => pc(x.trip, 1))}${line(`Perdant après ${o.hours} h`, (x) => pc(x.loseT, 0))}</tbody></table></div>
         <div class="row"><button class="btn small" data-act="bjoptapply">Copier la rampe optimale dans ma rampe</button></div>
-        <p class="note">Mesuré sur ${(d.hands / 1e6).toFixed(1)} M de mains à mise fixe (${esc(d.label)}, pénétration ${Math.round(d.pen * 100)} %, ${d.others} autres joueurs, indices ${d.idx === 'ra' ? 'prudents' : 'EV max'}). Avantage lissé par une droite pondérée (les TC rares sont bruités) ; mise optimale = ${fr(o.frac, 2)} × bankroll × avantage lissé(TC) ÷ variance(TC), bornée entre 1 et ${o.spread} unités : c'est la mise de Kelly fractionnaire, la meilleure possible sous la contrainte d'écart. Ruine sur une durée : mouvement brownien avec dérive, ${fmtH(k.hph)} tours observés par heure.</p>`;
+        <p class="note">${d.ref ? `Simulation de référence : ${(d.hands / 1e6).toLocaleString('fr-FR', { maximumFractionDigits: 0 })} M de mains à mise fixe, ${esc(d.label)}, pénétration ${Math.round(d.pen * 100)} %, 2 autres joueurs, Hi-Lo avec indices.` : `Mesuré sur ${(d.hands / 1e6).toFixed(1)} M de mains à mise fixe (${esc(d.label)}, pénétration ${Math.round(d.pen * 100)} %, ${d.others} autres joueurs, indices ${d.idx === 'ra' ? 'prudents' : 'EV max'}), avantage lissé par une droite pondérée.`} Mise optimale = ${fr(o.frac, 2)} × bankroll × avantage(TC) ÷ variance(TC), bornée entre 1 et ${o.spread} unités ; « 2 × » : deux mains, quand la croissance de Kelly est meilleure ainsi (la covariance des deux mains est mesurée). Ruine sur une durée : mouvement brownien avec dérive, ${fmtH(k.hph)} tours observés par heure.</p>`;
     }
-    return `<section class="panel"><span class="eyebrow">Avancé</span><h2>Optimiseur de rampe</h2><p class="note">Mesure l'avantage et la variance réels à chaque true count (simulation à mise fixe, indices compris), puis calcule la meilleure mise par TC pour ta bankroll, ton écart maximal et ta fraction de Kelly. Option wonging : ne jouer qu'à partir d'un TC d'entrée.</p>
-      <div class="form"><label class="f">Écart maximal (1 à …)<select data-bjopt="spread">${[4, 6, 8, 12, 16, 20].map((n) => `<option value="${n}" ${o.spread === n ? 'selected' : ''}>1-${n}</option>`).join('')}</select></label>
+    return `<section class="panel"><span class="eyebrow">Avancé</span><h2>Optimiseur de rampe</h2><p class="note">Avantage et variance réels à chaque true count, puis la meilleure mise par TC pour ta bankroll, ton écart maximal et ta fraction de Kelly. Options : deux mains aux comptes élevés, wonging (ne jouer qu'à partir d'un TC d'entrée).</p>
+      <div class="form"><label class="f">Données<select data-bjopt="src"><option value="ref" ${o.src === 'ref' ? 'selected' : ''} ${D.big ? '' : 'disabled'}>Simulation de référence (milliards de mains)</option><option value="mesure" ${o.src === 'mesure' ? 'selected' : ''}>Mesure dans le navigateur</option></select></label>
+        <label class="f">Écart maximal (1 à …)<select data-bjopt="spread">${[4, 6, 8, 12, 16, 20].map((n) => `<option value="${n}" ${o.spread === n ? 'selected' : ''}>1-${n}</option>`).join('')}</select></label>
         <label class="f">Fraction de Kelly<select data-bjopt="frac">${[0.25, 0.33, 0.5, 0.75, 1].map((n) => `<option value="${n}" ${o.frac === n ? 'selected' : ''}>${fr(n, 2)}</option>`).join('')}</select></label>
+        <label class="f">Deux mains<select data-bjopt="two"><option value="0" ${!o.two ? 'selected' : ''}>Non</option><option value="1" ${o.two ? 'selected' : ''}>Quand c'est meilleur</option></select></label>
         <label class="f">Wonging<select data-bjopt="wong"><option value="none" ${o.wong === 'none' ? 'selected' : ''}>Non (jouer tout le sabot)</option>${[0, 1, 2, 3].map((x) => `<option value="${x}" ${o.wong === String(x) ? 'selected' : ''}>Entrer à TC ≥ ${tcS(x)}</option>`).join('')}</select></label>
         <label class="f">Durée (heures)<select data-bjopt="hours">${[10, 50, 100, 300, 1000].map((n) => `<option value="${n}" ${o.hours === n ? 'selected' : ''}>${n} h</option>`).join('')}</select></label></div>
-      <div class="row"><button class="btn${d ? '' : ' primary'}" data-act="bjoptrun" ${optRun ? 'disabled' : ''}>${optRun ? 'Mesure… ' + Math.round(optRun.done / optRun.total * 100) + ' %' : d ? 'Remesurer' : 'Mesurer le jeu'}</button><span class="note">Utilise le jeu, la pénétration et le nombre de joueurs des paramètres ci-dessus.</span></div>
-      ${optRun ? `<div class="meter"><i style="width:${optRun.done / optRun.total * 100}%"></i></div>` : ''}${res}</section>`;
+      ${o.src === 'mesure' ? `<div class="row"><button class="btn${b.optData ? '' : ' primary'}" data-act="bjoptrun" ${optRun ? 'disabled' : ''}>${optRun ? 'Mesure… ' + Math.round(optRun.done / optRun.total * 100) + ' %' : b.optData ? 'Remesurer' : 'Mesurer le jeu'}</button><span class="note">Jeu, pénétration et nombre de joueurs des paramètres ci-dessus.</span></div>${optRun ? `<div class="meter"><i style="width:${optRun.done / optRun.total * 100}%"></i></div>` : ''}` : (o.two && !refJob(0.75, 'hilo', 2) ? '<p class="note">Pas de simulation à deux mains pour ce jeu.</p>' : '')}
+      ${d ? res : `<p class="note">${o.src === 'ref' ? 'Pas de simulation de référence pour ce jeu (référence : jeux européen et Strip). Passe en mesure dans le navigateur.' : 'Lance la mesure.'}</p>`}</section>`;
   }
   const fmtH = (x) => fr(x, 0);
-  ONCHANGE.push((t) => { if (t.dataset.bjopt) { const o = P().opt, k2 = t.dataset.bjopt; o[k2] = k2 === 'wong' ? t.value : +t.value; save(); render(); return true; } });
+  ONCHANGE.push((t) => { if (t.dataset.bjopt) { const o = P().opt, k2 = t.dataset.bjopt; o[k2] = k2 === 'wong' || k2 === 'src' ? t.value : k2 === 'two' ? t.value === '1' : +t.value; save(); render(); return true; } });
   ACT.bjoptapply = () => {
-    const b = P(), d = b.optData; if (!d) return; const o = b.opt, Bu = b.bank.bankroll / b.bank.unit, rows = optBuckets(d);
-    b.ramp = b.ramp.map((_, i) => { const r = rows.find((x) => x.tc === i) || (i === 0 ? rows.find((x) => x.tc === 0) : rows[rows.length - 1]); return !r || r.mu <= 0 ? 1 : Math.max(1, Math.min(o.spread, Math.round(o.frac * Bu * r.mu / r.v))); });
+    const b = P(), d = optData(); if (!d) return; const o = b.opt, Bu = b.bank.bankroll / b.bank.unit, opt = optimize(d.rows, null, { ...o, entry: null }, Bu);
+    b.ramp = b.ramp.map((_, i) => { const j = d.rows.findIndex((x) => x.tc === i); return j < 0 ? (i === 0 ? 1 : b.ramp[i]) : Math.max(1, opt[j].b); });
     save(); render();
   };
   ACT.bjoptrun = () => {
     if (optRun) return;
-    const b = P(), G = raOverlay(game()), k = b.bank, chunk = 200000, total = 1200000, acc = { hands: 0, buckets: {} };
-    const table = Object.fromEntries(Object.entries(G.table).map(([row, o]) => [row, Object.fromEntries(Object.entries(o).map(([u, c]) => [u, { order: c.o }]))]));
+    const b = P(), G = raOverlay(game()), k = b.bank, total = 1200000, acc = { hands: 0, buckets: {} };
     optRun = { done: 0, total }; render();
-    const step = () => {
-      const r = BJ.simulate({ rules: G.rules, table, devs: G.indices, useIndices: true, insIndex: ins(G), ramp: () => 1, hands: chunk, seed: 1 + Math.floor(rnd() * 1e9), pen: k.pen, others: k.others, buckets: true });
-      acc.hands += r.hands; for (const [tc, q] of Object.entries(r.buckets)) { const a = (acc.buckets[tc] ||= [0, 0, 0]); a[0] += q[0]; a[1] += q[1]; a[2] += q[2]; }
-      optRun.done = acc.hands;
-      if (acc.hands < total) { if (tabNow() === 'bjbank') render(); return setTimeout(step, 0); }
-      b.optData = { ...acc, label: G.label, pen: k.pen, others: k.others, idx: G.idxMode, date: today() }; optRun = null; save(); render();
-    };
-    setTimeout(step, 30);
+    runWorkers({ rules: G.rules, table: G.table, devs: G.indices, ins: ins(G), pen: k.pen, others: k.others, spots: 1, sys: 'hilo' }, total, (r) => {
+      acc.hands += r.hands; for (const [tc, q] of Object.entries(r.buckets || {})) { const a = (acc.buckets[tc] ||= [0, 0, 0]); a[0] += q[0]; a[1] += q[1]; a[2] += q[2]; }
+      optRun.done = acc.hands; if (tabNow() === 'bjbank') render();
+    }, () => { b.optData = { ...acc, label: G.label, pen: k.pen, others: k.others, idx: G.idxMode, date: today() }; optRun = null; save(); render(); });
   };
+  // ---------- Simulation sur tous les cœurs (Web Workers) ----------
+  // Le moteur, les systèmes et les données sont intégrés à la page en texte (script #bjsrc) : chaque worker les charge, puis simule
+  // des blocs de mains et renvoie ses compteurs par true count. Sans worker (fichier ouvert dans un contexte restreint) : sur place.
+  let WSRC = null;
+  const WSHIM = `;onmessage=function(e){var j=e.data,BJ=self.BJ,CT=self.BJCounts,S=CT.byId[j.sys]||CT.byId.hilo;var table={};for(var row in j.table){table[row]={};for(var u in j.table[row])table[row][u]={order:j.table[row][u].o};}var tag=j.sys==='hilo'?undefined:function(c){return CT.tagOfCard(S,((c%13)<<2)|(Math.floor(c/13)%4));};var r=BJ.simulate({rules:j.rules,table:table,devs:j.devs||[],useIndices:(j.devs&&j.devs.length>0)||j.ins!=null,insIndex:j.ins,ramp:function(){return 1;},hands:j.hands,seed:j.seed,pen:j.pen,others:j.others,buckets:true,noRes:true,cardTag:tag,imb:S.imb,spots:function(){return j.spots||1;},wongIn:j.wongIn==null?null:j.wongIn});postMessage({buckets:r.buckets,buckets2:r.buckets2,hands:r.hands,rounds:r.rounds});};`;
+  function runWorkers(job, total, onChunk, onDone) {
+    const CH = 250000, n = Math.max(1, Math.min(8, (navigator.hardwareConcurrency || 2))), blocks = Math.ceil(total / CH);
+    let sent = 0, back = 0, url = null;
+    try { if (!WSRC) WSRC = document.getElementById('bjsrc')?.textContent || ''; if (WSRC && typeof Worker !== 'undefined') url = URL.createObjectURL(new Blob([WSRC + WSHIM], { type: 'text/javascript' })); } catch (e) { url = null; }
+    if (!url) {
+      const step = () => { const S = CT.byId[job.sys] || CT.byId.hilo, table = Object.fromEntries(Object.entries(job.table).map(([row, o]) => [row, Object.fromEntries(Object.entries(o).map(([u, c]) => [u, { order: c.o }]))])); const r = BJ.simulate({ rules: job.rules, table, devs: job.devs || [], useIndices: (job.devs || []).length > 0 || job.ins != null, insIndex: job.ins, ramp: () => 1, hands: CH, seed: 1 + Math.floor(rnd() * 1e9), pen: job.pen, others: job.others, buckets: true, noRes: true, cardTag: job.sys === 'hilo' ? undefined : (c) => CT.tagOfCard(S, ((c % 13) << 2) | (Math.floor(c / 13) % 4)), imb: S.imb, spots: () => job.spots || 1, wongIn: job.wongIn ?? null }); onChunk(r); back++; if (back < blocks) setTimeout(step, 0); else onDone(); };
+      return setTimeout(step, 0);
+    }
+    const ws = [];
+    const feed = (w) => { if (sent >= blocks) { w.terminate(); return; } sent++; w.postMessage({ ...job, hands: CH, seed: (Date.now() ^ (sent * 2654435761)) >>> 0 }); };
+    for (let i = 0; i < n; i++) { const w = new Worker(url); ws.push(w); w.onmessage = (e) => { onChunk(e.data); back++; if (back >= blocks) { ws.forEach((x) => x.terminate()); URL.revokeObjectURL(url); onDone(); } else feed(w); }; w.onerror = () => { w.terminate(); }; feed(w); }
+  }
   AFTER.bjbank = () => {
     const R = simRes || P().lastSim, cv = $('#bjsimc'); if (!R || !cv) return;
     const evh = R.mean * R.hph * R.unit, sdh = R.sd * Math.sqrt(R.hph) * R.unit, gauss = () => { let u = 0; while (!u) u = rnd(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rnd()); };
@@ -1049,6 +1093,157 @@
   };
 
   // =====================================================================
+  // Techniques avancées : suivi de mélange, séquençage des as, carte cachée, plusieurs mains, équipe, couverture
+  // =====================================================================
+  const SH = window.BJShuffle;
+  const tq = { proc: 'zone2rs', seg: 52, K: 104, res: null, ace: null, map: null, game: null, score: { n: 0, user: 0, best: 0, rand: 0 }, cust: { piles: 2, grab: 26, riffles: 2, strip: 1, passes: 1 } };
+  const procOf = () => (tq.proc === 'custom' ? { label: 'Procédure personnalisée', passes: Array.from({ length: tq.cust.passes }, () => ({ piles: tq.cust.piles, grab: tq.cust.grab, sd: Math.max(2, tq.cust.grab / 7), ops: [...Array(tq.cust.riffles).fill('riffle').flatMap((x, i, a) => (tq.cust.strip && i === 0 && a.length > 1 ? [x, 'strip'] : [x]))] })) } : SH.PROCS[tq.proc]);
+  function heat(v, lo, hi) { const x = Math.max(0, Math.min(1, (v - lo) / (hi - lo))); return `color-mix(in srgb, var(--accent) ${Math.round(x * 85)}%, var(--sunk))`; }
+  function stackSVG(arr, tags, opts = {}) {
+    const n = arr.length, W = 640, H = 40, w = W / n;
+    const col = (t) => (t > 0 ? '#3c9a63' : t < 0 ? '#b23656' : '#c9bfc2');
+    return `<svg viewBox="0 0 ${W} ${H + 16}" width="100%" role="img" aria-label="${esc(opts.label || 'Pile')}">${arr.map((c, i) => `<rect x="${(i * w).toFixed(2)}" y="0" width="${Math.max(0.6, w).toFixed(2)}" height="${H}" fill="${col(tags[c])}"/>`).join('')}${(opts.marks || []).map((m) => `<rect x="${(m.at * w).toFixed(1)}" y="0" width="${(m.len * w).toFixed(1)}" height="${H}" fill="none" stroke="${m.color}" stroke-width="2"/><text x="${(m.at * w + 2).toFixed(1)}" y="${H + 12}" font-size="10" fill="${m.color}">${esc(m.label)}</text>`).join('')}</svg>`;
+  }
+  function newTrackGame() {
+    const proc = procOf(), rnd2 = SH.rng(1 + Math.floor(rnd() * 1e9)), tags = BJ.HILO, { stack, out, unplayed, n } = SH.dealAndShuffle(6, 0.75, proc, rnd2, tags);
+    let um = 0; for (let i = 0; i < unplayed; i++) um += tags[stack[i]]; um /= Math.max(1, unplayed);
+    const seg = tq.seg, S = Math.ceil(n / seg), segRC = [], segAvg = [];
+    for (let s = 0; s < S; s++) { let a = 0, c = 0, known = 0; for (let i = s * seg; i < Math.min(n, (s + 1) * seg); i++) { a += i < unplayed ? um : tags[stack[i]]; c++; known += tags[stack[i]]; } segAvg.push(a / c); segRC.push(Math.round(a)); }
+    const M = tq.map && tq.map.seg === seg && tq.map.proc === tq.proc ? tq.map.M : SH.shuffleMap(proc, n, seg, 250, 3);
+    tq.map = { M, seg, proc: tq.proc };
+    const pr = SH.predict(M, segAvg), zK = Math.round(tq.K / seg);
+    let best = 0, bestV = Infinity; for (let z = 0; z < S; z++) { let v = 0; for (let q = 0; q < zK; q++) v += pr[(z + q) % S]; if (v < bestV) { bestV = v; best = z; } }
+    tq.game = { stack, out, unplayed, n, S, segRC, segAvg, pr, best, rand: Math.floor(rnd() * S), pick: null };
+  }
+  const tcFirst = (out, z, seg, K) => { let s = 0; for (let i = 0; i < K; i++) s += BJ.HILO[out[(z * seg + i) % out.length]]; return -s / (K / 52); };
+  VIEWS.bjadv = () => {
+    const G = game(), key = countKey(G), T = D.tech, proc = procOf();
+    const tr0 = tq.res;
+    const pr = (x, d = 2) => (x === undefined || x === null ? '—' : fr(x, d));
+    // Suivi : jeu interactif
+    let gameHtml = '';
+    if (tq.game) {
+      const g = tq.game, seg = tq.seg, zK = Math.round(tq.K / seg);
+      gameHtml = `<h3>1. La défausse avant le mélange</h3><p class="note">Running count Hi-Lo de chaque segment de ${seg} cartes (dessus de la pile à gauche). Les ${g.unplayed} premières cartes ne sont pas jouées : tu ne connais que leur total.</p>
+        <div class="bjsegs">${g.segRC.map((r, s) => `<span style="background:${heat(-g.segAvg[s], -0.25, 0.25)}">${s * seg < g.unplayed ? '?' : tcS(r)}</span>`).join('')}</div>
+        <h3>2. Où couper ?</h3><p class="note">Le nouveau sabot commence là où tu coupes. Choisis la zone de départ : les ${tq.K} cartes suivantes seront jouées en premier.</p>
+        <div class="bjsegs">${Array.from({ length: g.S }, (_, z) => `<button class="${g.pick === z ? 'on' : ''}" data-act="bjtrkpick" data-z="${z}" ${g.pick !== null ? 'disabled' : ''}>${z + 1}</button>`).join('')}</div>
+        ${g.pick !== null ? (() => { const u = tcFirst(g.out, g.pick, seg, tq.K), bst = tcFirst(g.out, g.best, seg, tq.K), rd = tcFirst(g.out, g.rand, seg, tq.K); return `<h3>3. Le sabot réel</h3>${stackSVG(g.out, BJ.HILO, { label: 'Sabot après mélange', marks: [{ at: g.pick * seg, len: tq.K, color: 'var(--ink)', label: 'toi' }, { at: g.best * seg, len: tq.K, color: '#c9a227', label: 'SIGMA' }] })}<p class="note">Vert : cartes basses (+1) ; bordeaux : cartes hautes (−1). Les ${tq.K} premières cartes après ta coupe ont un true count de <strong>${fr(u, 1)}</strong> ; coupe de SIGMA 52 : ${fr(bst, 1)} ; coupe au hasard : ${fr(rd, 1)}.</p><div class="row"><button class="btn primary" data-act="bjtrknew">Sabot suivant</button></div>`; })() : ''}
+        ${tq.score.n ? `<p class="note">Ta moyenne sur ${tq.score.n} sabots : TC ${fr(tq.score.user / tq.score.n, 2)} · SIGMA ${fr(tq.score.best / tq.score.n, 2)} · hasard ${fr(tq.score.rand / tq.score.n, 2)}.</p>` : ''}`;
+    }
+    // Carte de mélange
+    let mapHtml = '';
+    if (tq.map && tq.map.proc === tq.proc && tq.map.seg === tq.seg) { const M = tq.map.M; mapHtml = `<h3>Carte de mélange</h3><div class="bjmap" style="grid-template-columns:repeat(${M.length},1fr)">${M.map((row) => Array.from(row, (p) => `<i style="background:${heat(p, 0, 0.6)}" title="${pc(p, 0)}"></i>`).join('')).join('')}</div><p class="note">Ligne : zone du nouveau sabot (du dessus vers le bas) ; colonne : segment d'origine. Une diagonale nette = mélange suivable.</p>`; }
+    const hole = T?.hole?.[key], first = T?.first?.[key];
+    const big = D.big?.jobs || {}, j1 = big[`${key}|hilo|0.75|1|none`], j2 = big[`${key}|hilo|0.75|2|none`];
+    const scoreOpt = (rows, spread) => { let bestDI = -Infinity; for (let sc = 0.5; sc <= 400; sc *= 1.15) { const bets = rows.map((r) => ({ n: 1, b: r.mu <= 0 ? 1 : Math.max(1, Math.min(spread, Math.round(sc * r.mu / r.v))) })); const e = optEval(rows, null, bets, 100, 1, 1e6, 1); if (e.di > bestDI) bestDI = e.di; } return bestDI * bestDI / 100; };
+    let multi = '<p class="note">Simulation de référence à deux mains absente pour ce jeu.</p>';
+    if (j1 && j2) {
+      const r1 = bucketRows(j1.b1, j1.hands, false), r2 = bucketRows(j2.b2, j2.hands, false);
+      multi = `<div class="tw"><table class="t bjt"><thead><tr><th>TC</th>${r1.filter((r) => r.tc >= -2 && r.tc <= 8).map((r) => `<th class="n">${tcS(r.tc)}</th>`).join('')}</tr></thead><tbody>
+        <tr><td>Variance, 1 main</td>${r1.filter((r) => r.tc >= -2 && r.tc <= 8).map((r) => `<td class="n">${fr(r.v, 2)}</td>`).join('')}</tr>
+        <tr><td>Variance, 2 mains (total)</td>${r1.filter((r) => r.tc >= -2 && r.tc <= 8).map((r) => { const q = r2.find((x) => x.tc === r.tc); return `<td class="n">${q ? fr(q.v, 2) : '—'}</td>`; }).join('')}</tr>
+        <tr><td>Corrélation des 2 mains</td>${r1.filter((r) => r.tc >= -2 && r.tc <= 8).map((r) => { const q = r2.find((x) => x.tc === r.tc); return `<td class="n">${q ? fr((q.v - 2 * r.v) / (2 * r.v), 2) : '—'}</td>`; }).join('')}</tr></tbody></table></div>
+        <p class="note">Deux mains jouées contre le même croupier sont corrélées (environ ${fr(((r2.find((x) => x.tc === 0)?.v ?? 2.6) - 2 * (r1.find((x) => x.tc === 0)?.v ?? 1.3)) / (2 * (r1.find((x) => x.tc === 0)?.v ?? 1.3)), 2)}) : deux mains de m unités risquent moins qu'une main de 2m. À compte élevé, jouer deux mains permet de miser plus sans dépasser le risque voulu ; l'optimiseur de Bankroll choisit une ou deux mains à chaque TC. Mesuré sur ${((j1.hands + j2.hands) / 1e6).toLocaleString('fr-FR', { maximumFractionDigits: 0 })} M de mains.</p>`;
+    }
+    // Équipe
+    let team = '';
+    if (j1) {
+      const rows = bucketRows(j1.b1, j1.hands, false), e = tq.team || (tq.team = { spotters: 3, entry: 2, bet: 10, hph: 80 });
+      const hot = rows.filter((r) => r.tc >= e.entry), f = hot.reduce((a, r) => a + r.f, 0), mu = f ? hot.reduce((a, r) => a + r.f * r.mu, 0) / f : 0, v = f ? hot.reduce((a, r) => a + r.f * (r.v + r.mu * r.mu), 0) / f - mu * mu : 1;
+      const pAny = 1 - Math.pow(1 - f, e.spotters), bpRounds = e.hph * Math.min(1, e.spotters * f, pAny * 1.0 + 0), spotEV = e.spotters * e.hph * rows.reduce((a, r) => a + r.f * r.mu, 0);
+      const bpEV = bpRounds * e.bet * mu, sd = Math.sqrt(bpRounds * e.bet * e.bet * v + e.spotters * e.hph * 1.33);
+      team = `<div class="form"><label class="f">Compteurs (tables)<input data-bjteam="spotters" value="${e.spotters}" inputmode="numeric"></label><label class="f">TC d'appel<input data-bjteam="entry" value="${e.entry}" inputmode="numeric"></label><label class="f">Mise du gros joueur (u)<input data-bjteam="bet" value="${e.bet}" inputmode="numeric"></label><label class="f">Tours par heure et table<input data-bjteam="hph" value="${e.hph}" inputmode="numeric"></label></div>
+        <div class="stats"><div class="stat"><span>Part des tours à TC ≥ ${tcS(e.entry)}</span><b>${pc(f, 1)}</b><span>par table</span></div><div class="stat"><span>Avantage moyen du gros joueur</span><b>${sgnP(mu, 2)}</b></div><div class="stat"><span>Tours joués par le gros joueur</span><b>${fr(bpRounds, 0)} / h</b><span>une table chaude à la fois</span></div><div class="stat hero"><span>Espérance de l'équipe</span><b>${fr(bpEV + spotEV, 1)} u / h</b><span>écart-type ≈ ${fr(sd, 0)} u / h</span></div></div>
+        <p class="note">Les compteurs misent le minimum en permanence (espérance ${fr(spotEV, 1)} u / h) ; le gros joueur ne joue qu'aux tables appelées. Modèle simplifié : au plus une table chaude à la fois, sans temps de déplacement. Mesures : simulation de référence ${esc(D.presets[key].label)}.</p>`;
+    }
+    // Couverture
+    let cover = '';
+    if (j1) {
+      const sc = (j) => (j ? scoreOpt(bucketRows(j.b1, j.hands, false), 12) : null), base2 = sc(j1), rowsC = [['Tous les indices et l\'assurance', base2], ['Sans séparer les 10', sc(big[`${key}|hilo|0.75|1|no1010`])], ['Sans assurance', sc(big[`${key}|hilo|0.75|1|noins`])], ['Stratégie de base seule (aucun indice)', sc(big[`${key}|hilo|0.75|1|basic`])]];
+      cover = `<div class="tw"><table class="t bjt"><thead><tr><th>Jeu</th><th class="n">SCORE (rampe optimale 1-12)</th><th class="n">Perte</th></tr></thead><tbody>${rowsC.map(([l, s2]) => `<tr><td>${l}</td><td class="n">${s2 === null ? '—' : fr(s2, 1)}</td><td class="n">${s2 === null || base2 === null ? '—' : pc(1 - s2 / base2, 0)}</td></tr>`).join('')}</tbody></table></div><p class="note">SCORE : gain pour 100 mains avec 10 000 de bankroll en misant Kelly, ici avec la meilleure rampe 1-12. Simulations de référence (Hi-Lo, ${esc(D.presets[key].label)}, pénétration 75 %).</p>`;
+    }
+    const aceTbl = T?.aceseq ? `<div class="tw"><table class="t bjt"><thead><tr><th>Procédure</th><th class="n">As en +1</th><th class="n">+2</th><th class="n">+3</th><th class="n">Un as en +1 (tous)</th></tr></thead><tbody>${Object.entries(T.aceseq).map(([k, a]) => `<tr><td>${esc(SH.PROCS[k]?.label || k)}</td><td class="n">${pc(a.p[0], 1)}</td><td class="n">${pc(a.p[1], 1)}</td><td class="n">${pc(a.p[2], 1)}</td><td class="n">${pc(a.pAny[0], 1)}</td></tr>`).join('')}</tbody></table></div>` : '';
+    const trackTbl = T?.track ? `<div class="tw"><table class="t bjt"><thead><tr><th>Procédure</th><th class="n">TC du début (suivi)</th><th class="n">TC (hasard)</th><th class="n">P(TC ≥ +2), suivi</th><th class="n">P(TC ≥ +2), hasard</th><th class="n">Corrélation prédit / réel</th></tr></thead><tbody>${Object.entries(T.track).map(([k, x]) => { const y = x[tq.seg] || x[52]; return `<tr><td>${esc(SH.PROCS[k]?.label || k)}</td><td class="n">${(y.tcTrack >= 0.05 ? '+' : '') + fr(y.tcTrack, 1)}</td><td class="n">${fr(y.tcRand, 1)}</td><td class="n">${pc(y.pHi, 0)}</td><td class="n">${pc(y.pHiRand ?? 0, 0)}</td><td class="n">${fr(y.corr, 2)}</td></tr>`; }).join('')}</tbody></table></div><p class="note">3 000 sabots par procédure, sabot de 6 jeux à 75 %, segments de ${tq.seg} cartes, ${tq.K} premières cartes mesurées.</p>` : '';
+    return head('Techniques avancées', 'Ce que font les joueurs d\'avantage au-delà du comptage, simulé et chiffré : suivi de mélange, séquençage des as, carte cachée vue, plusieurs mains, jeu en équipe, coût de la couverture. Pour comprendre et s\'entraîner ; au casino, seule ta tête.') +
+      `<div class="warnbox"><strong>Cadre.</strong> Le suivi de mélange et le séquençage des as utilisent l'information visible : ce sont des techniques d'observation, que le casino peut contrer ou sanctionner d'une exclusion. Voir une carte cachée exposée par maladresse a un statut juridique qui dépend du pays et des moyens ; tout appareil, complice dans le personnel ou marquage de cartes est une fraude. SIGMA 52 ne fournit que des simulations.</div>
+      <section class="panel"><span class="eyebrow">Suivi de mélange</span><h2>Mélange, carte de mélange, coupe</h2>
+        <div class="form"><label class="f">Procédure<select data-bjtrk="proc">${Object.entries(SH.PROCS).map(([k, p]) => `<option value="${k}" ${tq.proc === k ? 'selected' : ''}>${esc(p.label)}</option>`).join('')}<option value="custom" ${tq.proc === 'custom' ? 'selected' : ''}>Personnalisée…</option></select></label>
+          <label class="f">Segments suivis<select data-bjtrk="seg"><option value="52" ${tq.seg === 52 ? 'selected' : ''}>1 paquet (52)</option><option value="26" ${tq.seg === 26 ? 'selected' : ''}>½ paquet (26)</option></select></label>
+          <label class="f">Cartes jouées en tête<select data-bjtrk="K"><option value="52" ${tq.K === 52 ? 'selected' : ''}>1 paquet</option><option value="104" ${tq.K === 104 ? 'selected' : ''}>2 paquets</option></select></label></div>
+        ${tq.proc === 'custom' ? `<div class="form"><label class="f">Piles<select data-bjtrkc="piles">${[2, 3, 4].map((n) => `<option ${tq.cust.piles === n ? 'selected' : ''}>${n}</option>`).join('')}</select></label><label class="f">Poignée (cartes)<select data-bjtrkc="grab">${[13, 26, 39, 52, 78].map((n) => `<option ${tq.cust.grab === n ? 'selected' : ''}>${n}</option>`).join('')}</select></label><label class="f">Riffles<select data-bjtrkc="riffles">${[1, 2, 3, 4].map((n) => `<option ${tq.cust.riffles === n ? 'selected' : ''}>${n}</option>`).join('')}</select></label><label class="f">Strip<select data-bjtrkc="strip"><option value="1" ${tq.cust.strip ? 'selected' : ''}>Oui</option><option value="0" ${!tq.cust.strip ? 'selected' : ''}>Non</option></select></label><label class="f">Passes<select data-bjtrkc="passes">${[1, 2, 3].map((n) => `<option ${tq.cust.passes === n ? 'selected' : ''}>${n}</option>`).join('')}</select></label></div>` : `<p class="note">${esc(proc.note || '')}</p>`}
+        <div class="row"><button class="btn primary" data-act="bjtrkstudy">Étudier cette procédure</button><button class="btn" data-act="bjtrknew">Entraînement : couper un sabot</button></div>
+        ${tr0 ? `<div class="stats"><div class="stat hero"><span>TC des ${tq.K} premières cartes, coupe suivie</span><b>${tcS(Math.round(tr0.tcTrack * 100) / 100)}</b><span>hasard : ${fr(tr0.tcRand, 2)} · meilleur possible : ${fr(tr0.tcOracle, 2)}</span></div><div class="stat"><span>P(TC ≥ +2)</span><b>${pc(tr0.pHi, 0)}</b><span>hasard : ${pc(tr0.pHiRand, 0)}</span></div><div class="stat"><span>Corrélation prédit / réel</span><b>${fr(tr0.corr, 2)}</b><span>0 : rien à suivre ; 1 : parfait</span></div><div class="stat"><span>Avantage estimé sur ce début</span><b>${sgnP(advAt(G.edgeByTC, tr0.tcTrack), 1)}</b><span>au lieu de ${sgnP(advAt(G.edgeByTC, 0), 1)}</span></div></div><p class="note">${tr0.trials} sabots simulés. Avantage estimé à partir de l'avantage par true count du jeu (${esc(G.label)}).</p>` : ''}
+        ${mapHtml}${gameHtml}
+        <h3>Toutes les procédures</h3>${trackTbl}
+        <p class="note">Modèle de SIGMA 52 : riffle de Gilbert-Shannon-Reeds, strip par paquets de 5 à 12, poignées de taille gaussienne. Un vrai croupier a ses habitudes : observe la procédure de ta table et reproduis-la en « Personnalisée ». C'est le principe des logiciels de suivi : cartographier un mélange réel, puis en déduire où couper.</p></section>
+      <section class="panel"><span class="eyebrow">Séquençage des as</span><h2>La carte clé avant chaque as</h2><p>On retient la carte vue juste avant un as. Après un mélange imparfait, quand la carte clé réapparaît, l'as a des chances de la suivre de près. Probabilité que l'as suivi tombe 1, 2 ou 3 cartes après sa carte clé :</p>${aceTbl}
+        ${first ? `<p>Ce que vaut un as en première carte (calcul exact, ${esc(D.presets[key].label)}) : espérance de la main <strong>${sgnP(first[1], 1)}</strong>, contre ${sgnP(-G.edge, 2)} en moyenne. Un 10 en première carte : ${sgnP(first[10], 1)} ; un 6 : ${sgnP(first[6], 1)}.</p>` : ''}
+        <p class="note">Pour en profiter, il faut que l'as tombe sur ta main : savoir combien de cartes sortiront avant (nombre de joueurs, cartes brûlées) et parfois jouer une ou deux mains de plus pour « prendre » la bonne carte. Le moindre mélange supplémentaire détruit la séquence (voir « deux passes »).</p></section>
+      <section class="panel"><span class="eyebrow">Carte cachée</span><h2>Ce que vaut l'information sur la carte du croupier</h2>
+        ${hole ? `<div class="stats"><div class="stat"><span>Aucune information</span><b>${sgnP(hole.none, 2)}</b><span>jeu optimal selon la composition</span></div><div class="stat"><span>« 10 ou pas 10 »</span><b>${sgnP(hole.ten, 2)}</b></div><div class="stat"><span>Petite, moyenne ou haute</span><b>${sgnP(hole.three, 2)}</b><span>2-6, 7-9, 10-As</span></div><div class="stat hero"><span>Carte exacte</span><b>${sgnP(hole.full, 2)}</b></div></div><p class="note">Calcul exact SIGMA 52, ${esc(D.presets[key].label)} : à chaque niveau d'information, toutes les décisions (y compris après un tirage) tiennent compte de ce que tu sais. C'est la mesure de ce que vaut un croupier qui expose sa carte, ou un signe involontaire au moment du peek.</p>` : '<p class="note">Données absentes.</p>'}</section>
+      <section class="panel"><span class="eyebrow">Plusieurs mains</span><h2>Deux mains aux comptes élevés</h2>${multi}</section>
+      <section class="panel"><span class="eyebrow">Équipe</span><h2>Compteurs et gros joueur</h2>${team || '<p class="note">Données absentes.</p>'}</section>
+      <section class="panel"><span class="eyebrow">Couverture</span><h2>Ce que coûte chaque renoncement</h2>${cover || '<p class="note">Données absentes.</p>'}</section>`;
+  };
+  ONCHANGE.push((t) => {
+    if (t.dataset.bjtrk) { const k2 = t.dataset.bjtrk; tq[k2] = k2 === 'proc' ? t.value : +t.value; tq.res = null; tq.game = null; render(); return true; }
+    if (t.dataset.bjtrkc) { tq.cust[t.dataset.bjtrkc] = +t.value; tq.res = null; tq.game = null; tq.map = null; render(); return true; }
+    if (t.dataset.bjteam) { const v = parseNum(t.value); if (Number.isFinite(v)) tq.team[t.dataset.bjteam] = Math.max(t.dataset.bjteam === 'entry' ? -3 : 1, Math.round(v)); render(); return true; }
+  });
+  ACT.bjtrkstudy = () => { const proc = procOf(); tq.res = SH.trackingStudy({ procObj: proc, seg: tq.seg, K: tq.K, trials: 1000, seed: 1 + Math.floor(rnd() * 1e6) }); tq.map = { M: SH.shuffleMap(proc, 312, tq.seg, 250, 3), seg: tq.seg, proc: tq.proc }; render(); };
+  ACT.bjtrknew = () => { newTrackGame(); render(); };
+  ACT.bjtrkpick = (t) => { const g = tq.game; if (!g || g.pick !== null) return; g.pick = +t.dataset.z; const s = tq.seg; tq.score.n++; tq.score.user += tcFirst(g.out, g.pick, s, tq.K); tq.score.best += tcFirst(g.out, g.best, s, tq.K); tq.score.rand += tcFirst(g.out, g.rand, s, tq.K); render(); };
+
+  // =====================================================================
+  // Simulateur (simulations de référence et simulation personnalisée sur tous les cœurs)
+  // =====================================================================
+  const sm = { key: null, cfg: { sys: 'hilo', pen: 0.75, others: 2, spots: 1, idx: 'ev', wong: 'none', hands: 20e6 }, run: null, res: null };
+  function scoreOf2(rows, spread) { let best = { di: -Infinity }; for (let sc = 0.5; sc <= 400; sc *= 1.15) { const bets = rows.map((r) => ({ n: 1, b: r.mu <= 0 ? 1 : Math.max(1, Math.min(spread, Math.round(sc * r.mu / r.v))) })); const e = optEval(rows, null, bets, 100, 1, 1e6, 1); if (e.di > best.di) best = e; } return best; }
+  VIEWS.bjsim = () => {
+    const G = game(), key = sm.key || countKey(G), J = D.big?.jobs || {}, tot = Object.values(J).reduce((a, j) => a + j.hands, 0);
+    const row = (id, label) => { const j = J[id]; if (!j) return ''; const rows = bucketRows(j.b1, j.hands, false), all = rows.reduce((a, r) => a + r.f * r.raw, 0), se = Math.sqrt(rows.reduce((a, r) => a + r.f * (r.v + r.raw * r.raw), 0) / j.hands); const s8 = scoreOf2(rows, 8), s12 = scoreOf2(rows, 12), s16 = scoreOf2(rows, 16); return `<tr><td>${label}</td><td class="n">${(j.hands / 1e6).toLocaleString('fr-FR', { maximumFractionDigits: 0 })} M</td><td class="n">${sgnP(all, 3)} ± ${fr(1.96 * se * 100, 3)}</td><td class="n">${fr(s8.score, 1)}</td><td class="n">${fr(s12.score, 1)}</td><td class="n">${fr(s16.score, 1)}</td><td class="n">${s12.n0 ? Math.round(s12.n0).toLocaleString('fr-FR') : '—'}</td></tr>`; };
+    let custom = '';
+    if (sm.res) { const r = sm.res, rows = bucketRows(r.b1, r.hands, r.hands < 5e7), s12 = scoreOf2(rows, 12), all = rows.reduce((a, x) => a + x.f * x.raw, 0);
+      custom = `<div class="stats"><div class="stat hero"><span>Tours simulés</span><b>${(r.hands / 1e6).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} M</b><span>${fr(r.rate / 1e6, 2)} M mains / s sur ${r.cores} cœur${r.cores > 1 ? 's' : ''}</span></div><div class="stat"><span>Avantage à mise fixe</span><b>${sgnP(all, 3)}</b></div><div class="stat"><span>SCORE, rampe optimale 1-12</span><b>${fr(s12.score, 1)}</b><span>N0 ${s12.n0 ? Math.round(s12.n0).toLocaleString('fr-FR') : '—'} mains</span></div></div>
+        <div class="tw"><table class="t bjt"><thead><tr><th>TC</th>${rows.map((x) => `<th class="n">${x.tc <= -6 ? '≤ −6' : x.tc >= 10 ? '≥ +10' : tcS(x.tc)}</th>`).join('')}</tr></thead><tbody><tr><td>Mains</td>${rows.map((x) => `<td class="n">${pc(x.f, 1)}</td>`).join('')}</tr><tr><td>Avantage</td>${rows.map((x) => `<td class="n" style="color:var(${x.raw > 0 ? '--good' : '--bad'})">${sgnP(x.raw, 2)}</td>`).join('')}</tr><tr><td>± 95 %</td>${rows.map((x) => `<td class="n">${fr(1.96 * x.se * 100, 2)}</td>`).join('')}</tr><tr><td>Variance</td>${rows.map((x) => `<td class="n">${fr(x.v, 2)}</td>`).join('')}</tr></tbody></table></div>`; }
+    const c = sm.cfg, S0 = CT.byId[c.sys];
+    return head('Simulateur', `Simulations de référence de SIGMA 52 : ${(tot / 1e9).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} milliard${tot >= 2e9 ? 's' : ''} de mains (Hi-Lo à trois pénétrations, 14 systèmes, deux mains, couverture), et ta propre simulation sur tous les cœurs de ton appareil.`) +
+      `<div class="row"><span class="note">Jeu :</span>${['europe', 'strip'].map((k) => `<button class="chip" aria-pressed="${key === k}" data-act="bjsmkey" data-k="${k}">${esc(D.presets[k].label)}</button>`).join('')}</div>
+      <section class="panel"><h2>Hi-Lo selon la pénétration</h2><div class="tw"><table class="t bjt"><thead><tr><th>Configuration</th><th class="n">Mains</th><th class="n">Avantage, mise fixe</th><th class="n">SCORE 1-8</th><th class="n">SCORE 1-12</th><th class="n">SCORE 1-16</th><th class="n">N0 (1-12)</th></tr></thead><tbody>
+        ${[0.67, 0.75, 0.83].map((p) => row(`${key}|hilo|${p}|1|none`, `Pénétration ${Math.round(p * 100)} %`)).join('')}
+        ${row(`${key}|hilo|0.75|1|basic`, 'Stratégie de base seule, 75 %')}${row(`${key}|hilo|0.75|1|noins`, 'Sans assurance, 75 %')}${row(`${key}|hilo|0.75|1|no1010`, 'Sans séparer les 10, 75 %')}</tbody></table></div>
+        <p class="note">Avantage à mise fixe avec indices (intervalle à 95 %). SCORE : gain pour 100 mains avec 10 000 de bankroll en misant Kelly, avec la meilleure rampe possible dans l'écart donné. 2 autres joueurs à la table.</p></section>
+      <section class="panel"><h2>Systèmes de comptage (pénétration 75 %)</h2><div class="tw"><table class="t bjt"><thead><tr><th>Système</th><th class="n">Mains</th><th class="n">Avantage, mise fixe</th><th class="n">SCORE 1-8</th><th class="n">SCORE 1-12</th><th class="n">SCORE 1-16</th><th class="n">N0 (1-12)</th></tr></thead><tbody>
+        ${CT.SYSTEMS.map((x) => row(x.id === 'hilo' ? `${key}|hilo|0.75|1|none` : `${key}|${x.id}|0.75|1|none`, esc(x.name) + (x.balanced ? '' : ' *'))).join('')}</tbody></table></div>
+        <p class="note">Chaque système joue ses propres indices calculés (systèmes équilibrés) ; true count dans son unité ; rampe optimale propre à chaque système. * Déséquilibré, converti idéalement en compte équilibré (plafond).</p></section>
+      <section class="panel"><h2>Ta simulation</h2><div class="form">
+        <label class="f">Système<select data-bjsm="sys">${CT.SYSTEMS.map((x) => `<option value="${x.id}" ${c.sys === x.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></label>
+        <label class="f">Pénétration<select data-bjsm="pen">${[0.6, 0.67, 0.75, 0.8, 0.83, 0.87].map((p) => `<option value="${p}" ${Math.abs(c.pen - p) < 0.001 ? 'selected' : ''}>${Math.round(p * 100)} %</option>`).join('')}</select></label>
+        <label class="f">Autres joueurs<select data-bjsm="others">${[0, 1, 2, 3, 4, 5, 6].map((n) => `<option ${c.others === n ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+        <label class="f">Mains jouées<select data-bjsm="spots"><option value="1" ${c.spots === 1 ? 'selected' : ''}>1</option><option value="2" ${c.spots === 2 ? 'selected' : ''}>2</option></select></label>
+        <label class="f">Indices<select data-bjsm="idx"><option value="ev" ${c.idx === 'ev' ? 'selected' : ''}>EV max</option><option value="ra" ${c.idx === 'ra' ? 'selected' : ''}>Prudents</option><option value="none" ${c.idx === 'none' ? 'selected' : ''}>Aucun</option></select></label>
+        <label class="f">Wonging<select data-bjsm="wong"><option value="none" ${c.wong === 'none' ? 'selected' : ''}>Non</option>${[0, 1, 2].map((x) => `<option value="${x}" ${c.wong === String(x) ? 'selected' : ''}>Entrer à TC ≥ ${tcS(x)}</option>`).join('')}</select></label>
+        <label class="f">Tours à simuler<select data-bjsm="hands">${[5e6, 20e6, 50e6, 100e6, 250e6].map((n) => `<option value="${n}" ${c.hands === n ? 'selected' : ''}>${(n / 1e6).toLocaleString('fr-FR')} M</option>`).join('')}</select></label></div>
+        <div class="row"><button class="btn primary" data-act="bjsmrun" ${sm.run ? 'disabled' : ''}>${sm.run ? `Simulation… ${Math.round(sm.run.done / sm.run.total * 100)} % · ${fr(sm.run.rate / 1e6, 2)} M/s` : 'Lancer'}</button><span class="note">${esc(G.label)} · ${navigator.hardwareConcurrency || 2} cœurs · ${S0.balanced ? 'indices du système' : 'compte déséquilibré : stratégie de base'}.</span></div>
+        ${sm.run ? `<div class="meter"><i style="width:${sm.run.done / sm.run.total * 100}%"></i></div>` : ''}${custom}</section>`;
+  };
+  ACT.bjsmkey = (t) => { sm.key = t.dataset.k; render(); };
+  ONCHANGE.push((t) => { if (t.dataset.bjsm) { const k2 = t.dataset.bjsm; sm.cfg[k2] = ['sys', 'idx', 'wong'].includes(k2) ? t.value : +t.value; render(); return true; } });
+  ACT.bjsmrun = () => {
+    if (sm.run) return;
+    const c = sm.cfg, G = game(), S = CT.byId[c.sys], C = sysData(G, S);
+    let devs = [], insI = null;
+    if (c.idx !== 'none') { if (c.sys === 'hilo') { const g2 = c.idx === 'ra' ? (() => { const o = P().idxMode; P().idxMode = 'ra'; const x = raOverlay(G); P().idxMode = o; return x; })() : G; devs = g2.indices; insI = ins(G); } else if (S.balanced && C?.indices) { devs = C.indices.filter((d) => validDev(d, G.rules)); insI = C.insurance?.index ?? null; } }
+    const acc = { hands: 0, b1: {}, b2: {} }, t0 = Date.now();
+    sm.run = { done: 0, total: c.hands, rate: 0 }; sm.res = null; render();
+    runWorkers({ rules: G.rules, table: G.table, devs, ins: insI, pen: c.pen, others: c.others, spots: c.spots, sys: c.sys, wongIn: c.wong === 'none' ? null : +c.wong }, c.hands, (r) => {
+      acc.hands += r.hands; for (const [B, src] of [[acc.b1, r.buckets], [acc.b2, r.buckets2]]) for (const [tc, q] of Object.entries(src || {})) { const a = (B[tc] ||= [0, 0, 0]); a[0] += q[0]; a[1] += q[1]; a[2] += q[2]; }
+      sm.run.done = acc.hands; sm.run.rate = acc.hands / Math.max(0.001, (Date.now() - t0) / 1000); if (tabNow() === 'bjsim') render();
+    }, () => { sm.res = { b1: c.spots === 2 ? acc.b2 : acc.b1, hands: acc.hands, rate: acc.hands / Math.max(0.001, (Date.now() - t0) / 1000), cores: navigator.hardwareConcurrency || 1 }; sm.run = null; render(); });
+  };
+
+  // =====================================================================
   // Journal
   // =====================================================================
   let jMsg = '';
@@ -1103,5 +1298,5 @@
   // Lien direct vers un onglet blackjack (#bjtable…) : l'onglet n'existait pas au chargement du routeur.
   const h0 = (location.hash || '').slice(1);
   if (TB.some(([k]) => k === h0)) setTimeout(() => go(h0), 0);
-  X.BJAPP = { P, game, gameS, sysOf, tagOf, tcOf: (t) => tcOf(t), recommend, rowOf, handOf, val, availFor, tblNew, mastery, ladder, newSpot: () => { newSpot(); return tr.spot; }, answer, tr, cd, getTbl: () => tbl, setTbl: (x) => { tbl = x; }, tblDeal: () => tblDeal(), tblAct, rampUnits };
+  X.BJAPP = { P, game, gameS, sysOf, tagOf, tcOf: (t) => tcOf(t), recommend, rowOf, handOf, val, availFor, tblNew, mastery, ladder, newSpot: () => { newSpot(); return tr.spot; }, answer, tr, cd, getTbl: () => tbl, setTbl: (x) => { tbl = x; }, tblDeal: () => tblDeal(), tblAct, rampUnits, sm, tq };
 })();

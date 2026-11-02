@@ -42,12 +42,15 @@
   const P32 = [0, 1]; for (let r = 2; r <= 10; r++) P32[r] = P32[r - 1] * 32;
   // fast : le croupier tire dans le sabot tel qu'il était au moment de la décision (les cartes tirées ensuite par le joueur sont ignorées
   // pour le croupier). Écart d'EV de l'ordre du millième de mise en sabot ; sert aux calculs à la volée dans le navigateur.
-  function Calc(rules, base0, fast) {
+  // holeSet : information sur la carte cachée (liste des rangs possibles) ; la carte cachée est tirée parmi ces rangs seulement,
+  // en proportion de leur présence dans le sabot. Sans holeSet : avec peek, tout sauf le blackjack ; sans carte cachée, tout.
+  function Calc(rules, base0, fast, holeSet) {
     const rl = R(rules), base = base0 || shoeOf(rl.decks), DMEMO = new Map(), PMEMO = new Map();
     let root = null, rootK = 0;
     const dd = (shoe, up) => dealerDist(fast && root ? root : shoe, up);
     const enc = (s) => { let k = 0; for (let r = 1; r <= 10; r++) k += Math.round(base[r] - s[r]) * P32[r]; return k; };
     const sub = (M, p) => { let m = M.get(p); if (!m) { m = new Map(); M.set(p, m); } return m; };
+    const allowed = holeSet ? holeSet.reduce((a, r) => { a[r] = 1; return a; }, new Array(11).fill(0)) : null;
     function dealerDist(shoe, up) {
       const DM = sub(DMEMO, up), k = enc(shoe);
       let d = DM.get(k); if (d) return d;
@@ -59,11 +62,11 @@
         if (n === 2 && t === 21) { d[6] += prob; return; }
         if (sum > 21) { d[5] += prob; return; }
         if (t >= 17 && !(t === 17 && rl.h17 && isSoft(sum, ace))) { d[t - 17] += prob; return; }
-        let den = N; const cond = n === 1 && rl.peek && bjRank;
-        if (cond) den -= s[bjRank];
+        const first = n === 1, ok = (r) => (!first ? true : allowed ? allowed[r] : !(rl.peek && bjRank && r === bjRank));
+        let den = 0; for (let r = 1; r <= 10; r++) if (s[r] > 0 && ok(r)) den += s[r];
         if (den <= 0) return;
         for (let r = 1; r <= 10; r++) {
-          if (cond && r === bjRank) continue;
+          if (!ok(r)) continue;
           const c = s[r]; if (c <= 0) continue;
           s[r] -= 1; N -= 1;
           rec(sum + r, ace || r === 1, n + 1, prob * c / den);
@@ -330,14 +333,15 @@
   function simulate(cfg) {
     const rl = R(cfg.rules), rnd = rng(cfg.seed || 7), table = cfg.table, devs = cfg.devs || [], ramp = cfg.ramp || ((tc) => 1);
     const nCards = rl.decks * 52, cut = Math.floor(nCards * (cfg.pen || 0.75)), others = cfg.others || 0;
+    const spotsOf = cfg.spots || (() => 1), wongIn = cfg.wongIn ?? null, wongOut = cfg.wongOut ?? null;
     // Cartes physiques 0..51 (rang c % 13, couleur c / 13) ; valeur de comptage par carte : Hi-Lo par défaut, cfg.cardTag sinon.
     const cards = []; for (let d = 0; d < rl.decks; d++) for (let c = 0; c < 52; c++) cards.push(c);
     const RK = new Int8Array(52), TG = new Float64Array(52);
     for (let c = 0; c < 52; c++) { RK[c] = rankOfCard(c); TG[c] = cfg.cardTag ? cfg.cardTag(c) : HILO[RK[c]]; }
     const imb = cfg.imb || 0; // déséquilibre par paquet : converti en compte équilibré (conversion idéale)
-    let pos = nCards, rc = 0;
+    let pos = nCards, rc = 0, seated = wongIn === null;
     const deck = cards;
-    const shuffle = () => { for (let i = deck.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); const t = deck[i]; deck[i] = deck[j]; deck[j] = t; } pos = 0; rc = 0; };
+    const shuffle = () => { for (let i = deck.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); const t = deck[i]; deck[i] = deck[j]; deck[j] = t; } pos = 0; rc = 0; seated = wongIn === null; };
     const draw = () => { const c = deck[pos++]; rc += TG[c]; return RK[c]; };
     const dev = {}; for (const d of devs) (dev[d.row + '|' + d.up] ||= []).push(d);
     const actOf = (rowId, up, tc, avail) => {
@@ -348,93 +352,134 @@
       return 'stand';
     };
     const hardRow = (t) => 'h' + Math.max(5, Math.min(19, t));
-    let hands = 0, units = 0, sumBet = 0, sum2 = 0; const tcHist = {};
-    // Statistiques par true count (mise de 1) : nombre de mains, somme et somme des carrés des résultats.
-    const BK = cfg.buckets ? {} : null;
-    const res = new Float64Array(cfg.hands);
+    const sumOf = (cs) => { let s = 0; for (const x of cs) s += x; return s; };
+    const totOf = (cs) => hv(sumOf(cs), cs.includes(1));
+    let hands = 0, rounds = 0, units = 0, sumBet = 0, sum2 = 0; const tcHist = {};
+    // Statistiques par true count (mise de 1 par main) : [mains, somme, somme des carrés], séparées par nombre de mains jouées.
+    const BK = cfg.buckets ? {} : null, BK2 = cfg.buckets ? {} : null;
+    const res = cfg.noRes ? null : new Float64Array(cfg.hands);
+    function playHand(h, up, nHref) {
+      while (!h.done) {
+        const cs = h.cards, sum = sumOf(cs), ace = cs.includes(1), t = hv(sum, ace);
+        if (t >= 21) { h.done = true; break; }
+        if (h.isAces && !rl.hsa && cs.length === 2) { h.done = true; break; }
+        const two = cs.length === 2, soft = isSoft(sum, ace), isPair = two && cs[0] === cs[1];
+        const rowId = isPair ? 'p' + cs[0] : soft ? 's' + Math.min(9, t - 11) : hardRow(t);
+        const tcNow = Math.trunc((rc - imb * pos / 52) / Math.max(0.5, (nCards - pos) / 52));
+        let act = 'stand';
+        if (table[rowId]) {
+          const okDouble = two && (rl.double === 'any' ? true : !soft && (rl.double === '9-11' ? t >= 9 && t <= 11 : t >= 10 && t <= 11)) && (!h.split || rl.das);
+          const okSplit = isPair && nHref.n < rl.maxHands && (cs[0] !== 1 || !h.split || rl.rsa);
+          const okSur = two && !h.split && rl.surrender && rl.peek;
+          act = actOf(rowId, up, tcNow, { stand: true, hit: true, double: okDouble, split: okSplit, surrender: okSur });
+        } else if (soft && t < 20) act = 'hit';
+        if (act === 'stand') h.done = true;
+        else if (act === 'hit') cs.push(draw());
+        else if (act === 'double') { h.bet *= 2; cs.push(draw()); h.done = true; }
+        else if (act === 'surrender') { h.surr = true; h.done = true; }
+        else if (act === 'split') {
+          const P = cs[0]; nHref.n++;
+          const nh = { cards: [P, draw()], bet: h.bet, split: true, done: false, isAces: P === 1, spot: h.spot };
+          h.cards = [P, draw()]; h.split = true; h.isAces = P === 1;
+          nHref.list.push(nh);
+        }
+      }
+    }
     while (hands < cfg.hands) {
       if (pos >= cut || pos === nCards) shuffle();
       const decksLeft = Math.max(0.5, (nCards - pos) / 52), tcRaw = (rc - imb * pos / 52) / decksLeft, tc = Math.trunc(tcRaw);
-      const bet = cfg.rampRaw ? ramp(tcRaw) : ramp(tc); tcHist[tc] = (tcHist[tc] || 0) + 1;
-      const p1 = draw(), up = draw(), p2 = draw(); const hole = rl.peek ? draw() : 0;
+      // Wonging : entrer à TC ≥ wongIn, sortir sous wongOut (jusqu'au mélange).
+      if (wongIn !== null) { if (!seated && tcRaw >= wongIn) seated = true; else if (seated && wongOut !== null && tcRaw < wongOut) seated = false; }
+      rounds++;
+      if (!seated) {
+        // Tour observé sans jouer : les autres joueurs et le croupier consomment des cartes.
+        for (let o = 0; o < Math.max(1, others); o++) { draw(); draw(); if (rnd() < 0.5) draw(); }
+        draw(); draw(); if (rnd() < 0.6) draw();
+        continue;
+      }
+      const ns = Math.max(1, Math.min(3, spotsOf(tc, tcRaw) | 0)), bet = cfg.rampRaw ? ramp(tcRaw) : ramp(tc); tcHist[tc] = (tcHist[tc] || 0) + 1;
+      const first = []; for (let k = 0; k < ns; k++) first.push(draw());
+      const up = draw();
+      const second = []; for (let k = 0; k < ns; k++) second.push(draw());
+      const hole = rl.peek ? draw() : 0;
       for (let o = 0; o < others; o++) { draw(); draw(); if (rnd() < 0.5) draw(); }
       let result = 0;
-      // Assurance avec les indices : prise à TC ≥ index.
-      let ins = 0;
-      if (up === 1 && cfg.useIndices && cfg.insIndex != null && tcRaw >= cfg.insIndex) ins = bet / 2;
-      const dBJ = rl.peek ? ((up === 1 && hole === 10) || (up === 10 && hole === 1)) : false;
-      const pBJ = (p1 === 1 && p2 === 10) || (p1 === 10 && p2 === 1);
-      // Avec peek, l'assurance se règle tout de suite ; sans carte cachée, quand le croupier prend sa deuxième carte.
-      if (ins && rl.peek) result += dBJ ? 2 * ins : -ins;
-      if (rl.peek && dBJ) { result += pBJ ? 0 : -bet; }
-      else if (pBJ) {
-        let hole2 = hole; if (!rl.peek) hole2 = draw();
-        const dn = (up === 1 && hole2 === 10) || (up === 10 && hole2 === 1);
-        if (ins && !rl.peek) result += dn ? 2 * ins : -ins;
-        result += dn ? 0 : rl.bj * bet;
-      } else {
-        // Joue les mains du joueur.
-        const handsP = [{ cards: [p1, p2], bet, split: false, done: false, isAces: false }];
-        let nH = 1;
-        for (let i = 0; i < handsP.length; i++) {
-          const h = handsP[i];
-          while (!h.done) {
-            const cs = h.cards, sum = cs.reduce((a, b) => a + b, 0), ace = cs.includes(1), t = hv(sum, ace);
-            if (t >= 21) { h.done = true; break; }
-            if (h.isAces && !rl.hsa) { if (cs.length === 2) { h.done = true; break; } }
-            const two = cs.length === 2, soft = isSoft(sum, ace);
-            const isPair = two && cs[0] === cs[1];
-            const rowId = isPair ? 'p' + cs[0] : soft ? 's' + Math.min(9, t - 11) : hardRow(t);
-            const effRow = rowId;
-            const tcNow = Math.trunc((rc - imb * pos / 52) / Math.max(0.5, (nCards - pos) / 52));
-            let act = 'stand';
-            if (effRow && table[effRow]) {
-              const okDouble = two && (rl.double === 'any' ? true : !soft && (rl.double === '9-11' ? t >= 9 && t <= 11 : t >= 10 && t <= 11)) && (!h.split || rl.das);
-              const okSplit = isPair && nH < rl.maxHands && (cs[0] !== 1 || !h.split || rl.rsa);
-              const okSur = two && !h.split && rl.surrender && rl.peek;
-              act = actOf(effRow, up, tcNow, { stand: true, hit: true, double: okDouble, split: okSplit, surrender: okSur });
-              if (soft && !two && (act === 'stand' || act === 'hit')) { /* soft multi-cartes : la ligne soft s'applique */ }
-            } else if (soft && t < 20) act = 'hit';
-            if (act === 'stand') h.done = true;
-            else if (act === 'hit') cs.push(draw());
-            else if (act === 'double') { h.bet *= 2; cs.push(draw()); h.done = true; h.doubled = true; }
-            else if (act === 'surrender') { h.surr = true; h.done = true; }
-            else if (act === 'split') {
-              const P = cs[0]; nH++;
-              const nh = { cards: [P, draw()], bet: h.bet, split: true, done: false, isAces: P === 1 };
-              h.cards = [P, draw()]; h.split = true; h.isAces = P === 1;
-              handsP.push(nh);
-            }
-          }
+      const insOn = up === 1 && cfg.useIndices && cfg.insIndex != null && tcRaw >= cfg.insIndex, ins = insOn ? bet / 2 : 0;
+      const dBJ = rl.peek && ((up === 1 && hole === 10) || (up === 10 && hole === 1));
+      const nat = []; for (let k = 0; k < ns; k++) nat.push((first[k] === 1 && second[k] === 10) || (first[k] === 10 && second[k] === 1));
+      if (ins && rl.peek) result += ns * (dBJ ? 2 * ins : -ins);
+      if (dBJ) { for (let k = 0; k < ns; k++) result += nat[k] ? 0 : -bet; }
+      else {
+        const ref = { n: 0, list: [] }, all = [];
+        for (let k = 0; k < ns; k++) {
+          if (nat[k]) continue;
+          ref.n = 1; ref.list = [{ cards: [first[k], second[k]], bet, split: false, done: false, isAces: false, spot: k }];
+          for (let i = 0; i < ref.list.length; i++) playHand(ref.list[i], up, ref);
+          all.push(...ref.list);
         }
-        // Croupier.
-        const live = handsP.filter((h) => !h.surr && hv(h.cards.reduce((a, b) => a + b, 0), h.cards.includes(1)) <= 21);
         const dc = [up, rl.peek ? hole : draw()];
         const dn2 = !rl.peek && ((up === 1 && dc[1] === 10) || (up === 10 && dc[1] === 1));
-        if (ins && !rl.peek) result += dn2 ? 2 * ins : -ins;
-        if (!dn2 && live.length) {
-          for (;;) { const s = dc.reduce((a, b) => a + b, 0), a = dc.includes(1), t = hv(s, a); if (t > 17 || (t === 17 && !(rl.h17 && isSoft(s, a)))) break; dc.push(draw()); }
-        }
-        const ds = dc.reduce((a, b) => a + b, 0), dt = hv(ds, dc.includes(1));
-        let obPaid = false;
-        for (const h of handsP) {
+        if (ins && !rl.peek) result += ns * (dn2 ? 2 * ins : -ins);
+        const live = all.some((h) => !h.surr && totOf(h.cards) <= 21);
+        if (!dn2 && (live || others > 0)) { for (;;) { const s = sumOf(dc), a = dc.includes(1), t = hv(s, a); if (t > 17 || (t === 17 && !(rl.h17 && isSoft(s, a)))) break; dc.push(draw()); } }
+        const dt = totOf(dc);
+        for (let k = 0; k < ns; k++) if (nat[k]) result += dn2 ? 0 : rl.bj * bet;
+        const oboPaid = {};
+        for (const h of all) {
           if (h.surr) { result -= h.bet / 2; continue; }
-          const t = hv(h.cards.reduce((a, b) => a + b, 0), h.cards.includes(1));
+          const t = totOf(h.cards);
           if (t > 21) { result -= h.bet; continue; }
-          if (dn2) { if (rl.obo) { if (!obPaid) { result -= bet; obPaid = true; } } else result -= h.bet; continue; }
+          if (dn2) { if (rl.obo) { if (!oboPaid[h.spot]) { result -= bet; oboPaid[h.spot] = 1; } } else result -= h.bet; continue; }
           if (dt > 21 || t > dt) result += h.bet; else if (t < dt) result -= h.bet;
         }
       }
-      if (BK) { const k = Math.max(-10, Math.min(15, tc)), q = (BK[k] ||= [0, 0, 0]), x = result / bet; q[0]++; q[1] += x; q[2] += x * x; }
-      res[hands] = result; units += result; sumBet += bet; sum2 += result * result; hands++;
+      if (BK) { const k = Math.max(-10, Math.min(15, tc)), B = ns === 1 ? BK : BK2, q = (B[k] ||= [0, 0, 0]), x = result / bet; q[0]++; q[1] += x; q[2] += x * x; }
+      if (res) res[hands] = result;
+      units += result; sumBet += bet * ns; sum2 += result * result; hands++;
     }
     const mean = units / hands, sd = Math.sqrt(Math.max(0, sum2 / hands - mean * mean));
-    return { hands, units, mean, sd, avgBet: sumBet / hands, edge: units / sumBet, res, tcHist, buckets: BK };
+    return { hands, rounds, units, mean, sd, sum2, avgBet: sumBet / hands, edge: units / sumBet, res, tcHist, buckets: BK, buckets2: BK2 };
+  }
+
+  // ---------- Carte cachée vue (hole carding) et informations partielles ----------
+  // Valeur du jeu selon ce que le joueur sait de la carte cachée : rien, « 10 ou pas », trois classes (2-6, 7-9, 10-As), la carte exacte.
+  // Pour chaque information, le croupier est conditionné à la classe connue (toutes les décisions, y compris après un tirage, en tiennent
+  // compte). Avec peek, le blackjack du croupier est vérifié avant : sa probabilité est retirée des classes et compte −1.
+  function holeCardStudy(rules, onUp) {
+    const rl = R(rules), base = shoeOf(rl.decks), N0 = total(base);
+    const LEVELS = { none: [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]], ten: [[10], [1, 2, 3, 4, 5, 6, 7, 8, 9]], three: [[2, 3, 4, 5, 6], [7, 8, 9], [10, 1]], full: [[1], [2], [3], [4], [5], [6], [7], [8], [9], [10]] };
+    const val = { none: 0, ten: 0, three: 0, full: 0 };
+    for (const up of UPS) {
+      const pu = base[up] / N0, s1 = base.slice(); s1[up] -= 1; const N1 = total(s1), bjRank = up === 1 ? 10 : up === 10 ? 1 : 0;
+      const calcs = {};
+      for (let a = 1; a <= 10; a++) for (let b = a; b <= 10; b++) {
+        let w = s1[a] / N1; const s2 = s1.slice(); s2[a] -= 1; w *= s2[b] / (N1 - 1); if (a !== b) w *= 2; s2[b] -= 1;
+        if (w <= 0) continue;
+        const N2 = total(s2), nat = (a === 1 && b === 10), pbj = bjRank ? s2[bjRank] / N2 : 0;
+        for (const [lvl, classes] of Object.entries(LEVELS)) {
+          let v = 0;
+          if (nat) v = (1 - pbj) * rl.bj;
+          else {
+            if (rl.peek && pbj) v -= pbj;
+            for (const cl0 of classes) {
+              const cl = rl.peek && bjRank ? cl0.filter((r) => r !== bjRank) : cl0;
+              const pc = cl.reduce((x, r) => x + s2[r] / N2, 0); if (pc <= 0) continue;
+              const key = lvl + cl.join(',');
+              const c = (calcs[key] ||= Calc(rl, null, true, cl));
+              v += pc * Math.max(...Object.values(c.actions(s2, up, a, b)));
+            }
+          }
+          val[lvl] += pu * w * v;
+        }
+      }
+      if (onUp) onUp(up);
+    }
+    return val;
   }
 
   // Risque de ruine (approximation diffusion) : exp(−2 · μ · B / σ²) avec μ, σ par main en unités.
   const riskOfRuin = (mu, sd, bank) => (mu <= 0 ? 1 : Math.exp(-2 * mu * bank / (sd * sd)));
 
-  const BJ = { RULES, PRESETS, R, shoeOf, shoeAtTC, total, hv, isSoft, Calc, UPS, ROWS, combosOf, ACTS, CODE, NAME, rowEV, decide, strategy, rowIdOf, houseEdge, rowMoments, insuranceEV, insuranceIndex, HILO, rankOfCard, indexFor, rng, simulate, riskOfRuin };
+  const BJ = { RULES, PRESETS, R, shoeOf, shoeAtTC, total, hv, isSoft, Calc, UPS, ROWS, combosOf, ACTS, CODE, NAME, rowEV, decide, strategy, rowIdOf, houseEdge, rowMoments, insuranceEV, insuranceIndex, HILO, rankOfCard, indexFor, rng, simulate, riskOfRuin, holeCardStudy };
   if (typeof module !== 'undefined' && module.exports) module.exports = BJ; else root.BJ = BJ;
 })(typeof window !== 'undefined' ? window : globalThis);

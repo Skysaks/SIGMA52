@@ -1,0 +1,45 @@
+# Grandes simulations blackjack sur les machines de GitHub : ajoute des mains aux simulations de référence
+# (tools/data/bj_sims.json), réintègre les résultats dans src/bj_data.js, reconstruit la page et pousse sur main.
+# Lancement manuel seulement (onglet Actions, « Run workflow ») : rien ne tourne tout seul, pas de minutes consommées sans demande.
+# unit_m = millions de mains par tâche-unité (100 ≈ 5 milliards de mains au total, ~25 min sur 4 cœurs).
+name: Simulations blackjack
+on:
+  workflow_dispatch:
+    inputs:
+      unit_m:
+        description: Millions de mains par tâche-unité
+        default: '100'
+      filter:
+        description: Filtre sur l'identifiant des tâches (ex. strip|hilo), vide = toutes
+        default: ''
+permissions:
+  contents: write
+concurrency:
+  group: bj-sims
+  cancel-in-progress: false
+jobs:
+  sim:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Simuler
+        env:
+          UNIT_M: ${{ inputs.unit_m }}
+          FILTER: ${{ inputs.filter }}
+        run: node tools/bj_bigsim.js "$UNIT_M" "$FILTER"
+      - name: Intégrer, reconstruire, tester
+        run: |
+          node tools/build_bj.js big
+          sh build.sh
+          node test/bj.test.js
+      - name: Pousser
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tools/data/bj_sims.json src/bj_data.js sigma52.html SIGMA52-hors-ligne.html
+          git commit -m "Simulations blackjack : +${{ inputs.unit_m }} M mains par unité" || exit 0
+          for i in 1 2 3; do git pull --rebase origin main && git push origin HEAD:main && exit 0; sleep 10; done; exit 1

@@ -60,7 +60,7 @@ function presetData(key, P) {
 }
 
 // Mode « systems » : ne recalcule que la partie systèmes de comptage ; mode « advanced » : indices prudents et indices par simulation.
-const MODE = process.argv[2] || 'all', ONLY_SYS = MODE === 'systems' || MODE === 'advanced';
+const MODE = process.argv[2] || 'all', ONLY_SYS = MODE === 'systems' || MODE === 'advanced' || MODE === 'extra' || MODE === 'big';
 const out = ONLY_SYS ? require('../src/bj_data.js') : { built: new Date().toISOString().slice(0, 10), presets: {}, ruleCosts: null };
 out.built = new Date().toISOString().slice(0, 10);
 if (!ONLY_SYS) for (const [k, P] of Object.entries(BJ.PRESETS)) out.presets[k] = presetData(k, P);
@@ -204,6 +204,50 @@ function advData(key) {
   return { ra, sim: simI };
 }
 if (MODE === 'all' || MODE === 'advanced') { out.adv = {}; for (const key of ['europe', 'strip']) out.adv[key] = advData(key); }
+
+// ---------- Techniques : carte cachée, première carte, suivi de mélange, séquençage des as ----------
+function firstCardEV(rules) {
+  const st = BJ.strategy(rules, { fast: true }), calc = st.calc, base = BJ.shoeOf(rules.decks), N0 = BJ.total(base), ev = [0], pr = [0];
+  for (let f = 1; f <= 10; f++) {
+    let v = 0, wt = 0;
+    for (const up of BJ.UPS) {
+      const s1 = base.slice(); let w = s1[f] / N0; s1[f] -= 1; const N1 = BJ.total(s1); w *= s1[up] / N1; s1[up] -= 1; const N2 = BJ.total(s1);
+      for (let b = 1; b <= 10; b++) {
+        const w2 = w * s1[b] / N2; if (w2 <= 0) continue; const s2 = s1.slice(); s2[b] -= 1;
+        const pbj = calc.pBJ(s2, up), nat = (f === 1 && b === 10) || (f === 10 && b === 1);
+        let x; if (nat) x = (1 - pbj) * rules.bj; else { const a = calc.actions(s2, up, Math.min(f, b), Math.max(f, b)); const c = Math.max(...Object.values(a)); x = rules.peek ? -pbj + (1 - pbj) * c : c; }
+        v += w2 * x; wt += w2;
+      }
+    }
+    ev.push(r4(v / wt)); pr.push(r4(wt));
+  }
+  return ev;
+}
+if (MODE === 'all' || MODE === 'extra') {
+  const SH = require('../src/bj_shuffle.js');
+  out.tech = { hole: {}, first: {}, track: {}, aceseq: {} };
+  for (const key of ['europe', 'strip']) {
+    const t0 = Date.now(), r = out.presets[key].rules;
+    out.tech.first[key] = firstCardEV(r);
+    const h = BJ.holeCardStudy(r); out.tech.hole[key] = Object.fromEntries(Object.entries(h).map(([k, v]) => [k, r4(v)]));
+    console.log(key, 'première carte', out.tech.first[key].join(' '), 'carte cachée', JSON.stringify(out.tech.hole[key]), ((Date.now() - t0) / 1000).toFixed(0) + ' s');
+  }
+  for (const proc of Object.keys(SH.PROCS)) {
+    for (const seg of [26, 52]) { const x = SH.trackingStudy({ proc, seg, trials: 3000, decks: 6, pen: 0.75 }); out.tech.track[proc] = out.tech.track[proc] || {}; out.tech.track[proc][seg] = Object.fromEntries(Object.entries(x).map(([k, v]) => [k, typeof v === 'number' ? r4(v) : v])); }
+    out.tech.aceseq[proc] = SH.aceSeqStudy({ proc, trials: 1500 });
+    console.log('mélange', proc, JSON.stringify(out.tech.track[proc][52]));
+  }
+}
+
+// ---------- Grandes simulations (tools/bj_bigsim.js) : résumé par tâche ----------
+if (MODE === 'all' || MODE === 'big') {
+  const F = path.join(__dirname, 'data', 'bj_sims.json');
+  if (fs.existsSync(F)) {
+    const S = JSON.parse(fs.readFileSync(F, 'utf8')); out.big = { updated: S.updated, jobs: {} };
+    for (const [id, j] of Object.entries(S.jobs)) out.big.jobs[id] = { key: j.key, sys: j.sys, pen: j.pen, spots: j.spots, cover: j.cover, hands: j.hands, rounds: j.rounds, b1: j.b1, b2: j.b2 };
+    console.log('grandes simulations :', Object.keys(out.big.jobs).length, 'tâches,', (Object.values(out.big.jobs).reduce((a, j) => a + j.hands, 0) / 1e9).toFixed(2), 'milliard de mains');
+  }
+}
 const js = '// Généré par tools/build_bj.js le ' + out.built + ' : ne pas modifier à la main.\n(function (root) {\n  const D = ' + JSON.stringify(out) + ';\n  if (typeof module !== \'undefined\' && module.exports) module.exports = D; else root.BJDATA = D;\n})(typeof window !== \'undefined\' ? window : globalThis);\n';
-fs.writeFileSync(path.join(__dirname, '..', 'src', 'bj_data.js'), js);
+{ const F = path.join(__dirname, '..', 'src', 'bj_data.js'); fs.writeFileSync(F + '.tmp', js); fs.renameSync(F + '.tmp', F); }
 console.log('src/bj_data.js', js.length, 'octets');

@@ -365,6 +365,9 @@ table.t.bjheat td { height: 16px; padding: 0; border: 1px solid var(--surface); 
 .bjfb { display: grid; gap: 4px; font-size: 14px; } .bjfb .bad { color: var(--bad); } .bjfb .good { color: var(--good); }
 table.t.bjt td.n, table.t.bjt th.n { white-space: nowrap; }
 .form.bjf { grid-template-columns: repeat(auto-fit, minmax(72px, 1fr)); gap: 8px; }
+.bjsegs { display: flex; flex-wrap: wrap; gap: 4px; } .bjsegs > * { min-width: 40px; padding: 8px 6px; border-radius: 6px; text-align: center; font: 600 13px var(--f-mono); border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+.bjsegs button { cursor: pointer; } .bjsegs button.on { outline: 2px solid var(--ink); } .bjsegs button:disabled { cursor: default; opacity: .7; }
+.bjmap { display: grid; gap: 1px; max-width: 420px; } .bjmap i { aspect-ratio: 1; display: block; border-radius: 2px; }
 kbd { font: 600 11px var(--f-mono); border: 1px solid var(--line); border-radius: 4px; padding: 1px 4px; margin-left: 4px; opacity: .75; }
 </style>
 <header class="top"><div class="wrap">
@@ -460,7 +463,9 @@ kbd { font: 600 11px var(--f-mono); border: 1px solid var(--line); border-radius
 <script data-s52>/*__APPUI__*/</script>
 <script data-s52>/*__BJENGINE__*/</script>
 <script data-s52>/*__BJCOUNTS__*/</script>
+<script data-s52>/*__BJSHUFFLE__*/</script>
 <script data-s52>/*__BJDATA__*/</script>
 <script data-s52>/*__BJCOURSE__*/</script>
 <script data-s52>/*__APPBJ__*/</script>
+<script data-s52 type="text/plain" id="bjsrc">/*__BJSRC__*/</script>
 <script data-s52>window.__S52.start();</script>

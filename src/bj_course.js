@@ -607,6 +607,86 @@
       ],
     },
   ];
+  // ---------- Techniques de pointe : suivi de mélange, séquençage, carte cachée, plusieurs mains, équipe, simulations ----------
+  const PL = (X, k) => (X.D.tech && X.D.tech[k]) || null;
+  const TECH = [
+    {
+      id: 'suivi', part: 'Pratique', title: 'Suivi de mélange : principe, carte de mélange, coupe', minutes: 18,
+      goals: ['Comprendre pourquoi un mélange manuel laisse de l\'information', 'Lire une carte de mélange', 'Savoir où couper'],
+      sections: [
+        ['Le principe', () => `<p>Un mélange manuel de casino ne mélange pas tout le sabot : le croupier prend des poignées dans des piles, les riffle, les strippe, les empile. Une poignée riche en 10 et en as reste, en grande partie, dans une même zone du nouveau sabot. Celui qui a compté chaque segment de la défausse sait donc, à peu près, où sont les zones riches.</p>`],
+        ['Ce que fait chaque geste', () => `<ul><li><strong>Riffle</strong> : intercale deux paquets. Les cartes restent dans la même poignée ; l'ordre relatif de chaque moitié est conservé.</li><li><strong>Strip</strong> : prend de petits paquets sur le dessus et les empile : inverse l'ordre des paquets, pas leur contenu.</li><li><strong>Piles et poignées</strong> : décident quelles zones se mêlent entre elles. Plus les poignées sont grosses et les piles nombreuses, plus l'information se dilue.</li><li><strong>Passes</strong> : chaque passe complète supplémentaire réduit fortement ce qui reste à suivre.</li></ul>`],
+        ['La carte de mélange', () => `<p>On simule des milliers de fois la procédure de ta table sur des cartes numérotées : on obtient, pour chaque zone du nouveau sabot, la part de cartes venant de chaque segment d'origine. Multipliée par le compte de chaque segment, elle donne la richesse attendue de chaque zone. C'est le principe des logiciels professionnels de suivi.</p>`],
+        ['Ce que ça rapporte (simulation SIGMA 52)', (X) => { const T = PL(X, 'track'); if (!T) return ''; const r = (k) => T[k] && T[k][52]; return `<p>Sabot de 6 jeux à 75 %, segments d'un paquet, 2 paquets joués en tête après la coupe :</p><ul>${['zone2r', 'zone2rs', 'zone3', 'double', 'aleatoire'].filter(r).map((k) => `<li>${X.Shuffle ? X.Shuffle.PROCS[k].label : k} : true count moyen du début ${fx(r(k).tcTrack, 1)} (hasard ${fx(r(k).tcRand, 1)}), corrélation ${fx(r(k).corr, 2)}.</li>`).join('')}</ul><p>Contre un mélange paresseux, couper au bon endroit place régulièrement un début de sabot à true count +2 ou +3 : un avantage de plus d'un point dès les premières mains, quand un compteur ordinaire est à zéro.</p>`; }],
+        ['La pratique', () => `<ol><li>Observer la procédure exacte du croupier (piles, taille des poignées, riffles, strips) sur plusieurs sabots.</li><li>La reproduire dans Techniques, procédure personnalisée, et vérifier la corrélation : sous 0,3, rien à gagner.</li><li>Compter la défausse par segments (un paquet chacun, au début).</li><li>Obtenir la coupe, ou repérer où tombe la zone riche si un autre joueur coupe.</li><li>Miser sur la zone riche en début de sabot, puis reprendre le comptage normal.</li></ol><p class="note">Les casinos répondent par des mélanges plus complets, des machines, ou en coupant eux-mêmes.</p>`],
+      ],
+      mistakes: ['Suivre un mélange sans l\'avoir cartographié', 'Suivre trop de segments et perdre le compte', 'Croire qu\'une machine à mélanger se suit'],
+      keys: ['Riffle et strip conservent les poignées', 'Carte de mélange = où finit chaque segment', 'Corrélation faible = rien à suivre'],
+      quiz: [
+        { q: 'Un riffle entre deux paquets :', opts: ['Mélange tout le sabot', 'Garde les cartes dans la poignée, intercalées', 'Inverse l\'ordre des cartes', 'Détruit l\'information'], ok: 1, why: 'Les cartes restent dans la même poignée.' },
+        { q: 'Une deuxième passe complète de mélange :', opts: ['Ne change rien', 'Réduit fortement l\'information suivable', 'Double l\'avantage', 'Facilite la coupe'], ok: 1, why: 'Voir la ligne « deux passes » dans la simulation.' },
+      ],
+    },
+    {
+      id: 'sequencage', part: 'Pratique', title: 'Séquençage des as et cartes clés', minutes: 12,
+      goals: ['Comprendre le séquençage', 'Chiffrer la valeur d\'un as en première carte'],
+      sections: [
+        ['Le principe', () => `<p>Pendant le jeu, on retient la carte vue juste avant chaque as (la carte clé). Après un mélange imparfait, l'ordre local survit souvent : quand la carte clé réapparaît, l'as a une forte chance d'arriver une ou deux cartes plus tard.</p>`],
+        ['Ce que vaut un as', (X) => { const F = PL(X, 'first'); if (!F) return ''; const e = F.europe; return `<p>Calcul exact (jeu européen) : avec un as en première carte, l'espérance de la main est de <strong>${sg(e[1], 1)}</strong>. Un 10 : ${sg(e[10], 1)}. Un 5 : ${sg(e[5], 1)}. Savoir qu'un as va tomber sur sa main, c'est donc miser gros sur une main très favorable.</p>`; }],
+        ['Les limites', () => `<p>Il faut savoir quelle main recevra la carte : compter les cartes qui sortiront avant, parfois ouvrir ou fermer une main pour « prendre » l'as. Un seul riffle supplémentaire, ou un strip, peut casser la séquence. C'est une technique très exigeante, rarement praticable seul.</p>`],
+      ],
+      mistakes: ['Retenir trop de cartes clés', 'Miser sur une séquence après un mélange complet'],
+      keys: ['Carte clé = la carte avant l\'as', 'As en première carte : main très favorable', 'Fragile face au moindre mélange'],
+      quiz: [{ q: 'Une carte clé est :', opts: ['Un as', 'La carte vue juste avant un as', 'La carte de coupe', 'Le dernier 10'], ok: 1, why: 'Elle annonce l\'as après le mélange.' }],
+    },
+    {
+      id: 'cartecachee', part: 'Pratique', title: 'La carte cachée : ce que vaut l\'information', minutes: 12,
+      goals: ['Chiffrer la valeur de chaque niveau d\'information sur la carte du croupier', 'Connaître le cadre légal'],
+      sections: [
+        ['Les chiffres', (X) => { const H = PL(X, 'hole'); if (!H) return ''; const r = (k) => `<li>${X.D.presets[k].label} : sans information ${sg(H[k].none)} ; « 10 ou pas » ${sg(H[k].ten)} ; petite, moyenne, haute ${sg(H[k].three)} ; carte exacte <strong>${sg(H[k].full)}</strong>.</li>`; return `<ul>${r('europe')}${r('strip')}</ul><p class="note">Calcul exact SIGMA 52 : à chaque niveau, toutes les décisions tiennent compte de l'information, y compris après un tirage.</p>`; }],
+        ['Comment jouer en connaissant la carte', () => `<p>Les décisions changent radicalement : on reste sur 12 contre un croupier qui a 16, on double des totaux faibles contre un croupier qui doit crever, on tire sur 17 quand le croupier a 20. Même une information partielle (« c'est un 10 ou pas ») vaut plusieurs points d'avantage.</p>`],
+        ['Cadre', () => `<p>Une carte montrée par un croupier maladroit, vue depuis sa place sans aide, a un statut juridique qui varie selon les pays. Un appareil, un complice dans le personnel ou tout geste pour provoquer l'exposition en font une fraude. Les casinos s'en protègent avec des machines de vérification du blackjack et le jeu sans carte cachée.</p>`],
+      ],
+      mistakes: ['Jouer la stratégie de base en connaissant la carte cachée', 'Confondre observation et fraude'],
+      keys: ['Carte exacte : de l\'ordre de +10 % d\'avantage', '« 10 ou pas » vaut déjà plusieurs points', 'Appareil ou complice = fraude'],
+      quiz: [{ q: 'L\'information « la carte cachée est un 10 ou non » :', opts: ['Ne vaut rien', 'Vaut plusieurs points d\'avantage', 'Vaut autant que la carte exacte', 'Est interdite partout'], ok: 1, why: 'Voir le tableau : elle fait passer le jeu nettement en positif.' }],
+    },
+    {
+      id: 'plusieursmains', part: 'Argent', title: 'Jouer plusieurs mains', minutes: 10,
+      goals: ['Comprendre la corrélation entre deux mains', 'Savoir quand jouer deux mains'],
+      sections: [
+        ['Corrélation', () => `<p>Deux mains contre le même croupier gagnent et perdent souvent ensemble : leur corrélation est positive (environ +0,5). La variance de deux mains de m unités vaut 2 × v × m² × (1 + ρ) : moins qu'une seule main de 2m (4 × v × m²).</p>`],
+        ['Quand', () => `<p>À compte élevé, Kelly demande une grosse mise ; la table plafonne la mise par main. Jouer deux mains permet d'engager plus pour un risque moindre, et de voir plus de cartes favorables. À compte neutre ou négatif, deux mains doublent les pertes. L'optimiseur de l'onglet Bankroll choisit une ou deux mains à chaque true count à partir des simulations de référence.</p>`],
+      ],
+      mistakes: ['Jouer deux mains à compte négatif', 'Ignorer que deux mains mangent plus de cartes (le sabot dure moins de tours)'],
+      keys: ['ρ ≈ +0,5 entre deux mains', '2 mains de m < 1 main de 2m en risque', 'Deux mains seulement à compte favorable'],
+      quiz: [{ q: 'Deux mains de 5 unités, comparées à une main de 10 :', opts: ['Même risque', 'Moins de risque', 'Plus de risque', 'Moins d\'espérance à avantage égal'], ok: 1, why: '2 × 25 × (1 + ρ) < 100 tant que ρ < 1.' }],
+    },
+    {
+      id: 'equipe', part: 'Pratique', title: 'Jeu en équipe : compteurs et gros joueur', minutes: 10,
+      goals: ['Comprendre le modèle compteurs + gros joueur', 'Évaluer son espérance'],
+      sections: [
+        ['Le modèle', () => `<p>Des compteurs jouent la mise minimale à plusieurs tables. Quand l'une devient favorable, ils appellent par un signal discret un gros joueur, qui arrive et mise gros sans écart de mises visible. Il ne joue qu'aux comptes favorables : c'est du wonging réparti sur plusieurs tables.</p>`],
+        ['L\'espérance', () => `<p>Elle dépend de la part des tours au-dessus du TC d'appel, du nombre de tables surveillées et de la mise du gros joueur. Le calculateur de l'onglet Techniques l'évalue à partir des simulations de référence.</p>`],
+        ['Les risques', () => `<p>Signaux repérés, partage des gains, confiance, coordination. Les équipes célèbres ont été exclues de nombreux casinos.</p>`],
+      ],
+      mistakes: ['Sous-estimer le temps de déplacement entre les tables', 'Oublier l\'espérance négative des compteurs à mise minimale'],
+      keys: ['Le gros joueur ne joue que les tables chaudes', 'Plus de tables surveillées = plus de tours favorables'],
+      quiz: [{ q: 'Le gros joueur d\'une équipe :', opts: ['Compte lui-même tout le sabot', 'Ne joue qu\'aux tables appelées, à compte favorable', 'Mise le minimum', 'Change de système'], ok: 1, why: 'Il n\'a pas d\'écart de mises visible.' }],
+    },
+    {
+      id: 'simulations', part: 'Mathématiques', title: 'Lire une simulation : précision, SCORE, référence', minutes: 12,
+      goals: ['Savoir combien de mains il faut', 'Lire les résultats du Simulateur'],
+      sections: [
+        ['Précision', () => `<p>L'erreur type d'un avantage simulé vaut σ ÷ √N, avec σ ≈ 1,15 par main. Pour un avantage à ±0,01 point (95 %), il faut environ (1,96 × 1,15 ÷ 0,0001)² ≈ 500 millions de mains. D'où les simulations de référence de SIGMA 52 : des milliards de mains au total.</p>`],
+        ['Ce qu\'on mesure', () => `<p>Par true count : la fréquence, l'avantage et la variance d'une main à mise fixe. De là se calculent la meilleure rampe, le SCORE, N0 et le risque de ruine de n'importe quelle rampe, sans relancer de simulation.</p>`],
+        ['Ta propre simulation', () => `<p>L'onglet Simulateur lance des simulations sur tous les cœurs de ton appareil (système, pénétration, joueurs, deux mains, indices, wonging). Quelques dizaines de millions de mains suffisent pour comparer des configurations à quelques centièmes de point près.</p>`],
+      ],
+      mistakes: ['Conclure sur 100 000 mains simulées', 'Comparer des simulations aux rampes différentes'],
+      keys: ['Erreur ∝ 1 ÷ √N', '≈ 500 M de mains pour ±0,01 point', 'Mesurer par TC, puis calculer les rampes'],
+      quiz: [{ q: 'Pour diviser l\'erreur d\'une simulation par 10, il faut :', opts: ['10 fois plus de mains', '100 fois plus de mains', '2 fois plus', 'Une autre rampe'], ok: 1, why: 'Erreur ∝ 1/√N.' }],
+    },
+  ];
   // Rangement par parties et insertion des compléments à leur place logique.
   const PART = { cadre: 'Bases', regles: 'Bases', tables: 'Bases', croupier: 'Bases', dures: 'Stratégie', souples: 'Stratégie', paires: 'Stratégie', abandon: 'Stratégie', memoriser: 'Stratégie', pourquoi: 'Comptage', hilo: 'Comptage', truecount: 'Comptage', indices: 'Comptage', mises: 'Argent', variance: 'Argent', discretion: 'Pratique', session: 'Pratique', mythes: 'Pratique' };
   for (const m of MODULES) m.part = PART[m.id] || 'Pratique';
@@ -617,6 +697,9 @@
   insAfter('mythes', ['audela', 'histoire'].map(get));
   insAfter('ruinemaths', [ADV[0]]);
   insAfter('variance', [ADV[1]]);
+  insAfter('rampeopt', [TECH[3]]);
+  insAfter('prudents', [TECH[5]]);
+  insAfter('audela', [TECH[0], TECH[1], TECH[2], TECH[4]]);
   const PARTS = ['Bases', 'Stratégie', 'Comptage', 'Systèmes', 'Argent', 'Mathématiques', 'Pratique'];
   for (const id of ['variance', 'mises']) { const m = MODULES.find((x) => x.id === id); m.part = 'Argent'; }
 

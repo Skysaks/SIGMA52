@@ -52,8 +52,8 @@ t('true count : sabot moyen équilibré', () => {
   const s = BJ.shoeAtTC(3, 2), rc = [2, 3, 4, 5, 6].reduce((a, r) => a + (12 - s[r]), 0) - ((48 - s[10]) + (12 - s[1]));
   assert(Math.abs(BJ.total(s) - 156) < 1e-9); assert(Math.abs(rc - 6) < 1e-9, rc);
 });
-t('cours : 31 modules en 7 parties, quiz bien formés', () => {
-  assert.strictEqual(K.MODULES.length, 31); assert(K.MODULES.every((m) => K.PARTS.includes(m.part)));
+t('cours : 37 modules en 7 parties, quiz bien formés', () => {
+  assert.strictEqual(K.MODULES.length, 37); assert(K.MODULES.every((m) => K.PARTS.includes(m.part)));
   for (const m of K.MODULES) for (const q of m.quiz) assert(q.ok >= 0 && q.ok < q.opts.length && q.why, m.id);
 });
 t('systèmes : équilibre et déséquilibre connus', () => {
@@ -91,5 +91,26 @@ t('simulation : statistiques par true count cohérentes', () => {
   const r = BJ.simulate({ rules: P.rules, table, hands: 300000, seed: 3, buckets: true });
   const n = Object.values(r.buckets).reduce((a, q) => a + q[0], 0); assert.strictEqual(n, 300000);
   const mu = (k) => r.buckets[k][1] / r.buckets[k][0]; assert(mu(4) > mu(0) && mu(0) > mu(-4));
+});
+t('deux mains : mise engagée double par tour, wonging : tours observés sans jouer', () => {
+  const P = D.presets.strip, table = Object.fromEntries(Object.entries(P.table).map(([row, o]) => [row, Object.fromEntries(Object.entries(o).map(([u, c]) => [u, { order: c.o }]))]));
+  const a = BJ.simulate({ rules: P.rules, table, hands: 100000, seed: 4, spots: () => 2 });
+  assert(Math.abs(a.avgBet - 2) < 1e-9, a.avgBet);
+  const w = BJ.simulate({ rules: P.rules, table, hands: 50000, seed: 5, wongIn: 1, wongOut: -1, useIndices: true, devs: P.indices, insIndex: 3 });
+  assert(w.rounds > 2 * w.hands, w.rounds + ' / ' + w.hands); assert(w.edge > 0, 'wonging Hi-Lo +1 : avantage ' + w.edge);
+});
+t('suivi de mélange : un mélange zone se suit, un mélange aléatoire non', () => {
+  const SH = require('../src/bj_shuffle.js');
+  const z = SH.trackingStudy({ proc: 'zone2r', trials: 300, mapTrials: 120, seed: 9 }), r = SH.trackingStudy({ proc: 'aleatoire', trials: 300, mapTrials: 120, seed: 9 });
+  assert(z.corr > 0.4 && z.tcTrack > z.tcRand + 1, JSON.stringify(z)); assert(Math.abs(r.corr) < 0.2, r.corr);
+});
+if (D.tech) t('carte cachée : sans information = jeu normal, plus d\'information = plus d\'avantage', () => {
+  for (const k of ['europe', 'strip']) { const H = D.tech.hole[k]; assert(Math.abs(H.none + D.presets[k].edge) < 0.002, k + ' ' + H.none);
+    assert(H.ten > H.none && H.three > H.none && H.full > H.ten && H.full > H.three && H.full > 0.05, JSON.stringify(H)); }
+  assert(D.tech.first.europe[1] > 0.3 && D.tech.first.europe[5] < -0.1);
+});
+if (D.big) t('grandes simulations : plus d\'un milliard de mains, avantage croissant avec le TC', () => {
+  const J = Object.values(D.big.jobs), tot = J.reduce((a, j) => a + j.hands, 0); assert(tot > 1e9, tot);
+  const h = D.big.jobs['strip|hilo|0.75|1|none'], mu = (k) => h.b1[k][1] / h.b1[k][0]; assert(mu(4) > mu(1) && mu(1) > mu(-2));
 });
 console.log(n, 'tests');
