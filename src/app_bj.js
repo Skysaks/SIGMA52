@@ -5,7 +5,7 @@
   const X = window.__S52, BJ = window.BJ, D = window.BJDATA, K = window.BJCourse, FS = window.FSRS, CT = window.BJCounts;
   if (!X || !BJ || !D || !K || !CT) return;
   const { $, esc, fr, eur, pct, today, addDays, state, Store, render, go, head, cardHTML, backHTML, VIEWS, AFTER, ACT, ONCHANGE, ONINPUT, ONKEY, TABS, GROUPS, drawLines } = X;
-  const TB = [['bj', 'Séance BJ'], ['bjcours', 'Cours BJ'], ['bjstrat', 'Stratégie'], ['bjentr', 'Entraîneur'], ['bjcompte', 'Comptage'], ['bjsys', 'Systèmes'], ['bjtable', 'Table BJ'], ['bjbank', 'Bankroll BJ'], ['bjsim', 'Simulateur'], ['bjadv', 'Techniques'], ['bjmaths', 'Maths BJ'], ['bjjournal', 'Journal BJ']];
+  const TB = [['bj', 'Séance BJ'], ['bjcours', 'Cours BJ'], ['bjstrat', 'Stratégie'], ['bjentr', 'Entraîneur'], ['bjcompte', 'Comptage'], ['bjsys', 'Systèmes'], ['bjtable', 'Table BJ'], ['bjbank', 'Bankroll BJ'], ['bjsim', 'Simulateur'], ['bjadv', 'Techniques'], ['bjmaths', 'Maths BJ'], ['bjjournal', 'Journal BJ'], ['bjstudio', 'Studio BJ']];
   TABS.push(...TB);
   GROUPS.push(['blackjack', 'Blackjack', TB.map((t) => t[0])]);
   if (X.ICON) X.ICON.blackjack = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="10" height="14" rx="2"/><rect x="10.5" y="3" width="10" height="14" rx="2"/><path d="M13.5 8.5h3.5l-2.2 5.5"/></svg>';
@@ -198,7 +198,7 @@
       let secs = '';
       for (const [h, f] of m.sections) { let html; try { html = f(CX); } catch (e) { html = '<p class="note">Contenu indisponible.</p>'; } secs += `<section><h2>${h}</h2><div class="prose tw">${html}</div></section>`; }
       const quiz = m.quiz.map((q, qi) => { const a = qAns[qi]; return `<div class="panel" style="gap:10px"><p><strong>${qi + 1}.</strong> ${esc(q.q)}</p><div class="opts">${q.opts.map((o, oi) => `<button class="opt${a !== undefined && oi === q.ok ? ' ok' : ''}${a === oi && oi !== q.ok ? ' ko' : ''}" data-act="bjq" data-q="${qi}" data-i="${oi}" ${a !== undefined ? 'disabled' : ''}>${esc(o)}</button>`).join('')}</div>${a !== undefined ? `<div class="verdict ${a === q.ok ? 'good' : 'bad'}"><b>${a === q.ok ? 'Juste.' : 'Non : ' + esc(q.opts[q.ok]) + '.'}</b><span>${esc(q.why)}</span></div>` : ''}</div>`; }).join('');
-      return `<div class="row"><button class="btn small" data-act="bjclose">← Tous les modules</button><span class="eyebrow">Module ${i + 1} sur ${K.MODULES.length} · ${m.minutes} min</span></div>
+      return `<div class="row"><button class="btn small" data-act="bjclose">← Tous les modules</button><button class="btn small" data-act="stbjmod" data-id="${m.id}">Vidéo du module</button><span class="eyebrow">Module ${i + 1} sur ${K.MODULES.length} · ${m.minutes} min</span></div>
       <article class="panel prose"><h1>${esc(m.title)}</h1><div class="warnbox"><strong>À la fin de ce module, tu sauras :</strong><ul>${m.goals.map((g) => `<li>${esc(g)}</li>`).join('')}</ul></div>${secs}
         <div class="grid2"><section class="panel" style="background:var(--bad-bg);border-color:transparent"><h3>Erreurs fréquentes</h3><ul>${m.mistakes.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></section>
         <section class="panel" style="background:var(--good-bg);border-color:transparent"><h3>À retenir</h3><ul>${m.keys.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></section></div></article>
@@ -1308,5 +1308,7 @@
   // Lien direct vers un onglet blackjack (#bjtable…) : l'onglet n'existait pas au chargement du routeur.
   const h0 = (location.hash || '').slice(1);
   if (TB.some(([k]) => k === h0)) setTimeout(() => go(h0), 0);
-  X.BJAPP = { P, game, gameS, sysOf, tagOf, tcOf: (t) => tcOf(t), recommend, rowOf, handOf, val, availFor, tblNew, mastery, ladder, newSpot: () => { newSpot(); return tr.spot; }, answer, tr, cd, getTbl: () => tbl, setTbl: (x) => { tbl = x; }, tblDeal: () => tblDeal(), tblAct, rampUnits, sm, tq };
+  X.BJAPP = { P, game, gameS, sysOf, tagOf, tcOf: (t) => tcOf(t), recommend, rowOf, handOf, val, availFor, tblNew, mastery, ladder, newSpot: () => { newSpot(); return tr.spot; }, answer, tr, cd, getTbl: () => tbl, setTbl: (x) => { tbl = x; }, tblDeal: () => tblDeal(), tblAct, rampUnits, sm, tq,
+    // Studio : SCORE d'une simulation de référence (rampe optimale bornée par l'écart), avec son incertitude.
+    big: (id, spread = 12) => { const j = D.big?.jobs?.[id]; if (!j) return null; const rows = bucketRows(j.spots === 2 ? j.b2 : j.b1, j.hands, 'hi'), s = scoreOf2(rows, spread); return { score: s.score, n0: s.n0, err: scoreErr(rows, spread), hands: j.hands, edge: rows.reduce((a, r) => a + r.f * r.raw, 0) }; } };
 })();

@@ -224,8 +224,13 @@ const SHOTS = process.env.SHOTS || '';
     if (!['solveur', 'analyse', 'outils'].includes(await p.evaluate(() => window.__S52.getTab()))) errs.push(name + ' navigation par espace');
     // Studio : tous les modèles, formats, export image et vidéo
     await tab('studio');
-    for (const tpl of ['main', 'quiz', 'lecon', 'solveur', 'champion', 'bilan']) { await p.click(`[data-act=sttpl][data-v=${tpl}]`); await p.waitForTimeout(120); await over('studio-' + tpl); }
-    for (const f of ['post', 'portrait', 'yt', 'short']) { await p.click(`[data-act=stfmt][data-v=${f}]`); await p.waitForTimeout(80); await over('studio-' + f); }
+    for (const tpl of ['main', 'quiz', 'lecon', 'solveur', 'champion', 'bilan', 'range', 'equite', 'outs', 'texture', 'legende', 'chiffre', 'mythe', 'libre']) { await p.click(`[data-act=sttpl][data-v=${tpl}]`); await p.waitForTimeout(120); await over('studio-' + tpl); }
+    for (const f of ['post', 'portrait', 'yt', 'pin', 'short']) { await p.click(`[data-act=stfmt][data-v=${f}]`); await p.waitForTimeout(80); await over('studio-' + f); }
+    await p.click('[data-act=stdom][data-v=bj]'); await p.waitForTimeout(120);
+    for (const tpl of ['bjstrat', 'bjquiz', 'bjcount', 'bjtc', 'bjindice', 'bjsys', 'bjgraph', 'bjlecon', 'bjshuffle']) { await p.click(`[data-act=sttpl][data-v=${tpl}]`); await p.waitForTimeout(100); await over('studio-' + tpl); }
+    await p.click('[data-act=stnext]'); await p.waitForTimeout(80);
+    const stErr = await p.evaluate(() => window.__stErr || []); if (stErr.length) errs.push(name + ' studio : ' + stErr.slice(0, 3).join(' | '));
+    await p.click('[data-act=stdom][data-v=poker]'); await p.waitForTimeout(120);
     await p.click('[data-act=sttpl][data-v=quiz]'); await shot('studio');
     const [dl] = await Promise.all([p.waitForEvent('download', { timeout: 5000 }).catch(() => null), p.click('[data-act=stpng]')]);
     if (!dl) errs.push(name + ' studio : pas d\'image téléchargée');

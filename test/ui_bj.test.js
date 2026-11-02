@@ -16,7 +16,7 @@ const path = require('path'), fs = require('fs');
     const go = async (t) => { await p.evaluate((x) => window.__S52.go(x), t); await p.waitForTimeout(120); };
     // Espace présent dans la navigation.
     if (!(await p.locator('[data-group=blackjack]').count())) errs.push(name + ' espace Blackjack absent');
-    for (const t of ['bj', 'bjcours', 'bjstrat', 'bjentr', 'bjcompte', 'bjsys', 'bjtable', 'bjbank', 'bjsim', 'bjadv', 'bjmaths', 'bjjournal']) {
+    for (const t of ['bj', 'bjcours', 'bjstrat', 'bjentr', 'bjcompte', 'bjsys', 'bjtable', 'bjbank', 'bjsim', 'bjadv', 'bjmaths', 'bjjournal', 'bjstudio']) {
       await go(t); const h = await p.locator('#view h1').first().textContent().catch(() => '');
       if (!h) errs.push(name + ' ' + t + ' sans titre'); await over(t); await shot(t);
     }
@@ -187,6 +187,12 @@ const path = require('path'), fs = require('fs');
     await p.waitForTimeout(60);
     if (!(await p.locator('text=Séance enregistrée').count())) errs.push(name + ' journal : séance non enregistrée');
     await over('journal'); await shot('journal');
+    // Studio BJ : tous les modèles dessinés sans erreur, lot de 5 quiz en zip.
+    await go('bjstudio');
+    const sbj = await p.evaluate(() => { const Sx = window.__S52.Studio, out = []; for (const t of Object.values(Sx.TP).filter((t) => t.dom !== 'poker')) { Sx.st.tpl = t.id; const c = document.createElement('canvas'); const n = Sx.draw(c, 0); for (let k = 1; k < n; k++) Sx.draw(c, k); if (/undefined|NaN/.test(Sx.caption() + Sx.script().join(' '))) out.push(t.id + ' légende'); } return out.concat(window.__stErr || []); });
+    if (sbj.length) errs.push(name + ' studio BJ : ' + sbj.join(' | '));
+    await p.evaluate(() => { window.__S52.Studio.st.tpl = 'bjquiz'; window.__S52.render(); }); await p.waitForTimeout(100); await over('studio BJ'); await shot('bjstudio');
+    if (name === 'desk') { await p.selectOption('[data-st=batchN]', '5'); const [z] = await Promise.all([p.waitForEvent('download', { timeout: 60000 }).catch(() => null), p.click('[data-act=stbatch]')]); if (!z || !/\.zip$/.test(z.suggestedFilename())) errs.push(name + ' studio BJ : lot non téléchargé'); }
     await go('bj'); await shot('bj2');
     await p.close();
   }
