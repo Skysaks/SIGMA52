@@ -356,7 +356,7 @@
     const totOf = (cs) => hv(sumOf(cs), cs.includes(1));
     let hands = 0, rounds = 0, units = 0, sumBet = 0, sum2 = 0; const tcHist = {};
     // Statistiques par true count (mise de 1 par main) : [mains, somme, somme des carrés], séparées par nombre de mains jouées.
-    const BK = cfg.buckets ? {} : null, BK2 = cfg.buckets ? {} : null;
+    const BK = cfg.buckets ? {} : null, BK2 = cfg.buckets ? {} : null; const bdiv = cfg.bucketDiv || 1; // statistiques par TC : unités du système ÷ bdiv (équivalent Hi-Lo)
     const res = cfg.noRes ? null : new Float64Array(cfg.hands);
     function playHand(h, up, nHref) {
       while (!h.done) {
@@ -433,7 +433,7 @@
           if (dt > 21 || t > dt) result += h.bet; else if (t < dt) result -= h.bet;
         }
       }
-      if (BK) { const k = Math.max(-10, Math.min(15, tc)), B = ns === 1 ? BK : BK2, q = (B[k] ||= [0, 0, 0]), x = result / bet; q[0]++; q[1] += x; q[2] += x * x; }
+      if (BK) { const k = Math.max(-10, Math.min(15, bdiv === 1 ? tc : Math.trunc(tcRaw / bdiv))), B = ns === 1 ? BK : BK2, q = (B[k] ||= [0, 0, 0]), x = result / bet; q[0]++; q[1] += x; q[2] += x * x; }
       if (res) res[hands] = result;
       units += result; sumBet += bet * ns; sum2 += result * result; hands++;
     }

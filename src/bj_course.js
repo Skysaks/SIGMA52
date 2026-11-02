@@ -655,11 +655,11 @@
       id: 'plusieursmains', part: 'Argent', title: 'Jouer plusieurs mains', minutes: 10,
       goals: ['Comprendre la corrélation entre deux mains', 'Savoir quand jouer deux mains'],
       sections: [
-        ['Corrélation', () => `<p>Deux mains contre le même croupier gagnent et perdent souvent ensemble : leur corrélation est positive (environ +0,5). La variance de deux mains de m unités vaut 2 × v × m² × (1 + ρ) : moins qu'une seule main de 2m (4 × v × m²).</p>`],
+        ['Corrélation', () => `<p>Deux mains contre le même croupier gagnent et perdent souvent ensemble : leur corrélation est positive : SIGMA 52 mesure environ +0,37 sur des centaines de millions de tours (valeur souvent arrondie à 0,5 dans les livres). La variance de deux mains de m unités vaut 2 × v × m² × (1 + ρ) : moins qu'une seule main de 2m (4 × v × m²).</p>`],
         ['Quand', () => `<p>À compte élevé, Kelly demande une grosse mise ; la table plafonne la mise par main. Jouer deux mains permet d'engager plus pour un risque moindre, et de voir plus de cartes favorables. À compte neutre ou négatif, deux mains doublent les pertes. L'optimiseur de l'onglet Bankroll choisit une ou deux mains à chaque true count à partir des simulations de référence.</p>`],
       ],
       mistakes: ['Jouer deux mains à compte négatif', 'Ignorer que deux mains mangent plus de cartes (le sabot dure moins de tours)'],
-      keys: ['ρ ≈ +0,5 entre deux mains', '2 mains de m < 1 main de 2m en risque', 'Deux mains seulement à compte favorable'],
+      keys: ['ρ ≈ +0,37 entre deux mains (mesuré)', '2 mains de m < 1 main de 2m en risque', 'Deux mains seulement à compte favorable'],
       quiz: [{ q: 'Deux mains de 5 unités, comparées à une main de 10 :', opts: ['Même risque', 'Moins de risque', 'Plus de risque', 'Moins d\'espérance à avantage égal'], ok: 1, why: '2 × 25 × (1 + ρ) < 100 tant que ρ < 1.' }],
     },
     {

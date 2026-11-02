@@ -164,6 +164,15 @@ const path = require('path'), fs = require('fs');
     const sim = await p.evaluate(() => window.__S52.state.progress.bj.lastSim);
     if (!sim || !(sim.sd > 2 && sim.sd < 6)) errs.push(name + ' simulation : écart-type incohérent ' + (sim && sim.sd));
     // Optimiseur de rampe, indices prudents, bilan de la table.
+    if (await p.locator('[data-bjopt=src] option[value=ref]:not([disabled])').count()) {
+      await p.selectOption('[data-bjopt=src]', 'ref'); await p.waitForTimeout(150);
+      if (!(await p.locator('text=Mise optimale').count())) errs.push(name + ' optimiseur : référence sans résultat');
+      await p.selectOption('[data-bjopt=two]', '1'); await p.waitForTimeout(150);
+      if (!(await p.locator('text=Mise optimale').count())) errs.push(name + ' optimiseur deux mains sans résultat');
+      const ot = await p.locator('#view').innerText(); if (/NaN|undefined/.test(ot)) errs.push(name + ' optimiseur : valeur cassée');
+      await over('optimiseur ref'); await shot('optim-ref');
+      await p.selectOption('[data-bjopt=two]', '0'); await p.selectOption('[data-bjopt=src]', 'mesure'); await p.waitForTimeout(80);
+    }
     await p.click('[data-act=bjoptrun]');
     await p.waitForSelector('text=Mise optimale', { timeout: 120000 }).catch(() => errs.push(name + ' optimiseur sans résultat'));
     await p.selectOption('[data-bjopt=wong]', '1'); await p.waitForTimeout(80);

@@ -111,6 +111,6 @@ if (D.tech) t('carte cachée : sans information = jeu normal, plus d\'informatio
 });
 if (D.big) t('grandes simulations : plus d\'un milliard de mains, avantage croissant avec le TC', () => {
   const J = Object.values(D.big.jobs), tot = J.reduce((a, j) => a + j.hands, 0); assert(tot > 1e9, tot);
-  const h = D.big.jobs['strip|hilo|0.75|1|none'], mu = (k) => h.b1[k][1] / h.b1[k][0]; assert(mu(4) > mu(1) && mu(1) > mu(-2));
+  const h = D.big.jobs['strip|hilo|0.75|1|none'] || D.big.jobs['europe|hilo|0.75|1|none'], mu = (k) => h.b1[k][1] / h.b1[k][0]; assert(mu(4) > mu(1) && mu(1) > mu(-2));
 });
 console.log(n, 'tests');
