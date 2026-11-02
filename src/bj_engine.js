@@ -79,23 +79,31 @@
       for (let f = 17; f <= 21; f++) ev += d[f - 17] * (t > f ? m : t < f ? -m : 0);
       return ev;
     }
+    // Moment d'ordre 2 du résultat en restant (pour la variance) : m² sur toute issue non nulle.
+    function standE2(t, d, m, lostBJ) {
+      if (t > 21) return m * m;
+      let e = d[5] * m * m + d[6] * lostBJ * lostBJ;
+      for (let f = 17; f <= 21; f++) if (t !== f) e += d[f - 17] * m * m;
+      return e;
+    }
     // Rester ou tirer (sans double), décisions suivantes optimales selon la composition.
+    // s2, h2 : moments d'ordre 2 de rester et de tirer (tirer : décisions suivantes choisies par l'EV).
     function node(shoe, up, sum, ace, lostBJ) {
       const PM = sub(PMEMO, (sum * 64 + (ace ? 32 : 0) + up + lostBJ * 1000) + (fast ? '|' + rootK : '')), k = enc(shoe);
       let v = PM.get(k); if (v) return v;
-      const t = hv(sum, ace), d = dd(shoe, up), st = standEV(t, d, 1, lostBJ);
-      let hit = -1;
+      const t = hv(sum, ace), d = dd(shoe, up), st = standEV(t, d, 1, lostBJ), s2 = standE2(t, d, 1, lostBJ);
+      let hit = -1, h2 = 1;
       if (t < 21) {
-        hit = 0; const N = total(shoe);
+        hit = 0; h2 = 0; const N = total(shoe);
         for (let r = 1; r <= 10; r++) {
           const c = shoe[r]; if (c <= 0) continue;
           const p = c / N;
-          if (sum + r > 21) { hit -= p; continue; }
+          if (sum + r > 21) { hit -= p; h2 += p; continue; }
           shoe[r] -= 1; const nx = node(shoe, up, sum + r, ace || r === 1, lostBJ); shoe[r] += 1;
-          hit += p * Math.max(nx.stand, nx.hit);
+          if (nx.stand >= nx.hit) { hit += p * nx.stand; h2 += p * nx.s2; } else { hit += p * nx.hit; h2 += p * nx.h2; }
         }
       }
-      v = { stand: st, hit }; PM.set(k, v); return v;
+      v = { stand: st, hit, s2, h2 }; PM.set(k, v); return v;
     }
     function doubleEV(shoe, up, sum, ace, lostBJ2) {
       const N = total(shoe); let ev = 0;
@@ -106,6 +114,16 @@
         shoe[r] -= 1; ev += p * standEV(hv(sum + r, ace || r === 1), dd(shoe, up), 2, lostBJ2); shoe[r] += 1;
       }
       return ev;
+    }
+    function doubleE2(shoe, up, sum, ace, lostBJ2) {
+      const N = total(shoe); let e = 0;
+      for (let r = 1; r <= 10; r++) {
+        const c = shoe[r]; if (c <= 0) continue;
+        const p = c / N;
+        if (sum + r > 21) { e += 4 * p; continue; }
+        shoe[r] -= 1; e += p * standE2(hv(sum + r, ace || r === 1), dd(shoe, up), 2, lostBJ2); shoe[r] += 1;
+      }
+      return e;
     }
     const canDouble = (t, soft, afterSplit) => {
       if (afterSplit && !rl.das) return false;
@@ -154,8 +172,32 @@
       if (rl.surrender && rl.peek) out.surrender = -0.5;
       return out;
     }
+    // EV et moment d'ordre 2 de chaque action (variance = e2 − ev²). Split : mains supposées indépendantes, sans re-split
+    // pour le moment d'ordre 2 (approximation).
+    function moments(shoe, up, c1, c2) {
+      const ev = actions(shoe, up, c1, c2), sum = c1 + c2, ace = c1 === 1 || c2 === 1;
+      const lostBJ = rl.peek ? 0 : 1, lostBJ2 = rl.peek ? 0 : rl.obo ? 1 : 2, n = node(shoe, up, sum, ace, lostBJ), e2 = { stand: n.s2, hit: n.h2 };
+      if (ev.double !== undefined) e2.double = doubleE2(shoe, up, sum, ace, lostBJ2);
+      if (ev.surrender !== undefined) e2.surrender = 0.25;
+      if (ev.split !== undefined) {
+        const P = c1, sh = shoe.slice(), N = total(sh), lb = rl.peek ? 0 : rl.obo ? 0.5 : 1, lb2 = rl.peek ? 0 : rl.obo ? 0.5 : 2; let m1 = 0, m2 = 0;
+        for (let r = 1; r <= 10; r++) {
+          const c = sh[r]; if (c <= 0) continue; const p = c / N; sh[r] -= 1;
+          const s2 = P + r, a2 = P === 1 || r === 1, t2 = hv(s2, a2);
+          let best, bestE2;
+          if (P === 1 && !rl.hsa) { const d = dd(sh, up); best = standEV(t2, d, 1, lb); bestE2 = standE2(t2, d, 1, lb); }
+          else {
+            const nn = node(sh, up, s2, a2, lb); if (nn.stand >= nn.hit) { best = nn.stand; bestE2 = nn.s2; } else { best = nn.hit; bestE2 = nn.h2; }
+            if (canDouble(t2, isSoft(s2, a2), true)) { const dv = doubleEV(sh, up, s2, a2, lb2); if (dv > best) { best = dv; bestE2 = doubleE2(sh, up, s2, a2, lb2); } }
+          }
+          m1 += p * best; m2 += p * bestE2; sh[r] += 1;
+        }
+        e2.split = 2 * m2 + 2 * m1 * m1;
+      }
+      return { ev, e2 };
+    }
     const pBJ = (shoe, up) => { const N = total(shoe); return up === 1 ? shoe[10] / N : up === 10 ? shoe[1] / N : 0; };
-    return { rules: rl, base, dealerDist, standEV, node, actions, splitEV, pBJ, canDouble, clear() { DMEMO.clear(); PMEMO.clear(); }, size: () => [...DMEMO.values(), ...PMEMO.values()].reduce((a, m) => a + m.size, 0) };
+    return { rules: rl, base, dealerDist, standEV, standE2, node, actions, moments, splitEV, pBJ, canDouble, clear() { DMEMO.clear(); PMEMO.clear(); }, size: () => [...DMEMO.values(), ...PMEMO.values()].reduce((a, m) => a + m.size, 0) };
   }
 
   // ---------- Stratégie de base (dépendante du total) ----------
@@ -188,6 +230,20 @@
     }
     for (const k of Object.keys(acc)) acc[k] /= wsum;
     return acc;
+  }
+  // EV et variance moyennes de chaque action sur la ligne (mélange des combinaisons pondérées).
+  function rowMoments(calc, base, row, up) {
+    const ev = {}, e2 = {}; let wsum = 0;
+    for (const [a, b] of combosOf(row)) {
+      const s = base.slice(); s[up] -= 1;
+      const N = total(s); let w = s[a] / N; s[a] -= 1; w *= s[b] / (N - 1); if (a !== b) w *= 2; s[b] -= 1;
+      if (w <= 0 || s[a] < 0 || s[b] < 0) continue;
+      const m = calc.moments(s, up, a, b);
+      for (const k of Object.keys(m.ev)) { ev[k] = (ev[k] || 0) + w * m.ev[k]; e2[k] = (e2[k] || 0) + w * m.e2[k]; }
+      wsum += w;
+    }
+    const v = {}; for (const k of Object.keys(ev)) { ev[k] /= wsum; e2[k] /= wsum; v[k] = e2[k] - ev[k] * ev[k]; }
+    return { ev, var: v };
   }
   // Code d'affichage : action, puis repli si l'action n'est pas permise (double après tirage, abandon refusé).
   function decide(ev) {
@@ -293,6 +349,8 @@
     };
     const hardRow = (t) => 'h' + Math.max(5, Math.min(19, t));
     let hands = 0, units = 0, sumBet = 0, sum2 = 0; const tcHist = {};
+    // Statistiques par true count (mise de 1) : nombre de mains, somme et somme des carrés des résultats.
+    const BK = cfg.buckets ? {} : null;
     const res = new Float64Array(cfg.hands);
     while (hands < cfg.hands) {
       if (pos >= cut || pos === nCards) shuffle();
@@ -367,15 +425,16 @@
           if (dt > 21 || t > dt) result += h.bet; else if (t < dt) result -= h.bet;
         }
       }
+      if (BK) { const k = Math.max(-10, Math.min(15, tc)), q = (BK[k] ||= [0, 0, 0]), x = result / bet; q[0]++; q[1] += x; q[2] += x * x; }
       res[hands] = result; units += result; sumBet += bet; sum2 += result * result; hands++;
     }
     const mean = units / hands, sd = Math.sqrt(Math.max(0, sum2 / hands - mean * mean));
-    return { hands, units, mean, sd, avgBet: sumBet / hands, edge: units / sumBet, res, tcHist };
+    return { hands, units, mean, sd, avgBet: sumBet / hands, edge: units / sumBet, res, tcHist, buckets: BK };
   }
 
   // Risque de ruine (approximation diffusion) : exp(−2 · μ · B / σ²) avec μ, σ par main en unités.
   const riskOfRuin = (mu, sd, bank) => (mu <= 0 ? 1 : Math.exp(-2 * mu * bank / (sd * sd)));
 
-  const BJ = { RULES, PRESETS, R, shoeOf, shoeAtTC, total, hv, isSoft, Calc, UPS, ROWS, combosOf, ACTS, CODE, NAME, rowEV, decide, strategy, rowIdOf, houseEdge, insuranceEV, insuranceIndex, HILO, rankOfCard, indexFor, rng, simulate, riskOfRuin };
+  const BJ = { RULES, PRESETS, R, shoeOf, shoeAtTC, total, hv, isSoft, Calc, UPS, ROWS, combosOf, ACTS, CODE, NAME, rowEV, decide, strategy, rowIdOf, houseEdge, rowMoments, insuranceEV, insuranceIndex, HILO, rankOfCard, indexFor, rng, simulate, riskOfRuin };
   if (typeof module !== 'undefined' && module.exports) module.exports = BJ; else root.BJ = BJ;
 })(typeof window !== 'undefined' ? window : globalThis);

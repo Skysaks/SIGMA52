@@ -92,6 +92,8 @@ const path = require('path'), fs = require('fs');
       }
     }
     await over('table'); await shot('table');
+    if (!(await p.locator('text=Erreurs par type').count())) errs.push(name + ' table : bilan par type absent');
+    if (!(await p.locator('text=Visibilité de ta rampe').count())) errs.push(name + ' table : visibilité absente');
     const ts = await p.evaluate(() => window.__S52.BJAPP.getTbl().sess);
     if (ts.hands < 20) errs.push(name + ' table : ' + ts.hands + ' mains seulement');
     if (ts.err) errs.push(name + ' table : ' + ts.err + ' erreurs en jouant la recommandation');
@@ -141,6 +143,15 @@ const path = require('path'), fs = require('fs');
     await p.waitForTimeout(150); await over('bank'); await shot('bank');
     const sim = await p.evaluate(() => window.__S52.state.progress.bj.lastSim);
     if (!sim || !(sim.sd > 2 && sim.sd < 6)) errs.push(name + ' simulation : écart-type incohérent ' + (sim && sim.sd));
+    // Optimiseur de rampe, indices prudents, bilan de la table.
+    await p.click('[data-act=bjoptrun]');
+    await p.waitForSelector('text=Mise optimale', { timeout: 120000 }).catch(() => errs.push(name + ' optimiseur sans résultat'));
+    await p.selectOption('[data-bjopt=wong]', '1'); await p.waitForTimeout(80);
+    if (!(await p.locator('text=/Ruine en 100 h/').count())) errs.push(name + ' optimiseur : ruine sur une durée absente');
+    await over('optimiseur'); await shot('optim');
+    await go('bjstrat'); await p.click('[data-act=bjidx][data-m=ra]'); await p.waitForTimeout(60);
+    if ((await p.evaluate(() => window.__S52.BJAPP.gameS().idxMode)) !== 'ra') errs.push(name + ' indices prudents non appliqués');
+    await p.click('[data-act=bjidx][data-m=ev]');
     // Journal.
     await go('bjjournal');
     await p.fill('[name=hours]', '2,5'); await p.fill('[name=result]', '−120'); await p.click('#bjjf button');

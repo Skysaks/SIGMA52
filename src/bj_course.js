@@ -569,6 +569,44 @@
       ],
     },
   ];
+  // ---------- Techniques avancées : indices prudents, indices par simulation, rampe optimale ----------
+  function advTable(X, key) {
+    const A = X.D.adv && X.D.adv[key || 'strip'], P = X.D.presets[key || 'strip']; if (!A) return '';
+    const f = (L, d) => L.find((x) => x.row === d.row && x.up === d.up && x.act === d.act && x.basic === d.basic);
+    return `<div class="tw"><table class="t bjt"><thead><tr><th>Main</th><th>Contre</th><th>Déviation</th><th class="n">EV max</th><th class="n">Prudent</th><th class="n">Simulation (95 %)</th></tr></thead><tbody>${P.indices.filter((d) => d.set !== 'plus').map((d) => { const r = f(A.ra, d), sm = f(A.sim, d); return `<tr><td>${rowLabel(d.row)}</td><td>${upName(d.up)}</td><td>${ACTFR[d.act]}</td><td class="n">${fx(d.exact, 1)}</td><td class="n">${r ? fx(r.exact, 1) : '—'}</td><td class="n">${sm ? fx(sm.exact, 1) + ' ± ' + fx(1.96 * sm.se, 1) : '—'}</td></tr>`; }).join('')}</tbody></table></div><p class="note">${P.label}. Calculs SIGMA 52 ; « — » : pas de croisement entre −8 et +10.</p>`;
+  }
+  const ADV = [
+    {
+      id: 'prudents', part: 'Mathématiques', title: 'Indices prudents et indices par simulation', minutes: 16,
+      goals: ['Comprendre pourquoi la variance d\'une action compte quand on mise gros', 'Savoir d\'où viennent les indices et quelle est leur précision'],
+      sections: [
+        ['La variance des actions', (X) => { const BJ = X.BJ, c = BJ.Calc({ decks: 6 }), sh = BJ.shoeOf(6), m = BJ.rowMoments(c, sh, BJ.ROWS.find((r) => r.id === 'h10'), 10); return `<p>Doubler engage deux mises : la variance d'un double est environ quatre fois celle d'un « tirer ». Exemple, 10 dur contre 10, sabot de 6 jeux complet : tirer, EV ${sg(m.ev.hit)} et variance ${fx(m.var.hit)} ; doubler, EV ${sg(m.ev.double)} et variance ${fx(m.var.double)}.</p><p>Quand ta mise est grosse par rapport à ta bankroll (c'est le cas aux comptes élevés si tu mises selon Kelly), une action plus risquée doit rapporter assez d'espérance pour payer ce risque.</p>`; }],
+        ['L\'indice prudent', () => `<p>Un parieur Kelly maximise l'espérance du logarithme de sa bankroll. Pour une mise b et une bankroll B, l'équivalent certain d'une action vaut environ b × EV − b² × Variance ÷ (2B). L'action B est préférable à A si :</p><div class="formula">ΔEV > (b ÷ B) × ΔVariance ÷ 2</div><p>Avec un demi-Kelly, b ÷ B = ½ × avantage(TC) ÷ 1,33. À compte négatif, la mise est minimale : l'indice prudent égale l'indice EV. À compte élevé, les doubles et les splits sortent plus tard, les « rester » un peu plus tôt. C'est l'idée des indices dits risk-averse popularisés par Don Schlesinger.</p>`],
+        ['Modèle contre simulation', (X) => `<p>Les indices EV de SIGMA 52 viennent d'un sabot moyen au true count donné. Pour les vérifier, SIGMA 52 tire 300 000 sabots réels épuisés à des profondeurs aléatoires, calcule l'EV exacte des deux actions sur des centaines de compositions autour de l'indice, et ajuste une droite ΔEV = a + b × TC : l'indice est le TC où elle s'annule, avec son intervalle de confiance.</p>${advTable(X, 'strip')}<p>La plupart des indices du modèle tombent dans l'intervalle de la simulation. Les écarts rappellent qu'un indice est une moyenne : près de l'indice, les deux actions valent presque la même chose, et une erreur d'un point coûte peu.</p>`],
+      ],
+      mistakes: ['Appliquer un indice EV max avec une mise énorme sans y penser', 'Croire qu\'un indice est exact au dixième'],
+      keys: ['Doubler = environ 4 fois la variance de tirer', 'Indice prudent : ΔEV > (b/B) × ΔVar ÷ 2', 'Les indices sont des moyennes, à ±1 point près'],
+      quiz: [
+        { q: 'Pourquoi l\'indice prudent de 10 contre 10 (double) est-il plus élevé que l\'indice EV ?', opts: ['Le double augmente fortement la variance, à payer quand la mise est grosse', 'Parce que le croupier a un 10', 'C\'est une erreur de calcul', 'Parce que le sabot est grand'], ok: 0, why: 'L\'équivalent certain pénalise la variance supplémentaire.' },
+        { q: 'À compte négatif, l\'indice prudent :', opts: ['Est très différent', 'Égale l\'indice EV (mise minimale)', 'N\'existe pas', 'Est toujours 0'], ok: 1, why: 'Avec une mise minimale, le terme de risque est négligeable.' },
+      ],
+    },
+    {
+      id: 'rampeopt', part: 'Argent', title: 'Rampe optimale, wonging et ruine sur une durée', minutes: 16,
+      goals: ['Calculer la meilleure mise à chaque true count', 'Mesurer l\'apport du wonging', 'Estimer le risque sur une période donnée'],
+      sections: [
+        ['La meilleure mise à chaque TC', () => `<p>À chaque true count, la simulation mesure l'avantage μ(TC) et la variance v(TC) d'une main. La mise de Kelly fractionnaire y vaut :</p><div class="formula">mise(TC) = c × bankroll × μ(TC) ÷ v(TC), bornée entre 1 unité et ton écart maximal</div><p>Chaque TC est indépendant : borner chaque mise donne la meilleure rampe possible sous la contrainte. C'est ce que fait l'optimiseur de l'onglet Bankroll.</p>`],
+        ['Wonging', () => `<p>Ne jouer qu'à partir d'un TC d'entrée supprime les mains perdantes : l'espérance par main jouée grimpe. Le prix : il faut observer plusieurs tables, entrer et sortir, ce qui se remarque, et beaucoup de casinos l'interdisent (« pas d'entrée en cours de sabot »). L'optimiseur compare les deux.</p>`],
+        ['Ruine sur une durée', () => `<p>Le risque de ruine « sans fin » répond à : vais-je un jour tout perdre ? Sur une période T (un voyage, une saison), on modélise la bankroll comme un mouvement brownien de dérive μ et d'écart-type σ par heure :</p><div class="formula">P(ruine avant T) = Φ((−B − μT) ÷ σ√T) + e^(−2μB/σ²) × Φ((−B + μT) ÷ σ√T)</div><p>Elle est toujours inférieure au risque sans fin et monte avec la durée. P(perdant après T) = Φ(−μT ÷ σ√T) dit ce que la plupart des joueurs ressentent vraiment : la fréquence des périodes perdantes.</p>`],
+      ],
+      mistakes: ['Choisir une rampe à l\'instinct', 'Confondre ruine sur un voyage et ruine définitive'],
+      keys: ['mise(TC) = c × B × μ(TC) ÷ v(TC), bornée', 'Wonging : plus d\'espérance par main jouée, plus visible', 'Ruine sur T heures < ruine sans fin'],
+      quiz: [
+        { q: 'À un TC où l\'avantage est négatif, la mise optimale est :', opts: ['La mise maximale', 'La mise minimale (ou ne pas jouer en wonging)', 'Kelly', 'Le double de la précédente'], ok: 1, why: 'μ ≤ 0 : Kelly ne mise rien, la table impose le minimum.' },
+        { q: 'Le risque de ruine sur 100 heures est :', opts: ['Supérieur au risque sans fin', 'Inférieur ou égal au risque sans fin', 'Toujours nul', 'Égal à P(perdant)'], ok: 1, why: 'On ne peut pas être ruiné avant T plus souvent qu\'un jour ou l\'autre.' },
+      ],
+    },
+  ];
   // Rangement par parties et insertion des compléments à leur place logique.
   const PART = { cadre: 'Bases', regles: 'Bases', tables: 'Bases', croupier: 'Bases', dures: 'Stratégie', souples: 'Stratégie', paires: 'Stratégie', abandon: 'Stratégie', memoriser: 'Stratégie', pourquoi: 'Comptage', hilo: 'Comptage', truecount: 'Comptage', indices: 'Comptage', mises: 'Argent', variance: 'Argent', discretion: 'Pratique', session: 'Pratique', mythes: 'Pratique' };
   for (const m of MODULES) m.part = PART[m.id] || 'Pratique';
@@ -577,6 +615,8 @@
   insAfter('indices', ['systemes', 'desequilibres', 'multiniveaux', 'choisir'].map(get));
   insAfter('variance', ['probas', 'esperance', 'retrait', 'kellymaths', 'ruinemaths'].map(get));
   insAfter('mythes', ['audela', 'histoire'].map(get));
+  insAfter('ruinemaths', [ADV[0]]);
+  insAfter('variance', [ADV[1]]);
   const PARTS = ['Bases', 'Stratégie', 'Comptage', 'Systèmes', 'Argent', 'Mathématiques', 'Pratique'];
   for (const id of ['variance', 'mises']) { const m = MODULES.find((x) => x.id === id); m.part = 'Argent'; }
 

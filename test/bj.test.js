@@ -52,8 +52,8 @@ t('true count : sabot moyen équilibré', () => {
   const s = BJ.shoeAtTC(3, 2), rc = [2, 3, 4, 5, 6].reduce((a, r) => a + (12 - s[r]), 0) - ((48 - s[10]) + (12 - s[1]));
   assert(Math.abs(BJ.total(s) - 156) < 1e-9); assert(Math.abs(rc - 6) < 1e-9, rc);
 });
-t('cours : 29 modules en 7 parties, quiz bien formés', () => {
-  assert.strictEqual(K.MODULES.length, 29); assert(K.MODULES.every((m) => K.PARTS.includes(m.part)));
+t('cours : 31 modules en 7 parties, quiz bien formés', () => {
+  assert.strictEqual(K.MODULES.length, 31); assert(K.MODULES.every((m) => K.PARTS.includes(m.part)));
   for (const m of K.MODULES) for (const q of m.quiz) assert(q.ok >= 0 && q.ok < q.opts.length && q.why, m.id);
 });
 t('systèmes : équilibre et déséquilibre connus', () => {
@@ -73,5 +73,23 @@ t('corrélations proches des valeurs de référence (Hi-Lo BC ≈ 0,97, IC ≈ 0
 t('effets de retrait : 5 le plus favorable au joueur, 10 et as défavorables, moyenne pondérée ≈ 0', () => {
   for (const k of ['europe', 'strip']) { const e = D.counts[k].eor.eor; const mx = Math.max(...e.slice(1)); assert.strictEqual(e[5], mx); assert(e[10] < 0 && e[1] < 0);
     const s = e.reduce((a, x, r) => a + (r ? CT.W[r] * x : 0), 0); assert(Math.abs(s / 52) < 0.0005, s); }
+});
+t('variances : doubler ≈ 4 fois plus variable que tirer, abandon 0', () => {
+  const c = BJ.Calc({ decks: 6, surrender: true }), m = BJ.rowMoments(c, BJ.shoeOf(6), BJ.ROWS.find((r) => r.id === 'h11'), 6);
+  assert(m.var.double > 3 * m.var.hit && m.var.double < 4.2); assert(m.var.stand > 0 && m.var.stand < 1);
+  const m2 = BJ.rowMoments(c, BJ.shoeOf(6), BJ.ROWS.find((r) => r.id === 'h16'), 10); assert(Math.abs(m2.var.surrender) < 1e-9);
+});
+t('indices prudents : doubles et splits plus tard, simulation proche du modèle', () => {
+  const A = D.adv.strip, P = D.presets.strip, f = (L, row, up, act) => L.find((x) => x.row === row && x.up === up && x.act === act);
+  assert(f(A.ra, 'h10', 1, 'double').exact > f(P.indices, 'h10', 1, 'double').exact);
+  assert(f(A.ra, 'p10', 6, 'split').exact > f(P.indices, 'p10', 6, 'split').exact);
+  let ok = 0; for (const x of A.sim) if (Math.abs(x.exact - x.model) <= Math.max(0.6, 2.5 * x.se)) ok++;
+  assert(ok >= A.sim.length - 2, ok + '/' + A.sim.length);
+});
+t('simulation : statistiques par true count cohérentes', () => {
+  const P = D.presets.strip, table = Object.fromEntries(Object.entries(P.table).map(([row, o]) => [row, Object.fromEntries(Object.entries(o).map(([u, c]) => [u, { order: c.o }]))]));
+  const r = BJ.simulate({ rules: P.rules, table, hands: 300000, seed: 3, buckets: true });
+  const n = Object.values(r.buckets).reduce((a, q) => a + q[0], 0); assert.strictEqual(n, 300000);
+  const mu = (k) => r.buckets[k][1] / r.buckets[k][0]; assert(mu(4) > mu(0) && mu(0) > mu(-4));
 });
 console.log(n, 'tests');

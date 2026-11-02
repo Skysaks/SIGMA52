@@ -59,8 +59,8 @@ function presetData(key, P) {
   return { label: P.label, note: P.note, rules, edge: r4(edge), table, indices: idx, insurance: { exact: ins, index: insIdx }, edgeByTC: tcs };
 }
 
-// Mode « systems » : ne recalcule que la partie systèmes de comptage et la fusionne aux données existantes.
-const ONLY_SYS = process.argv[2] === 'systems';
+// Mode « systems » : ne recalcule que la partie systèmes de comptage ; mode « advanced » : indices prudents et indices par simulation.
+const MODE = process.argv[2] || 'all', ONLY_SYS = MODE === 'systems' || MODE === 'advanced';
 const out = ONLY_SYS ? require('../src/bj_data.js') : { built: new Date().toISOString().slice(0, 10), presets: {}, ruleCosts: null };
 out.built = new Date().toISOString().slice(0, 10);
 if (!ONLY_SYS) for (const [k, P] of Object.entries(BJ.PRESETS)) out.presets[k] = presetData(k, P);
@@ -149,8 +149,61 @@ function sysData(key, rules) {
   void S;
   return { eor: E, systems: res };
 }
-out.counts = {};
-for (const key of ['europe', 'strip']) out.counts[key] = sysData(key, out.presets[key].rules);
+if (MODE === 'all' || MODE === 'systems') { out.counts = {}; for (const key of ['europe', 'strip']) out.counts[key] = sysData(key, out.presets[key].rules); }
+
+// ---------- Indices prudents (risk-averse) et indices par simulation (Hi-Lo) ----------
+// Prudents : pour un joueur qui mise un demi-Kelly, l'action B est meilleure si ΔEV > k(TC) × ΔVariance ÷ 2, avec
+// k(TC) = ½ × avantage(TC) ÷ 1,33 (mise ÷ bankroll). Sous TC où l'avantage est nul, la mise est minimale : indice EV classique.
+// Par simulation : sabots réels épuisés à une profondeur aléatoire, EV exacte des deux actions sur chaque composition, régression
+// linéaire de ΔEV sur le true count autour de l'indice du modèle ; l'indice est le TC où la droite s'annule.
+function advData(key) {
+  const P = out.presets[key], rules = P.rules, dl = Math.max(1, rules.decks / 2), t0 = Date.now();
+  const eAt = (tc) => { const e = P.edgeByTC; if (tc <= e[0][0]) return e[0][1]; for (let k = 1; k < e.length; k++) if (tc <= e[k][0]) { const [a, ea] = e[k - 1], [b, eb] = e[k]; return ea + (eb - ea) * (tc - a) / (b - a); } return e[e.length - 1][1]; };
+  const ra = [], simI = [];
+  // Sabots aléatoires : composition restante et true count Hi-Lo.
+  const rnd = BJ.rng(4242), pool = [];
+  for (let i = 0; i < 300000; i++) {
+    const s = BJ.shoeOf(rules.decks), n0 = BJ.total(s), dealt = Math.floor(n0 * (0.15 + 0.7 * rnd()));
+    let rc = 0; const cnt = s.slice();
+    for (let j = 0; j < dealt; j++) { let x = Math.floor(rnd() * (n0 - j)), r = 1; for (; r <= 10; r++) { if (x < cnt[r]) break; x -= cnt[r]; } cnt[r]--; rc += BJ.HILO[r]; }
+    pool.push({ s: cnt, tc: rc / ((n0 - dealt) / 52) });
+  }
+  for (const [i, [row, up, A, B]] of CAND.entries()) {
+    if (i >= 21) break;
+    const R = BJ.ROWS.find((x) => x.id === row), base = P.indices.find((d) => d.row === row && d.up === up && ((d.act === A && d.basic === B) || (d.act === B && d.basic === A)));
+    // Indice prudent.
+    const pts = [];
+    for (let tc = -8; tc <= 10; tc++) {
+      const sh = BJ.shoeAtTC(dl, tc), calc = BJ.Calc(rules, sh, true), m = BJ.rowMoments(calc, sh, R, up);
+      if (m.ev[A] === undefined || m.ev[B] === undefined) { pts.length = 0; break; }
+      const k = 0.5 * Math.max(0, eAt(tc)) / 1.33;
+      pts.push([tc, m.ev[B] - m.ev[A] - k * (m.var[B] - m.var[A]) / 2, m.ev[B] - m.ev[A]]);
+    }
+    if (pts.length && base) {
+      let x = null; for (let j = 1; j < pts.length; j++) { const [ta, da] = pts[j - 1], [tb, db] = pts[j]; if ((da < 0) !== (db < 0)) { x = ta + (0 - da) * (tb - ta) / (db - da); break; } }
+      if (x !== null && x >= -8 && x <= 10) ra.push({ row, up, act: base.act, basic: base.basic, dir: base.dir, index: Math.round(x), exact: Math.round(x * 100) / 100, ev: base.index, set: base.set });
+    }
+    // Indice par simulation.
+    if (base) {
+      const x0 = base.exact, win = pool.filter((q) => Math.abs(q.tc - x0) <= 3);
+      const pick = []; for (let b = 0; b < 12; b++) { const lo = x0 - 3 + b * 0.5, sel = win.filter((q) => q.tc >= lo && q.tc < lo + 0.5); for (let j = 0; j < Math.min(45, sel.length * 3); j++) pick.push(sel[Math.floor(rnd() * sel.length)]); }
+      if (pick.length >= 40) {
+        const xs = [], ys = [];
+        for (const q of pick) { const calc = BJ.Calc(rules, q.s, true), ev = BJ.rowEV(calc, q.s, R, up); if (ev[A] === undefined || ev[B] === undefined) continue; xs.push(q.tc); ys.push(ev[B] - ev[A]); }
+        const n = xs.length, mx = xs.reduce((a, b) => a + b, 0) / n, my = ys.reduce((a, b) => a + b, 0) / n;
+        let sxy = 0, sxx = 0; for (let j = 0; j < n; j++) { sxy += (xs[j] - mx) * (ys[j] - my); sxx += (xs[j] - mx) ** 2; }
+        const b1 = sxy / sxx, b0 = my - b1 * mx, x = -b0 / b1;
+        // Erreur type de l'indice (méthode delta sur x = −b0/b1).
+        let rss = 0; for (let j = 0; j < n; j++) rss += (ys[j] - b0 - b1 * xs[j]) ** 2;
+        const s2 = rss / (n - 2), vb1 = s2 / sxx, vb0 = s2 * (1 / n + mx * mx / sxx), cov = -mx * s2 / sxx, se = Math.sqrt(Math.max(0, (vb0 + x * x * vb1 + 2 * x * cov) / (b1 * b1)));
+        if (Number.isFinite(x)) simI.push({ row, up, act: base.act, basic: base.basic, dir: base.dir, index: Math.round(x), exact: Math.round(x * 100) / 100, se: Math.round(se * 100) / 100, model: base.exact, n, set: base.set });
+      }
+    }
+    console.log(key, row, up, A, B, 'EV', base ? base.exact : '—', 'RA', ra.length && ra[ra.length - 1].row === row && ra[ra.length - 1].up === up ? ra[ra.length - 1].exact : '—', 'sim', simI.length && simI[simI.length - 1].row === row && simI[simI.length - 1].up === up ? simI[simI.length - 1].exact : '—', ((Date.now() - t0) / 1000).toFixed(0) + ' s');
+  }
+  return { ra, sim: simI };
+}
+if (MODE === 'all' || MODE === 'advanced') { out.adv = {}; for (const key of ['europe', 'strip']) out.adv[key] = advData(key); }
 const js = '// Généré par tools/build_bj.js le ' + out.built + ' : ne pas modifier à la main.\n(function (root) {\n  const D = ' + JSON.stringify(out) + ';\n  if (typeof module !== \'undefined\' && module.exports) module.exports = D; else root.BJDATA = D;\n})(typeof window !== \'undefined\' ? window : globalThis);\n';
 fs.writeFileSync(path.join(__dirname, '..', 'src', 'bj_data.js'), js);
 console.log('src/bj_data.js', js.length, 'octets');
