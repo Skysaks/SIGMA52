@@ -687,6 +687,22 @@
       quiz: [{ q: 'Pour diviser l\'erreur d\'une simulation par 10, il faut :', opts: ['10 fois plus de mains', '100 fois plus de mains', '2 fois plus', 'Une autre rampe'], ok: 1, why: 'Erreur ∝ 1/√N.' }],
     },
   ];
+  const REAL = [{
+    id: 'tablereelle', part: 'Pratique', title: 'Avant de compter : cette table est-elle comptable ?', minutes: 10,
+    goals: ['Reconnaître un mélangeur continu', 'Estimer la pénétration', 'Lire les règles qui changent tout'],
+    sections: [
+      ['Le type de mélange décide de tout', () => `<ul><li><strong>Mélangeur continu (CSM)</strong> : les cartes jouées repartent dans la machine à chaque tour, souvent sous tes yeux. Le compte ne se forme jamais : compter ne rapporte rien. Seule la stratégie de base limite la perte.</li><li><strong>Machine à mélanger par sabot</strong> : un sabot complet est mélangé pendant que l'autre est joué. Le comptage fonctionne normalement ; le suivi de mélange, non.</li><li><strong>Mélange à la main</strong> : comptage normal, suivi de mélange parfois possible.</li></ul>`],
+      ['La pénétration', () => `<p>C'est la part du sabot distribuée avant le mélange. Regarde où le croupier place la carte de coupe, ou la hauteur de la défausse au moment du mélange : un tiers du sabot non joué, c'est 67 % ; un quart, 75 %. Les simulations de SIGMA 52 montrent que le comptage dépend surtout de ce chiffre : sur le jeu européen, passer de 75 % à 83 % multiplie le SCORE par près de quatre.</p>`],
+      ['Les règles qui comptent', (X) => { const P = X.D.presets, rc = Object.fromEntries((X.D.ruleCosts?.rows || []).map(([l, v]) => [l, v])), g = (k) => (rc[k] !== undefined ? fr(rc[k] * 100, 2) + ' point' : '—'); return `<ul><li>Blackjack payé 6:5 : ${g('Blackjack payé 6:5')} de plus pour la maison. Rédhibitoire.</li><li>Croupier qui tire sur soft 17 : ${g('Croupier tire sur soft 17')}.</li><li>Jeu sans carte cachée, toutes mises perdues : ${g('Sans carte cachée (européen), toutes mises perdues, sans abandon')}.</li><li>Double limité à 9, 10, 11 : ${g('Double sur 9, 10, 11 seulement')}.</li></ul><p>Jeu européen courant : ${pc(P.europe.edge, 2)} pour la maison avec une stratégie parfaite ; sabot de 6 « Strip » : ${pc(P.strip.edge, 2)}.</p>`; }],
+      ['La méthode', () => `<ol><li>Relève, sans rien noter à la table : type de mélange, règles affichées, mise minimale et maximale, nombre de joueurs.</li><li>Observe deux ou trois mélanges pour estimer la pénétration.</li><li>Entre la table dans <strong>Mes tables</strong> : verdict, gain par heure en théorie et avec ton niveau mesuré.</li><li>Ne compte que là où le verdict est « À compter ». Ailleurs : stratégie de base, mise minimale, ou pas de jeu.</li></ol>`],
+    ],
+    mistakes: ['Compter à une table à mélangeur continu', 'Ignorer la pénétration', 'Jouer une table 6:5'],
+    keys: ['Mélangeur continu = compter ne sert à rien', 'La pénétration fait le gain', 'Relever, puis décider dans Mes tables'],
+    quiz: [
+      { q: 'À une table avec mélangeur continu, le comptage :', opts: ['Rapporte un peu', 'Ne rapporte rien', 'Rapporte plus', 'Est interdit'], ok: 1, why: 'Les cartes reviennent dans la machine à chaque tour : le compte reste à zéro.' },
+      { q: 'Un quart du sabot n\'est jamais joué : la pénétration est de', opts: ['25 %', '50 %', '75 %', '100 %'], ok: 2, why: 'Trois quarts du sabot sont distribués avant le mélange.' },
+    ],
+  }];
   // Rangement par parties et insertion des compléments à leur place logique.
   const PART = { cadre: 'Bases', regles: 'Bases', tables: 'Bases', croupier: 'Bases', dures: 'Stratégie', souples: 'Stratégie', paires: 'Stratégie', abandon: 'Stratégie', memoriser: 'Stratégie', pourquoi: 'Comptage', hilo: 'Comptage', truecount: 'Comptage', indices: 'Comptage', mises: 'Argent', variance: 'Argent', discretion: 'Pratique', session: 'Pratique', mythes: 'Pratique' };
   for (const m of MODULES) m.part = PART[m.id] || 'Pratique';
@@ -699,6 +715,7 @@
   insAfter('variance', [ADV[1]]);
   insAfter('rampeopt', [TECH[3]]);
   insAfter('prudents', [TECH[5]]);
+  insAfter('session', [REAL[0]]);
   insAfter('audela', [TECH[0], TECH[1], TECH[2], TECH[4]]);
   const PARTS = ['Bases', 'Stratégie', 'Comptage', 'Systèmes', 'Argent', 'Mathématiques', 'Pratique'];
   for (const id of ['variance', 'mises']) { const m = MODULES.find((x) => x.id === id); m.part = 'Argent'; }

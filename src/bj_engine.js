@@ -2,12 +2,16 @@
 // Rangs : 1 = as, 2..9, 10 = toutes les figures et les dix. Un sabot est un tableau de 11 nombres (index 0 inutilisé) ;
 // les comptes peuvent être fractionnaires (sabot moyen à un true count donné).
 // Approximations documentées : la carte cachée du croupier est tirée après les cartes du joueur (conditionnement « pas de blackjack »
-// appliqué au tirage de la carte cachée) ; les re-splits sont comptés main par main ; une main splittée ignore les cartes de sa voisine.
+// appliqué au tirage de la carte cachée) ; les re-splits sont comptés main par main, chaque niveau de re-split retirant le P
+// supplémentaire du sabot ; une main splittée ignore les autres cartes tirées par sa voisine.
 (function (root) {
   'use strict';
   const RULES = {
     decks: 6, h17: false, das: true, double: 'any', maxHands: 4, rsa: false, hsa: false,
     surrender: false, peek: true, obo: false, bj: 1.5,
+    // Variantes : push22 = le croupier qui fait 22 fait égalité avec les mains non crevées ; freeDouble = double gratuit sur 9, 10, 11 durs ;
+    // freeSplit = split gratuit des paires sauf les 10 (Free Bet Blackjack).
+    push22: false, freeDouble: false, freeSplit: false,
   };
   const PRESETS = {
     europe: { label: 'Europe, sans carte cachée', note: 'Règles européennes courantes : le croupier prend sa 2e carte après les joueurs. À vérifier sur la table.', r: { decks: 6, h17: false, das: true, double: '9-11', maxHands: 3, rsa: false, peek: false, obo: false, surrender: false, bj: 1.5 } },
@@ -15,6 +19,11 @@
     h17: { label: 'Sabot de 6, croupier tire soft 17', note: 'Variante courante : le croupier tire sur soft 17.', r: { decks: 6, h17: true, das: true, double: 'any', maxHands: 4, rsa: false, peek: true, obo: false, surrender: true, bj: 1.5 } },
     deux: { label: 'Double jeu (2 paquets), distribué à la main', note: 'Pitch game : 2 paquets, croupier tire soft 17.', r: { decks: 2, h17: true, das: true, double: 'any', maxHands: 4, rsa: false, peek: true, obo: false, surrender: false, bj: 1.5 } },
     sixcinq: { label: 'Blackjack payé 6:5 (à fuir)', note: 'Le blackjack payé 6 pour 5 au lieu de 3 pour 2.', r: { decks: 6, h17: true, das: true, double: 'any', maxHands: 4, rsa: false, peek: true, obo: false, surrender: false, bj: 1.2 } },
+  };
+  // Variantes hors tableau de stratégie principal (onglet Variantes).
+  const VARIANTS = {
+    freebet: { label: 'Free Bet Blackjack', note: 'Doubles gratuits sur 9, 10 et 11 durs, splits gratuits sauf les 10, le croupier qui fait 22 fait égalité. Règles courantes, à vérifier sur la table.', r: { decks: 6, h17: true, das: true, double: 'any', maxHands: 4, rsa: false, peek: true, obo: false, surrender: false, bj: 1.5, push22: true, freeDouble: true, freeSplit: true } },
+    push22: { label: 'Croupier 22 = égalité, sans jeu gratuit', note: 'Pour isoler ce que coûte la règle du 22.', r: { decks: 6, h17: true, das: true, double: 'any', maxHands: 4, rsa: false, peek: true, obo: false, surrender: false, bj: 1.5, push22: true } },
   };
   const R = (o) => Object.assign({}, RULES, o || {});
   const shoeOf = (decks) => { const s = new Array(11).fill(0); for (let r = 1; r <= 9; r++) s[r] = 4 * decks; s[10] = 16 * decks; return s; };
@@ -37,7 +46,7 @@
   }
 
   // ---------- Croupier ----------
-  // Distribution finale : [17, 18, 19, 20, 21, crevé, blackjack]. Avec peek, la carte cachée exclut le blackjack (distribution conditionnelle).
+  // Distribution finale : [17, 18, 19, 20, 21, crevé, blackjack, 22 en égalité si push22]. Avec peek, la carte cachée exclut le blackjack (distribution conditionnelle).
   // Mémoïsation : une composition est codée par les cartes retirées du sabot de base (entiers < 32 par rang, base 32).
   const P32 = [0, 1]; for (let r = 2; r <= 10; r++) P32[r] = P32[r - 1] * 32;
   // fast : le croupier tire dans le sabot tel qu'il était au moment de la décision (les cartes tirées ensuite par le joueur sont ignorées
@@ -54,13 +63,13 @@
     function dealerDist(shoe, up) {
       const DM = sub(DMEMO, up), k = enc(shoe);
       let d = DM.get(k); if (d) return d;
-      d = [0, 0, 0, 0, 0, 0, 0];
+      d = [0, 0, 0, 0, 0, 0, 0, 0];
       const s = shoe.slice(); let N = total(s);
       const bjRank = up === 1 ? 10 : up === 10 ? 1 : 0;
       (function rec(sum, ace, n, prob) {
         const t = hv(sum, ace);
         if (n === 2 && t === 21) { d[6] += prob; return; }
-        if (sum > 21) { d[5] += prob; return; }
+        if (sum > 21) { d[rl.push22 && sum === 22 ? 7 : 5] += prob; return; }
         if (t >= 17 && !(t === 17 && rl.h17 && isSoft(sum, ace))) { d[t - 17] += prob; return; }
         const first = n === 1, ok = (r) => (!first ? true : allowed ? allowed[r] : !(rl.peek && bjRank && r === bjRank));
         let den = 0; for (let r = 1; r <= 10; r++) if (s[r] > 0 && ok(r)) den += s[r];
@@ -82,6 +91,8 @@
       for (let f = 17; f <= 21; f++) ev += d[f - 17] * (t > f ? m : t < f ? -m : 0);
       return ev;
     }
+    // Probabilité de gagner en restant (pour les mises gratuites : la mise offerte ne rapporte que si la main gagne).
+    function standWin(t, d) { if (t > 21) return 0; let w = d[5]; for (let f = 17; f <= 21; f++) if (t > f) w += d[f - 17]; return w; }
     // Moment d'ordre 2 du résultat en restant (pour la variance) : m² sur toute issue non nulle.
     function standE2(t, d, m, lostBJ) {
       if (t > 21) return m * m;
@@ -94,8 +105,8 @@
     function node(shoe, up, sum, ace, lostBJ) {
       const PM = sub(PMEMO, (sum * 64 + (ace ? 32 : 0) + up + lostBJ * 1000) + (fast ? '|' + rootK : '')), k = enc(shoe);
       let v = PM.get(k); if (v) return v;
-      const t = hv(sum, ace), d = dd(shoe, up), st = standEV(t, d, 1, lostBJ), s2 = standE2(t, d, 1, lostBJ);
-      let hit = -1, h2 = 1;
+      const t = hv(sum, ace), d = dd(shoe, up), st = standEV(t, d, 1, lostBJ), s2 = standE2(t, d, 1, lostBJ), sw = standWin(t, d);
+      let hit = -1, h2 = 1, hw = 0, fwh = 0;
       if (t < 21) {
         hit = 0; h2 = 0; const N = total(shoe);
         for (let r = 1; r <= 10; r++) {
@@ -103,10 +114,13 @@
           const p = c / N;
           if (sum + r > 21) { hit -= p; h2 += p; continue; }
           shoe[r] -= 1; const nx = node(shoe, up, sum + r, ace || r === 1, lostBJ); shoe[r] += 1;
-          if (nx.stand >= nx.hit) { hit += p * nx.stand; h2 += p * nx.s2; } else { hit += p * nx.hit; h2 += p * nx.h2; }
+          if (nx.stand >= nx.hit) { hit += p * nx.stand; h2 += p * nx.s2; hw += p * nx.sw; } else { hit += p * nx.hit; h2 += p * nx.h2; hw += p * nx.hw; }
+          fwh += p * nx.fw;
         }
       }
-      v = { stand: st, hit, s2, h2 }; PM.set(k, v); return v;
+      // sw, hw : probabilité de gagner en restant, ou en tirant puis en jouant au mieux (au sens de l'EV) ; fw : probabilité de gagner
+      // maximale (main offerte : la perte ne coûte rien, on joue pour gagner).
+      v = { stand: st, hit, s2, h2, sw, hw, fw: t < 21 ? Math.max(sw, fwh) : sw }; PM.set(k, v); return v;
     }
     function doubleEV(shoe, up, sum, ace, lostBJ2) {
       const N = total(shoe); let ev = 0;
@@ -128,6 +142,13 @@
       }
       return e;
     }
+    // Double gratuit : la mise offerte ne se perd pas ; résultat +2 si la main gagne, −1 si elle perd, 0 en égalité.
+    function freeDoubleEV(shoe, up, sum, ace, lostBJ) {
+      const N = total(shoe); let ev = 0;
+      for (let r = 1; r <= 10; r++) { const c = shoe[r]; if (c <= 0) continue; const p = c / N; if (sum + r > 21) { ev -= p; continue; } shoe[r] -= 1; const d = dd(shoe, up), t = hv(sum + r, ace || r === 1); ev += p * (standEV(t, d, 1, lostBJ) + standWin(t, d)); shoe[r] += 1; }
+      return ev;
+    }
+    const isFreeDouble = (t, soft) => rl.freeDouble && !soft && t >= 9 && t <= 11;
     const canDouble = (t, soft, afterSplit) => {
       if (afterSplit && !rl.das) return false;
       if (rl.double === 'any') return true;
@@ -136,32 +157,40 @@
     };
     // Une main issue d'un split : première carte P, on tire la deuxième. Renvoie [EV si la 2e carte n'est pas P, EV de P+P joué sans split, prob. de P].
     function splitParts(shoe, up, P, lostBJ, lostBJ2) {
-      const N = total(shoe); let a = 0, pP = 0, b = 0;
+      const N = total(shoe); let a = 0, pP = 0, b = 0, W = 0, Wf = 0, fwP = 0;
       for (let r = 1; r <= 10; r++) {
         const c = shoe[r]; if (c <= 0) continue;
         const p = c / N; shoe[r] -= 1;
         const sum = P + r, ace = P === 1 || r === 1, t = hv(sum, ace);
         let ev;
-        if (P === 1 && !rl.hsa) ev = standEV(t, dd(shoe, up), 1, lostBJ);
+        let w, fw;
+        if (P === 1 && !rl.hsa) { const d = dd(shoe, up); ev = standEV(t, d, 1, lostBJ); w = fw = standWin(t, d); }
         else {
-          const n = node(shoe, up, sum, ace, lostBJ); ev = Math.max(n.stand, n.hit);
-          if (canDouble(t, isSoft(sum, ace), true)) ev = Math.max(ev, doubleEV(shoe, up, sum, ace, lostBJ2));
+          const n = node(shoe, up, sum, ace, lostBJ); ev = Math.max(n.stand, n.hit); w = n.stand >= n.hit ? n.sw : n.hw; fw = n.fw;
+          if (isFreeDouble(t, isSoft(sum, ace)) && rl.das) ev = Math.max(ev, freeDoubleEV(shoe, up, sum, ace, lostBJ));
+          else if (canDouble(t, isSoft(sum, ace), true)) ev = Math.max(ev, doubleEV(shoe, up, sum, ace, lostBJ2));
         }
         if (r === P) { pP = p; b = ev; } else a += p * ev;
+        W += p * w; if (r === P) fwP = fw; else Wf += p * fw;
         shoe[r] += 1;
       }
-      return { a, b, pP };
+      return { a, b, pP, W, Wf, fwP };
     }
     // shoe : cartes restantes, les deux cartes de la paire déjà retirées.
+    // Re-split : une main qui reçoit à nouveau P peut être séparée ; les deux nouvelles mains jouent dans un sabot privé de ce P
+    // supplémentaire (niveau j = nombre de P retirés en plus de la paire de départ). V(k, j) = a_j + p_j × max(b_j, 2 V(k−1, j+1)).
     function splitEV(shoe, up, P) {
-      const s = shoe.slice();
-      const lostBJ = rl.peek ? 0 : rl.obo ? 0.5 : 1, lostBJ2 = rl.peek ? 0 : rl.obo ? 0.5 : 2;
-      const { a, b, pP } = splitParts(s, up, P, lostBJ, lostBJ2);
+      const lostBJ = rl.peek ? 0 : rl.obo ? 0.5 : 1, lostBJ2 = rl.peek ? 0 : rl.obo ? 0.5 : 2, memo = [];
+      const parts = (j) => { if (memo[j]) return memo[j]; const s = shoe.slice(); s[P] -= j; if (s[P] < 0) s[P] = 0; return (memo[j] = splitParts(s, up, P, lostBJ, lostBJ2)); };
       const canRe = P !== 1 || rl.rsa;
-      const V0 = a + pP * b;
-      const V = (k) => (k <= 0 || !canRe ? V0 : a + pP * Math.max(b, 2 * V(k - 1)));
+      const V = (k, j) => { const q = parts(j); return k <= 0 || !canRe ? q.a + q.pP * q.b : q.a + q.pP * Math.max(q.b, 2 * V(k - 1, j + 1)); };
       const h = rl.maxHands;
-      return h >= 4 ? 2 * V(1) : h === 3 ? V(1) + V0 : 2 * V0;
+      // Split gratuit (approximation) : une main payée jouée normalement + une main offerte qui rapporte 1 si elle gagne, 0 sinon ;
+      // la main offerte suit la même stratégie (EV), sans re-split.
+      // Main offerte jouée pour gagner (probabilité de gain maximale) ; un nouveau P est re-splitté gratuitement (une main offerte
+      // de plus) quand c'est meilleur, sur la main payée comme sur la main offerte (un niveau).
+      if (rl.freeSplit && P !== 10) { const q = parts(0), canR = P !== 1 || rl.rsa, F = q.Wf + q.pP * (canR ? Math.max(q.fwP, 2 * (q.Wf + q.pP * q.fwP)) : q.fwP), V0 = q.a + q.pP * q.b, paid = q.a + q.pP * (canR ? Math.max(q.b, V0 + F) : q.b); return paid + F; }
+      return h >= 5 ? 2 * V(2, 0) : h >= 4 ? 2 * V(1, 0) : h === 3 ? V(1, 0) + V(0, 0) : 2 * V(0, 0);
     }
     // Toutes les options d'une main de deux cartes c1, c2 contre la carte visible up. shoe : cartes restantes (c1, c2, up déjà retirées).
     // Renvoie les EV conditionnelles (peek : sachant que le croupier n'a pas blackjack) et la probabilité de blackjack du croupier.
@@ -170,7 +199,8 @@
       const sum = c1 + c2, ace = c1 === 1 || c2 === 1, t = hv(sum, ace), soft = isSoft(sum, ace);
       const lostBJ = rl.peek ? 0 : 1, lostBJ2 = rl.peek ? 0 : rl.obo ? 1 : 2;
       const n = node(shoe, up, sum, ace, lostBJ), out = { stand: n.stand, hit: n.hit };
-      if (canDouble(t, soft, false)) out.double = doubleEV(shoe, up, sum, ace, lostBJ2);
+      if (isFreeDouble(t, soft)) out.double = freeDoubleEV(shoe, up, sum, ace, lostBJ);
+      else if (canDouble(t, soft, false)) out.double = doubleEV(shoe, up, sum, ace, lostBJ2);
       if (c1 === c2 && rl.maxHands >= 2) { const sp = splitEV(shoe, up, c1); if (sp !== null) out.split = sp; }
       if (rl.surrender && rl.peek) out.surrender = -0.5;
       return out;
@@ -303,6 +333,45 @@
     return -ev;
   }
 
+  // ---------- Mises annexes : espérance exacte sur une composition ----------
+  // 52 types de cartes (13 rangs × 4 couleurs) ; dans chaque rang, les couleurs sont supposées également réparties (exact pour
+  // un sabot complet, approximation pour le sabot moyen à un true count). Rangs 13 : 0..7 = 2..9, 8..11 = 10, V, D, R, 12 = as.
+  function cards52(s) { const q = new Array(52); for (let r = 0; r < 13; r++) { const n = r <= 7 ? s[r + 2] : r <= 11 ? s[10] / 4 : s[1]; for (let k = 0; k < 4; k++) q[r * 4 + k] = n / 4; } return q; }
+  const SIDE = {
+    pp: { label: 'Perfect Pairs', pay: '25 · 12 · 6', note: 'Paire parfaite (même couleur) 25:1, paire de même couleur (rouge ou noire) 12:1, paire mixte 6:1.' },
+    t21p3: { label: '21+3', pay: '100 · 40 · 30 · 10 · 5', note: 'Brelan assorti 100:1, quinte flush 40:1, brelan 30:1, quinte 10:1, couleur 5:1 (tes 2 cartes + la carte visible du croupier).' },
+    ll: { label: 'Lucky Ladies', pay: '1000 · 200 · 25 · 10 · 4', note: 'Dame de cœur par paire + blackjack du croupier 1000:1, dame de cœur par paire 200:1, 20 identique (rang et couleur) 25:1, 20 assorti 10:1, 20 quelconque 4:1.' },
+  };
+  function sideEV(id, s) {
+    const q = cards52(s), N = q.reduce((a, x) => a + x, 0), R_ = (i) => i >> 2, S_ = (i) => i & 3;
+    if (id === 'pp') {
+      let pp = 0, pcol = 0, pm = 0;
+      for (let i = 0; i < 52; i++) for (let j = 0; j < 52; j++) { if (R_(i) !== R_(j) || q[i] <= 0) continue; const pr = (q[i] / N) * (q[j] - (i === j ? 1 : 0)) / (N - 1); if (pr <= 0) continue; if (i === j) pp += pr; else if ((S_(i) < 2) === (S_(j) < 2)) pcol += pr; else pm += pr; }
+      return 25 * pp + 12 * pcol + 6 * pm - (1 - pp - pcol - pm);
+    }
+    if (id === 't21p3') {
+      let ev = 0, win = 0;
+      for (let i = 0; i < 52; i++) { if (q[i] <= 0) continue; const p1 = q[i] / N;
+        for (let j = 0; j < 52; j++) { const qj = q[j] - (i === j ? 1 : 0); if (qj <= 0) continue; const p2 = p1 * qj / (N - 1);
+          for (let k = 0; k < 52; k++) { const qk = q[k] - (k === i ? 1 : 0) - (k === j ? 1 : 0); if (qk <= 0) continue; const p3 = p2 * qk / (N - 2);
+            const r = [R_(i), R_(j), R_(k)].sort((a, b) => a - b), fl = S_(i) === S_(j) && S_(j) === S_(k), tr = r[0] === r[2];
+            const st = !tr && r[0] !== r[1] && r[1] !== r[2] && ((r[2] - r[0] === 2) || (r[0] === 0 && r[1] === 1 && r[2] === 12));
+            const pay = tr && fl ? 100 : st && fl ? 40 : tr ? 30 : st ? 10 : fl ? 5 : 0; if (pay) { ev += p3 * pay; win += p3; } } } }
+      return ev - (1 - win);
+    }
+    if (id === 'll') {
+      const val = (i) => { const r = R_(i); return r <= 7 ? r + 2 : r <= 11 ? 10 : 11; }, QH = 10 * 4 + 1; let ev = 0, win = 0;
+      for (let i = 0; i < 52; i++) { if (q[i] <= 0) continue; for (let j = 0; j < 52; j++) { const qj = q[j] - (i === j ? 1 : 0); if (qj <= 0) continue; if (val(i) + val(j) !== 20) continue;
+        const pr = (q[i] / N) * qj / (N - 1); let pay;
+        if (i === QH && j === QH) { const M = N - 2, tens = 4 * q[32] + 4 * q[36] + 4 * q[40] + 4 * q[44] - 2, aces = 4 * q[48], pbj = 2 * (aces / M) * (tens / (M - 1)); ev += pr * (pbj * 1000 + (1 - pbj) * 200); win += pr; continue; }
+        pay = i === j ? 25 : S_(i) === S_(j) ? 10 : 4; ev += pr * pay; win += pr; } }
+      return ev - (1 - win);
+    }
+    return null;
+  }
+  // Espérance d'une mise annexe selon le true count (sabot moyen, système donné par ses valeurs).
+  function sideCurve(id, decksLeft, tags, tcs) { return tcs.map((tc) => [tc, sideEV(id, shoeAtTC(decksLeft, tc, tags))]); }
+
   // ---------- Assurance ----------
   const insuranceEV = (shoe) => { const N = total(shoe), p = shoe[10] / N; return 0.5 * (3 * p - 1); };
 
@@ -341,15 +410,23 @@
     const imb = cfg.imb || 0; // déséquilibre par paquet : converti en compte équilibré (conversion idéale)
     let pos = nCards, rc = 0, seated = wongIn === null;
     const deck = cards;
-    const shuffle = () => { for (let i = deck.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); const t = deck[i]; deck[i] = deck[j]; deck[j] = t; } pos = 0; rc = 0; seated = wongIn === null; };
-    const draw = () => { const c = deck[pos++]; rc += TG[c]; return RK[c]; };
+    // Erreurs humaines (cfg.err) : count = probabilité par carte de se tromper d'une unité (l'erreur reste dans le compte),
+    // deck = résolution de l'estimation de la défausse (0 exact, 0,5 ou 1 paquet), play = probabilité de jouer la 2e meilleure action,
+    // bet = probabilité de miser comme à un true count voisin (± 1). nz : erreur accumulée du running count perçu.
+    const ER = cfg.err || {}; let nz = 0, prefN = 0;
+    const shuffle = () => { for (let i = deck.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); const t = deck[i]; deck[i] = deck[j]; deck[j] = t; } pos = 0; rc = 0; nz = 0; seated = wongIn === null; };
+    // Sabot épuisé en cours de tour (petit sabot, pénétration profonde, beaucoup de mains) : nouveau sabot mélangé.
+    const draw = () => { if (pos >= nCards) shuffle(); const c = deck[pos++]; rc += TG[c]; if (ER.count && rnd() < ER.count) nz += rnd() < 0.5 ? 1 : -1; return RK[c]; };
+    const dlOf = () => { const d = Math.max(0.5, (nCards - pos) / 52); return ER.deck ? Math.max(ER.deck, Math.round(d / ER.deck) * ER.deck) : d; };
+    const tcRawNow = () => (rc + nz - imb * pos / 52) / dlOf();
     const dev = {}; for (const d of devs) (dev[d.row + '|' + d.up] ||= []).push(d);
     const actOf = (rowId, up, tc, avail) => {
       const st = table[rowId][up]; let order = st.order.slice();
       const ds = dev[rowId + '|' + up];
       if (ds && cfg.useIndices) for (const d of ds) { const on = d.dir > 0 ? tc >= d.index : tc < d.index; if (on) order = [d.act].concat(order.filter((x) => x !== d.act)); }
-      for (const k of order) if (avail[k]) return k;
-      return 'stand';
+      const ok = order.filter((k) => avail[k]);
+      if (ER.play && ok.length > 1 && rnd() < ER.play) return ok[1];
+      return ok.length ? ok[0] : 'stand';
     };
     const hardRow = (t) => 'h' + Math.max(5, Math.min(19, t));
     const sumOf = (cs) => { let s = 0; for (const x of cs) s += x; return s; };
@@ -365,7 +442,7 @@
         if (h.isAces && !rl.hsa && cs.length === 2) { h.done = true; break; }
         const two = cs.length === 2, soft = isSoft(sum, ace), isPair = two && cs[0] === cs[1];
         const rowId = isPair ? 'p' + cs[0] : soft ? 's' + Math.min(9, t - 11) : hardRow(t);
-        const tcNow = Math.trunc((rc - imb * pos / 52) / Math.max(0.5, (nCards - pos) / 52));
+        const tcNow = Math.trunc(tcRawNow());
         let act = 'stand';
         if (table[rowId]) {
           const okDouble = two && (rl.double === 'any' ? true : !soft && (rl.double === '9-11' ? t >= 9 && t <= 11 : t >= 10 && t <= 11)) && (!h.split || rl.das);
@@ -386,8 +463,11 @@
       }
     }
     while (hands < cfg.hands) {
-      if (pos >= cut || pos === nCards) shuffle();
-      const decksLeft = Math.max(0.5, (nCards - pos) / 52), tcRaw = (rc - imb * pos / 52) / decksLeft, tc = Math.trunc(tcRaw);
+      // Mélangeur continu (csm) : les cartes retournent dans la machine à chaque tour, le compte repart de zéro.
+      // Mélange préférentiel (cfg.pref = { tc, p }) : le croupier mélange plus tôt quand le true count dépasse un seuil.
+      if (cfg.csm ? pos > 0 : pos >= cut || pos === nCards) shuffle();
+      else if (cfg.pref && tcRawNow() >= cfg.pref.tc && rnd() < cfg.pref.p) { shuffle(); prefN++; }
+      const tcRaw = tcRawNow(), tc = Math.trunc(tcRaw);
       // Wonging : entrer à TC ≥ wongIn, sortir sous wongOut (jusqu'au mélange).
       if (wongIn !== null) { if (!seated && tcRaw >= wongIn) seated = true; else if (seated && wongOut !== null && tcRaw < wongOut) seated = false; }
       rounds++;
@@ -397,7 +477,7 @@
         draw(); draw(); if (rnd() < 0.6) draw();
         continue;
       }
-      const ns = Math.max(1, Math.min(3, spotsOf(tc, tcRaw) | 0)), bet = cfg.rampRaw ? ramp(tcRaw) : ramp(tc); tcHist[tc] = (tcHist[tc] || 0) + 1;
+      const eb = ER.bet && rnd() < ER.bet ? (rnd() < 0.5 ? 1 : -1) : 0, ns = Math.max(1, Math.min(3, spotsOf(tc, tcRaw) | 0)), bet = cfg.rampRaw ? ramp(tcRaw + eb) : ramp(tc + eb); tcHist[tc] = (tcHist[tc] || 0) + 1;
       const first = []; for (let k = 0; k < ns; k++) first.push(draw());
       const up = draw();
       const second = []; for (let k = 0; k < ns; k++) second.push(draw());
@@ -438,7 +518,7 @@
       units += result; sumBet += bet * ns; sum2 += result * result; hands++;
     }
     const mean = units / hands, sd = Math.sqrt(Math.max(0, sum2 / hands - mean * mean));
-    return { hands, rounds, units, mean, sd, sum2, avgBet: sumBet / hands, edge: units / sumBet, res, tcHist, buckets: BK, buckets2: BK2 };
+    return { hands, rounds, units, mean, sd, sum2, avgBet: sumBet / hands, edge: units / sumBet, res, tcHist, buckets: BK, buckets2: BK2, pref: prefN };
   }
 
   // ---------- Carte cachée vue (hole carding) et informations partielles ----------
@@ -480,6 +560,6 @@
   // Risque de ruine (approximation diffusion) : exp(−2 · μ · B / σ²) avec μ, σ par main en unités.
   const riskOfRuin = (mu, sd, bank) => (mu <= 0 ? 1 : Math.exp(-2 * mu * bank / (sd * sd)));
 
-  const BJ = { RULES, PRESETS, R, shoeOf, shoeAtTC, total, hv, isSoft, Calc, UPS, ROWS, combosOf, ACTS, CODE, NAME, rowEV, decide, strategy, rowIdOf, houseEdge, rowMoments, insuranceEV, insuranceIndex, HILO, rankOfCard, indexFor, rng, simulate, riskOfRuin, holeCardStudy };
+  const BJ = { RULES, PRESETS, VARIANTS, SIDE, sideEV, sideCurve, R, shoeOf, shoeAtTC, total, hv, isSoft, Calc, UPS, ROWS, combosOf, ACTS, CODE, NAME, rowEV, decide, strategy, rowIdOf, houseEdge, rowMoments, insuranceEV, insuranceIndex, HILO, rankOfCard, indexFor, rng, simulate, riskOfRuin, holeCardStudy };
   if (typeof module !== 'undefined' && module.exports) module.exports = BJ; else root.BJ = BJ;
 })(typeof window !== 'undefined' ? window : globalThis);

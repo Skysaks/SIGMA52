@@ -16,7 +16,7 @@ const path = require('path'), fs = require('fs');
     const go = async (t) => { await p.evaluate((x) => window.__S52.go(x), t); await p.waitForTimeout(120); };
     // Espace présent dans la navigation.
     if (!(await p.locator('[data-group=blackjack]').count())) errs.push(name + ' espace Blackjack absent');
-    for (const t of ['bj', 'bjcours', 'bjstrat', 'bjentr', 'bjcompte', 'bjsys', 'bjtable', 'bjbank', 'bjsim', 'bjadv', 'bjmaths', 'bjjournal', 'bjstudio']) {
+    for (const t of ['bj', 'bjcours', 'bjstrat', 'bjentr', 'bjcompte', 'bjsys', 'bjtable', 'bjbank', 'bjsim', 'bjadv', 'bjmaths', 'bjjournal', 'bjstudio', 'bjtables', 'bjexam', 'bjvar']) {
       await go(t); const h = await p.locator('#view h1').first().textContent().catch(() => '');
       if (!h) errs.push(name + ' ' + t + ' sans titre'); await over(t); await shot(t);
     }
@@ -187,6 +187,36 @@ const path = require('path'), fs = require('fs');
     await p.waitForTimeout(60);
     if (!(await p.locator('text=Séance enregistrée').count())) errs.push(name + ' journal : séance non enregistrée');
     await over('journal'); await shot('journal');
+    // Séance adaptative, Variantes, fidélité.
+    await go('bj'); if (!(await p.locator('text=Séance de 10 minutes').count())) errs.push(name + ' séance adaptative absente');
+    await go('bjvar'); { const tx = await p.locator('#view').innerText(); if (!/Free Bet/.test(tx) || !/Perfect Pairs/.test(tx) || /NaN|undefined/.test(tx)) errs.push(name + ' variantes'); } await over('variantes'); await shot('variantes');
+    await go('bjmaths'); if (!(await p.locator('text=Ce que vaut le moteur').count())) errs.push(name + ' fidélité absente');
+    // Mes tables : une table à la main (verdict chiffré) et une table à mélangeur continu.
+    await go('bjtables');
+    for (const [nm, shuf] of [['Test main', 'hand'], ['Test CSM', 'csm']]) {
+      await p.click('[data-act=bjtfnew]'); await p.fill('[data-bjtf=name]', nm); await p.press('[data-bjtf=name]', 'Tab'); await p.selectOption('[data-bjtf=shuffle]', shuf); await p.selectOption('[data-bjtf=pen]', '0.75'); await p.waitForTimeout(60); await p.click('[data-act=bjtfsave]'); await p.waitForTimeout(150);
+    }
+    { const tx = await p.locator('#view').innerText(); if (!/Ne pas compter/.test(tx)) errs.push(name + ' mes tables : verdict mélangeur continu absent'); if (!/Comptage parfait/.test(tx)) errs.push(name + ' mes tables : verdict chiffré absent'); if (/NaN|undefined/.test(tx)) errs.push(name + ' mes tables : valeur cassée'); }
+    await over('mes tables'); await shot('mestables');
+    if (name === 'desk') {
+      await p.click('[data-act=bjtfsim][data-i="0"]');
+      await p.waitForFunction(() => (window.__S52.BJAPP.P().tables[0] || {}).sim, null, { timeout: 180000 }).catch(() => errs.push(name + ' mes tables : simulation précise sans résultat'));
+      const sm2 = await p.evaluate(() => window.__S52.BJAPP.P().tables[0].sim); if (sm2 && !(sm2.real.edge < sm2.perfect.edge + 0.003)) errs.push(name + ' mes tables : niveau réel incohérent');
+    }
+    // Examen : épreuve A réussie, épreuve B réussie (vitesse accélérée pour le test, sans voix).
+    await go('bjexam'); await p.click('[data-act=bjexgo][data-k=A]');
+    for (let i = 0; i < 40; i++) { const a = await p.evaluate(() => window.__S52.BJAPP.ex.q && window.__S52.BJAPP.ex.q.ans); if (!a) break; await p.click(`[data-act=bjexa][data-a=${a}]`); }
+    if (!(await p.evaluate(() => window.__S52.BJAPP.exRec().pass.A))) errs.push(name + ' examen A non validé');
+    await p.evaluate(() => { const e = window.__S52.BJAPP.ex; e.speed = 40; e.speak = false; }); await p.click('[data-act=bjexgo][data-k=B]');
+    for (let guard = 0; guard < 400; guard++) {
+      const st = await p.evaluate(() => { const B = window.__S52.BJAPP.ex.B; return B ? { ph: B.phase, want: B.betQ && B.betQ.want } : null; });
+      if (!st) break;
+      if (st.ph === 'bet') await p.click(`[data-act=bjexbet][data-v="${st.want}"]`).catch(() => {});
+      else if (st.ph === 'rc') { const r = await p.evaluate(() => { const B = window.__S52.BJAPP.ex.B, left = Math.max(0.5, Math.round((B.n * 52 - B.pos) / 26) / 2), rc = B.rcs[B.rcs.length - 1]; return { rc, tc: Math.trunc(rc / left) }; }); await p.fill('#bjexrc [name=rc]', String(r.rc)); const tcf = p.locator('#bjexrc [name=tc]'); if (await tcf.count()) await tcf.fill(String(r.tc)); await p.click('#bjexrc button'); }
+      await p.waitForTimeout(30);
+    }
+    if (!(await p.evaluate(() => window.__S52.BJAPP.exRec().pass.B))) errs.push(name + ' examen B non validé : ' + (await p.evaluate(() => JSON.stringify(window.__S52.BJAPP.exRec().runs.slice(-1)))));
+    await over('examen'); await shot('examen');
     // Studio BJ : tous les modèles dessinés sans erreur, lot de 5 quiz en zip.
     await go('bjstudio');
     const sbj = await p.evaluate(() => { const Sx = window.__S52.Studio, out = []; for (const t of Object.values(Sx.TP).filter((t) => t.dom !== 'poker')) { Sx.st.tpl = t.id; const c = document.createElement('canvas'); const n = Sx.draw(c, 0); for (let k = 1; k < n; k++) Sx.draw(c, k); if (/undefined|NaN/.test(Sx.caption() + Sx.script().join(' '))) out.push(t.id + ' légende'); } return out.concat(window.__stErr || []); });

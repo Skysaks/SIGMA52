@@ -52,8 +52,8 @@ t('true count : sabot moyen équilibré', () => {
   const s = BJ.shoeAtTC(3, 2), rc = [2, 3, 4, 5, 6].reduce((a, r) => a + (12 - s[r]), 0) - ((48 - s[10]) + (12 - s[1]));
   assert(Math.abs(BJ.total(s) - 156) < 1e-9); assert(Math.abs(rc - 6) < 1e-9, rc);
 });
-t('cours : 37 modules en 7 parties, quiz bien formés', () => {
-  assert.strictEqual(K.MODULES.length, 37); assert(K.MODULES.every((m) => K.PARTS.includes(m.part)));
+t('cours : 38 modules en 7 parties, quiz bien formés', () => {
+  assert.strictEqual(K.MODULES.length, 38); assert(K.MODULES.every((m) => K.PARTS.includes(m.part)));
   for (const m of K.MODULES) for (const q of m.quiz) assert(q.ok >= 0 && q.ok < q.opts.length && q.why, m.id);
 });
 t('systèmes : équilibre et déséquilibre connus', () => {
@@ -113,4 +113,24 @@ if (D.big) t('grandes simulations : plus d\'un milliard de mains, avantage crois
   const J = Object.values(D.big.jobs), tot = J.reduce((a, j) => a + j.hands, 0); assert(tot > 1e9, tot);
   const h = D.big.jobs['strip|hilo|0.75|1|none'] || D.big.jobs['europe|hilo|0.75|1|none'], mu = (k) => h.b1[k][1] / h.b1[k][0]; assert(mu(4) > mu(1) && mu(1) > mu(-2));
 });
+t('mélangeur continu : le comptage ne rapporte rien ; erreurs humaines : l\'avantage baisse', () => {
+  const P = D.presets.strip, table = Object.fromEntries(Object.entries(P.table).map(([row, o]) => [row, Object.fromEntries(Object.entries(o).map(([u, c]) => [u, { order: c.o }]))]));
+  const base = { rules: P.rules, table, devs: P.indices, useIndices: true, insIndex: 3, ramp: (tc) => Math.max(1, Math.min(8, tc * 2)), hands: 400000, seed: 21, noRes: true };
+  const c = BJ.simulate({ ...base, csm: true }); assert(Math.abs(c.avgBet - 1) < 1e-9 && c.edge < 0, 'csm ' + c.edge + ' ' + c.avgBet);
+  const ok = BJ.simulate(base), bad = BJ.simulate({ ...base, err: { count: 0.03, deck: 1, play: 0.05, bet: 0.2 } }); assert(bad.edge < ok.edge - 0.005, ok.edge + ' / ' + bad.edge);
+  const pr = BJ.simulate({ ...base, pref: { tc: 2, p: 1 } }); assert(pr.pref > 0 && pr.edge < ok.edge, 'mélange préférentiel');
+});
+t('croupier 22 en égalité : distribution complète, avantage de la maison bien plus élevé', () => {
+  const c = BJ.Calc({ decks: 6, h17: true, push22: true }), sh = BJ.shoeOf(6); for (const u of [2, 6, 10]) { const x = sh.slice(); x[u]--; const d = c.dealerDist(x, u); assert(Math.abs(d.reduce((a, b) => a + b, 0) - 1) < 1e-9 && d[7] > 0.02, u); }
+  if (D.variants) { assert(D.variants.push22.edge > 0.05); assert(D.variants.freebet.edge > 0.005 && D.variants.freebet.edge < 0.025, D.variants.freebet.edge); }
+});
+t('mises annexes : perdantes sur un sabot complet, Perfect Pairs ≈ −6 %', () => {
+  const s = BJ.shoeOf(6); for (const id of ['pp', 't21p3', 'll']) assert(BJ.sideEV(id, s) < 0, id);
+  assert(Math.abs(BJ.sideEV('pp', s) + 0.061) < 0.003, BJ.sideEV('pp', s));
+});
+t('petit sabot, pénétration profonde, beaucoup de mains : la simulation ne bloque pas', () => {
+  const P = D.presets.deux, table = Object.fromEntries(Object.entries(P.table).map(([row, o]) => [row, Object.fromEntries(Object.entries(o).map(([u, c]) => [u, { order: c.o }]))]));
+  const r = BJ.simulate({ rules: P.rules, table, hands: 50000, seed: 3, pen: 0.9, others: 6, spots: () => 3, noRes: true }); assert.strictEqual(r.hands, 50000); assert(Number.isFinite(r.edge));
+});
+if (D.fidelity) t('fidélité : simulation et calcul exact d\'accord à 0,1 point près', () => { for (const [k, x] of Object.entries(D.fidelity.sim)) assert(Math.abs(x.sim - x.exact) < 0.001, k + ' ' + x.sim + ' ' + x.exact); });
 console.log(n, 'tests');

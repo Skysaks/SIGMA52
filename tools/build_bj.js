@@ -60,8 +60,10 @@ function presetData(key, P) {
 }
 
 // Mode « systems » : ne recalcule que la partie systèmes de comptage ; mode « advanced » : indices prudents et indices par simulation.
-const MODE = process.argv[2] || 'all', ONLY_SYS = MODE === 'systems' || MODE === 'advanced' || MODE === 'extra' || MODE === 'big';
-const out = ONLY_SYS ? require('../src/bj_data.js') : { built: new Date().toISOString().slice(0, 10), presets: {}, ruleCosts: null };
+// Modes : all, presets (stratégies, coûts des règles, variantes, mises annexes), systems, advanced, extra, big, fidelity.
+const MODE = process.argv[2] || 'all', ONLY_SYS = MODE !== 'all' && MODE !== 'presets';
+const PRESETS_ONLY = MODE === 'presets';
+const out = ONLY_SYS || PRESETS_ONLY ? require('../src/bj_data.js') : { built: new Date().toISOString().slice(0, 10), presets: {}, ruleCosts: null };
 out.built = new Date().toISOString().slice(0, 10);
 if (!ONLY_SYS) for (const [k, P] of Object.entries(BJ.PRESETS)) out.presets[k] = presetData(k, P);
 
@@ -148,6 +150,14 @@ function sysData(key, rules) {
   const mu = u / n; res.hiloIdx = { sim: { mu: Math.round(mu * 1e5) / 1e5, sd: Math.round(Math.sqrt(s2sum / n - mu * mu) * 1e4) / 1e4, avgBet: Math.round(bsum / n * 1000) / 1000, hands: n } };
   void S;
   return { eor: E, systems: res };
+}
+if (MODE === 'all' || MODE === 'presets') {
+  // Variantes (Free Bet, croupier 22) : stratégie et avantage de la maison.
+  out.variants = {};
+  for (const [k, V] of Object.entries(BJ.VARIANTS)) { const t0 = Date.now(), st = BJ.strategy(V.r), edge = BJ.houseEdge(V.r, { strat: st }), table = {}; for (const row of BJ.ROWS) { table[row.id] = {}; for (const up of BJ.UPS) { const c = st.table[row.id][up]; table[row.id][up] = { c: c.code, o: c.order, ev: Object.fromEntries(Object.entries(c.ev).map(([a, v]) => [a, r4(v)])) }; } } out.variants[k] = { label: V.label, note: V.note, rules: BJ.R(V.r), edge: r4(edge), table }; console.log('variante', k, (edge * 100).toFixed(3), '%', ((Date.now() - t0) / 1000).toFixed(0) + ' s'); }
+  // Mises annexes : espérance selon le true count (sabot de 6, 3 paquets restants), Hi-Lo et Ten Count.
+  out.side = {}; const TC1 = []; for (let t = -6; t <= 14; t++) TC1.push(t); const TC2 = []; for (let t = -12; t <= 48; t += 2) TC2.push(t);
+  for (const id of Object.keys(BJ.SIDE)) { out.side[id] = { full: r4(BJ.sideEV(id, BJ.shoeOf(6))), hilo: BJ.sideCurve(id, 3, BJ.HILO, TC1).map(([t, e]) => [t, r4(e)]), ten: BJ.sideCurve(id, 3, CT.byId.tencount.t, TC2).map(([t, e]) => [t, r4(e)]) }; console.log('mise annexe', id, out.side[id].full); }
 }
 if (MODE === 'all' || MODE === 'systems') { out.counts = {}; for (const key of ['europe', 'strip']) out.counts[key] = sysData(key, out.presets[key].rules); }
 
@@ -236,6 +246,21 @@ if (MODE === 'all' || MODE === 'extra') {
     for (const seg of [26, 52]) { const x = SH.trackingStudy({ proc, seg, trials: 3000, decks: 6, pen: 0.75 }); out.tech.track[proc] = out.tech.track[proc] || {}; out.tech.track[proc][seg] = Object.fromEntries(Object.entries(x).map(([k, v]) => [k, typeof v === 'number' ? r4(v) : v])); }
     out.tech.aceseq[proc] = SH.aceSeqStudy({ proc, trials: 1500 });
     console.log('mélange', proc, JSON.stringify(out.tech.track[proc][52]));
+  }
+}
+
+// ---------- Fidélité : simulation indépendante contre calcul exact, coûts des règles contre la référence publiée ----------
+if (MODE === 'all' || MODE === 'fidelity') {
+  out.fidelity = { sim: {}, refSrc: 'https://wizardofodds.com/games/blackjack/rule-variations/', ref: [
+    ['Croupier tire sur soft 17', 0.22], ['Pas de double après split', 0.14], ['Double sur 9, 10, 11 seulement', 0.09], ['Double sur 10, 11 seulement', 0.18],
+    ['Pas de re-split (2 mains max)', 0.10], ['Re-split des as autorisé', -0.08], ['Blackjack payé 6:5', 1.39], ['Pas d\'abandon', 0.07]] };
+  for (const [k, P] of Object.entries(out.presets)) {
+    const table = Object.fromEntries(Object.entries(P.table).map(([row, o]) => [row, Object.fromEntries(Object.entries(o).map(([u, c]) => [u, { order: c.o }]))]));
+    let u = 0, b = 0, s2 = 0, n = 0; const t0 = Date.now();
+    for (let i = 0; i < 4; i++) { const r = BJ.simulate({ rules: P.rules, table, hands: 2500000, seed: 9100 + i, pen: 0.75, noRes: true }); u += r.units; b += r.avgBet * r.hands; s2 += r.sum2; n += r.hands; }
+    const m = u / b, sd = Math.sqrt(s2 / n - (u / n) ** 2) / Math.sqrt(n);
+    out.fidelity.sim[k] = { exact: P.edge, sim: r4(-m), se: Math.round(sd * 1e6) / 1e6, hands: n };
+    console.log('fidélité', k, 'exact', P.edge, 'simulé', (-m).toFixed(4), '±', (1.96 * sd).toFixed(4), ((Date.now() - t0) / 1000).toFixed(0) + ' s');
   }
 }
 

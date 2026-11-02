@@ -17,6 +17,8 @@ function jobs() {
       list.push({ id: `${key}|hilo|0.75|1|${cover}`, key, sys: 'hilo', pen: 0.75, spots: 1, cover, w: 3 });
     for (const S of CT.SYSTEMS) if (S.id !== 'hilo') list.push({ id: `${key}|${S.id}|0.75|1|none`, key, sys: S.id, pen: 0.75, spots: 1, cover: 'none', w: 1 });
   }
+  // Autres jeux de règles : Hi-Lo seul, trois pénétrations (référence pour « Mes tables »).
+  for (const key of ['h17', 'deux', 'sixcinq']) for (const pen of [0.67, 0.75, 0.83]) list.push({ id: `${key}|hilo|${pen}|1|none`, key, sys: 'hilo', pen, spots: 1, cover: 'none', w: 1 });
   return list;
 }
 
