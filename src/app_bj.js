@@ -2,10 +2,10 @@
 // exercices de comptage Hi-Lo, table d'entraînement complète, simulation de bankroll et journal de séances.
 // Tout s'utilise hors table. Moteur : src/bj_engine.js ; données précalculées : src/bj_data.js ; cours : src/bj_course.js.
 (function () {
-  const X = window.__S52, BJ = window.BJ, D = window.BJDATA, K = window.BJCourse, FS = window.FSRS;
-  if (!X || !BJ || !D || !K) return;
+  const X = window.__S52, BJ = window.BJ, D = window.BJDATA, K = window.BJCourse, FS = window.FSRS, CT = window.BJCounts;
+  if (!X || !BJ || !D || !K || !CT) return;
   const { $, esc, fr, eur, pct, today, addDays, state, Store, render, go, head, cardHTML, backHTML, VIEWS, AFTER, ACT, ONCHANGE, ONINPUT, ONKEY, TABS, GROUPS, drawLines } = X;
-  const TB = [['bj', 'Séance BJ'], ['bjcours', 'Cours BJ'], ['bjstrat', 'Stratégie'], ['bjentr', 'Entraîneur'], ['bjcompte', 'Comptage'], ['bjtable', 'Table BJ'], ['bjbank', 'Bankroll BJ'], ['bjjournal', 'Journal BJ']];
+  const TB = [['bj', 'Séance BJ'], ['bjcours', 'Cours BJ'], ['bjstrat', 'Stratégie'], ['bjentr', 'Entraîneur'], ['bjcompte', 'Comptage'], ['bjsys', 'Systèmes'], ['bjtable', 'Table BJ'], ['bjbank', 'Bankroll BJ'], ['bjmaths', 'Maths BJ'], ['bjjournal', 'Journal BJ']];
   TABS.push(...TB);
   GROUPS.push(['blackjack', 'Blackjack', TB.map((t) => t[0])]);
   if (X.ICON) X.ICON.blackjack = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="10" height="14" rx="2"/><rect x="10.5" y="3" width="10" height="14" rx="2"/><path d="M13.5 8.5h3.5l-2.2 5.5"/></svg>';
@@ -35,10 +35,10 @@
     const p = state.progress; if (!p.bj) p.bj = {};
     const b = p.bj;
     b.rk ??= 'europe'; b.cells ??= {}; b.review ??= []; b.quiz ??= {}; b.hist ??= [];
-    b.count ??= {}; for (const k of ['flash', 'deck', 'tc', 'tray', 'ramp', 'round', 'ins']) b.count[k] ??= { ok: 0, n: 0, best: null, last: [] };
+    b.count ??= {}; for (const k of ['flash', 'deck', 'tc', 'tray', 'ramp', 'round', 'ins', 'tags']) b.count[k] ??= { ok: 0, n: 0, best: null, last: [] };
     b.ramp ??= [1, 1, 2, 4, 6, 8, 10]; b.bank ??= { unit: 10, bankroll: 5000, hph: 70, pen: 0.75, others: 2, hands: 300000, indices: true };
     b.sessions ??= []; b.daily ??= { date: '', n: 0, ok: 0 }; b.tbl ??= { hands: 0, dec: 0, err: 0, evl: 0, cnt: 0, cntOk: 0, bets: 0, betOk: 0 };
-    b.opts ??= { timer: 0 };
+    b.opts ??= { timer: 0 }; b.sys ??= 'hilo'; if (!CT.byId[b.sys]) b.sys = 'hilo';
     return b;
   }
   const save = () => Store.save('progress');
@@ -66,6 +66,20 @@
     const k = D.presets[b.rk] ? b.rk : 'europe';
     return { key: k, ...D.presets[k] };
   }
+  // ---------- Système de comptage courant ----------
+  const sysOf = () => CT.byId[P().sys] || CT.byId.hilo;
+  const countKey = (G) => (G.rules.peek ? 'strip' : 'europe');
+  const sysData = (G, S) => D.counts?.[countKey(G)]?.systems?.[S.id];
+  // Jeu + système : indices, assurance et échelle du système quand il est équilibré et calculé ; sinon ceux du Hi-Lo.
+  function gameS() {
+    const G = game(), S = sysOf(), C = sysData(G, S);
+    if (S.id === 'hilo' || !S.balanced || !C || !C.indices) return { ...G, sys: S, scale: S.id === 'hilo' ? 1 : C?.scale || 1, tags: undefined, idxSys: 'Hi-Lo', sysNote: S.id === 'hilo' ? '' : S.balanced ? '' : `${S.name} est déséquilibré : il se joue au running count. Les indices et la rampe affichés ici sont ceux du Hi-Lo.` };
+    return { ...G, sys: S, scale: C.scale, tags: S.t, idxSys: S.name, indices: C.indices.filter((d) => validDev(d, G.rules)), insurance: C.insurance, edgeByTC: C.edgeByTC, sysNote: `Indices et assurance ${S.name} calculés pour « ${D.presets[countKey(G)].label} » (unité du système : TC ${S.name}).` };
+  }
+  const tagOf = (S, c) => CT.tagOfCard(S, c);
+  // Avantage interpolé à un true count donné (table edgeByTC du jeu ou du système).
+  const advAt = (tcs, tc) => { if (tc <= tcs[0][0]) return tcs[0][1]; for (let k = 1; k < tcs.length; k++) if (tc <= tcs[k][0]) { const [a, ea] = tcs[k - 1], [b, eb] = tcs[k]; return ea + (eb - ea) * (tc - a) / (b - a); } return tcs[tcs.length - 1][1]; };
+  const tagTxt = (x) => (x === 0 ? '0' : (x > 0 ? '+' : '−') + fr(Math.abs(x), x % 1 ? 1 : 0));
   function recommend(G, rowId, up, avail, tc) {
     const cell = G.table[rowId]?.[up];
     let order = cell ? cell.o.slice() : ['hit', 'stand'];
@@ -168,7 +182,7 @@
   // Cours
   // =====================================================================
   let openMod = null, qAns = {};
-  const CX = { D, BJ };
+  const CX = { D, BJ, CT };
   VIEWS.bjcours = () => {
     const b = P();
     if (openMod) {
@@ -186,9 +200,9 @@
       <div class="row">${nxt ? `<button class="btn primary" data-act="bjmod" data-id="${nxt.id}">Module suivant →</button>` : ''}<button class="btn" data-tab="bjentr">Entraîneur</button><button class="btn" data-tab="bjcompte">Comptage</button></div>`;
     }
     const nM = K.MODULES.filter((m) => (b.quiz[m.id] || 0) >= 0.8).length, mins = K.MODULES.reduce((a, m) => a + m.minutes, 0);
-    return head('Cours de blackjack', `${K.MODULES.length} modules, du cadre légal au comptage Hi-Lo, aux indices et à la gestion du capital. Lecture ≈ ${Math.round(mins / 60 * 10) / 10} h ; les chiffres viennent du moteur exact de SIGMA 52, pas de citations recopiées.`) +
+    return head('Cours de blackjack', `${K.MODULES.length} modules en ${K.PARTS.length} parties : règles, stratégie, comptage, 14 systèmes, argent, mathématiques et techniques avancées. Lecture ≈ ${fr(mins / 60, 1)} h ; les chiffres viennent du moteur exact de SIGMA 52, pas de citations recopiées.`) +
       `<div class="stats"><div class="stat hero"><span>Modules validés</span><b>${nM}/${K.MODULES.length}</b><span>quiz à 80 % ou plus</span></div><div class="stat"><span>Jeu de référence</span><b style="font-size:16px">${esc(game().label)}</b><span>modifiable dans Stratégie</span></div></div>
-      <div class="modlist">${K.MODULES.map((m, i) => { const sc = b.quiz[m.id], ok = (sc || 0) >= 0.8; return `<button class="mod${ok ? ' done' : ''}" data-act="bjmod" data-id="${m.id}"><span class="n">${ok ? '✓' : String(i + 1).padStart(2, '0')}</span><span><h3>${esc(m.title)}</h3><span class="note">${m.sections.map((x) => x[0]).join(' · ')}</span></span><span class="note mono" style="text-align:right">${m.minutes} min${sc !== undefined ? '<br>quiz ' + pct(sc) : ''}</span></button>`; }).join('')}</div>`;
+      ${(K.PARTS || ['']).map((part) => { const ms = K.MODULES.filter((m) => !part || m.part === part); if (!ms.length) return ''; return `<section style="display:grid;gap:8px">${part ? `<div><span class="eyebrow">${esc(part)}</span><h2>${esc(part)} · ${ms.filter((m) => (b.quiz[m.id] || 0) >= 0.8).length}/${ms.length}</h2></div>` : ''}<div class="modlist">${ms.map((m) => { const i = K.MODULES.indexOf(m); const sc = b.quiz[m.id], ok = (sc || 0) >= 0.8; return `<button class="mod${ok ? ' done' : ''}" data-act="bjmod" data-id="${m.id}"><span class="n">${ok ? '✓' : String(i + 1).padStart(2, '0')}</span><span><h3>${esc(m.title)}</h3><span class="note">${m.sections.map((x) => x[0]).join(' · ')}</span></span><span class="note mono" style="text-align:right">${m.minutes} min${sc !== undefined ? '<br>quiz ' + pct(sc) : ''}</span></button>`; }).join('')}</div></section>`; }).join('')}`;
   };
   ACT.bjmod = (t) => { openMod = t.dataset.id; qAns = {}; if (tabNow() !== 'bjcours') go('bjcours'); else { render(); window.scrollTo(0, 0); } };
   ACT.bjclose = () => { openMod = null; render(); };
@@ -221,7 +235,7 @@
   }
   let stratTC = null;
   VIEWS.bjstrat = () => {
-    const b = P(), G = game(), cs = cellSel && cellSel.split('|');
+    const b = P(), G = gameS(), cs = cellSel && cellSel.split('|');
     let detail = '';
     if (cs) {
       const [row, up] = [cs[0], +cs[1]], c = G.table[row][up], evs = Object.entries(c.ev).sort((x, y) => y[1] - x[1]), best = evs[0][1];
@@ -246,15 +260,16 @@
     return head('Stratégie et règles', 'La stratégie de base exacte pour les règles de ta table, l\'EV de chaque action, les indices Hi-Lo et le coût de chaque règle.') +
       `<section class="panel"><span class="eyebrow">Jeu de règles</span><div class="row">${Object.entries(D.presets).map(([k, p]) => `<button class="chip" aria-pressed="${b.rk === k}" data-act="bjrk" data-k="${k}">${esc(p.label)}</button>`).join('')}${b.custom ? `<button class="chip" aria-pressed="${b.rk === 'custom'}" data-act="bjrk" data-k="custom">Personnalisé</button>` : ''}<button class="btn small" data-act="bjcust">Entrer les règles de ma table</button></div>
         <p class="note">${esc(ruleTxt(G.rules))}</p>${G.note ? `<p class="note">${esc(G.note)}</p>` : ''}
-        <div class="stats"><div class="stat hero"><span>Avantage de la maison</span><b>${pc(G.edge, 2)}</b><span>stratégie de base, calcul exact</span></div><div class="stat"><span>Indice d'assurance</span><b>TC ${tcS(ins(G))}</b><span>seuil exact ${fr(G.insurance.exact, 2)}</span></div><div class="stat"><span>Avantage au TC +3</span><b>${sgnP(G.edgeByTC.find((x) => x[0] === 3)[1])}</b><span>jeu optimal, sabot moyen</span></div></div></section>
+        <div class="stats"><div class="stat hero"><span>Avantage de la maison</span><b>${pc(G.edge, 2)}</b><span>stratégie de base, calcul exact</span></div><div class="stat"><span>Indice d'assurance · ${esc(G.idxSys)}</span><b>TC ${tcS(ins(G))}</b><span>seuil exact ${fr(G.insurance.exact, 2)}</span></div><div class="stat"><span>Avantage au TC ${esc(G.idxSys)} +${3 * Math.max(1, Math.round(G.scale || 1))}</span><b>${sgnP(advAt(G.edgeByTC, 3 * Math.max(1, Math.round(G.scale || 1))))}</b><span>jeu optimal, sabot moyen</span></div></div>
+        <p class="note">Système de comptage : <strong>${esc(G.sys.name)}</strong> (à changer dans Systèmes). ${esc(G.sysNote || '')}</p></section>
       ${custForm}
-      <section class="panel"><div class="row" style="justify-content:space-between"><h2>Tableau de stratégie</h2><div class="row"><label class="note">Afficher pour un true count <select data-bjstc><option value="">— stratégie de base —</option>${[-3, -2, -1, 0, 1, 2, 3, 4, 5, 6].map((t) => `<option value="${t}" ${stratTC === t ? 'selected' : ''}>${tcS(t)}</option>`).join('')}</select></label><button class="btn small" data-act="bjprint">Version imprimable</button></div></div>
+      <section class="panel"><div class="row" style="justify-content:space-between"><h2>Tableau de stratégie</h2><div class="row"><label class="note">Afficher pour un true count ${esc(G.idxSys)} <select data-bjstc><option value="">— stratégie de base —</option>${(G.scale >= 1.5 ? [-6, -4, -2, 0, 2, 4, 6, 8, 10, 12] : [-3, -2, -1, 0, 1, 2, 3, 4, 5, 6]).map((t) => `<option value="${t}" ${stratTC === t ? 'selected' : ''}>${tcS(t)}</option>`).join('')}</select></label><button class="btn small" data-act="bjprint">Version imprimable</button></div></div>
         <p class="note"><span class="dot" style="background:${ACTCOL.H}"></span>H tirer <span class="dot" style="background:${ACTCOL.S}"></span>S rester <span class="dot" style="background:${ACTCOL.D}"></span>Dh/Ds doubler, sinon tirer/rester <span class="dot" style="background:${ACTCOL.P}"></span>P séparer <span class="dot" style="background:${ACTCOL.R}"></span>Rh/Rs/Rp abandonner, sinon tirer/rester/séparer. Case soulignée : un indice existe. ${stratTC !== null ? 'Astérisque : décision changée par un indice à ce true count.' : ''} Clique une case pour l'EV de chaque action.</p>
         <div class="bjcharts">${chart(G, 'hard', stratTC ?? undefined)}${chart(G, 'soft', stratTC ?? undefined)}${chart(G, 'pair', stratTC ?? undefined)}</div></section>
       ${detail}
-      <div class="grid2"><section class="panel"><h2>Indices Hi-Lo de ce jeu</h2>${indexTbl(G)}<p class="note">Calcul SIGMA 52 : sabot moyen au true count donné, à mi-sabot, EV exacte des deux actions ; l'indice est le TC où elles s'égalisent, arrondi. Les tables publiées peuvent différer d'un point.</p></section>
+      <div class="grid2"><section class="panel"><h2>Indices ${esc(G.idxSys)} de ce jeu</h2>${indexTbl(G)}<p class="note">Calcul SIGMA 52 : sabot moyen au true count donné, à mi-sabot, EV exacte des deux actions ; l'indice est le TC où elles s'égalisent, arrondi. Les tables publiées peuvent différer d'un point.</p></section>
         <section class="panel"><h2>Ce que coûte chaque règle</h2><div class="tw"><table class="t bjt"><tbody>${D.ruleCosts.rows.map(([l, d]) => `<tr><td>${esc(l)}</td><td class="n" style="color:var(${d > 0 ? '--bad' : '--good'})">${sgnP(d)}</td></tr>`).join('')}</tbody></table></div><p class="note">Par rapport à « ${esc(D.ruleCosts.base)} » (${pc(D.ruleCosts.baseEdge, 2)}). Positif : la règle coûte au joueur.</p></section></div>
-      <section class="panel"><h2>Avantage du joueur par true count</h2><div class="tw"><table class="t bjt"><thead><tr><th>TC</th>${G.edgeByTC.map(([t]) => `<th class="n">${tcS(t)}</th>`).join('')}</tr></thead><tbody><tr><td>Avantage</td>${G.edgeByTC.map(([, e]) => `<td class="n" style="color:var(${e > 0 ? '--good' : '--bad'})">${sgnP(e, 1)}</td>`).join('')}</tr></tbody></table></div><p class="note">Composition moyenne à chaque TC, jeu optimal selon la composition, assurance prise quand elle est rentable. Sert à construire la rampe dans Bankroll.</p></section>`;
+      <section class="panel"><h2>Avantage du joueur par true count ${esc(G.idxSys)}</h2><div class="tw"><table class="t bjt"><thead><tr><th>TC</th>${G.edgeByTC.map(([t]) => `<th class="n">${tcS(t)}</th>`).join('')}</tr></thead><tbody><tr><td>Avantage</td>${G.edgeByTC.map(([, e]) => `<td class="n" style="color:var(${e > 0 ? '--good' : '--bad'})">${sgnP(e, 1)}</td>`).join('')}</tr></tbody></table></div><p class="note">Composition moyenne à chaque TC, jeu optimal selon la composition, assurance prise quand elle est rentable. Sert à construire la rampe dans Bankroll.</p></section>`;
   };
   function indexTbl(G) {
     const L = G.indices.slice().sort((a, b) => (a.set === b.set ? 0 : a.set === 'I18' ? -1 : b.set === 'I18' ? 1 : a.set === 'Fab4' ? -1 : 1));
@@ -314,7 +329,7 @@
   }
   function spotFor(row, up, tc, kind) { return { kind: kind || (tc === null || tc === undefined ? 'base' : 'dev'), row, up, cards: cardsForRow(row), upCard: cardOfVal(up), tc: tc ?? null }; }
   function newSpot() {
-    const b = P(), G = game(); tr.ans = null;
+    const b = P(), G = gameS(); tr.ans = null;
     let mode = tr.mode;
     if (mode === 'review') { const due = dueBJ().filter((r) => r.spot && r.spot.kind !== 'quiz'); const q = dueBJ().find((r) => r.spot?.kind === 'quiz'); if (!due.length && !q) { tr.mode = 'weak'; return newSpot(); }
       if (!due.length && q) { tr.spot = { kind: 'quiz', key: q.key, mod: q.spot.mod, qi: q.spot.qi }; return; }
@@ -346,11 +361,11 @@
   }
   function availOf(G, row, up) { const ev = G.table[row][up].ev; return { stand: true, hit: true, double: ev.double !== undefined, split: ev.split !== undefined, surrender: ev.surrender !== undefined }; }
   function evAtTC(G, row, up, tc) {
-    const s = BJ.shoeAtTC(Math.max(1, G.rules.decks / 2), tc), calc = BJ.Calc(G.rules, s, true);
+    const s = BJ.shoeAtTC(Math.max(1, G.rules.decks / 2), tc, G.tags), calc = BJ.Calc(G.rules, s, true);
     return BJ.rowEV(calc, s, BJ.ROWS.find((r) => r.id === row), up);
   }
   function answer(a) {
-    const s = tr.spot, G = game(), b = P(); if (!s || tr.ans) return;
+    const s = tr.spot, G = gameS(), b = P(); if (!s || tr.ans) return;
     if (tr.tInt) { clearInterval(tr.tInt); tr.tInt = null; }
     if (s.kind === 'ins') {
       const right = s.tc >= ins(G) ? 'yes' : 'no', ok = a === right;
@@ -384,7 +399,7 @@
     return weak ? 'Total trop faible pour rester, même contre une carte faible.' : 'Contre cette carte, le croupier finit souvent à 17 ou plus : rester perd plus que tirer.';
   }
   VIEWS.bjentr = () => {
-    const b = P(), G = game(), m = mastery();
+    const b = P(), G = gameS(), m = mastery();
     if (!tr.spot) newSpot();
     const s = tr.spot;
     let body = '';
@@ -393,10 +408,10 @@
       body = `<section class="panel"><span class="eyebrow">Révision · ${esc(mod.title)}</span><p>${esc(q.q)}</p><div class="opts">${q.opts.map((o, oi) => `<button class="opt${a && oi === q.ok ? ' ok' : ''}${a && a.a === oi && oi !== q.ok ? ' ko' : ''}" data-act="bjrq" data-i="${oi}" ${a ? 'disabled' : ''}>${esc(o)}</button>`).join('')}</div>${a ? `<div class="verdict ${a.ok ? 'good' : 'bad'}"><b>${a.ok ? 'Juste.' : 'Non.'}</b><span>${esc(q.why)}</span></div><div class="row"><button class="btn primary" data-act="bjnext">Suivante (Entrée)</button></div>` : ''}</section>`;
     } else if (s.kind === 'ins') {
       const a = tr.ans;
-      body = `<section class="panel bjspot"><div class="row" style="justify-content:space-between"><span class="eyebrow">Assurance</span><span class="pill acc">True count ${tcS(s.tc)}</span></div>
+      body = `<section class="panel bjspot"><div class="row" style="justify-content:space-between"><span class="eyebrow">Assurance</span><span class="pill acc">True count ${esc(G.idxSys)} ${tcS(s.tc)}</span></div>
         <div class="bjfelt"><div><span class="note">Croupier</span>${cardsRow([s.upCard])}</div><div><span class="note">Toi · ${totalTxt(s.cards)}</span>${cardsRow(s.cards)}</div></div>
         <div class="row">${a ? '' : '<button class="btn primary" data-act="bjins" data-v="yes">Prendre l\'assurance (O)</button><button class="btn" data-act="bjins" data-v="no">Refuser (N)</button>'}</div>
-        ${a ? `<div class="verdict ${a.ok ? 'good' : 'bad'}"><b>${a.ok ? 'Juste.' : 'Erreur.'} ${a.right === 'yes' ? 'Assurance rentable' : 'Assurance perdante'} à TC ${tcS(s.tc)}.</b><span>Indice d'assurance de ce jeu : TC ≥ ${tcS(ins(G))} (seuil exact ${fr(G.insurance.exact, 2)}). En dessous, moins d'un tiers des cartes restantes valent 10.</span></div><div class="row"><button class="btn primary" data-act="bjnext">Suivante (Entrée)</button></div>` : ''}</section>`;
+        ${a ? `<div class="verdict ${a.ok ? 'good' : 'bad'}"><b>${a.ok ? 'Juste.' : 'Erreur.'} ${a.right === 'yes' ? 'Assurance rentable' : 'Assurance perdante'} à TC ${esc(G.idxSys)} ${tcS(s.tc)}.</b><span>Indice d'assurance de ce jeu : TC ≥ ${tcS(ins(G))} (seuil exact ${fr(G.insurance.exact, 2)}). En dessous, moins d'un tiers des cartes restantes valent 10.</span></div><div class="row"><button class="btn primary" data-act="bjnext">Suivante (Entrée)</button></div>` : ''}</section>`;
     } else {
       const a = tr.ans, avail = availOf(G, s.row, s.up);
       const btns = ['hit', 'stand', 'double', 'split', 'surrender'].filter((k) => avail[k]).map((k) => `<button class="btn${a && k === a.right ? ' primary' : ''}" data-act="bjans" data-a="${k}" ${a ? 'disabled' : ''}>${NAMEC[k]} <kbd>${KEYS[k].toUpperCase()}</kbd></button>`).join('');
@@ -408,7 +423,7 @@
           <p class="note">${s.tc === null ? 'EV moyenne de la ligne, sabot complet (' + esc(G.label) + ').' : 'EV au TC ' + tcS(s.tc) + ' (sabot moyen à mi-sabot).'}</p>
           <div class="row"><button class="btn primary" data-act="bjnext">Suivante (Entrée)</button><button class="btn small" data-act="bjcell" data-k="${cellKey(s.row, s.up)}" data-tab="bjstrat">Voir la case</button></div>`;
       }
-      body = `<section class="panel bjspot"><div class="row" style="justify-content:space-between"><span class="eyebrow">${s.tc === null ? 'Stratégie de base' : 'Indices'} · ${esc(G.label)}</span>${s.tc !== null ? `<span class="pill acc">True count ${tcS(s.tc)}</span>` : ''}${b.opts.timer && !a ? `<span class="pill" id="bjtimer">${b.opts.timer} s</span>` : ''}</div>
+      body = `<section class="panel bjspot"><div class="row" style="justify-content:space-between"><span class="eyebrow">${s.tc === null ? 'Stratégie de base' : 'Indices ' + esc(G.idxSys)} · ${esc(G.label)}</span>${s.tc !== null ? `<span class="pill acc">True count ${esc(G.idxSys)} ${tcS(s.tc)}</span>` : ''}${b.opts.timer && !a ? `<span class="pill" id="bjtimer">${b.opts.timer} s</span>` : ''}</div>
         <div class="bjfelt"><div><span class="note">Croupier</span><div class="cards">${cardHTML(s.upCard)}${G.rules.peek ? backHTML() : ''}</div></div><div><span class="note">Toi · ${totalTxt(s.cards)}</span>${cardsRow(s.cards)}</div></div>
         <div class="row">${btns}</div>${verdict}</section>`;
     }
@@ -416,6 +431,7 @@
     return head('Entraîneur', 'Chaque décision est notée contre la stratégie exacte de tes règles, avec l\'EV de chaque action. Raccourcis : T tirer, S rester, D doubler, P séparer, A abandonner, Entrée pour la suivante.') +
       `<div class="row">${MODES.map(([k, l]) => `<button class="chip" aria-pressed="${tr.mode === k}" data-act="bjmode" data-m="${k}">${l}${k === 'review' && dueBJ().length ? ' · ' + dueBJ().length : ''}</button>`).join('')}</div>
       ${tr.mode === 'block' ? `<div class="row">${BLOCKS.map(([k, l]) => `<button class="chip" aria-pressed="${tr.block === k}" data-act="bjblock" data-b="${k}">${l}</button>`).join('')}</div>` : ''}
+      ${(tr.mode === 'dev' || tr.mode === 'mix') && G.sysNote ? `<p class="note">${esc(G.sysNote)}</p>` : ''}
       <div class="row"><label class="note">Chrono par décision <select data-bjtimer>${[0, 2, 3, 5].map((n) => `<option value="${n}" ${b.opts.timer === n ? 'selected' : ''}>${n ? n + ' s' : 'aucun'}</option>`).join('')}</select></label><span class="note">Session : ${tr.ok}/${tr.n}</span></div>
       ${body}
       <section class="panel"><div class="row" style="justify-content:space-between"><h2>Ta maîtrise case par case</h2><span class="note">${m.mast}/${m.cells} cases réussies 3 fois de suite · ${m.acc === null ? '—' : pc(m.acc)} sur les ${m.n} dernières</span></div>
@@ -446,23 +462,28 @@
   ONCHANGE.push((t) => { if (t.dataset.bjtimer !== undefined) { P().opts.timer = +t.value; save(); render(); return true; } });
 
   // =====================================================================
-  // Comptage
+  // Comptage (tous les systèmes)
   // =====================================================================
-  const cd = { drill: 'deck', st: 'idle', cards: [], i: 0, rc: 0, t0: 0, t1: 0, res: null, speed: 700, nCards: 20, group: 1, iv: null, q: null, show: 3 };
-  const DRILLS = [['deck', 'Paquet chrono'], ['flash', 'Défilement'], ['round', 'Tour de table'], ['tc', 'True count'], ['tray', 'Bac à défausse'], ['ramp', 'Rampe de mises']];
-  const hilo = (c) => BJ.HILO[val(c)];
+  const cd = { drill: 'deck', st: 'idle', cards: [], i: 0, rc: 0, t0: 0, t1: 0, res: null, speed: 700, nCards: 20, group: 1, iv: null, q: null, show: 3, tg: null };
+  const DRILLS = [['tags', 'Valeurs du système'], ['deck', 'Paquet chrono'], ['flash', 'Défilement'], ['round', 'Tour de table'], ['tc', 'True count'], ['tray', 'Bac à défausse'], ['ramp', 'Rampe de mises']];
+  const tg = (c) => tagOf(sysOf(), c);
+  const sysValues = (S) => [...new Set(Array.from({ length: 52 }, (_, c) => tagOf(S, c)))].sort((a, b) => b - a);
+  const fullDeck = (S) => Array.from({ length: 52 }, (_, c) => tagOf(S, c)).reduce((a, b) => a + b, 0);
+  const sysLine = (S) => { const groups = {}; for (const [v, l] of [[1, 'A'], [2, '2'], [3, '3'], [4, '4'], [5, '5'], [6, '6'], [7, '7'], [8, '8'], [9, '9'], [10, '10']]) { const x = S.red7 && v === 7 ? 'r7' : S.t[v]; (groups[x] ||= []).push(l); } return Object.entries(groups).map(([x, ls]) => `${ls.join(', ')} : ${x === 'r7' ? '7 rouge +1, 7 noir 0' : tagTxt(+x)}`).join(' · '); };
   function deck52() { return shuffle([...Array(52).keys()]); }
   function cdReset() { if (cd.iv) { clearInterval(cd.iv); cd.iv = null; } cd.st = 'idle'; cd.res = null; cd.q = null; cd.cards = []; cd.i = 0; }
+  const parseNum = (v) => { const x = parseFloat(String(v).trim().replace('−', '-').replace('+', '').replace(',', '.')); return Number.isFinite(x) ? x : NaN; };
   function cdQuestion() {
-    const G = game(), b = P();
-    if (cd.drill === 'tc') { const decks = G.rules.decks, left = Math.max(0.5, Math.round((0.5 + rnd() * (decks - 1)) * 2) / 2), tc0 = ri(13) - 4, rc = Math.round(tc0 * left + (rnd() - 0.5) * left); cd.q = { rc, left, ans: Math.trunc(rc / left) }; }
+    const G = game(), b = P(), S = sysOf();
+    if (cd.drill === 'tc') { const decks = G.rules.decks, left = Math.max(0.5, Math.round((0.5 + rnd() * (decks - 1)) * 2) / 2), sc = Math.max(1, Math.round(sysData(G, S)?.scale || 1)), tc0 = (ri(13) - 4) * sc, rc = Math.round(tc0 * left + (rnd() - 0.5) * left * sc); cd.q = { rc, left, ans: Math.trunc(rc / left) }; }
     if (cd.drill === 'tray') { const decks = G.rules.decks, out = Math.round((0.5 + rnd() * (decks - 1)) * 2) / 2; cd.q = { decks, out, left: decks - out, jitter: (rnd() - 0.5) * 0.12 }; }
     if (cd.drill === 'ramp') { const tc = ri(10) - 3; cd.q = { tc, ans: rampUnits(b.ramp, tc) }; }
+    if (cd.drill === 'tags') { const c = ri(52); cd.q = { c, ans: tg(c), t0: Date.now() }; }
     cd.st = 'ask'; cd.res = null;
   }
   function cdStart() {
-    const b = P(); cdReset();
-    if (['tc', 'tray', 'ramp'].includes(cd.drill)) return cdQuestion();
+    cdReset();
+    if (['tc', 'tray', 'ramp', 'tags'].includes(cd.drill)) return cdQuestion();
     if (cd.drill === 'deck') { cd.cards = deck52(); cd.i = 0; cd.st = 'run'; cd.t0 = 0; return; }
     if (cd.drill === 'flash') {
       cd.cards = deck52().slice(0, cd.nCards); cd.i = 0; cd.st = 'run';
@@ -476,30 +497,34 @@
       cd.cards = { hands, dealer }; cd.st = 'run';
       cd.iv = setTimeout(() => { cd.iv = null; cd.st = 'ask'; if (tabNow() === 'bjcompte') render(); }, cd.show * 1000);
     }
-    void b;
   }
   function rampUnits(ramp, tc) { return tc <= 0 ? ramp[0] : ramp[Math.min(6, tc)]; }
-  function cdRecord(k, ok, extra) { const c = P().count[k]; c.n++; if (ok) c.ok++; c.last.push(extra || (ok ? 1 : 0)); if (c.last.length > 50) c.last.shift(); save(); }
+  function cdRecord(k, ok, extra) { const c = P().count[k] ||= { ok: 0, n: 0, best: null, last: [] }; c.n++; if (ok) c.ok++; c.last.push(extra || (ok ? 1 : 0)); if (c.last.length > 50) c.last.shift(); save(); }
+  const sysSelect = () => { const S = sysOf(); return `<label class="note">Système <select data-bjsys>${CT.SYSTEMS.map((x) => `<option value="${x.id}" ${x.id === S.id ? 'selected' : ''}>${esc(x.name)}${x.balanced ? '' : ' (déséquilibré)'}</option>`).join('')}</select></label>`; };
   VIEWS.bjcompte = () => {
-    const b = P(), c = b.count[cd.drill] || { ok: 0, n: 0 };
+    const b = P(), S = sysOf(), c = b.count[cd.drill] || { ok: 0, n: 0 }, vals = sysValues(S), btnVals = (act) => vals.map((v) => `<button class="btn" data-act="${act}" data-v="${v}">${tagTxt(v)}</button>`).join('');
     let body = '';
-    if (cd.drill === 'deck') {
-      if (cd.st === 'idle') body = `<p>51 cartes défilent quand tu appuies sur <kbd>Espace</kbd> (ou le bouton). Tiens le running count Hi-Lo. À la fin, devine si la 52e carte, cachée, est basse, neutre ou haute : le paquet complet vaut 0, donc ton compte final l'indique. Le chrono part à la première carte.</p><div class="row"><button class="btn primary" data-act="bjcd">Commencer</button></div>`;
+    if (cd.drill === 'tags') {
+      if (cd.st === 'idle') body = `<p>Une carte s'affiche : donne sa valeur dans le système ${esc(S.name)}, le plus vite possible. Objectif : 50 de suite sans erreur, moins d'une seconde chacune.</p><div class="row"><button class="btn primary" data-act="bjcd">Commencer</button></div>`;
+      else { const q = cd.q; body = `<div class="bjbig">${cardHTML(q.c)}</div>${cd.st === 'ask' ? `<div class="row">${btnVals('bjtag')}</div>` : `<div class="verdict bad"><b>Faux : ${tagTxt(q.ans)}</b><span>${esc(sysLine(S))}</span></div><div class="row"><button class="btn primary" data-act="bjcdq">Suivante (Entrée)</button></div>`}${cd.tg ? `<p class="note">Série : ${cd.tg.streak} · temps moyen ${fr(cd.tg.ms / Math.max(1, cd.tg.n) / 1000, 2)} s</p>` : ''}`; }
+    } else if (cd.drill === 'deck') {
+      if (cd.st === 'idle') body = `<p>51 cartes défilent quand tu appuies sur <kbd>Espace</kbd> (ou le bouton). Tiens le running count ${esc(S.name)}. À la fin, donne la valeur de la 52e carte, cachée : un paquet complet vaut ${tagTxt(fullDeck(S))} dans ce système, donc ton compte final l'indique. Le chrono part à la première carte.</p><div class="row"><button class="btn primary" data-act="bjcd">Commencer</button></div>`;
       else if (cd.st === 'run') { const c0 = cd.cards[cd.i]; body = `<div class="row" style="justify-content:space-between"><span class="note">Carte ${cd.i + 1}/51</span><span class="mono" id="bjclock">${cd.t0 ? fr((Date.now() - cd.t0) / 1000, 1) + ' s' : '0,0 s'}</span></div><div class="bjbig">${cardHTML(c0)}</div><div class="row"><button class="btn primary" data-act="bjflip">Carte suivante (Espace)</button></div>`; }
-      else if (cd.st === 'ask') body = `<p>Temps : <strong>${fr((cd.t1 - cd.t0) / 1000, 1)} s</strong>. La dernière carte est :</p><div class="row"><button class="btn" data-act="bjlast" data-v="1">Basse (2-6)</button><button class="btn" data-act="bjlast" data-v="0">Neutre (7-9)</button><button class="btn" data-act="bjlast" data-v="-1">Haute (10-As)</button></div>`;
-      else if (cd.st === 'done') body = `<div class="verdict ${cd.res.ok ? 'good' : 'bad'}"><b>${cd.res.ok ? 'Juste' : 'Faux'} · ${fr(cd.res.s, 1)} s</b><span>La dernière carte : ${cardHTML(cd.cards[51], true)}. Running count après 51 cartes : ${tcS(cd.res.rc)}.</span></div><div class="row"><button class="btn primary" data-act="bjcd">Recommencer</button></div>`;
+      else if (cd.st === 'ask') body = `<p>Temps : <strong>${fr((cd.t1 - cd.t0) / 1000, 1)} s</strong>. Valeur ${esc(S.name)} de la dernière carte :</p><div class="row">${btnVals('bjlast')}</div>`;
+      else if (cd.st === 'done') body = `<div class="verdict ${cd.res.ok ? 'good' : 'bad'}"><b>${cd.res.ok ? 'Juste' : 'Faux'} · ${fr(cd.res.s, 1)} s</b><span>La dernière carte : ${cardHTML(cd.cards[51], true)} (${tagTxt(cd.res.last)}). Running count après 51 cartes : ${tagTxt(cd.res.rc)} ; paquet complet : ${tagTxt(fullDeck(S))}.</span></div><div class="row"><button class="btn primary" data-act="bjcd">Recommencer</button></div>`;
     } else if (cd.drill === 'flash') {
-      if (cd.st === 'idle') body = `<p>Les cartes défilent seules. Donne le running count à la fin.</p><div class="form"><label class="f">Cartes<select data-bjcd="nCards">${[10, 20, 30, 52].map((n) => `<option ${cd.nCards === n ? 'selected' : ''}>${n}</option>`).join('')}</select></label><label class="f">Vitesse<select data-bjcd="speed">${[[1200, 'Lente'], [700, 'Moyenne'], [450, 'Rapide'], [300, 'Casino']].map(([v, l]) => `<option value="${v}" ${cd.speed === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label><label class="f">Cartes à la fois<select data-bjcd="group">${[1, 2, 3].map((n) => `<option ${cd.group === n ? 'selected' : ''}>${n}</option>`).join('')}</select></label></div><div class="row"><button class="btn primary" data-act="bjcd">Commencer</button></div>`;
+      if (cd.st === 'idle') body = `<p>Les cartes défilent seules. Donne le running count ${esc(S.name)} à la fin.</p><div class="form"><label class="f">Cartes<select data-bjcd="nCards">${[10, 20, 30, 52].map((n) => `<option ${cd.nCards === n ? 'selected' : ''}>${n}</option>`).join('')}</select></label><label class="f">Vitesse<select data-bjcd="speed">${[[1200, 'Lente'], [700, 'Moyenne'], [450, 'Rapide'], [300, 'Casino']].map(([v, l]) => `<option value="${v}" ${cd.speed === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label><label class="f">Cartes à la fois<select data-bjcd="group">${[1, 2, 3].map((n) => `<option ${cd.group === n ? 'selected' : ''}>${n}</option>`).join('')}</select></label></div><div class="row"><button class="btn primary" data-act="bjcd">Commencer</button></div>`;
       else if (cd.st === 'run') body = `<div class="bjbig">${cd.cards.slice(Math.max(0, cd.i - cd.group), cd.i).map((x) => cardHTML(x)).join('')}</div><p class="note">${cd.i}/${cd.cards.length}</p>`;
-      else if (cd.st === 'ask') body = `<form id="bjrcf" class="row"><label class="f">Running count<input name="rc" inputmode="numeric" autocomplete="off" autofocus></label><button class="btn primary">Valider</button></form>`;
-      else body = `<div class="verdict ${cd.res.ok ? 'good' : 'bad'}"><b>${cd.res.ok ? 'Juste' : 'Faux'} : ${tcS(cd.res.rc)}</b><span>Tu as répondu ${esc(cd.res.got)}. ${cd.cards.map((x) => `${cardHTML(x, true)}`).join('')}</span></div><div class="row"><button class="btn primary" data-act="bjcd">Recommencer</button></div>`;
+      else if (cd.st === 'ask') body = `<form id="bjrcf" class="row"><label class="f">Running count<input name="rc" inputmode="decimal" autocomplete="off" autofocus></label><button class="btn primary">Valider</button></form>`;
+      else body = `<div class="verdict ${cd.res.ok ? 'good' : 'bad'}"><b>${cd.res.ok ? 'Juste' : 'Faux'} : ${tagTxt(cd.res.rc)}</b><span>Tu as répondu ${esc(cd.res.got)}. ${cd.cards.map((x) => `${cardHTML(x, true)}`).join('')}</span></div><div class="row"><button class="btn primary" data-act="bjcd">Recommencer</button></div>`;
     } else if (cd.drill === 'round') {
-      if (cd.st === 'idle') body = `<p>Un tour de table complet s'affiche quelques secondes : plusieurs mains et celle du croupier. Donne le compte de ce tour (somme Hi-Lo de toutes les cartes).</p><div class="form"><label class="f">Durée d'affichage<select data-bjcd="show">${[2, 3, 4, 6].map((n) => `<option value="${n}" ${cd.show === n ? 'selected' : ''}>${n} s</option>`).join('')}</select></label></div><div class="row"><button class="btn primary" data-act="bjcd">Commencer</button></div>`;
+      if (cd.st === 'idle') body = `<p>Un tour de table complet s'affiche quelques secondes : plusieurs mains et celle du croupier. Donne le compte ${esc(S.name)} de ce tour.</p><div class="form"><label class="f">Durée d'affichage<select data-bjcd="show">${[2, 3, 4, 6].map((n) => `<option value="${n}" ${cd.show === n ? 'selected' : ''}>${n} s</option>`).join('')}</select></label></div><div class="row"><button class="btn primary" data-act="bjcd">Commencer</button></div>`;
       else if (cd.st === 'run') body = `<div class="bjround"><div><span class="note">Croupier</span>${cardsRow(cd.cards.dealer, true)}</div>${cd.cards.hands.map((h, i) => `<div><span class="note">Joueur ${i + 1}</span>${cardsRow(h, true)}</div>`).join('')}</div>`;
-      else if (cd.st === 'ask') body = `<form id="bjrcf" class="row"><label class="f">Compte du tour<input name="rc" inputmode="numeric" autocomplete="off" autofocus></label><button class="btn primary">Valider</button></form>`;
-      else body = `<div class="verdict ${cd.res.ok ? 'good' : 'bad'}"><b>${cd.res.ok ? 'Juste' : 'Faux'} : ${tcS(cd.res.rc)}</b><span>Tu as répondu ${esc(cd.res.got)}.</span></div><div class="bjround"><div><span class="note">Croupier</span>${cardsRow(cd.cards.dealer, true)}</div>${cd.cards.hands.map((h, i) => `<div><span class="note">Joueur ${i + 1}</span>${cardsRow(h, true)}</div>`).join('')}</div><div class="row"><button class="btn primary" data-act="bjcd">Recommencer</button></div>`;
+      else if (cd.st === 'ask') body = `<form id="bjrcf" class="row"><label class="f">Compte du tour<input name="rc" inputmode="decimal" autocomplete="off" autofocus></label><button class="btn primary">Valider</button></form>`;
+      else body = `<div class="verdict ${cd.res.ok ? 'good' : 'bad'}"><b>${cd.res.ok ? 'Juste' : 'Faux'} : ${tagTxt(cd.res.rc)}</b><span>Tu as répondu ${esc(cd.res.got)}.</span></div><div class="bjround"><div><span class="note">Croupier</span>${cardsRow(cd.cards.dealer, true)}</div>${cd.cards.hands.map((h, i) => `<div><span class="note">Joueur ${i + 1}</span>${cardsRow(h, true)}</div>`).join('')}</div><div class="row"><button class="btn primary" data-act="bjcd">Recommencer</button></div>`;
     } else if (cd.drill === 'tc') {
-      if (cd.st === 'idle') body = `<p>Running count et paquets restants : donne le true count, tronqué vers zéro (+2,8 → +2 ; −1,5 → −1).</p><div class="row"><button class="btn primary" data-act="bjcd">Commencer</button></div>`;
+      if (!S.balanced) body = `<p class="note">${esc(S.name)} est un compte déséquilibré : il se joue au running count, sans conversion. Choisis un système équilibré pour cet exercice.</p>`;
+      else if (cd.st === 'idle') body = `<p>Running count et paquets restants : donne le true count ${esc(S.name)}, tronqué vers zéro (+2,8 → +2 ; −1,5 → −1).</p><div class="row"><button class="btn primary" data-act="bjcd">Commencer</button></div>`;
       else body = `<div class="stats"><div class="stat"><span>Running count</span><b>${tcS(cd.q.rc)}</b></div><div class="stat"><span>Paquets restants</span><b>${fr(cd.q.left, 1)}</b></div></div>${cd.st === 'ask' ? `<form id="bjtcf" class="row"><label class="f">True count<input name="tc" inputmode="numeric" autocomplete="off" autofocus></label><button class="btn primary">Valider</button></form>` : `<div class="verdict ${cd.res.ok ? 'good' : 'bad'}"><b>${cd.res.ok ? 'Juste' : 'Faux'} : TC ${tcS(cd.q.ans)}</b><span>${tcS(cd.q.rc)} ÷ ${fr(cd.q.left, 1)} = ${fr(cd.q.rc / cd.q.left, 2)}, tronqué vers zéro.</span></div><div class="row"><button class="btn primary" data-act="bjcdq">Suivante (Entrée)</button></div>`}`;
     } else if (cd.drill === 'tray') {
       if (cd.st === 'idle') body = `<p>Le bac à défausse montre les cartes jouées. Estime les paquets restants dans le sabot, au demi-paquet près.</p><div class="row"><button class="btn primary" data-act="bjcd">Commencer</button></div>`;
@@ -508,20 +533,28 @@
           <div class="note">Sabot de ${q.decks} jeux · bac plein = ${q.decks} paquets.</div></div>
           ${cd.st === 'ask' ? `<div class="row">${Array.from({ length: q.decks * 2 - 1 }, (_, i) => (i + 1) / 2).map((v) => `<button class="btn small" data-act="bjtray" data-v="${v}">${fr(v, 1)}</button>`).join('')}</div><p class="note">Paquets restants ?</p>` : `<div class="verdict ${cd.res.ok ? 'good' : 'bad'}"><b>${cd.res.ok ? 'Juste' : 'Faux'} : ${fr(q.left, 1)} paquets restants</b><span>${fr(q.out, 1)} paquets en défausse sur ${q.decks}. Tu as répondu ${fr(cd.res.got, 1)}.</span></div><div class="row"><button class="btn primary" data-act="bjcdq">Suivante (Entrée)</button></div>`}`; }
     } else if (cd.drill === 'ramp') {
-      if (cd.st === 'idle') body = `<p>Un true count s'affiche : donne ta mise en unités selon ta rampe (définie dans Bankroll : ${b.ramp.map((u, i) => (i === 0 ? 'TC ≤ 0' : i === 6 ? 'TC ≥ +6' : 'TC ' + tcS(i)) + ' → ' + u).join(' · ')}).</p><div class="row"><button class="btn primary" data-act="bjcd">Commencer</button></div>`;
+      if (cd.st === 'idle') body = `<p>Un true count s'affiche : donne ta mise en unités selon ta rampe (définie dans Bankroll, en TC Hi-Lo : ${b.ramp.map((u, i) => (i === 0 ? 'TC ≤ 0' : i === 6 ? 'TC ≥ +6' : 'TC ' + tcS(i)) + ' → ' + u).join(' · ')}).</p><div class="row"><button class="btn primary" data-act="bjcd">Commencer</button></div>`;
       else { const opts = [...new Set(b.ramp)].sort((x, y) => x - y);
         body = `<div class="stats"><div class="stat hero"><span>True count</span><b>${tcS(cd.q.tc)}</b></div></div>${cd.st === 'ask' ? `<div class="row">${opts.map((u) => `<button class="btn" data-act="bjramp" data-v="${u}">${u} unité${u > 1 ? 's' : ''}</button>`).join('')}</div>` : `<div class="verdict ${cd.res.ok ? 'good' : 'bad'}"><b>${cd.res.ok ? 'Juste' : 'Faux'} : ${cd.q.ans} unité${cd.q.ans > 1 ? 's' : ''}</b></div><div class="row"><button class="btn primary" data-act="bjcdq">Suivante (Entrée)</button></div>`}`; }
     }
-    const st = DRILLS.map(([k, l]) => { const s = b.count[k]; return `<div class="stat"><span>${l}</span><b>${s.n ? pc(s.ok / s.n, 0) : '—'}</b><span>${s.n} essais${k === 'deck' && s.best ? ' · record ' + fr(s.best, 1) + ' s' : ''}</span></div>`; }).join('');
-    return head('Comptage Hi-Lo', '2 à 6 : +1 · 7 à 9 : 0 · 10 à As : −1. Running count, true count, estimation du sabot et mise : les cinq gestes du compteur, chacun entraîné à part.') +
-      `<div class="row">${DRILLS.map(([k, l]) => `<button class="chip" aria-pressed="${cd.drill === k}" data-act="bjdrill" data-d="${k}">${l}</button>`).join('')}</div>
-      <section class="panel"><span class="eyebrow">${esc(DRILLS.find((x) => x[0] === cd.drill)[1])} · ${c.n ? c.ok + '/' + c.n + ' justes' : 'premier essai'}</span>${body}</section>
+    const st = DRILLS.map(([k, l]) => { const s = b.count[k] || { n: 0, ok: 0 }; return `<div class="stat"><span>${l}</span><b>${s.n ? pc(s.ok / s.n, 0) : '—'}</b><span>${s.n} essais${k === 'deck' && s.best ? ' · record ' + fr(s.best, 1) + ' s' : ''}</span></div>`; }).join('');
+    return head('Comptage', `Système actuel : <strong>${esc(S.name)}</strong> — ${esc(sysLine(S))}. ${S.balanced ? 'Équilibré : running count ÷ paquets restants = true count.' : 'Déséquilibré : départ ' + tagTxt(CT.irc(S, game().rules.decks)) + ' en sabot de ' + game().rules.decks + ', joué au running count.'}`) +
+      `<div class="row">${sysSelect()}<button class="btn small" data-tab="bjsys">Comparer les systèmes</button></div>
+      <div class="row">${DRILLS.map(([k, l]) => `<button class="chip" aria-pressed="${cd.drill === k}" data-act="bjdrill" data-d="${k}">${l}</button>`).join('')}</div>
+      <section class="panel"><span class="eyebrow">${esc(DRILLS.find((x) => x[0] === cd.drill)[1])} · ${esc(S.name)} · ${c.n ? c.ok + '/' + c.n + ' justes' : 'premier essai'}</span>${body}</section>
       <div class="stats">${st}</div>`;
   };
   AFTER.bjcompte = () => { const f = $('#bjrcf input, #bjtcf input'); if (f) f.focus(); if (cd.drill === 'deck' && cd.st === 'run' && cd.t0) { const tick = () => { const el = $('#bjclock'); if (!el || cd.st !== 'run') return; el.textContent = fr((Date.now() - cd.t0) / 1000, 1) + ' s'; requestAnimationFrame(tick); }; requestAnimationFrame(tick); } };
   ACT.bjdrill = (t) => { cd.drill = t.dataset.d; cdReset(); render(); };
-  ACT.bjcd = () => { cdStart(); render(); };
+  ACT.bjcd = () => { cd.tg = cd.drill === 'tags' ? { n: 0, ms: 0, streak: 0 } : cd.tg; cdStart(); render(); };
   ACT.bjcdq = () => { cdQuestion(); render(); };
+  ONCHANGE.push((t) => { if (t.dataset.bjsys !== undefined) { P().sys = t.value; cdReset(); tbl = null; save(); render(); return true; } });
+  ACT.bjtag = (t) => {
+    const v = +t.dataset.v, q = cd.q, ok = Math.abs(v - q.ans) < 1e-9, ms = Date.now() - q.t0;
+    cd.tg ||= { n: 0, ms: 0, streak: 0 }; cd.tg.n++; cd.tg.ms += ms; cd.tg.streak = ok ? cd.tg.streak + 1 : 0;
+    cdRecord('tags', ok);
+    if (ok) { cdQuestion(); render(); } else { cd.st = 'done'; render(); }
+  };
   ACT.bjflip = () => {
     if (cd.st !== 'run' || cd.drill !== 'deck') return;
     if (!cd.t0) cd.t0 = Date.now();
@@ -530,10 +563,10 @@
     render();
   };
   ACT.bjlast = (t) => {
-    const rc = cd.cards.slice(0, 51).reduce((a, x) => a + hilo(x), 0), last = hilo(cd.cards[51]), ok = +t.dataset.v === last, s = (cd.t1 - cd.t0) / 1000, b = P();
-    cd.res = { ok, s, rc }; cd.st = 'done';
-    if (ok && (!b.count.deck.best || s < b.count.deck.best)) b.count.deck.best = Math.round(s * 10) / 10;
-    cdRecord('deck', ok, { ok, s: Math.round(s * 10) / 10 }); render();
+    const S = sysOf(), rc = cd.cards.slice(0, 51).reduce((a, x) => a + tg(x), 0), last = tg(cd.cards[51]), ok = Math.abs(+t.dataset.v - last) < 1e-9, s = (cd.t1 - cd.t0) / 1000, b = P();
+    cd.res = { ok, s, rc, last }; cd.st = 'done';
+    if (ok && S.id === 'hilo' && (!b.count.deck.best || s < b.count.deck.best)) b.count.deck.best = Math.round(s * 10) / 10;
+    cdRecord('deck', ok, { ok, s: Math.round(s * 10) / 10, sys: S.id }); render();
   };
   ACT.bjtray = (t) => { const v = +t.dataset.v, ok = Math.abs(v - cd.q.left) < 0.01; cd.res = { ok, got: v }; cd.st = 'done'; cdRecord('tray', ok); render(); };
   ACT.bjramp = (t) => { const v = +t.dataset.v, ok = v === cd.q.ans; cd.res = { ok }; cd.st = 'done'; cdRecord('ramp', ok); render(); };
@@ -541,36 +574,39 @@
   document.addEventListener('submit', (e) => {
     const id = e.target.id; if (id !== 'bjrcf' && id !== 'bjtcf' && id !== 'bjtrc') return;
     e.preventDefault();
-    const v = String(new FormData(e.target).get(id === 'bjtcf' ? 'tc' : 'rc') || '').trim().replace('−', '-').replace('+', ''), n = parseInt(v, 10);
+    const v = String(new FormData(e.target).get(id === 'bjtcf' ? 'tc' : 'rc') || '').trim(), n = parseNum(v);
     if (id === 'bjtrc') return tblCountAnswer(n);
     if (id === 'bjtcf') { const ok = n === cd.q.ans; cd.res = { ok, got: v }; cd.st = 'done'; cdRecord('tc', ok); return render(); }
-    const cards = cd.drill === 'round' ? [...cd.cards.dealer, ...cd.cards.hands.flat()] : cd.cards, rc = cards.reduce((a, x) => a + hilo(x), 0), ok = n === rc;
+    const cards = cd.drill === 'round' ? [...cd.cards.dealer, ...cd.cards.hands.flat()] : cd.cards, rc = cards.reduce((a, x) => a + tg(x), 0), ok = Math.abs(n - rc) < 1e-9;
     cd.res = { ok, rc, got: v || '(vide)' }; cd.st = 'done'; cdRecord(cd.drill, ok); render();
   });
-
   // =====================================================================
   // Table d'entraînement
   // =====================================================================
   let tbl = null;
   function tblNew() {
-    const G = game(), r = G.rules, b = P();
-    const t = { rules: r, G, n: r.decks, shoe: [], pos: 0, cut: 0, rc: 0, others: b.tblOpts?.others ?? 2, pen: b.tblOpts?.pen ?? 0.75, mode: b.tblOpts?.mode || 'train', showCount: false, phase: 'bet', hands: [], cur: 0, dealer: [], holeUp: false, oth: [], bet: 1, msgs: [], fb: [], sess: { hands: 0, net: 0, dec: 0, err: 0, evl: 0, cnt: 0, cntOk: 0, bets: 0, betOk: 0, shoes: 0 }, ask: null, shuffleNote: false };
+    const G = gameS(), r = G.rules, b = P();
+    const t = { rules: r, G, sys: G.sys, bal: G.sys.balanced, n: r.decks, shoe: [], pos: 0, cut: 0, rc: 0, others: b.tblOpts?.others ?? 2, pen: b.tblOpts?.pen ?? 0.75, mode: b.tblOpts?.mode || 'train', showCount: false, phase: 'bet', hands: [], cur: 0, dealer: [], holeUp: false, oth: [], bet: 1, msgs: [], fb: [], sess: { hands: 0, net: 0, dec: 0, err: 0, evl: 0, cnt: 0, cntOk: 0, bets: 0, betOk: 0, shoes: 0 }, ask: null, shuffleNote: false };
     tblShuffle(t); return t;
   }
-  function tblShuffle(t) { t.shoe = []; for (let d = 0; d < t.n; d++) t.shoe.push(...deck52()); shuffle(t.shoe); t.pos = 0; t.rc = 0; t.cut = Math.floor(t.shoe.length * t.pen); t.sess.shoes++; t.shuffleNote = true; }
+  function tblShuffle(t) { t.shoe = []; for (let d = 0; d < t.n; d++) t.shoe.push(...deck52()); shuffle(t.shoe); t.pos = 0; t.rc = CT.irc(t.sys, t.n); t.cut = Math.floor(t.shoe.length * t.pen); t.sess.shoes++; t.shuffleNote = true; }
   const decksLeft = (t) => Math.max(0.5, (t.shoe.length - t.pos) / 52);
+  // True count dans l'unité du système (équilibré) ; tcHL : équivalent Hi-Lo pour la rampe (÷ échelle du système).
   const tcOf = (t) => Math.trunc(t.rc / decksLeft(t));
-  function tDraw(t, seen = true) { const c = t.shoe[t.pos++]; if (seen) t.rc += hilo(c); return c; }
-  const reveal = (t, c) => { t.rc += hilo(c); };
+  const tcHL = (t) => Math.trunc(t.rc / decksLeft(t) / (t.G.scale || 1));
+  function tDraw(t, seen = true) { const c = t.shoe[t.pos++]; if (seen) t.rc += tagOf(t.sys, c); return c; }
+  const reveal = (t, c) => { t.rc += tagOf(t.sys, c); };
   // Composition inconnue du joueur (sabot restant + carte cachée), au format du moteur.
   function compOf(t) { const s = new Array(11).fill(0); for (let i = t.pos; i < t.shoe.length; i++) s[val(t.shoe[i])]++; if (t.rules.peek && !t.holeUp && t.dealer[1] !== undefined) s[val(t.dealer[1])]++; return s; }
   function tblDeal() {
     const t = tbl, b = P(); t.fb = []; t.msgs = [];
     if (t.pos >= t.cut) tblShuffle(t);
     // Mise : comparée à la rampe au TC avant la donne.
-    const tc = tcOf(t), want = rampUnits(b.ramp, tc);
-    t.sess.bets++; b.tbl.bets++; const betOk = t.bet === want; if (betOk) { t.sess.betOk++; b.tbl.betOk++; }
-    if (!betOk) t.fb.push({ bad: true, txt: `Mise : ${t.bet} unité${t.bet > 1 ? 's' : ''} ; ta rampe dit ${want} à TC ${tcS(tc)}.` });
+    const tc = tcHL(t), want = rampUnits(b.ramp, tc);
+    if (t.bal) {
+      t.sess.bets++; b.tbl.bets++; const betOk = t.bet === want; if (betOk) { t.sess.betOk++; b.tbl.betOk++; }
+      if (!betOk) t.fb.push({ bad: true, txt: `Mise : ${t.bet} unité${t.bet > 1 ? 's' : ''} ; ta rampe dit ${want} à TC ${t.G.scale > 1.01 ? 'Hi-Lo équivalent ' : ''}${tcS(tc)}.` });
+    }
     t.betTC = tc;
     t.oth = []; for (let i = 0; i < t.others; i++) t.oth.push({ cards: [] });
     t.hands = [{ cards: [], bet: t.bet, done: false, split: false }]; t.cur = 0; t.dealer = []; t.holeUp = false;
@@ -602,7 +638,7 @@
     return { stand: true, hit: !(h.aces && !r.hsa), double: dOk && !(h.aces && !r.hsa), split: canSplit, surrender: two && !h.split && nH === 1 && r.surrender && r.peek };
   }
   function tblRecommend(t, h) {
-    const up = val(t.dealer[0]), avail = availFor(t, h), row = rowOf(h.cards, avail.split), tc = tcOf(t);
+    const up = val(t.dealer[0]), avail = availFor(t, h), row = rowOf(h.cards, avail.split), tc = t.bal ? tcOf(t) : null;
     if (row === 'soft12') return { act: 'hit', avail, row, tc };
     if (!row || !t.G.table[row]) return { act: handOf(h.cards).t >= 17 ? 'stand' : 'hit', avail, row, tc };
     return { act: recommend(t.G, row, up, avail, tc), avail, row, tc };
@@ -674,13 +710,13 @@
   }
   function tblCountAnswer(n) {
     const t = tbl, b = P(); if (!t || !t.ask) return;
-    const ok = n === t.rc; t.sess.cnt++; b.tbl.cnt++; if (ok) { t.sess.cntOk++; b.tbl.cntOk++; }
-    t.fb.push({ bad: !ok, txt: ok ? `✓ Running count juste : ${tcS(t.rc)}.` : `✗ Running count : ${tcS(t.rc)} (tu as dit ${Number.isFinite(n) ? tcS(n) : '—'}).` });
+    const ok = Math.abs(n - t.rc) < 1e-9; t.sess.cnt++; b.tbl.cnt++; if (ok) { t.sess.cntOk++; b.tbl.cntOk++; }
+    t.fb.push({ bad: !ok, txt: ok ? `✓ Running count juste : ${tagTxt(t.rc)}.` : `✗ Running count : ${tagTxt(t.rc)} (tu as dit ${Number.isFinite(n) ? tagTxt(n) : '—'}).` });
     t.ask = null; save(); render();
   }
   VIEWS.bjtable = () => {
     const b = P(), G = game();
-    if (!tbl || tbl.G.label !== G.label || tbl.G.edge !== G.edge) tbl = tblNew();
+    if (!tbl || tbl.G.label !== G.label || tbl.G.edge !== G.edge || tbl.sys.id !== sysOf().id) tbl = tblNew();
     const t = tbl, up = t.dealer[0], s = t.sess;
     const dealerCards = t.dealer.length ? `<div class="cards">${cardHTML(t.dealer[0])}${t.dealer.length > 1 ? (t.holeUp ? t.dealer.slice(1).map((c) => cardHTML(c)).join('') : backHTML()) : (t.phase !== 'bet' && t.rules.peek ? backHTML() : '')}</div>` : '';
     const showT = t.mode === 'train', tc = tcOf(t), out = t.pos / 52;
@@ -700,9 +736,9 @@
         <label class="note">Autres joueurs <select data-bjto="others">${[0, 1, 2, 3, 4, 5].map((n) => `<option ${t.others === n ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
         <label class="note">Pénétration <select data-bjto="pen">${[0.6, 0.67, 0.75, 0.83].map((p) => `<option value="${p}" ${Math.abs(t.pen - p) < 0.001 ? 'selected' : ''}>${Math.round(p * 100)} %</option>`).join('')}</select></label>
         <button class="btn small" data-act="bjshowc">${t.showCount ? 'Masquer le compte' : 'Afficher le compte'}</button><button class="btn small" data-act="bjtreset">Nouveau sabot</button></div>
-        <p class="note">${esc(G.label)} · ${esc(ruleTxt(t.rules))}</p></section>
+        <p class="note">${esc(G.label)} · ${esc(ruleTxt(t.rules))} · compte ${esc(t.sys.name)}${t.bal ? '' : ' : rampe et indices non notés (compte déséquilibré), stratégie de base et contrôles de compte notés'}.</p><div class="row">${sysSelect()}</div></section>
       <section class="panel bjtable">
-        <div class="row" style="justify-content:space-between"><span class="note">Sabot : ${fr(out, 1)} paquet${out >= 2 ? 's' : ''} joué${out >= 2 ? 's' : ''} sur ${t.n}${t.showCount ? ` · RC ${tcS(t.rc)} · TC ${tcS(tc)}` : ''}</span><span class="note">${t.shuffleNote && t.pos < 20 ? 'Sabot mélangé : compte à 0.' : ''}</span></div>
+        <div class="row" style="justify-content:space-between"><span class="note">Sabot : ${fr(out, 1)} paquet${out >= 2 ? 's' : ''} joué${out >= 2 ? 's' : ''} sur ${t.n}${t.showCount ? ` · RC ${tagTxt(t.rc)}${t.bal ? ' · TC ' + tcS(tc) : ''}` : ''}</span><span class="note">${t.shuffleNote && t.pos < 20 ? 'Sabot mélangé : compte à ' + tagTxt(CT.irc(t.sys, t.n)) + '.' : ''}</span></div>
         <div class="bjdealer"><span class="note">Croupier${t.holeUp && t.dealer.length ? ' · ' + totalTxt(t.dealer) : ''}</span>${dealerCards}</div>
         ${t.oth.length ? `<div class="bjround">${t.oth.map((o, i) => `<div><span class="note">Joueur ${i + 1} · ${totalTxt(o.cards)}</span>${cardsRow(o.cards, true)}</div>`).join('')}</div>` : ''}
         <div class="bjhands">${t.hands.map((h, i) => h.cards.length ? `<div class="bjhand${t.phase === 'play' && i === t.cur ? ' on' : ''}"><span class="note">Toi${t.hands.length > 1 ? ' · main ' + (i + 1) : ''} · ${totalTxt(h.cards)} · ${h.bet} u${h.surr ? ' · abandon' : ''}</span>${cardsRow(h.cards)}</div>` : '').join('')}</div>
@@ -718,9 +754,9 @@
   ACT.bjdeal = () => { if (!tbl || tbl.ask || (tbl.phase !== 'bet' && tbl.phase !== 'done')) return; tbl.shuffleNote = false; tblDeal(); render(); };
   ACT.bjtins = (t) => {
     const T = tbl, b = P(); if (T.phase !== 'ins') return;
-    const take = t.dataset.v === '1', want = tcOf(T) >= ins(T.G), ok = take === want;
+    const take = t.dataset.v === '1', want = T.bal ? tcOf(T) >= ins(T.G) : take, ok = take === want;
     T.insTaken = take; T.sess.dec++; b.tbl.dec++; if (!ok) { T.sess.err++; b.tbl.err++; }
-    T.fb.push({ bad: !ok, txt: `${ok ? '✓' : '✗'} Assurance ${take ? 'prise' : 'refusée'} à TC ${tcS(tcOf(T))} (indice : TC ≥ ${tcS(ins(T.G))}).` });
+    T.fb.push({ bad: !ok, txt: T.bal ? `${ok ? '✓' : '✗'} Assurance ${take ? 'prise' : 'refusée'} à TC ${tcS(tcOf(T))} (indice ${esc(T.G.idxSys)} : TC ≥ ${tcS(ins(T.G))}).` : `Assurance ${take ? 'prise' : 'refusée'} (non notée avec un compte déséquilibré).` });
     T.phase = 'play'; tblAfterIns(); save(); render();
   };
   ACT.bjtact = (t) => tblAct(t.dataset.a);
@@ -748,6 +784,7 @@
         <div class="stat"><span>Écart-type par heure</span><b>${eur(sdh)}</b><span>${fr(R.sd * 10, 1)} u / 100 mains</span></div>
         <div class="stat"><span>Avantage simulé</span><b>${sgnP(R.edge, 2)}</b><span>gain ÷ total misé · mise moyenne ${fr(R.avgBet, 2)} u</span></div>
         <div class="stat"><span>N0</span><b>${n0 ? Math.round(n0).toLocaleString('fr-FR') : '∞'}</b><span>${n0 ? '≈ ' + Math.round(n0 / R.hph).toLocaleString('fr-FR') + ' h avant que l\'EV égale 1 écart-type' : 'espérance négative'}</span></div>
+        <div class="stat"><span>DI · SCORE</span><b>${fr(1e4 * R.mean / R.sd, 1)}</b><span>SCORE ${fr(1e6 * R.mean * R.mean / (R.sd * R.sd), 1)} (gain / 100 mains à Kelly, bankroll de 10 000)</span></div>
         <div class="stat"><span>Risque de ruine</span><b>${pc(ror, 1)}</b><span>bankroll de ${eur(R.bankroll)} (${fr(R.bankroll / R.unit, 0)} u), formule de diffusion</span></div></div>
         <section class="panel"><h2>30 trajectoires de 100 heures</h2><canvas id="bjsimc" height="240" aria-label="Trajectoires de bankroll simulées"></canvas><p class="note">Chaque trajectoire tire 100 heures au hasard selon l'espérance et l'écart-type mesurés. Ligne rouge : bankroll à zéro.</p></section>
         <section class="panel"><h2>Fréquence des true counts</h2><div class="tw"><table class="t bjt"><thead><tr><th>TC</th>${R.tcs.map(([t]) => `<th class="n">${t <= -4 ? '≤ −4' : t >= 8 ? '≥ +8' : tcS(t)}</th>`).join('')}</tr></thead><tbody><tr><td>Mains</td>${R.tcs.map(([, f]) => `<td class="n">${pc(f, 1)}</td>`).join('')}</tr></tbody></table></div><p class="note">${fr(R.hands, 0)} mains simulées · ${esc(R.label)} · pénétration ${Math.round(R.pen * 100)} % · ${R.others} autre${R.others > 1 ? 's' : ''} joueur${R.others > 1 ? 's' : ''} · indices ${R.indices ? 'appliqués' : 'non appliqués'}.</p></section>`;
@@ -796,6 +833,127 @@
       b.lastSim = simRes; simRun = null; save(); render();
     };
     setTimeout(step, 30);
+  };
+
+  // =====================================================================
+  // Systèmes de comptage : comparaison, fiche, compte personnalisé
+  // =====================================================================
+  let sysKey = null, cust2 = null, custRes = null, custRun2 = null;
+  const RK = [['A', 1], ['2', 2], ['3', 3], ['4', 4], ['5', 5], ['6', 6], ['7', 7], ['8', 8], ['9', 9], ['10', 10]];
+  const scoreOf = (m) => 1e6 * m.mu * m.mu / (m.sd * m.sd);
+  function devTable(idx, insur, name) {
+    const L = (idx || []).slice().sort((a, b) => (a.set === b.set ? 0 : a.set === 'I18' ? -1 : b.set === 'I18' ? 1 : a.set === 'Fab4' ? -1 : 1));
+    return `<div class="tw"><table class="t bjt"><thead><tr><th>Main</th><th>Contre</th><th>Base</th><th>Déviation</th><th>Quand (TC ${esc(name)})</th></tr></thead><tbody>${insur && insur.index !== null ? `<tr><td>Assurance</td><td>As</td><td>non</td><td><strong>prendre</strong></td><td class="mono">≥ ${tcS(insur.index)}</td></tr>` : ''}${L.map((d) => `<tr><td>${esc(rowLabel(d.row))}</td><td>${UPN(d.up)}</td><td>${ACTFR[d.basic]}</td><td><strong>${ACTFR[d.act]}</strong></td><td class="mono">${d.dir > 0 ? '≥' : '<'} ${tcS(d.index)}</td></tr>`).join('')}</tbody></table></div>`;
+  }
+  VIEWS.bjsys = () => {
+    const G = game(), S = sysOf(), key = sysKey || countKey(G), C = D.counts?.[key];
+    if (!C) return head('Systèmes de comptage', '') + '<p class="note">Données de comparaison absentes : relance tools/build_bj.js systems.</p>';
+    const r = C.systems[S.id], ref = C.systems.hilo.sim, E = C.eor;
+    const rows = CT.SYSTEMS.map((x) => [x, C.systems[x.id]]).sort((a, b) => b[1].sim.mu - a[1].sim.mu);
+    const hi = C.systems.hiloIdx?.sim;
+    const tagsRow = (t, red7) => RK.map(([l, v]) => `<td class="n">${red7 && v === 7 ? '+1 r / 0 n' : tagTxt(t[v])}</td>`).join('');
+    if (!cust2) cust2 = S.t.slice();
+    const ct = cust2, cBC = CT.bc(ct, E.eor), cIC = CT.ic(ct), cPE = CT.pe(ct, E.dec), cImb = CT.imbalance(ct), cLvl = CT.level(ct);
+    return head('Systèmes de comptage', `${CT.SYSTEMS.length} systèmes, leurs valeurs, leurs corrélations et une simulation à rampe identique, pour « ${esc(D.presets[key].label)} ». Le système choisi ici est celui des exercices de Comptage, de l'Entraîneur (indices) et de la Table.`) +
+      `<div class="row"><span class="note">Jeu de comparaison :</span>${['europe', 'strip'].map((k) => `<button class="chip" aria-pressed="${key === k}" data-act="bjsyskey" data-k="${k}">${esc(D.presets[k].label)}</button>`).join('')}</div>
+      <section class="panel"><span class="eyebrow">Système choisi</span><h2>${esc(S.name)}</h2><p class="note">${esc(S.who ? S.who + ' · ' : '')}${esc(S.note)}</p>
+        <div class="tw"><table class="t bjt"><thead><tr>${RK.map(([l]) => `<th class="n">${l}</th>`).join('')}</tr></thead><tbody><tr>${tagsRow(S.t, S.red7)}</tr></tbody></table></div>
+        <div class="stats"><div class="stat hero"><span>Corrélation de mise (BC)</span><b>${fr(r.bc, 2)}</b><span>${r.bcAce ? 'avec as à part : ' + fr(r.bcAce, 2) : 'Hi-Lo : ' + fr(C.systems.hilo.bc, 2)}</span></div>
+          <div class="stat"><span>Assurance (IC)</span><b>${fr(r.ic, 2)}</b><span>Hi-Lo : ${fr(C.systems.hilo.ic, 2)}</span></div>
+          <div class="stat"><span>Efficacité de jeu*</span><b>${fr(r.pe, 2)}</b><span>Hi-Lo : ${fr(C.systems.hilo.pe, 2)}</span></div>
+          <div class="stat"><span>Gain simulé</span><b>${fr(r.sim.mu * 100, 2)} u</b><span>/ 100 mains · SCORE ${fr(scoreOf(r.sim) / scoreOf(ref) * 100, 0)} (Hi-Lo = 100)</span></div>
+          <div class="stat"><span>Niveau · équilibre</span><b>${S.level}</b><span>${S.balanced ? 'équilibré' : 'déséquilibré, départ ' + tagTxt(CT.irc(S, G.rules.decks)) + ' en ' + G.rules.decks + ' jeux'}</span></div></div>
+        ${r.indices ? `<h3>Indices ${esc(S.name)} (Illustrious 18 et Fab 4)</h3>${devTable(r.indices, r.insurance, S.name)}<p class="note">Calcul SIGMA 52 avec le modèle de composition propre au système (espérance conditionnelle du sabot sachant le compte), à mi-sabot. Indices dans l'unité du système.</p>` : `<p class="note">${S.balanced ? 'Ce compte ne sert qu\'à miser ou à l\'assurance : pas d\'indices calculés.' : 'Compte déséquilibré : ses auteurs donnent des indices exprimés en running count ; SIGMA 52 ne les calcule pas.'}</p>`}</section>
+      <section class="panel"><h2>Comparaison</h2><div class="tw"><table class="t bjt"><thead><tr><th>Système</th><th class="n">Niveau</th><th>Équilibré</th><th class="n">BC</th><th class="n">BC as à part</th><th class="n">IC</th><th class="n">Eff. jeu*</th><th class="n">Gain / 100</th><th class="n">ÉT / 100</th><th class="n">SCORE</th><th></th></tr></thead><tbody>
+        ${rows.map(([x, v]) => `<tr${x.id === S.id ? ' style="font-weight:600"' : ''}><td>${esc(x.name)}</td><td class="n">${x.level}</td><td>${x.balanced ? 'oui' : 'non'}</td><td class="n">${fr(v.bc, 2)}</td><td class="n">${v.bcAce ? fr(v.bcAce, 2) : '—'}</td><td class="n">${fr(v.ic, 2)}</td><td class="n">${fr(v.pe, 2)}</td><td class="n">${fr(v.sim.mu * 100, 2)} u</td><td class="n">${fr(v.sim.sd * 10, 1)}</td><td class="n">${v.sim.mu > 0 ? fr(scoreOf(v.sim) / scoreOf(ref) * 100, 0) : '—'}</td><td>${x.id === S.id ? '<span class="pill acc">choisi</span>' : `<button class="btn small" data-act="bjsetsys" data-s="${x.id}">Choisir</button>`}</td></tr>`).join('')}
+        ${hi ? `<tr><td>Hi-Lo + indices et assurance</td><td class="n">1</td><td>oui</td><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="n">${fr(hi.mu * 100, 2)} u</td><td class="n">${fr(hi.sd * 10, 1)}</td><td class="n">${fr(scoreOf(hi) / scoreOf(ref) * 100, 0)}</td><td></td></tr>` : ''}</tbody></table></div>
+        <p class="note">BC, IC : corrélations avec les effets de retrait du moteur (un paquet). *Efficacité de jeu : définition SIGMA 52 (moyenne des |corrélations| avec l'effet de retrait de chaque décision d'indice), pas la PE pondérée publiée par Griffin. Simulation : ${(ref.hands / 1e6).toFixed(0)} M de mains par système, pénétration 75 %, 2 autres joueurs, même rampe pour tous (1 unité par 0,1 point d'avantage estimé, de 1 à 12), stratégie de base sans indices ; comptes déséquilibrés convertis idéalement (plafond). SCORE : Hi-Lo = 100. Écarts de quelques points = bruit de simulation.</p></section>
+      <section class="panel"><h2>Inventer un compte</h2><p class="note">Donne une valeur à chaque rang : corrélations calculées immédiatement, puis simulation à la même rampe que la comparaison.</p>
+        <div class="form bjf">${RK.map(([l, v]) => `<label class="f">${l}<input data-bjct="${v}" value="${String(ct[v]).replace('.', ',')}" inputmode="decimal"></label>`).join('')}</div>
+        <div class="stats"><div class="stat"><span>BC</span><b>${fr(cBC, 3)}</b></div><div class="stat"><span>IC</span><b>${fr(cIC, 3)}</b></div><div class="stat"><span>Eff. jeu*</span><b>${fr(cPE, 3)}</b></div><div class="stat"><span>Niveau · déséquilibre</span><b>${cLvl}</b><span>${cImb ? (cImb > 0 ? '+' : '') + fr(cImb, 1) + ' par paquet' : 'équilibré'}</span></div></div>
+        <div class="row"><button class="btn primary" data-act="bjctsim" ${custRun2 ? 'disabled' : ''}>${custRun2 ? 'Calcul… ' + custRun2.txt : 'Simuler ce compte'}</button>${CT.SYSTEMS.map((x) => `<button class="btn small" data-act="bjctload" data-s="${x.id}">${esc(x.name)}</button>`).join('')}</div>
+        ${custRes ? `<div class="verdict"><b>Gain simulé : ${fr(custRes.mu * 100, 2)} u / 100 mains, écart-type ${fr(custRes.sd * 10, 1)} u, SCORE ${fr(scoreOf(custRes) / scoreOf(ref) * 100, 0)} (Hi-Lo = 100).</b><span>${(custRes.hands / 1e6).toFixed(1)} M de mains, valeurs ${RK.map(([l, v]) => l + ' ' + tagTxt(custRes.t[v])).join(', ')}.</span></div>` : ''}</section>`;
+  };
+  ACT.bjsyskey = (t) => { sysKey = t.dataset.k; render(); };
+  ACT.bjsetsys = (t) => { P().sys = t.dataset.s; cust2 = null; tbl = null; cdReset(); save(); render(); };
+  ACT.bjctload = (t) => { cust2 = CT.byId[t.dataset.s].t.slice(); if (CT.byId[t.dataset.s].red7) cust2[7] = 0.5; custRes = null; render(); };
+  ONCHANGE.push((t) => { if (t.dataset.bjct !== undefined) { const v = parseNum(t.value); if (Number.isFinite(v)) { cust2[+t.dataset.bjct] = Math.max(-20, Math.min(20, v)); custRes = null; } render(); return true; } });
+  ACT.bjctsim = () => {
+    if (custRun2) return;
+    const G = game(), key = sysKey || countKey(G), P0 = D.presets[key], rules = P0.rules, t = cust2.slice(), dl = Math.max(1, rules.decks / 2);
+    let sc = 0, hb = 0, m = 0; for (let r = 1; r <= 10; r++) m += CT.W[r] * t[r]; m /= 52; for (let r = 1; r <= 10; r++) { sc += CT.W[r] * (t[r] - m) ** 2; hb += CT.W[r] * BJ.HILO[r] ** 2; }
+    const step = Math.max(1, Math.round(Math.sqrt(sc / hb))), tcs = [], ks = []; for (let k = -4; k <= 8; k++) ks.push(k * step);
+    const table = Object.fromEntries(Object.entries(P0.table).map(([row, o]) => [row, Object.fromEntries(Object.entries(o).map(([u, c]) => [u, { order: c.o }]))]));
+    const imb = CT.imbalance(t), acc = { u: 0, n: 0, s2: 0 }, chunks = 6;
+    custRun2 = { txt: 'avantage par true count' }; render();
+    const stepEdge = () => {
+      const tc = ks[tcs.length], sh = BJ.shoeAtTC(dl, tc, t), st2 = BJ.strategy(rules, { shoe: sh, fast: true });
+      let e = -BJ.houseEdge(rules, { strat: st2, shoe: sh, optimal: true }); const ins2 = BJ.insuranceEV(sh); if (ins2 > 0) e += (sh[1] / BJ.total(sh)) * ins2;
+      tcs.push([tc, e]); custRun2.txt = `avantage par true count ${tcs.length}/${ks.length}`; if (tabNow() === 'bjsys') render();
+      if (tcs.length < ks.length) return setTimeout(stepEdge, 0);
+      setTimeout(stepSim, 0);
+    };
+    let done = 0;
+    const stepSim = () => {
+      const r = BJ.simulate({ rules, table, hands: 250000, seed: 9000 + done, pen: 0.75, others: 2, ramp: (tc) => Math.max(1, Math.min(12, Math.round(advAt(tcs, tc) * 1000))), rampRaw: true, cardTag: (c) => { const rr = c % 13, v = rr === 12 ? 1 : rr >= 8 ? 10 : rr + 2; return t[v]; }, imb });
+      acc.u += r.units; acc.n += r.hands; for (let i = 0; i < r.res.length; i++) acc.s2 += r.res[i] * r.res[i];
+      done++; custRun2.txt = `simulation ${done}/${chunks}`; if (tabNow() === 'bjsys') render();
+      if (done < chunks) return setTimeout(stepSim, 0);
+      const mu = acc.u / acc.n; custRes = { mu, sd: Math.sqrt(acc.s2 / acc.n - mu * mu), hands: acc.n, t }; custRun2 = null; render();
+    };
+    setTimeout(stepEdge, 30);
+  };
+
+  // =====================================================================
+  // Maths : calculateurs
+  // =====================================================================
+  const mt = { up: 6, cond: true, out: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], exact: null, mu: 1, sd: 1.15, B: 1000, c: 0.5, N: 10000 };
+  const PHI = (z) => { const t = 1 / (1 + 0.2316419 * Math.abs(z)), d = 0.3989423 * Math.exp(-z * z / 2), q = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274)))); return z > 0 ? 1 - q : q; };
+  VIEWS.bjmaths = () => {
+    const G = game(), r = G.rules, key = countKey(G), C = D.counts?.[key];
+    // Croupier
+    const calc = BJ.Calc(Object.assign({}, r, { peek: mt.cond && r.peek }), null, true), s0 = BJ.shoeOf(r.decks), s1 = s0.slice(); s1[mt.up] -= 1;
+    const dd = calc.dealerDist(s1, mt.up);
+    // Composition
+    const shoe = s0.map((x, i) => (i ? Math.max(0, x - (mt.out[i] || 0)) : 0)), nOut = mt.out.reduce((a, b) => a + b, 0), nLeft = BJ.total(shoe);
+    const rcHL = mt.out.reduce((a, n, i) => a + n * (BJ.HILO[i] || 0), 0), tcHLv = rcHL / Math.max(0.25, nLeft / 52);
+    const lin = C ? CT.linearEdge(-G.edge, C.eor.eor, shoe, s0) : null, insEV = BJ.insuranceEV(shoe);
+    // Kelly et ruine
+    const mu = mt.mu / 100, v = mt.sd * mt.sd, fstar = mu / v, g = mt.c * (2 - mt.c) * mu * mu / (2 * v), ror = BJ.riskOfRuin(mu, mt.sd, mt.B), half = Math.pow(0.5, 2 / mt.c - 1), n0 = mu > 0 ? v / (mu * mu) : null, di = 1e4 * mu / mt.sd;
+    const win = PHI(mu * Math.sqrt(mt.N) / mt.sd);
+    const num = (k, val2, step2) => `<input data-bjmt="${k}" value="${String(val2).replace('.', ',')}" inputmode="decimal" ${step2 ? '' : ''}>`;
+    return head('Maths du blackjack', 'Les calculs du cours, avec tes chiffres : croupier, composition du sabot, effets de retrait, Kelly, ruine, variance.') +
+      `<div class="grid2"><section class="panel"><h2>Croupier</h2><div class="form"><label class="f">Carte visible<select data-bjmt="up">${BJ.UPS.map((u) => `<option value="${u}" ${mt.up === u ? 'selected' : ''}>${UPN(u)}</option>`).join('')}</select></label>${r.peek ? `<label class="f">Blackjack<select data-bjmt="cond"><option value="1" ${mt.cond ? 'selected' : ''}>exclu (peek)</option><option value="0" ${!mt.cond ? 'selected' : ''}>inclus</option></select></label>` : ''}</div>
+        <div class="tw"><table class="t bjt"><thead><tr><th class="n">17</th><th class="n">18</th><th class="n">19</th><th class="n">20</th><th class="n">21</th><th class="n">Crève</th><th class="n">BJ</th></tr></thead><tbody><tr>${dd.map((p) => `<td class="n">${pc(p, 2)}</td>`).join('')}</tr></tbody></table></div>
+        <p class="note">Calcul exact, ${esc(G.label)} (${r.decks} jeux, ${r.h17 ? 'tire' : 'reste sur'} soft 17), sabot complet moins la carte visible.</p></section>
+      <section class="panel"><h2>Probabilité d'être gagnant</h2><div class="form"><label class="f">Avantage (% de la mise)${num('mu', mt.mu)}</label><label class="f">Écart-type par main${num('sd', mt.sd)}</label><label class="f">Mains${num('N', mt.N)}</label></div>
+        <div class="stats"><div class="stat hero"><span>P(gagnant)</span><b>${pc(win, 1)}</b><span>Φ(μ√N ÷ σ)</span></div><div class="stat"><span>Espérance</span><b>${fr(mu * mt.N, 1)} u</b></div><div class="stat"><span>Écart-type</span><b>${fr(mt.sd * Math.sqrt(mt.N), 1)} u</b></div></div></section></div>
+      <section class="panel"><h2>Composition du sabot et avantage</h2><p class="note">Cartes sorties depuis le mélange (${esc(G.label)}, ${r.decks} jeux). L'avantage exact recalcule la stratégie optimale pour ce qui reste ; l'estimation linéaire n'utilise que les effets de retrait.</p>
+        <div class="form bjf">${RK.map(([l, i]) => `<label class="f">${l} sortis<input data-bjout="${i}" value="${mt.out[i] || 0}" inputmode="numeric"></label>`).join('')}</div>
+        <div class="stats"><div class="stat"><span>Cartes sorties</span><b>${nOut}</b><span>${fr(nLeft / 52, 2)} paquets restants</span></div><div class="stat"><span>Hi-Lo</span><b>RC ${tcS(rcHL)}</b><span>TC ${fr(tcHLv, 2)}</span></div>
+          <div class="stat"><span>Estimation linéaire</span><b>${lin === null ? '—' : sgnP(lin)}</b><span>avantage de départ ${sgnP(-G.edge)} + effets de retrait</span></div>
+          <div class="stat hero"><span>Avantage exact</span><b>${mt.exact === null ? '—' : sgnP(mt.exact)}</b><span>${mt.exact === null ? 'clique « Calculer »' : 'jeu optimal, composition exacte'}</span></div>
+          <div class="stat"><span>Assurance</span><b>${sgnP(insEV)}</b><span>EV par mise initiale · 10 : ${pc(shoe[10] / nLeft, 1)}</span></div></div>
+        <div class="row"><button class="btn primary" data-act="bjmtexact">Calculer l'avantage exact</button><button class="btn small" data-act="bjmtrand">Tirer un demi-sabot au hasard</button><button class="btn small" data-act="bjmtzero">Remettre à zéro</button></div></section>
+      ${C ? `<section class="panel"><h2>Effets de retrait</h2><div class="tw"><table class="t bjt"><thead><tr><th></th>${RK.map(([l]) => `<th class="n">${l}</th>`).join('')}</tr></thead><tbody><tr><td>EOR</td>${RK.map(([, i]) => `<td class="n" style="color:var(${C.eor.eor[i] > 0 ? '--good' : '--bad'})">${sgnP(C.eor.eor[i], 2)}</td>`).join('')}</tr><tr><td>Hi-Lo</td>${RK.map(([, i]) => `<td class="n">${tagTxt(BJ.HILO[i])}</td>`).join('')}</tr></tbody></table></div><p class="note">Retrait d'une carte d'un paquet de 52, règles « ${esc(D.presets[key].label)} » sur un paquet, jeu optimal. Avantage du paquet complet ${sgnP(C.eor.edge0)}.</p></section>` : ''}
+      <section class="panel"><h2>Kelly, ruine, N0, DI, SCORE</h2><div class="form"><label class="f">Avantage (% de la mise)${num('mu', mt.mu)}</label><label class="f">Écart-type par main${num('sd', mt.sd)}</label><label class="f">Bankroll (unités)${num('B', mt.B)}</label><label class="f">Fraction de Kelly${num('c', mt.c)}</label></div>
+        <div class="stats"><div class="stat hero"><span>Mise Kelly</span><b>${pc(fstar, 2)}</b><span>de la bankroll (μ ÷ σ²) · à ${fr(mt.c, 2)} Kelly : ${fr(mt.c * fstar * mt.B, 1)} u</span></div>
+          <div class="stat"><span>Croissance</span><b>${pc(g, 4)}</b><span>par main (${pc(mt.c * (2 - mt.c), 0)} de Kelly)</span></div>
+          <div class="stat"><span>P(bankroll ÷ 2 un jour)</span><b>${pc(Math.min(1, half), 1)}</b><span>x^(2/c − 1), mises proportionnelles</span></div>
+          <div class="stat"><span>Risque de ruine</span><b>${pc(ror, 2)}</b><span>mise fixe 1 u : exp(−2μB/σ²)</span></div>
+          <div class="stat"><span>N0</span><b>${n0 ? Math.round(n0).toLocaleString('fr-FR') : '∞'}</b><span>mains (σ²/μ²)</span></div>
+          <div class="stat"><span>DI · SCORE</span><b>${fr(di, 1)}</b><span>SCORE ${fr(di * di / 100, 1)}</span></div></div></section>`;
+  };
+  ONCHANGE.push((t) => {
+    if (t.dataset.bjmt) { const k = t.dataset.bjmt; if (k === 'up') mt.up = +t.value; else if (k === 'cond') mt.cond = t.value === '1'; else { const v = parseNum(t.value); if (Number.isFinite(v)) mt[k] = k === 'N' || k === 'B' ? Math.max(1, Math.round(v)) : k === 'c' ? Math.max(0.05, Math.min(2, v)) : k === 'sd' ? Math.max(0.1, v) : v; } render(); return true; }
+    if (t.dataset.bjout !== undefined) { const G = game(), i = +t.dataset.bjout, max = (i === 10 ? 16 : 4) * G.rules.decks; mt.out[i] = Math.max(0, Math.min(max, Math.round(parseNum(t.value) || 0))); mt.exact = null; render(); return true; }
+  });
+  ACT.bjmtzero = () => { mt.out = new Array(11).fill(0); mt.exact = null; render(); };
+  ACT.bjmtrand = () => { const G = game(), d = []; for (let k = 0; k < G.rules.decks; k++) d.push(...deck52()); shuffle(d); mt.out = new Array(11).fill(0); for (let i = 0; i < Math.floor(d.length / 2); i++) mt.out[val(d[i])]++; mt.exact = null; render(); };
+  ACT.bjmtexact = () => {
+    const G = game(), r = G.rules, s0 = BJ.shoeOf(r.decks), shoe = s0.map((x, i) => (i ? Math.max(0, x - (mt.out[i] || 0)) : 0));
+    if (BJ.total(shoe) < 20) { mt.exact = null; return render(); }
+    const st = BJ.strategy(r, { shoe, fast: true }); mt.exact = -BJ.houseEdge(r, { strat: st, shoe, optimal: true }); render();
   };
 
   // =====================================================================
@@ -853,5 +1011,5 @@
   // Lien direct vers un onglet blackjack (#bjtable…) : l'onglet n'existait pas au chargement du routeur.
   const h0 = (location.hash || '').slice(1);
   if (TB.some(([k]) => k === h0)) setTimeout(() => go(h0), 0);
-  X.BJAPP = { P, game, recommend, rowOf, handOf, val, availFor, tblNew, mastery, ladder, newSpot: () => { newSpot(); return tr.spot; }, answer, tr, cd, getTbl: () => tbl, setTbl: (x) => { tbl = x; }, tblDeal: () => tblDeal(), tblAct, rampUnits };
+  X.BJAPP = { P, game, gameS, sysOf, tagOf, tcOf: (t) => tcOf(t), recommend, rowOf, handOf, val, availFor, tblNew, mastery, ladder, newSpot: () => { newSpot(); return tr.spot; }, answer, tr, cd, getTbl: () => tbl, setTbl: (x) => { tbl = x; }, tblDeal: () => tblDeal(), tblAct, rampUnits };
 })();

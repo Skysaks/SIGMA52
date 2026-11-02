@@ -25,10 +25,14 @@
 
   // Sabot moyen à un true count Hi-Lo donné. Les cartes basses (2-6) et hautes (10-A) sont aussi nombreuses : un running count RC
   // correspond en moyenne à RC/2 basses en moins et RC/2 hautes en plus dans le reste du sabot, réparties uniformément par rang.
-  function shoeAtTC(decksLeft, tc) {
-    const s = shoeOf(decksLeft), h = tc * decksLeft / 2;
-    for (let r = 2; r <= 6; r++) s[r] -= h / 5;
-    s[10] += h * 4 / 5; s[1] += h / 5;
+  // Autre système (tags) : espérance conditionnelle linéaire de la composition restante sachant le compte centré
+  // (covariance multinomiale) : écart du rang r = −RC × n_r (t_r − t̄) ÷ Σ n (t − t̄)². Identique au modèle ci-dessus pour le Hi-Lo.
+  function shoeAtTC(decksLeft, tc, tags) {
+    const s = shoeOf(decksLeft);
+    if (!tags) { const h = tc * decksLeft / 2; for (let r = 2; r <= 6; r++) s[r] -= h / 5; s[10] += h * 4 / 5; s[1] += h / 5; return s; }
+    let N = 0, m = 0; for (let r = 1; r <= 10; r++) { N += s[r]; m += s[r] * tags[r]; } m /= N;
+    let v = 0; for (let r = 1; r <= 10; r++) v += s[r] * (tags[r] - m) ** 2;
+    const rc = tc * decksLeft; for (let r = 1; r <= 10; r++) s[r] -= rc * s[r] * (tags[r] - m) / v;
     return s;
   }
 
@@ -252,17 +256,17 @@
   function indexFor(rules, rowId, up, actA, actB, opt = {}) {
     const dl = opt.decksLeft || Math.max(1, R(rules).decks / 2), lo = opt.lo ?? -12, hi = opt.hi ?? 14;
     const row = ROWS.find((r) => r.id === rowId), diff = (tc) => {
-      const s = shoeAtTC(dl, tc), calc = Calc(rules, s, opt.fast), ev = rowEV(calc, s, row, up);
+      const s = shoeAtTC(dl, tc, opt.tags), calc = Calc(rules, s, opt.fast), ev = rowEV(calc, s, row, up);
       return (ev[actB] ?? -9) - (ev[actA] ?? -9);
     };
-    const pts = []; for (let tc = lo; tc <= hi; tc++) pts.push([tc, diff(tc)]);
+    const st = opt.step || 1, pts = []; for (let tc = lo; tc <= hi + 1e-9; tc += st) pts.push([Math.round(tc * 100) / 100, diff(tc)]);
     for (let i = 1; i < pts.length; i++) {
       const [t0, d0] = pts[i - 1], [t1, d1] = pts[i];
       if ((d0 < 0) !== (d1 < 0)) { const x = t0 + (0 - d0) * (t1 - t0) / (d1 - d0); return { index: x, rising: d1 > d0, pts }; }
     }
     return { index: null, rising: null, pts };
   }
-  const insuranceIndex = (decksLeft) => { for (let tc = -5; tc <= 10; tc += 0.05) { if (insuranceEV(shoeAtTC(decksLeft, tc)) >= 0) return Math.round(tc * 100) / 100; } return null; };
+  const insuranceIndex = (decksLeft, tags, hi = 40) => { for (let tc = -10; tc <= hi; tc += 0.05) { if (insuranceEV(shoeAtTC(decksLeft, tc, tags)) >= 0) return Math.round(tc * 100) / 100; } return null; };
 
   // ---------- Simulation de sabot (Monte-Carlo) ----------
   function rng(seed) { let a = seed >>> 0 || 1; return () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
@@ -270,10 +274,15 @@
   function simulate(cfg) {
     const rl = R(cfg.rules), rnd = rng(cfg.seed || 7), table = cfg.table, devs = cfg.devs || [], ramp = cfg.ramp || ((tc) => 1);
     const nCards = rl.decks * 52, cut = Math.floor(nCards * (cfg.pen || 0.75)), others = cfg.others || 0;
-    const deck = []; for (let d = 0; d < rl.decks; d++) for (let c = 0; c < 52; c++) deck.push(rankOfCard(c));
+    // Cartes physiques 0..51 (rang c % 13, couleur c / 13) ; valeur de comptage par carte : Hi-Lo par défaut, cfg.cardTag sinon.
+    const cards = []; for (let d = 0; d < rl.decks; d++) for (let c = 0; c < 52; c++) cards.push(c);
+    const RK = new Int8Array(52), TG = new Float64Array(52);
+    for (let c = 0; c < 52; c++) { RK[c] = rankOfCard(c); TG[c] = cfg.cardTag ? cfg.cardTag(c) : HILO[RK[c]]; }
+    const imb = cfg.imb || 0; // déséquilibre par paquet : converti en compte équilibré (conversion idéale)
     let pos = nCards, rc = 0;
+    const deck = cards;
     const shuffle = () => { for (let i = deck.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); const t = deck[i]; deck[i] = deck[j]; deck[j] = t; } pos = 0; rc = 0; };
-    const draw = () => { const c = deck[pos++]; rc += HILO[c]; return c; };
+    const draw = () => { const c = deck[pos++]; rc += TG[c]; return RK[c]; };
     const dev = {}; for (const d of devs) (dev[d.row + '|' + d.up] ||= []).push(d);
     const actOf = (rowId, up, tc, avail) => {
       const st = table[rowId][up]; let order = st.order.slice();
@@ -287,8 +296,8 @@
     const res = new Float64Array(cfg.hands);
     while (hands < cfg.hands) {
       if (pos >= cut || pos === nCards) shuffle();
-      const decksLeft = Math.max(0.5, (nCards - pos) / 52), tcRaw = rc / decksLeft, tc = Math.trunc(tcRaw);
-      const bet = ramp(tc); tcHist[tc] = (tcHist[tc] || 0) + 1;
+      const decksLeft = Math.max(0.5, (nCards - pos) / 52), tcRaw = (rc - imb * pos / 52) / decksLeft, tc = Math.trunc(tcRaw);
+      const bet = cfg.rampRaw ? ramp(tcRaw) : ramp(tc); tcHist[tc] = (tcHist[tc] || 0) + 1;
       const p1 = draw(), up = draw(), p2 = draw(); const hole = rl.peek ? draw() : 0;
       for (let o = 0; o < others; o++) { draw(); draw(); if (rnd() < 0.5) draw(); }
       let result = 0;
@@ -297,11 +306,13 @@
       if (up === 1 && cfg.useIndices && cfg.insIndex != null && tcRaw >= cfg.insIndex) ins = bet / 2;
       const dBJ = rl.peek ? ((up === 1 && hole === 10) || (up === 10 && hole === 1)) : false;
       const pBJ = (p1 === 1 && p2 === 10) || (p1 === 10 && p2 === 1);
-      if (ins) result += dBJ ? 2 * ins : -ins;
+      // Avec peek, l'assurance se règle tout de suite ; sans carte cachée, quand le croupier prend sa deuxième carte.
+      if (ins && rl.peek) result += dBJ ? 2 * ins : -ins;
       if (rl.peek && dBJ) { result += pBJ ? 0 : -bet; }
       else if (pBJ) {
         let hole2 = hole; if (!rl.peek) hole2 = draw();
         const dn = (up === 1 && hole2 === 10) || (up === 10 && hole2 === 1);
+        if (ins && !rl.peek) result += dn ? 2 * ins : -ins;
         result += dn ? 0 : rl.bj * bet;
       } else {
         // Joue les mains du joueur.
@@ -317,7 +328,7 @@
             const isPair = two && cs[0] === cs[1];
             const rowId = isPair ? 'p' + cs[0] : soft ? 's' + Math.min(9, t - 11) : hardRow(t);
             const effRow = rowId;
-            const tcNow = Math.trunc(rc / Math.max(0.5, (nCards - pos) / 52));
+            const tcNow = Math.trunc((rc - imb * pos / 52) / Math.max(0.5, (nCards - pos) / 52));
             let act = 'stand';
             if (effRow && table[effRow]) {
               const okDouble = two && (rl.double === 'any' ? true : !soft && (rl.double === '9-11' ? t >= 9 && t <= 11 : t >= 10 && t <= 11)) && (!h.split || rl.das);
@@ -342,6 +353,7 @@
         const live = handsP.filter((h) => !h.surr && hv(h.cards.reduce((a, b) => a + b, 0), h.cards.includes(1)) <= 21);
         const dc = [up, rl.peek ? hole : draw()];
         const dn2 = !rl.peek && ((up === 1 && dc[1] === 10) || (up === 10 && dc[1] === 1));
+        if (ins && !rl.peek) result += dn2 ? 2 * ins : -ins;
         if (!dn2 && live.length) {
           for (;;) { const s = dc.reduce((a, b) => a + b, 0), a = dc.includes(1), t = hv(s, a); if (t > 17 || (t === 17 && !(rl.h17 && isSoft(s, a)))) break; dc.push(draw()); }
         }

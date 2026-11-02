@@ -16,7 +16,7 @@ const path = require('path'), fs = require('fs');
     const go = async (t) => { await p.evaluate((x) => window.__S52.go(x), t); await p.waitForTimeout(120); };
     // Espace présent dans la navigation.
     if (!(await p.locator('[data-group=blackjack]').count())) errs.push(name + ' espace Blackjack absent');
-    for (const t of ['bj', 'bjcours', 'bjstrat', 'bjentr', 'bjcompte', 'bjtable', 'bjbank', 'bjjournal']) {
+    for (const t of ['bj', 'bjcours', 'bjstrat', 'bjentr', 'bjcompte', 'bjsys', 'bjtable', 'bjbank', 'bjmaths', 'bjjournal']) {
       await go(t); const h = await p.locator('#view h1').first().textContent().catch(() => '');
       if (!h) errs.push(name + ' ' + t + ' sans titre'); await over(t); await shot(t);
     }
@@ -86,7 +86,7 @@ const path = require('path'), fs = require('fs');
         const ph = await p.evaluate(() => { const t = window.__S52.BJAPP.getTbl(); return t.ask ? 'ask' : t.phase; });
         if (ph === 'ask') { const rc2 = await p.evaluate(() => window.__S52.BJAPP.getTbl().rc); await p.fill('#bjtrc input', String(rc2)); await p.press('#bjtrc input', 'Enter'); continue; }
         if (ph === 'bet' || ph === 'done') { if (guard) break; await p.keyboard.press('Enter'); continue; }
-        if (ph === 'ins') { await p.click('[data-act=bjtins][data-v="0"]'); continue; }
+        if (ph === 'ins') { const take = await p.evaluate(() => { const A = window.__S52.BJAPP, t = A.getTbl(); return t.bal && A.tcOf(t) >= t.G.insurance.index; }); await p.click(`[data-act=bjtins][data-v="${take ? 1 : 0}"]`); continue; }
         if (ph === 'play') { const a = await p.evaluate(() => { const A = window.__S52.BJAPP, t = A.getTbl(); const h2 = t.hands[t.cur], av = A.availFor(t, h2); const row = A.rowOf(h2.cards, av.split); const G = t.G, up = A.val(t.dealer[0]); if (row === 'soft12' || !G.table[row]) return 'hit'; return A.recommend(G, row, up, av, Math.trunc(t.rc / Math.max(0.5, (t.shoe.length - t.pos) / 52))); }); await p.click(`[data-act=bjtact][data-a=${a}]`); continue; }
         break;
       }
@@ -96,6 +96,44 @@ const path = require('path'), fs = require('fs');
     if (ts.hands < 20) errs.push(name + ' table : ' + ts.hands + ' mains seulement');
     if (ts.err) errs.push(name + ' table : ' + ts.err + ' erreurs en jouant la recommandation');
     if (ts.cnt && ts.cntOk !== ts.cnt) errs.push(name + ' table : contrôle de compte faux');
+    // Systèmes : choisir Zen, valeurs, paquet chrono et table avec Zen ; puis Maths.
+    await go('bjsys');
+    await p.click('[data-act=bjsetsys][data-s=zen]'); await p.waitForTimeout(60);
+    if ((await p.evaluate(() => window.__S52.state.progress.bj.sys)) !== 'zen') errs.push(name + ' choix du système Zen');
+    await over('systemes'); await shot('systemes');
+    await go('bjcompte');
+    await p.click('[data-act=bjdrill][data-d=tags]'); await p.click('[data-act=bjcd]');
+    for (let i = 0; i < 15; i++) { const a = await p.evaluate(() => window.__S52.BJAPP.cd.q.ans); await p.click(`[data-act=bjtag][data-v="${a}"]`); await p.waitForTimeout(15); }
+    if ((await p.evaluate(() => window.__S52.BJAPP.cd.tg.streak)) < 15) errs.push(name + ' valeurs Zen : série cassée');
+    await p.click('[data-act=bjdrill][data-d=deck]'); await p.click('[data-act=bjcd]');
+    for (let i = 0; i < 51; i++) await p.keyboard.press('Space');
+    const lz = await p.evaluate(() => { const A = window.__S52.BJAPP; return A.tagOf(A.sysOf(), A.cd.cards[51]); });
+    await p.click(`[data-act=bjlast][data-v="${lz}"]`); await p.waitForTimeout(40);
+    if (!(await p.locator('.verdict.good').count())) errs.push(name + ' paquet chrono Zen refusé');
+    await go('bjtable');
+    for (let h = 0; h < 12; h++) {
+      for (let guard = 0; guard < 20; guard++) {
+        const ph = await p.evaluate(() => { const t = window.__S52.BJAPP.getTbl(); return t.ask ? 'ask' : t.phase; });
+        if (ph === 'ask') { const rc2 = await p.evaluate(() => window.__S52.BJAPP.getTbl().rc); await p.fill('#bjtrc input', String(rc2)); await p.press('#bjtrc input', 'Enter'); continue; }
+        if (ph === 'bet' || ph === 'done') { if (guard) break; await p.keyboard.press('Enter'); continue; }
+        if (ph === 'ins') { const take = await p.evaluate(() => { const A = window.__S52.BJAPP, t = A.getTbl(); return t.bal && A.tcOf(t) >= t.G.insurance.index; }); await p.click(`[data-act=bjtins][data-v="${take ? 1 : 0}"]`); continue; }
+        if (ph === 'play') { const a = await p.evaluate(() => { const A = window.__S52.BJAPP, t = A.getTbl(); const h2 = t.hands[t.cur], av = A.availFor(t, h2); const row = A.rowOf(h2.cards, av.split); const up = A.val(t.dealer[0]); if (row === 'soft12' || !t.G.table[row]) return 'hit'; return A.recommend(t.G, row, up, av, A.tcOf(t)); }); await p.click(`[data-act=bjtact][data-a=${a}]`); continue; }
+        break;
+      }
+    }
+    const zs = await p.evaluate(() => window.__S52.BJAPP.getTbl().sess);
+    if (zs.err) errs.push(name + ' table Zen : ' + zs.err + ' erreurs en jouant la recommandation');
+    if (zs.cnt && zs.cntOk !== zs.cnt) errs.push(name + ' table Zen : contrôle de compte faux');
+    await go('bjmaths');
+    await p.click('[data-act=bjmtrand]'); await p.click('[data-act=bjmtexact]'); await p.waitForTimeout(100);
+    const ex = await p.evaluate(() => document.querySelector('#view').innerText.includes('jeu optimal, composition exacte'));
+    if (!ex) errs.push(name + ' maths : avantage exact absent');
+    await over('maths'); await shot('maths');
+    if (name === 'desk') {
+      await go('bjsys'); await p.click('[data-act=bjctsim]');
+      await p.waitForSelector('text=/Gain simulé :/', { timeout: 120000 }).catch(() => errs.push('compte personnalisé : simulation sans résultat'));
+    }
+    await p.evaluate(() => { window.__S52.state.progress.bj.sys = 'hilo'; });
     // Bankroll : simulation courte.
     await go('bjbank');
     await p.selectOption('[data-bjbank=hands]', '100000'); await p.click('[data-act=bjsim]');

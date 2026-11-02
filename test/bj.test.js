@@ -1,7 +1,7 @@
 // Tests du moteur blackjack : node test/bj.test.js
 // Probabilités du croupier contre un calcul indépendant, stratégie de base 6 jeux connue, cohérence calcul exact / simulation,
 // indices et données précalculées.
-const BJ = require('../src/bj_engine.js'), D = require('../src/bj_data.js'), K = require('../src/bj_course.js');
+const BJ = require('../src/bj_engine.js'), D = require('../src/bj_data.js'), K = require('../src/bj_course.js'), CT = require('../src/bj_counts.js');
 const assert = require('assert');
 let n = 0; const t = (name, fn) => { fn(); n++; console.log('ok', name); };
 
@@ -52,8 +52,26 @@ t('true count : sabot moyen équilibré', () => {
   const s = BJ.shoeAtTC(3, 2), rc = [2, 3, 4, 5, 6].reduce((a, r) => a + (12 - s[r]), 0) - ((48 - s[10]) + (12 - s[1]));
   assert(Math.abs(BJ.total(s) - 156) < 1e-9); assert(Math.abs(rc - 6) < 1e-9, rc);
 });
-t('cours : 18 modules, quiz bien formés', () => {
-  assert.strictEqual(K.MODULES.length, 18);
+t('cours : 29 modules en 7 parties, quiz bien formés', () => {
+  assert.strictEqual(K.MODULES.length, 29); assert(K.MODULES.every((m) => K.PARTS.includes(m.part)));
   for (const m of K.MODULES) for (const q of m.quiz) assert(q.ok >= 0 && q.ok < q.opts.length && q.why, m.id);
+});
+t('systèmes : équilibre et déséquilibre connus', () => {
+  const b = CT.byId; assert(b.hilo.balanced && b.zen.balanced && b.halves.balanced && b.omega2.balanced && b.hiopt2.balanced && b.uapc.balanced && b.silverfox.balanced && b.tencount.balanced);
+  assert.strictEqual(b.ko.imb, 4); assert.strictEqual(b.red7.imb, 2); assert.strictEqual(b.uss.imb, 4);
+  assert.strictEqual(CT.irc(b.ko, 6), -20); assert.strictEqual(CT.irc(b.red7, 6), -12);
+  let s7 = 0; for (let c = 0; c < 52; c++) s7 += CT.tagOfCard(b.red7, c); assert.strictEqual(s7, 2);
+});
+t('sabot moyen : le modèle général redonne le Hi-Lo', () => {
+  for (const tc of [-3, 2, 5]) { const a = BJ.shoeAtTC(3, tc), b = BJ.shoeAtTC(3, tc, BJ.HILO); for (let r = 1; r <= 10; r++) assert(Math.abs(a[r] - b[r]) < 1e-9); }
+});
+t('corrélations proches des valeurs de référence (Hi-Lo BC ≈ 0,97, IC ≈ 0,76 ; Ten Count IC = 1)', () => {
+  const C = D.counts.strip.systems;
+  assert(Math.abs(C.hilo.bc - 0.97) < 0.02, C.hilo.bc); assert(Math.abs(C.hilo.ic - 0.76) < 0.01); assert(Math.abs(C.tencount.ic - 1) < 1e-9);
+  assert(C.halves.bc > C.hilo.bc && C.hiopt1.ic > C.hilo.ic && C.hiopt1.bcAce > C.hiopt1.bc);
+});
+t('effets de retrait : 5 le plus favorable au joueur, 10 et as défavorables, moyenne pondérée ≈ 0', () => {
+  for (const k of ['europe', 'strip']) { const e = D.counts[k].eor.eor; const mx = Math.max(...e.slice(1)); assert.strictEqual(e[5], mx); assert(e[10] < 0 && e[1] < 0);
+    const s = e.reduce((a, x, r) => a + (r ? CT.W[r] * x : 0), 0); assert(Math.abs(s / 52) < 0.0005, s); }
 });
 console.log(n, 'tests');

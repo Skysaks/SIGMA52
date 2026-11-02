@@ -349,7 +349,237 @@
       ],
     },
   ];
+  // ---------- Compléments : systèmes de comptage, mathématiques, au-delà du comptage ----------
+  const CNT = (X, key) => X.D.counts && X.D.counts[key || 'europe'];
+  const fx = (x, d = 2) => fr(x, d);
+  function sysTags(X) {
+    const S = X.CT.SYSTEMS, cols = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10'], idx = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    const v = (x) => (x === 0 ? '0' : (x > 0 ? '+' : '−') + fr(Math.abs(x), x % 1 ? 1 : 0));
+    return `<div class="tw"><table class="t bjt"><thead><tr><th>Système</th>${cols.map((c) => `<th class="n">${c}</th>`).join('')}<th>Niveau</th><th>Équilibré</th></tr></thead><tbody>${S.map((s) => `<tr><td><strong>${s.name}</strong></td>${idx.map((r) => `<td class="n">${s.red7 && r === 7 ? '+1 r / 0 n' : v(s.t[r])}</td>`).join('')}<td class="n">${s.level}</td><td>${s.balanced ? 'oui' : 'non (' + (s.imb > 0 ? '+' : '') + fx(s.imb, 0) + ' / paquet)'}</td></tr>`).join('')}</tbody></table></div>
+      <p class="note">Red Seven : 7 rouge +1, 7 noir 0. Wong Halves s'écrit souvent ×2 (2, 7 : +1 ; 3, 4, 6 : +2 ; 5 : +3 ; 9 : −1 ; 10, As : −2), d'où « niveau 3 ».</p>`;
+  }
+  function corrTable(X, key) {
+    const C = CNT(X, key); if (!C) return '<p class="note">Données de comparaison indisponibles.</p>';
+    const S = X.CT.SYSTEMS;
+    return `<div class="tw"><table class="t bjt"><thead><tr><th>Système</th><th class="n">BC</th><th class="n">BC avec as à part</th><th class="n">IC</th><th class="n">Eff. de jeu*</th></tr></thead><tbody>${S.map((s) => { const r = C.systems[s.id]; return `<tr><td>${s.name}</td><td class="n">${fx(r.bc)}</td><td class="n">${r.bcAce ? fx(r.bcAce) + ' (as ' + (r.aceVal > 0 ? '+' : '') + fx(r.aceVal, 1) + ')' : '—'}</td><td class="n">${fx(r.ic)}</td><td class="n">${fx(r.pe)}</td></tr>`; }).join('')}</tbody></table></div>
+      <p class="note">Calculs SIGMA 52 pour « ${X.D.presets[key || 'europe'].label} », à partir des effets de retrait de son moteur (un paquet). *Efficacité de jeu au sens de SIGMA 52 : moyenne des |corrélations| avec l'effet de retrait de chaque décision d'indice (Illustrious 18 et Fab 4). Ce n'est pas la PE publiée par Griffin, qui pondère chaque décision par son gain : ordre de grandeur comparable, valeurs différentes.</p>`;
+  }
+  function simTable(X, key) {
+    const C = CNT(X, key); if (!C) return '';
+    const rows = X.CT.SYSTEMS.map((s) => [s.name, C.systems[s.id].sim]).concat([['Hi-Lo + indices et assurance', C.systems.hiloIdx ? C.systems.hiloIdx.sim : C.hiloIdx?.sim]]).filter((r) => r[1]);
+    const ref = C.systems.hilo.sim, sc = (m) => 1e6 * m.mu * m.mu / (m.sd * m.sd);
+    rows.sort((a, b) => b[1].mu - a[1].mu);
+    return `<div class="tw"><table class="t bjt"><thead><tr><th>Système</th><th class="n">Gain / 100 mains</th><th class="n">Écart-type / 100</th><th class="n">Mise moyenne</th><th class="n">SCORE relatif</th></tr></thead><tbody>${rows.map(([n, m]) => `<tr><td>${n}</td><td class="n">${fx(m.mu * 100)} u</td><td class="n">${fx(m.sd * 10, 1)} u</td><td class="n">${fx(m.avgBet)} u</td><td class="n">${m.mu > 0 ? fx(sc(m) / sc(ref) * 100, 0) : '—'}</td></tr>`).join('')}</tbody></table></div>
+      <p class="note">Simulation SIGMA 52 : ${(ref.hands / 1e6).toFixed(0)} millions de mains par système, ${X.D.presets[key || 'europe'].label}, pénétration 75 %, 2 autres joueurs. Même rampe pour tous (mise de 1 unité par 0,1 point d'avantage estimé par le système, de 1 à 12 unités), stratégie de base sans indices sauf la dernière ligne. Comptes déséquilibrés convertis idéalement en compte équilibré : leur résultat est un plafond. SCORE relatif : Hi-Lo = 100. Les différences de quelques points sont dans le bruit de la simulation.</p>`;
+  }
+  function eorTable(X, key) {
+    const C = CNT(X, key); if (!C) return '';
+    const e = C.eor.eor, cols = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
+    return `<div class="tw"><table class="t bjt"><thead><tr><th></th>${cols.map((c) => `<th class="n">${c}</th>`).join('')}</tr></thead><tbody><tr><td>Effet</td>${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((r) => `<td class="n" style="color:var(${e[r] > 0 ? '--good' : '--bad'})">${sg(e[r], 2)}</td>`).join('')}</tr></tbody></table></div>
+      <p class="note">Variation de l'avantage du joueur quand on retire une seule carte de ce rang d'un paquet de 52, règles « ${X.D.presets[key || 'europe'].label} » sur un paquet, jeu optimal (calcul exact SIGMA 52). Avantage du paquet complet : ${sg(C.eor.edge0, 2)}.</p>`;
+  }
+  function pBJ(decks) { const N = 52 * decks; return 2 * (4 * decks / N) * (16 * decks / (N - 1)); }
+  function bustTable(X) {
+    const s = X.BJ.shoeOf(6), N = X.BJ.total(s);
+    const pb = (t) => { let p = 0; for (let r = 1; r <= 10; r++) if (t + r > 21) p += s[r] / N; return p; };
+    return `<div class="tw"><table class="t bjt"><thead><tr><th>Total dur</th>${[12, 13, 14, 15, 16, 17, 18, 19, 20].map((t) => `<th class="n">${t}</th>`).join('')}</tr></thead><tbody><tr><td>Crève en tirant</td>${[12, 13, 14, 15, 16, 17, 18, 19, 20].map((t) => `<td class="n">${pc(pb(t), 0)}</td>`).join('')}</tr></tbody></table></div><p class="note">Sabot de 6 jeux complet : proportion des cartes qui font dépasser 21.</p>`;
+  }
+  function outcomeStats(X) {
+    const BJ = X.BJ, P = X.D.presets.europe, table = Object.fromEntries(Object.entries(P.table).map(([row, o]) => [row, Object.fromEntries(Object.entries(o).map(([u, c]) => [u, { order: c.o }]))]));
+    const s = BJ.simulate({ rules: P.rules, table, hands: 200000, seed: 4242 });
+    let w = 0, l = 0, p = 0; const big = {}; for (const x of s.res) { if (x > 0) w++; else if (x < 0) l++; else p++; const k = Math.max(-4, Math.min(4, Math.round(x))); big[k] = (big[k] || 0) + 1; }
+    const n = s.res.length;
+    return { w: w / n, l: l / n, p: p / n, mean: s.mean, sd: s.sd, big, n };
+  }
+  const NORM = (z) => { const t = 1 / (1 + 0.2316419 * Math.abs(z)), d = 0.3989423 * Math.exp(-z * z / 2), q = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274)))); return z > 0 ? 1 - q : q; };
 
-  const BJCourse = { MODULES, rowLabel, upName, ACTFR, fr, pc, sg };
+  const MORE = [
+    {
+      id: 'systemes', part: 'Systèmes', title: 'Panorama des systèmes de comptage', minutes: 16,
+      goals: ['Connaître les grands systèmes et leurs valeurs', 'Comprendre niveau, équilibre et compte de côté'],
+      sections: [
+        ['Les valeurs de chaque système', (X) => sysTags(X)],
+        ['Trois propriétés', () => `<ul><li><strong>Niveau</strong> : la plus grande valeur absolue. Niveau 1 (±1) se tient vite ; niveaux 2 et 3 collent mieux aux effets de retrait réels, au prix d'erreurs plus fréquentes.</li><li><strong>Équilibre</strong> : un paquet complet donne 0. Un compte équilibré se divise par les paquets restants (true count). Un compte déséquilibré (KO, Red Seven, Uston SS) se joue au running count, avec un point de départ choisi pour éviter la division.</li><li><strong>Compte de côté</strong> : certains systèmes laissent l'as à 0 (meilleur pour jouer) et comptent les as à part pour ajuster la mise.</li></ul>`],
+        ['Ce que tous partagent', () => `<p>Tous donnent une valeur positive aux petites cartes (surtout 4, 5, 6) et négative aux 10. Ils diffèrent sur les cartes ambiguës : le 2, le 7, le 9 et l'as. C'est là que se joue l'écart entre systèmes, et il est faible.</p>`],
+      ],
+      mistakes: ['Changer de système avant d\'en maîtriser un', 'Diviser un compte déséquilibré par les paquets restants comme un Hi-Lo'],
+      keys: ['Niveau = finesse contre vitesse', 'Équilibré → true count ; déséquilibré → running count et point de départ', 'L\'as : dans le compte (mise) ou à part (jeu)'],
+      quiz: [
+        { q: 'Un compte déséquilibré :', opts: ['Donne 0 sur un paquet complet', 'Se joue au running count avec un départ fixé', 'Est toujours plus précis', 'Interdit l\'assurance'], ok: 1, why: 'Le départ (IRC) compense le déséquilibre pour éviter la conversion.' },
+        { q: 'Le niveau d\'un système est :', opts: ['Le nombre de paquets', 'La plus grande valeur absolue attribuée à une carte', 'Son avantage', 'Le nombre d\'indices'], ok: 1, why: 'Hi-Lo niveau 1, Hi-Opt II niveau 2, Uston APC niveau 3.' },
+        { q: 'Pourquoi Hi-Opt laisse-t-il l\'as à 0 ?', opts: ['Par erreur', 'L\'as aide la mise mais gêne les décisions de jeu : on le compte à part', 'L\'as est neutre au blackjack', 'Pour aller plus vite'], ok: 1, why: 'L\'as compte beaucoup pour l\'avantage (blackjacks), peu pour la plupart des décisions de jeu.' },
+      ],
+    },
+    {
+      id: 'desequilibres', part: 'Systèmes', title: 'Comptes déséquilibrés : KO, Red Seven, Uston SS', minutes: 12,
+      goals: ['Tenir un compte déséquilibré', 'Comprendre le départ (IRC) et le pivot'],
+      sections: [
+        ['Le principe', () => `<p>Un compte déséquilibré monte en moyenne au fil du sabot. Le KO ajoute +4 par paquet joué ; le Red Seven +2. On part donc d'une valeur négative qui dépend du nombre de paquets : <strong>KO : 4 − 4 × paquets</strong> (−20 en 6 jeux), <strong>Red Seven : −2 × paquets</strong> (−12 en 6 jeux).</p>
+          <p>Le running count porte alors à la fois l'information de composition et celle de profondeur. Les auteurs choisissent le départ pour qu'un running count donné, le <strong>pivot</strong>, corresponde à peu près au même avantage à toute profondeur. Au pivot et au-dessus, on augmente la mise.</p>`],
+        ['Ce qu\'on gagne, ce qu\'on perd', () => `<p>On gagne la division. On perd un peu de précision loin du pivot : le running count seul ne dit pas exactement l'avantage à TC élevé ou bas. Pour les décisions de jeu, les auteurs proposent des indices simplifiés exprimés en running count.</p>
+          <p class="note">Dans SIGMA 52, les comptes déséquilibrés servent aux exercices de comptage et aux comparaisons. La table d'entraînement note la rampe et les indices avec les comptes équilibrés.</p>`],
+      ],
+      mistakes: ['Oublier le départ négatif au mélange', 'Comparer un RC KO à un indice Hi-Lo'],
+      keys: ['KO : départ 4 − 4D, +4 par paquet en moyenne', 'Red Seven : départ −2D', 'Pas de division, un peu moins de précision'],
+      quiz: [
+        { q: 'Départ du KO en sabot de 6 jeux :', opts: ['0', '−20', '−24', '+4'], ok: 1, why: '4 − 4 × 6 = −20.' },
+        { q: 'Pourquoi le KO n\'a-t-il pas besoin de true count ?', opts: ['Il est plus précis', 'Son déséquilibre et son départ intègrent la profondeur', 'Il ne sert qu\'en un jeu', 'Il compte les as à part'], ok: 1, why: 'Le running count monte avec la profondeur, ce qui remplace en partie la division.' },
+      ],
+    },
+    {
+      id: 'multiniveaux', part: 'Systèmes', title: 'Niveaux 2 et 3, comptes de côté', minutes: 14,
+      goals: ['Tenir un compte de niveau 2', 'Utiliser un compte des as pour la mise'],
+      sections: [
+        ['Niveau 2 en pratique', () => `<p>Avec Hi-Opt II, Omega II ou Zen, le 4, le 5 et le 6 valent +2, les 10 −2. Les paires s'annulent moins souvent, le running count grimpe plus vite, le true count se calcule pareil. Les indices sont exprimés dans l'unité du système : un indice Hi-Opt II ne se compare pas directement à un indice Hi-Lo.</p>`],
+        ['Le compte des as', (X) => { const C = CNT(X); const r = C && C.systems.hiopt2; return `<p>On compte les as vus à part. Chaque paquet joué devrait en avoir montré 4 : l'écart <strong>as vus − 4 × paquets joués</strong> dit si le reste du sabot est riche (écart négatif) ou pauvre (écart positif) en as. Pour la mise seulement, on ajoute au running count v × (as vus − 4 × paquets joués), avec v la valeur d'as ci-dessous (négative : un as sorti fait baisser le compte), puis on divise par les paquets restants comme d'habitude.</p>${r ? `<p>Calcul SIGMA 52 (jeu européen) : pour Hi-Opt II, la valeur d'as qui maximise la corrélation de mise est ${r.aceVal > 0 ? '+' : ''}${fx(r.aceVal, 1)} par as en défaut, et la BC passe de ${fx(r.bc)} à ${fx(r.bcAce)}.</p>` : ''}`; }],
+        ['Le vrai coût', () => `<p>Chaque niveau et chaque compte de côté ajoutent des erreurs. Une erreur de compte coûte bien plus que l'écart de précision entre deux systèmes : SIGMA 52 recommande un compte de niveau 1 tant que le paquet chrono ne passe pas sous 25 secondes sans erreur.</p>`],
+      ],
+      mistakes: ['Appliquer l\'ajustement des as aux décisions de jeu', 'Passer au niveau 2 sans maîtriser le niveau 1'],
+      keys: ['Niveau 2 = indices dans l\'unité du système', 'Compte des as : mise seulement', 'La précision gagnée est petite, les erreurs coûtent cher'],
+      quiz: [
+        { q: 'L\'ajustement des as sert à :', opts: ['Jouer les mains', 'Miser', 'Décider l\'assurance seulement', 'Rien'], ok: 1, why: 'L\'as compte pour l\'avantage global (blackjacks), pas pour la plupart des décisions.' },
+        { q: 'Un indice Hi-Opt II de +6 correspond à :', opts: ['Hi-Lo +6', 'Une valeur dans l\'unité Hi-Opt II, différente du Hi-Lo', 'Rien', 'Un running count'], ok: 1, why: 'Chaque système a son échelle.' },
+      ],
+    },
+    {
+      id: 'choisir', part: 'Systèmes', title: 'Choisir son système : corrélations et simulations', minutes: 16,
+      goals: ['Lire BC, IC et efficacité de jeu', 'Juger un système sur des simulations à rampe identique'],
+      sections: [
+        ['Trois corrélations', () => `<ul><li><strong>BC (betting correlation)</strong> : corrélation entre les valeurs du compte et l'effet de retrait de chaque carte sur l'avantage. Elle mesure la qualité de la mise.</li><li><strong>IC (insurance correlation)</strong> : corrélation avec la seule chose qui compte pour l'assurance, la proportion de 10.</li><li><strong>Efficacité de jeu</strong> : qualité des décisions d'indice.</li></ul>
+          <div class="formula">BC = Σ nᵣ (tᵣ − t̄)(eᵣ − ē) ÷ √(Σ nᵣ (tᵣ − t̄)² × Σ nᵣ (eᵣ − ē)²)</div><p class="note">nᵣ : cartes du rang par paquet (16 pour les 10), tᵣ : valeur du compte, eᵣ : effet de retrait.</p>`],
+        ['Les chiffres pour ton jeu', (X) => corrTable(X, 'europe')],
+        ['Simulation à rampe identique', (X) => simTable(X, 'europe')],
+        ['Conclusion', () => `<p>En sabot, la mise fait l'essentiel du gain et les systèmes simples en captent la plus grande part. L'écart entre Hi-Lo et les meilleurs comptes de niveau 2 ou 3 reste petit devant le coût d'une seule erreur de compte par sabot. Le choix raisonnable : Hi-Lo et ses indices, puis éventuellement un niveau 2 si tu vises le sabot à long terme et que tes exercices le supportent.</p>`],
+      ],
+      mistakes: ['Choisir sur la BC seule', 'Comparer des systèmes avec des rampes différentes'],
+      keys: ['BC : mise ; IC : assurance ; efficacité de jeu : indices', 'En sabot, la mise domine', 'Simplicité et exactitude avant finesse'],
+      quiz: [
+        { q: 'Quel compte a une IC de 1 ?', opts: ['Hi-Lo', 'Ten Count', 'Zen', 'KO'], ok: 1, why: 'Il ne distingue que 10 et non-10 : exactement ce que l\'assurance demande.' },
+        { q: 'En sabot de 6 jeux, la majeure partie du gain d\'un compteur vient :', opts: ['Des indices', 'De l\'écart de mises', 'De l\'assurance', 'Des abandons'], ok: 1, why: 'Voir la ligne Hi-Lo avec et sans indices dans la simulation.' },
+        { q: 'Pour comparer deux systèmes, il faut :', opts: ['Les mêmes règles et la même rampe', 'Le même nombre de joueurs seulement', 'Leur BC uniquement', 'Leur niveau'], ok: 0, why: 'Sinon on compare des rampes, pas des comptes.' },
+      ],
+    },
+    {
+      id: 'probas', part: 'Mathématiques', title: 'Probabilités de base du blackjack', minutes: 14,
+      goals: ['Calculer la probabilité d\'un blackjack', 'Comprendre le tirage sans remise'],
+      sections: [
+        ['Blackjack servi', () => `<p>Il faut un as et une carte de 10, dans un ordre ou dans l'autre :</p><div class="formula">P(BJ) = 2 × (as ÷ N) × (dix ÷ (N − 1))</div>
+          <p>Un paquet : 2 × 4/52 × 16/51 = <strong>${pc(pBJ(1))}</strong>. Six paquets : <strong>${pc(pBJ(6))}</strong>. Environ un blackjack toutes les ${Math.round(1 / pBJ(6))} mains.</p>`],
+        ['Sans remise', () => `<p>Chaque carte sortie change les probabilités des suivantes : c'est ce qui rend le comptage possible. Avec 6 paquets, un as en moins fait passer la proportion d'as de 24/312 à 23/311 : l'effet d'une carte est petit, mais il s'accumule sur un sabot.</p>`],
+        ['Crever en tirant', (X) => bustTable(X)],
+        ['Le croupier', (X) => dealerTable(X)],
+      ],
+      mistakes: ['Oublier le facteur 2 (deux ordres)', 'Raisonner comme si le sabot était infini en un jeu'],
+      keys: ['P(BJ) ≈ 4,8 %', 'Sans remise : chaque carte change la suite', 'Crever en tirant 16 : plus d\'une fois sur deux'],
+      quiz: [
+        { q: 'P(blackjack) en un paquet :', opts: ['4/52', '2 × 4/52 × 16/51', '16/52', '1/21'], ok: 1, why: 'As puis 10, ou 10 puis as.' },
+        { q: 'En tirant sur un 16 dur, tu crèves avec :', opts: ['Un 5 ou moins', 'Un 6 ou plus', 'Un 10 seulement', 'Un as'], ok: 1, why: '16 + 6 = 22.' },
+      ],
+    },
+    {
+      id: 'esperance', part: 'Mathématiques', title: 'Espérance et variance d\'une main', minutes: 16,
+      goals: ['Lire l\'espérance et l\'écart-type d\'une main', 'Calculer la probabilité d\'être gagnant après N mains'],
+      sections: [
+        ['Distribution d\'une main', (X) => { const o = outcomeStats(X); return `<p>Simulation de ${(o.n / 1000).toFixed(0)} 000 mains, jeu européen, stratégie de base, mise de 1 :</p><div class="stats"><div class="stat"><span>Gagnées</span><b>${pc(o.w)}</b></div><div class="stat"><span>Perdues</span><b>${pc(o.l)}</b></div><div class="stat"><span>Égalités</span><b>${pc(o.p)}</b></div><div class="stat"><span>Espérance</span><b>${sg(o.mean)}</b></div><div class="stat"><span>Écart-type</span><b>${fx(o.sd)}</b></div></div>
+          <p>On perd plus souvent qu'on ne gagne ; le blackjack payé 3:2 et les doubles compensent presque. La variance dépasse 1 (${fx(o.sd * o.sd)}) parce que doubles et splits engagent parfois 2 mises ou plus.</p>`; }],
+        ['N mains', () => `<p>Sur N mains indépendantes : espérance N × μ, écart-type σ × √N. L'espérance grandit comme N, l'écart-type comme √N : l'avantage finit par dominer, mais lentement.</p><div class="formula">P(gagnant après N mains) ≈ Φ(μ √N ÷ σ)</div>
+          <p>Exemple : avantage +1 % par mise (μ = 0,01), σ = 1,15. Après 1 000 mains : Φ(0,01 × 31,6 ÷ 1,15) = ${pc(NORM(0.01 * Math.sqrt(1000) / 1.15), 0)}. Après 100 000 mains : ${pc(NORM(0.01 * Math.sqrt(100000) / 1.15), 0)}.</p>`],
+      ],
+      mistakes: ['Croire que gagner plus de mains qu\'on n\'en perd est nécessaire', 'Juger un avantage de 1 % sur 1 000 mains'],
+      keys: ['σ ≈ 1,15 mise par main', 'Espérance ∝ N, écart-type ∝ √N', 'P(gagnant) ≈ Φ(μ√N/σ)'],
+      quiz: [
+        { q: 'Sur 10 000 mains, l\'écart-type du résultat vaut :', opts: ['σ × 10 000', 'σ × 100', 'σ', 'σ ÷ 100'], ok: 1, why: '√10 000 = 100.' },
+        { q: 'Pourquoi la variance d\'une main dépasse-t-elle 1 ?', opts: ['Le blackjack paie 3:2 et doubles/splits engagent plus d\'une mise', 'Le croupier triche', 'Les égalités', 'Elle ne dépasse pas 1'], ok: 0, why: 'Les résultats possibles vont au-delà de ±1 mise.' },
+      ],
+    },
+    {
+      id: 'retrait', part: 'Mathématiques', title: 'Effets de retrait et estimation linéaire', minutes: 14,
+      goals: ['Lire les effets de retrait (EOR)', 'Estimer l\'avantage d\'un sabot à partir des cartes sorties'],
+      sections: [
+        ['Effets de retrait', (X) => eorTable(X, 'europe') + `<p>Le 5 est la carte la plus favorable au croupier : la retirer aide le joueur plus que toute autre. Les 10 et l'as sont les cartes du joueur. En moyenne pondérée par le nombre de cartes, les effets se compensent presque exactement : retirer une carte au hasard ne change presque rien.</p>`],
+        ['Estimation linéaire', () => `<div class="formula">avantage ≈ avantage de départ + (52 ÷ cartes restantes) × Σ EORᵣ × déficitᵣ</div><p>Le déficit d'un rang est ce qui manque par rapport à une composition proportionnelle. Tout système de comptage est une approximation de cette formule avec des valeurs entières : plus ses valeurs sont proches des EOR (à un facteur près), meilleure est sa BC.</p><p class="note">L'onglet Maths compare l'estimation linéaire au calcul exact pour une composition que tu choisis.</p>`],
+      ],
+      mistakes: ['Lire un EOR comme un effet par sabot (il est par paquet)', 'Oublier que l\'effet d\'une carte diminue quand le sabot est grand'],
+      keys: ['EOR du 5 : le plus fort ; 10 et as : négatifs', 'Un compte imite les EOR avec des entiers', 'Effet ∝ 1 ÷ cartes restantes'],
+      quiz: [
+        { q: 'Retirer un 5 du sabot :', opts: ['Aide le croupier', 'Aide le joueur', 'Ne change rien', 'Aide seulement l\'assurance'], ok: 1, why: 'Le 5 améliore les mains raides du croupier.' },
+        { q: 'L\'effet d\'une carte retirée est plus grand :', opts: ['En début de sabot de 8 jeux', 'Quand il reste peu de cartes', 'Toujours égal', 'En jeu européen seulement'], ok: 1, why: 'Il est proportionnel à 1 ÷ cartes restantes.' },
+      ],
+    },
+    {
+      id: 'kellymaths', part: 'Mathématiques', title: 'Kelly : pourquoi miser avantage ÷ variance', minutes: 16,
+      goals: ['Dériver le critère de Kelly', 'Comprendre le Kelly fractionnaire'],
+      sections: [
+        ['Dérivation', () => `<p>On cherche la fraction f de la bankroll qui maximise la croissance à long terme, soit l'espérance du logarithme du capital. Pour un pari de résultat X (espérance μ, variance σ², petits) :</p>
+          <div class="formula">E[ln(1 + fX)] ≈ f μ − f² σ² ÷ 2</div><p>La dérivée s'annule pour <strong>f* = μ ÷ σ²</strong>. Le taux de croissance obtenu vaut μ² ÷ (2σ²) par main.</p>`],
+        ['Kelly fractionnaire', () => `<p>Miser c × f* donne une croissance c(2 − c) fois celle de Kelly, et une volatilité c fois plus petite. Demi-Kelly : <strong>75 % de la croissance</strong>, moitié de la volatilité. Deux fois Kelly : croissance nulle. Au-delà : ruine à long terme.</p>
+          <p>Avec Kelly entier, la probabilité de voir un jour sa bankroll tomber à une fraction x de sa valeur vaut x : une chance sur deux de la voir divisée par deux. En demi-Kelly, cette probabilité devient x³ (une chance sur huit).</p>`],
+        ['Au blackjack', () => `<p>μ dépend du true count, σ² ≈ 1,3 : la mise optimale à chaque TC vaut avantage(TC) ÷ 1,3 × bankroll. C'est ce que calcule le bouton demi-Kelly de l'onglet Bankroll. Les contraintes (mise minimum de la table, discrétion) imposent ensuite une rampe plus plate.</p>`],
+      ],
+      mistakes: ['Miser Kelly entier', 'Oublier de recalculer les mises quand la bankroll change'],
+      keys: ['f* = μ ÷ σ²', 'Demi-Kelly : 75 % de la croissance, moitié du risque', 'Kelly entier : 50 % de chances de perdre la moitié un jour'],
+      quiz: [
+        { q: 'Croissance relative du demi-Kelly :', opts: ['50 %', '75 %', '100 %', '25 %'], ok: 1, why: 'c(2 − c) avec c = 0,5.' },
+        { q: 'Miser 2 × Kelly :', opts: ['Double la croissance', 'Donne une croissance nulle', 'Est optimal', 'Divise le risque'], ok: 1, why: 'c(2 − c) = 0 pour c = 2.' },
+        { q: 'Kelly entier, probabilité de voir un jour la bankroll divisée par 2 :', opts: ['1/8', '1/2', '1/4', 'Presque nulle'], ok: 1, why: 'P = x avec x = 1/2.' },
+      ],
+    },
+    {
+      id: 'ruinemaths', part: 'Mathématiques', title: 'Risque de ruine, N0, DI, SCORE', minutes: 16,
+      goals: ['Calculer un risque de ruine', 'Comparer des jeux avec N0, DI et SCORE'],
+      sections: [
+        ['Risque de ruine', () => `<p>Si chaque main rapporte en moyenne μ unités avec un écart-type σ, et que l'on joue indéfiniment avec une bankroll B (en unités), l'approximation de diffusion donne :</p><div class="formula">RoR = exp(−2 μ B ÷ σ²)</div><p>Doubler la bankroll élève le risque au carré : 10 % devient 1 %. Avec μ en hausse ou σ en baisse, le risque fond aussi.</p>`],
+        ['N0', () => `<div class="formula">N0 = σ² ÷ μ²</div><p>Le nombre de mains après lequel l'espérance cumulée égale un écart-type. En dessous, la chance domine le résultat.</p>`],
+        ['DI et SCORE', () => `<p><strong>DI</strong> (desirability index) = 1 000 × gain par 100 mains ÷ écart-type par 100 mains. <strong>SCORE</strong> = DI² ÷ 100 : le gain par 100 mains d'un joueur misant Kelly avec 10 000 de bankroll. Les deux ne dépendent pas de la taille de l'unité : ils servent à comparer des jeux, des rampes, des systèmes.</p><div class="formula">N0 = 10⁸ ÷ DI²</div><p class="note">L'onglet Bankroll calcule ces trois valeurs pour ta rampe.</p>`],
+        ['Carte de coupe et pénétration', () => `<p>Plus le croupier coupe profond, plus les true counts extrêmes sont fréquents et plus l'écart de mises rapporte : la pénétration est souvent le premier critère d'une bonne table. À l'inverse, la carte de coupe elle-même coûte un peu au joueur (les sabots riches en petites cartes durent plus de mains). Dans les tests de SIGMA 52, la simulation avec carte de coupe donne un avantage de la maison supérieur de 0,01 à 0,05 point au calcul exact sur sabot neuf (effet de la carte de coupe et des mains de trois cartes jouées au tableau, mêlés).</p>`],
+      ],
+      mistakes: ['Croire qu\'un RoR de 5 % est négligeable', 'Comparer deux rampes par leur seul gain horaire'],
+      keys: ['RoR = exp(−2μB/σ²)', 'N0 = σ²/μ²', 'SCORE = DI²/100, indépendant de l\'unité'],
+      quiz: [
+        { q: 'RoR de 10 %. Avec une bankroll doublée (même rampe) :', opts: ['5 %', '1 %', '20 %', '10 %'], ok: 1, why: '0,1² = 0,01.' },
+        { q: 'μ = 0,03 u/main, σ = 3 u/main. N0 ?', opts: ['100', '10 000', '1 000', '300'], ok: 1, why: '(3 ÷ 0,03)² = 100² = 10 000.' },
+        { q: 'Le SCORE sert à :', opts: ['Classer des joueurs', 'Comparer des jeux et des rampes indépendamment de l\'unité', 'Calculer un indice', 'Estimer la pénétration'], ok: 1, why: 'Il est normalisé à une bankroll et à Kelly.' },
+      ],
+    },
+    {
+      id: 'audela', part: 'Pratique', title: 'Au-delà du comptage : les autres techniques connues', minutes: 16,
+      goals: ['Connaître les techniques d\'avantage hors comptage', 'Mesurer leur légalité et leur réalisme'],
+      sections: [
+        ['Ce qui existe', () => `<ul><li><strong>Suivi de mélange (shuffle tracking)</strong> : repérer un groupe de cartes riche en 10 et as dans la défausse, le suivre à travers un mélange imparfait, couper pour le placer en jeu. Exige un mélange prévisible et beaucoup d'entraînement.</li><li><strong>Séquençage des as</strong> : mémoriser la carte qui précède un as pour le voir revenir après un mélange imparfait. Même principe, encore plus fragile.</li><li><strong>Carte cachée vue (hole carding)</strong> : voir la carte cachée d'un croupier qui la montre par maladresse. Le statut juridique dépend du pays et des moyens ; un appareil ou un complice en fait clairement une fraude.</li><li><strong>Signes involontaires du croupier</strong> : déduire sa carte cachée de son comportement au moment du peek. Rare avec les machines de vérification.</li><li><strong>Wonging</strong> : n'entrer qu'à compte favorable (voir le module sur les mises).</li><li><strong>Jeu en équipe</strong> : des compteurs à mise minimale appellent un gros joueur aux tables chaudes. Puissant, très surveillé.</li><li><strong>Comptes pour mises annexes</strong> : certaines mises annexes deviennent favorables selon la composition ; demande un compte dédié.</li></ul>`],
+        ['Ce qui ne marche pas', () => `<p>Systèmes de mise (Martingale…), lecture de « séries », mélangeurs continus (aucune technique de composition n'y fonctionne), et tout ce qui demande un appareil : interdit, détecté, et pénalement risqué.</p>`],
+        ['Cadre', () => `<p>SIGMA 52 n'entraîne que le comptage, la stratégie et la gestion du capital. Les autres techniques sont décrites pour savoir ce qu'elles sont et ce qu'un casino surveille, pas comme un programme.</p>`],
+      ],
+      mistakes: ['Croire qu\'un mélangeur continu se suit', 'Utiliser un appareil « juste pour vérifier »'],
+      keys: ['Suivi de mélange, séquençage, carte cachée vue, équipe : techniques réelles, rares et surveillées', 'Mélangeur continu : rien ne marche', 'Appareil = fraude'],
+      quiz: [
+        { q: 'Le suivi de mélange exploite :', opts: ['Un mélange imparfait', 'Un mélangeur continu', 'Les séries', 'La Martingale'], ok: 0, why: 'Il faut que des groupes de cartes survivent au mélange.' },
+        { q: 'Avec un mélangeur continu :', opts: ['Le suivi de mélange marche', 'Aucune technique de composition ne marche', 'Le KO marche mieux', 'Le séquençage des as marche'], ok: 1, why: 'Les cartes jouées repartent dans la machine à chaque main.' },
+      ],
+    },
+    {
+      id: 'histoire', part: 'Pratique', title: 'Brève histoire du blackjack mathématique', minutes: 8,
+      goals: ['Situer les grandes étapes'],
+      sections: [
+        ['Repères', () => `<ul><li><strong>1956</strong> : Baldwin, Cantey, Maisel et McDermott publient une stratégie de base calculée à la main dans le Journal of the American Statistical Association.</li><li><strong>1962</strong> : Edward Thorp, <em>Beat the Dealer</em>, montre par ordinateur que la composition du sabot change l'avantage et que l'on peut compter (Ten Count).</li><li><strong>1963</strong> : Harvey Dubner présente le Hi-Lo.</li><li><strong>Années 1970</strong> : Stanford Wong (<em>Professional Blackjack</em>, Halves, wonging), Ken Uston et ses équipes.</li><li><strong>1979</strong> : Peter Griffin, <em>The Theory of Blackjack</em> : effets de retrait, corrélations, fondements mathématiques du comptage.</li><li><strong>1998</strong> : Vancura et Fuchs, <em>Knock-Out Blackjack</em>, le compte déséquilibré KO.</li><li>Ensuite : sabots plus grands, pénétration réduite, mélangeurs continus, paiement 6:5 ; la simulation sur ordinateur devient l'outil de référence.</li></ul>`],
+      ],
+      mistakes: [],
+      keys: ['1956 : stratégie de base', '1962 : Thorp, le comptage', '1979 : Griffin, la théorie'],
+      quiz: [
+        { q: 'Qui a montré en 1962 qu\'on peut battre le blackjack en comptant ?', opts: ['Peter Griffin', 'Edward Thorp', 'Ken Uston', 'Stanford Wong'], ok: 1, why: '« Beat the Dealer », 1962.' },
+      ],
+    },
+  ];
+  // Rangement par parties et insertion des compléments à leur place logique.
+  const PART = { cadre: 'Bases', regles: 'Bases', tables: 'Bases', croupier: 'Bases', dures: 'Stratégie', souples: 'Stratégie', paires: 'Stratégie', abandon: 'Stratégie', memoriser: 'Stratégie', pourquoi: 'Comptage', hilo: 'Comptage', truecount: 'Comptage', indices: 'Comptage', mises: 'Argent', variance: 'Argent', discretion: 'Pratique', session: 'Pratique', mythes: 'Pratique' };
+  for (const m of MODULES) m.part = PART[m.id] || 'Pratique';
+  const insAfter = (id, ms) => { const i = MODULES.findIndex((m) => m.id === id); MODULES.splice(i + 1, 0, ...ms); };
+  const get = (id) => MORE.find((m) => m.id === id);
+  insAfter('indices', ['systemes', 'desequilibres', 'multiniveaux', 'choisir'].map(get));
+  insAfter('variance', ['probas', 'esperance', 'retrait', 'kellymaths', 'ruinemaths'].map(get));
+  insAfter('mythes', ['audela', 'histoire'].map(get));
+  const PARTS = ['Bases', 'Stratégie', 'Comptage', 'Systèmes', 'Argent', 'Mathématiques', 'Pratique'];
+  for (const id of ['variance', 'mises']) { const m = MODULES.find((x) => x.id === id); m.part = 'Argent'; }
+
+  const BJCourse = { MODULES, PARTS, rowLabel, upName, ACTFR, fr, pc, sg };
   if (typeof module !== 'undefined' && module.exports) module.exports = BJCourse; else root.BJCourse = BJCourse;
 })(typeof window !== 'undefined' ? window : globalThis);
