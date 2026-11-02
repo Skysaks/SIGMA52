@@ -1,0 +1,857 @@
+// Espace Blackjack de SIGMA 52 : séance du jour, cours, stratégie exacte selon les règles, entraîneur noté en EV,
+// exercices de comptage Hi-Lo, table d'entraînement complète, simulation de bankroll et journal de séances.
+// Tout s'utilise hors table. Moteur : src/bj_engine.js ; données précalculées : src/bj_data.js ; cours : src/bj_course.js.
+(function () {
+  const X = window.__S52, BJ = window.BJ, D = window.BJDATA, K = window.BJCourse, FS = window.FSRS;
+  if (!X || !BJ || !D || !K) return;
+  const { $, esc, fr, eur, pct, today, addDays, state, Store, render, go, head, cardHTML, backHTML, VIEWS, AFTER, ACT, ONCHANGE, ONINPUT, ONKEY, TABS, GROUPS, drawLines } = X;
+  const TB = [['bj', 'Séance BJ'], ['bjcours', 'Cours BJ'], ['bjstrat', 'Stratégie'], ['bjentr', 'Entraîneur'], ['bjcompte', 'Comptage'], ['bjtable', 'Table BJ'], ['bjbank', 'Bankroll BJ'], ['bjjournal', 'Journal BJ']];
+  TABS.push(...TB);
+  GROUPS.push(['blackjack', 'Blackjack', TB.map((t) => t[0])]);
+  if (X.ICON) X.ICON.blackjack = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="10" height="14" rx="2"/><rect x="10.5" y="3" width="10" height="14" rx="2"/><path d="M13.5 8.5h3.5l-2.2 5.5"/></svg>';
+  const tabNow = X.getTab;
+
+  // ---------- Petits outils ----------
+  const rnd = Math.random, ri = (n) => Math.floor(rnd() * n), pick = (a) => a[ri(a.length)];
+  const sgnP = (x, d = 2) => (x < 0 ? '−' : '+') + fr(Math.abs(x * 100), d) + ' %';
+  const pc = (x, d = 1) => fr(x * 100, d) + ' %';
+  const tcS = (t) => (t > 0 ? '+' : t < 0 ? '−' : '') + Math.abs(t);
+  const UPN = (u) => (u === 1 ? 'As' : String(u));
+  const ACTFR = K.ACTFR, NAMEC = { stand: 'Rester', hit: 'Tirer', double: 'Doubler', split: 'Séparer', surrender: 'Abandonner' };
+  const KEYS = { stand: 's', hit: 't', double: 'd', split: 'p', surrender: 'a' };
+  const ACTCOL = { S: 'var(--sunk)', H: 'color-mix(in srgb, var(--bad) 22%, var(--surface))', D: 'color-mix(in srgb, var(--good) 30%, var(--surface))', P: 'color-mix(in srgb, var(--accent) 30%, var(--surface))', R: 'color-mix(in srgb, var(--gold) 35%, var(--surface))' };
+  // Cartes : entiers 0..51 du moteur poker (rang c >> 2 : 0 = 2 … 12 = As ; couleur c & 3).
+  const val = (c) => { const r = c >> 2; return r <= 7 ? r + 2 : r <= 11 ? 10 : 1; };
+  const cardOfVal = (v) => ((v === 1 ? 12 : v === 10 ? 8 + ri(4) : v - 2) << 2) | ri(4);
+  const handOf = (cs) => { let s = 0, a = false; for (const c of cs) { const v = val(c); s += v; if (v === 1) a = true; } return { sum: s, ace: a, t: BJ.hv(s, a), soft: BJ.isSoft(s, a) }; };
+  const isBJ = (cs) => cs.length === 2 && handOf(cs).t === 21;
+  const cardsRow = (cs, sm) => `<div class="cards">${cs.map((c) => cardHTML(c, sm)).join('')}</div>`;
+  const totalTxt = (cs) => { const h = handOf(cs); return h.soft && h.t < 21 ? `${h.t - 10} / ${h.t}` : String(h.t); };
+  const rowLabel = K.rowLabel;
+  const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = ri(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+  // ---------- État ----------
+  function P() {
+    const p = state.progress; if (!p.bj) p.bj = {};
+    const b = p.bj;
+    b.rk ??= 'europe'; b.cells ??= {}; b.review ??= []; b.quiz ??= {}; b.hist ??= [];
+    b.count ??= {}; for (const k of ['flash', 'deck', 'tc', 'tray', 'ramp', 'round', 'ins']) b.count[k] ??= { ok: 0, n: 0, best: null, last: [] };
+    b.ramp ??= [1, 1, 2, 4, 6, 8, 10]; b.bank ??= { unit: 10, bankroll: 5000, hph: 70, pen: 0.75, others: 2, hands: 300000, indices: true };
+    b.sessions ??= []; b.daily ??= { date: '', n: 0, ok: 0 }; b.tbl ??= { hands: 0, dec: 0, err: 0, evl: 0, cnt: 0, cntOk: 0, bets: 0, betOk: 0 };
+    b.opts ??= { timer: 0 };
+    return b;
+  }
+  const save = () => Store.save('progress');
+
+  // ---------- Jeu de règles courant ----------
+  // Le double est-il permis sur la ligne (mains de deux cartes) avec ces règles ?
+  const canDouble = (rowId, rules) => {
+    if (rules.double === 'any') return true;
+    if (rowId[0] === 's' || rowId === 'p1') return false;
+    const t = rowId[0] === 'p' ? 2 * +rowId.slice(1) : +rowId.slice(1);
+    return rules.double === '9-11' ? t >= 9 && t <= 11 : t >= 10 && t <= 11;
+  };
+  const validDev = (d, rules) => {
+    if ((d.act === 'surrender' || d.basic === 'surrender') && !(rules.surrender && rules.peek)) return false;
+    if ((d.act === 'double' || d.basic === 'double') && !canDouble(d.row, rules)) return false;
+    return true;
+  };
+  function nearPreset(r) { if (!r.peek) return 'europe'; if (r.bj < 1.5) return 'sixcinq'; if (r.decks <= 2) return 'deux'; return r.h17 ? 'h17' : 'strip'; }
+  function game() {
+    const b = P();
+    if (b.rk === 'custom' && b.custom) {
+      const near = nearPreset(b.custom.rules), N = D.presets[near];
+      return { key: 'custom', label: 'Règles personnalisées', note: `Indices et avantage par true count repris du jeu le plus proche (« ${N.label} »).`, rules: b.custom.rules, table: b.custom.table, edge: b.custom.edge, indices: N.indices.filter((d) => validDev(d, b.custom.rules)), insurance: N.insurance, edgeByTC: N.edgeByTC, near };
+    }
+    const k = D.presets[b.rk] ? b.rk : 'europe';
+    return { key: k, ...D.presets[k] };
+  }
+  function recommend(G, rowId, up, avail, tc) {
+    const cell = G.table[rowId]?.[up];
+    let order = cell ? cell.o.slice() : ['hit', 'stand'];
+    if (tc !== null && tc !== undefined) for (const d of G.indices) if (d.row === rowId && d.up === up) {
+      const on = d.dir > 0 ? tc >= d.index : tc < d.index;
+      if (on) order = [d.act].concat(order.filter((x) => x !== d.act));
+    }
+    for (const k of order) if (avail[k]) return k;
+    return avail.hit ? 'hit' : 'stand';
+  }
+  // Ligne du tableau pour une main (cartes UI). canSplit : la paire peut encore être séparée.
+  function rowOf(cs, canSplit) {
+    const h = handOf(cs);
+    if (cs.length === 2 && val(cs[0]) === val(cs[1]) && canSplit) return 'p' + val(cs[0]);
+    if (h.soft) return h.t >= 21 ? null : h.t === 12 ? 'soft12' : 's' + (h.t - 11);
+    return 'h' + Math.max(5, Math.min(19, h.t));
+  }
+  const ins = (G) => G.insurance.index;
+  const ruleTxt = (r) => [`${r.decks} jeu${r.decks > 1 ? 'x' : ''}`, r.h17 ? 'croupier tire soft 17' : 'croupier reste sur soft 17', r.peek ? 'carte cachée vérifiée (peek)' : (r.obo ? 'sans carte cachée, mise initiale seule perdue' : 'sans carte cachée, toutes mises perdues'), r.double === 'any' ? 'double sur toute main' : 'double sur ' + r.double.replace('-', ' à '), r.das ? 'double après split' : 'pas de double après split', r.maxHands >= 4 ? 'jusqu\'à 4 mains' : r.maxHands === 3 ? 'jusqu\'à 3 mains' : 'un seul split', r.rsa ? 're-split des as' : '', r.surrender && r.peek ? 'abandon' : 'pas d\'abandon', r.bj === 1.5 ? 'blackjack 3:2' : 'blackjack 6:5'].filter(Boolean).join(' · ');
+
+  // ---------- Révisions espacées ----------
+  const dueBJ = () => P().review.filter((r) => r.due <= today());
+  function reviewGrade(key, spot, g) {
+    const b = P(), idx = b.review.findIndex((r) => r.key === key), now = Date.now(), R = +state.settings.retention || 0.9, ymdOf = (ms) => { const d = new Date(ms); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+    if (idx < 0) { if (g > 1) return; const f = FS ? FS.init(1, now) : null; b.review.push({ key, spot, f, due: f ? ymdOf(FS.dueAt(f, R)) : addDays(1) }); if (b.review.length > 300) b.review.shift(); return; }
+    const r = b.review[idx];
+    if (!FS) { r.due = addDays(g > 1 ? 7 : 1); return; }
+    r.f = FS.review(r.f || FS.init(1, now), g, now); r.due = ymdOf(FS.dueAt(r.f, R));
+    if (g > 1 && r.f.s > 365) b.review.splice(idx, 1);
+  }
+
+  // ---------- Maîtrise de la stratégie ----------
+  const cellKey = (row, up) => row + '|' + up;
+  const allCells = () => BJ.ROWS.flatMap((r) => BJ.UPS.map((u) => cellKey(r.id, u)));
+  function mastery() {
+    const b = P(), cells = allCells(), seen = cells.filter((k) => b.cells[k]?.n).length, mast = cells.filter((k) => (b.cells[k]?.st || 0) >= 3).length;
+    const h = b.hist.slice(-200), acc = h.length ? h.reduce((a, x) => a + x, 0) / h.length : null;
+    return { cells: cells.length, seen, mast, acc, n: h.length, done: mast === cells.length && h.length >= 200 && acc >= 0.98 };
+  }
+  function recordCell(row, up, ok) {
+    const b = P(), c = (b.cells[cellKey(row, up)] ||= { n: 0, ok: 0, st: 0 });
+    c.n++; if (ok) { c.ok++; c.st++; } else c.st = 0;
+    b.hist.push(ok ? 1 : 0); if (b.hist.length > 400) b.hist.splice(0, b.hist.length - 400);
+    const d = b.daily.date === today() ? b.daily : (b.daily = { date: today(), n: 0, ok: 0 }); d.n++; if (ok) d.ok++;
+  }
+  // Étapes de progression : chaque seuil est un critère d'entraînement fixé par SIGMA 52.
+  function ladder() {
+    const b = P(), m = mastery(), c = b.count, t = b.tbl;
+    const lastOk = (k, n) => c[k].last.length >= n && c[k].last.slice(-n).every((x) => x);
+    const deckOk = c.deck.last.slice(-3).length === 3 && c.deck.last.slice(-3).every((x) => x && x.ok && x.s <= 30);
+    const quizOk = K.MODULES.filter((mm) => (b.quiz[mm.id] || 0) >= 0.8).length;
+    const devAcc = (() => { const h = b.devHist || []; return h.length >= 50 ? h.slice(-50).reduce((a, x) => a + x, 0) / 50 : null; })();
+    return [
+      { t: 'Stratégie de base à 100 %', d: `${m.mast}/${m.cells} cases réussies 3 fois de suite · ${m.acc === null ? '—' : pc(m.acc)} sur les ${m.n} dernières (objectif 98 % sur 200)`, ok: m.done, go: 'bjentr' },
+      { t: 'Running count rapide et juste', d: 'Paquet chrono : trois fois de suite juste en 30 s ou moins', ok: deckOk, go: 'bjcompte' },
+      { t: 'True count et paquets restants', d: `Conversion et bac à défausse : 10 réponses justes de suite dans chaque exercice`, ok: lastOk('tc', 10) && lastOk('tray', 10), go: 'bjcompte' },
+      { t: 'Déviations', d: devAcc === null ? 'Entraîneur, mode Indices : 50 décisions minimum' : `${pc(devAcc)} sur les 50 dernières décisions d'indices (objectif 95 %)`, ok: devAcc !== null && devAcc >= 0.95, go: 'bjentr' },
+      { t: 'Table complète', d: `${t.hands} mains jouées · ${t.dec ? pc(1 - t.err / t.dec) : '—'} de décisions justes · comptes justes ${t.cnt ? pc(t.cntOk / t.cnt) : '—'} (objectif : 500 mains, 99 % et 95 %)`, ok: t.hands >= 500 && t.dec && 1 - t.err / t.dec >= 0.99 && t.cnt >= 10 && t.cntOk / t.cnt >= 0.95, go: 'bjtable' },
+      { t: 'Cours et plan de mise', d: `${quizOk}/${K.MODULES.length} modules validés · simulation de bankroll ${b.lastSim ? 'faite' : 'à faire'}`, ok: quizOk === K.MODULES.length && !!b.lastSim, go: 'bjbank' },
+    ];
+  }
+
+  // =====================================================================
+  // Séance du jour
+  // =====================================================================
+  VIEWS.bj = () => {
+    const b = P(), G = game(), m = mastery(), due = dueBJ().length, d = b.daily.date === today() ? b.daily : { n: 0, ok: 0 };
+    const nextMod = K.MODULES.find((mm) => !((b.quiz[mm.id] || 0) >= 0.8)), L = ladder(), step = L.findIndex((x) => !x.ok);
+    const bestDeck = b.count.deck.best;
+    return `<section style="display:grid;gap:8px"><span class="eyebrow">${new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })} · blackjack</span>
+      <h1>Ta séance blackjack</h1><p class="lead">Révisions, 30 décisions, un paquet compté au chrono, un module. Le jeu choisi : <strong>${esc(G.label)}</strong>, avantage de la maison ${pc(G.edge, 2)} en stratégie de base.</p></section>
+    <div class="warnbox"><strong>Hors table, toujours.</strong> Au casino, rien d'autre que ta tête : ni téléphone, ni carte imprimée, ni SIGMA 52. Une aide extérieure à la table est le motif d'exclusion le plus net. En France, le blackjack en ligne n'est pas une offre agréée par l'ANJ.</div>
+    <div class="stats">
+      <div class="stat hero"><span>Stratégie de base</span><b>${m.acc === null ? '—' : pc(m.acc)}</b><span>${m.mast}/${m.cells} cases maîtrisées</span></div>
+      <div class="stat"><span>Révisions dues</span><b>${due}</b><span>${b.review.length} erreurs suivies</span></div>
+      <div class="stat"><span>Paquet chrono</span><b>${bestDeck ? fr(bestDeck, 1) + ' s' : '—'}</b><span>meilleur temps juste</span></div>
+      <div class="stat"><span>Cours blackjack</span><b>${K.MODULES.filter((mm) => (b.quiz[mm.id] || 0) >= 0.8).length}/${K.MODULES.length}</b><span>modules à 80 %</span></div>
+    </div>
+    <div class="grid3">
+      <section class="panel"><span class="eyebrow">1 · Révisions</span><h2>${due ? due + ' erreur' + (due > 1 ? 's' : '') + ' à revoir' : 'Rien à revoir'}</h2><p class="note">Chaque erreur de l'Entraîneur et des quiz revient à intervalle croissant jusqu'à ce que tu la réussisses.</p>
+        <div class="row"><button class="btn${due ? ' primary' : ''}" data-act="bjgo" data-to="bjentr" data-mode="review" ${due ? '' : 'disabled'}>Réviser</button></div></section>
+      <section class="panel"><span class="eyebrow">2 · Entraînement</span><h2>${d.n >= 30 ? 'Fait : ' + d.ok + '/' + d.n : d.n + '/30 décisions'}</h2><div class="meter"><i style="width:${Math.min(100, d.n / 30 * 100)}%"></i></div>
+        <p class="note">${step <= 0 ? 'Mode faiblesses : les cases où tu te trompes reviennent plus souvent.' : step >= 3 ? 'Mode mixte : stratégie de base et indices.' : 'Puis un paquet chrono dans Comptage.'}</p>
+        <div class="row"><button class="btn primary" data-act="bjgo" data-to="bjentr" data-mode="${step >= 3 ? 'mix' : 'weak'}">${d.n ? 'Continuer' : 'Commencer'}</button><button class="btn" data-act="bjgo" data-to="bjcompte" data-drill="deck">Paquet chrono</button></div></section>
+      <section class="panel"><span class="eyebrow">3 · Cours</span><h2>${nextMod ? esc(nextMod.title) : 'Cours validé'}</h2><p class="note">${nextMod ? nextMod.minutes + ' min de lecture, puis le quiz.' : 'Relis les modules liés à tes erreurs.'}</p>
+        <div class="row"><button class="btn" data-act="bjmod" data-id="${nextMod ? nextMod.id : K.MODULES[0].id}">${nextMod ? 'Lire' : 'Revoir'}</button></div></section>
+    </div>
+    <section class="panel"><span class="eyebrow">Progression</span><h2>Six étapes avant la première séance réelle</h2>
+      <div class="tsteps">${L.map((x, i) => `<div class="tstep${x.ok ? ' done' : ''}"><span class="tn">${x.ok ? '✓' : i + 1}</span><span class="tl"><strong>${esc(x.t)}</strong><br><span class="note">${esc(x.d)}</span></span>${!x.ok && i === step ? `<button class="btn small primary" data-tab="${x.go}">Y aller</button>` : ''}</div>`).join('')}</div>
+      <p class="note">Seuils fixés par SIGMA 52 pour l'entraînement. Ils mesurent ta précision, pas ta capacité à gagner : la variance du jeu réel reste entière.</p></section>
+    <section class="panel"><span class="eyebrow">Avant d'aller au casino</span><h2>Checklist</h2>
+      ${['J\'ai lu la pancarte de la table et entré ses règles dans Stratégie.', 'J\'ai fait 30 décisions sans erreur et un paquet chrono juste aujourd\'hui.', 'Mon capital de séance et ma rampe de mises sont fixés à l\'avance.', 'Je suis reposé, sans alcool, sans perte récente qui me travaille.', 'Je sais quoi faire si je perds le compte : mise minimum jusqu\'au mélange.', 'Aucun appareil ni aide écrite ne sortira de ma poche pendant le jeu.']
+        .map((t, i) => `<label class="check"><input type="checkbox" data-bjck="${i}"><span>${t}</span></label>`).join('')}
+      <p id="bjckDone" class="pill good" hidden>Prêt. Ferme SIGMA 52 ; une seule chose à faire : décisions justes, compte juste, mise juste.</p></section>`;
+  };
+  ONCHANGE.push((t) => { if (t.dataset.bjck !== undefined) { const all = [...document.querySelectorAll('[data-bjck]')]; const el = $('#bjckDone'); if (el) el.hidden = !all.every((x) => x.checked); return true; } });
+  ACT.bjgo = (t) => { if (t.dataset.mode) { tr.mode = t.dataset.mode; tr.spot = null; } if (t.dataset.drill) { cd.drill = t.dataset.drill; cdReset(); } go(t.dataset.to); };
+
+  // =====================================================================
+  // Cours
+  // =====================================================================
+  let openMod = null, qAns = {};
+  const CX = { D, BJ };
+  VIEWS.bjcours = () => {
+    const b = P();
+    if (openMod) {
+      const m = K.MODULES.find((x) => x.id === openMod), i = K.MODULES.indexOf(m), nxt = K.MODULES[i + 1];
+      const done = Object.keys(qAns).length === m.quiz.length, right = m.quiz.filter((q, k) => qAns[k] === q.ok).length;
+      let secs = '';
+      for (const [h, f] of m.sections) { let html; try { html = f(CX); } catch (e) { html = '<p class="note">Contenu indisponible.</p>'; } secs += `<section><h2>${h}</h2><div class="prose tw">${html}</div></section>`; }
+      const quiz = m.quiz.map((q, qi) => { const a = qAns[qi]; return `<div class="panel" style="gap:10px"><p><strong>${qi + 1}.</strong> ${esc(q.q)}</p><div class="opts">${q.opts.map((o, oi) => `<button class="opt${a !== undefined && oi === q.ok ? ' ok' : ''}${a === oi && oi !== q.ok ? ' ko' : ''}" data-act="bjq" data-q="${qi}" data-i="${oi}" ${a !== undefined ? 'disabled' : ''}>${esc(o)}</button>`).join('')}</div>${a !== undefined ? `<div class="verdict ${a === q.ok ? 'good' : 'bad'}"><b>${a === q.ok ? 'Juste.' : 'Non : ' + esc(q.opts[q.ok]) + '.'}</b><span>${esc(q.why)}</span></div>` : ''}</div>`; }).join('');
+      return `<div class="row"><button class="btn small" data-act="bjclose">← Tous les modules</button><span class="eyebrow">Module ${i + 1} sur ${K.MODULES.length} · ${m.minutes} min</span></div>
+      <article class="panel prose"><h1>${esc(m.title)}</h1><div class="warnbox"><strong>À la fin de ce module, tu sauras :</strong><ul>${m.goals.map((g) => `<li>${esc(g)}</li>`).join('')}</ul></div>${secs}
+        <div class="grid2"><section class="panel" style="background:var(--bad-bg);border-color:transparent"><h3>Erreurs fréquentes</h3><ul>${m.mistakes.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></section>
+        <section class="panel" style="background:var(--good-bg);border-color:transparent"><h3>À retenir</h3><ul>${m.keys.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></section></div></article>
+      <section style="display:grid;gap:10px"><div class="row" style="justify-content:space-between"><h2>Quiz du module</h2>${b.quiz[m.id] !== undefined ? `<span class="pill ${(b.quiz[m.id] || 0) >= 0.8 ? 'good' : ''}">Meilleur score : ${pct(b.quiz[m.id])}</span>` : ''}</div>${quiz}
+        ${done ? `<div class="verdict ${right / m.quiz.length >= 0.8 ? 'good' : 'bad'}"><b>${right}/${m.quiz.length} · ${right / m.quiz.length >= 0.8 ? 'Module validé.' : 'Seuil : 80 %. Relis puis recommence.'}</b>${right < m.quiz.length ? '<span>Tes erreurs reviennent dans les Révisions.</span>' : ''}</div><div class="row"><button class="btn" data-act="bjqreset">Recommencer</button></div>` : ''}</section>
+      <div class="row">${nxt ? `<button class="btn primary" data-act="bjmod" data-id="${nxt.id}">Module suivant →</button>` : ''}<button class="btn" data-tab="bjentr">Entraîneur</button><button class="btn" data-tab="bjcompte">Comptage</button></div>`;
+    }
+    const nM = K.MODULES.filter((m) => (b.quiz[m.id] || 0) >= 0.8).length, mins = K.MODULES.reduce((a, m) => a + m.minutes, 0);
+    return head('Cours de blackjack', `${K.MODULES.length} modules, du cadre légal au comptage Hi-Lo, aux indices et à la gestion du capital. Lecture ≈ ${Math.round(mins / 60 * 10) / 10} h ; les chiffres viennent du moteur exact de SIGMA 52, pas de citations recopiées.`) +
+      `<div class="stats"><div class="stat hero"><span>Modules validés</span><b>${nM}/${K.MODULES.length}</b><span>quiz à 80 % ou plus</span></div><div class="stat"><span>Jeu de référence</span><b style="font-size:16px">${esc(game().label)}</b><span>modifiable dans Stratégie</span></div></div>
+      <div class="modlist">${K.MODULES.map((m, i) => { const sc = b.quiz[m.id], ok = (sc || 0) >= 0.8; return `<button class="mod${ok ? ' done' : ''}" data-act="bjmod" data-id="${m.id}"><span class="n">${ok ? '✓' : String(i + 1).padStart(2, '0')}</span><span><h3>${esc(m.title)}</h3><span class="note">${m.sections.map((x) => x[0]).join(' · ')}</span></span><span class="note mono" style="text-align:right">${m.minutes} min${sc !== undefined ? '<br>quiz ' + pct(sc) : ''}</span></button>`; }).join('')}</div>`;
+  };
+  ACT.bjmod = (t) => { openMod = t.dataset.id; qAns = {}; if (tabNow() !== 'bjcours') go('bjcours'); else { render(); window.scrollTo(0, 0); } };
+  ACT.bjclose = () => { openMod = null; render(); };
+  ACT.bjqreset = () => { qAns = {}; render(); };
+  ACT.bjq = (t) => {
+    const m = K.MODULES.find((x) => x.id === openMod), qi = +t.dataset.q, i = +t.dataset.i, b = P();
+    if (qAns[qi] !== undefined) return; qAns[qi] = i;
+    const q = m.quiz[qi];
+    if (q.ok !== i) reviewGrade('quiz:' + m.id + ':' + qi, { kind: 'quiz', mod: m.id, qi }, 1);
+    else if (b.review.some((r) => r.key === 'quiz:' + m.id + ':' + qi)) reviewGrade('quiz:' + m.id + ':' + qi, null, 3);
+    if (Object.keys(qAns).length === m.quiz.length) { const sc = m.quiz.filter((qq, k) => qAns[k] === qq.ok).length / m.quiz.length; b.quiz[m.id] = Math.max(b.quiz[m.id] || 0, sc); }
+    save(); render();
+  };
+
+  // =====================================================================
+  // Stratégie et règles
+  // =====================================================================
+  let cellSel = null, cust = null, custRun = null;
+  const custDefault = () => Object.assign({}, game().rules);
+  function chart(G, kind, devTC) {
+    const rows = BJ.ROWS.filter((r) => r.kind === kind);
+    const devs = new Set(G.indices.map((d) => cellKey(d.row, d.up)));
+    return `<div class="tw"><table class="t bjchart"><thead><tr><th>${kind === 'hard' ? 'Dur' : kind === 'soft' ? 'Souple' : 'Paire'}</th>${BJ.UPS.map((u) => `<th class="n">${UPN(u)}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => `<tr><td><strong>${esc(r.label === '19' ? '19+' : r.label)}</strong></td>${BJ.UPS.map((u) => { const c = G.table[r.id][u], code = devTC !== undefined ? codeAtTC(G, r.id, u, devTC) : c.c, k = cellKey(r.id, u); return `<td class="bjc${cellSel === k ? ' sel' : ''}${devs.has(k) ? ' dev' : ''}" style="background:${ACTCOL[code[0]]}" data-act="bjcell" data-k="${k}" title="${esc(rowLabel(r.id))} contre ${UPN(u)}">${code}</td>`; }).join('')}</tr>`).join('')}</tbody></table></div>`;
+  }
+  function codeAtTC(G, row, up, tc) {
+    const cell = G.table[row][up], avail = { stand: true, hit: true, double: cell.ev.double !== undefined, split: cell.ev.split !== undefined, surrender: cell.ev.surrender !== undefined };
+    const a = recommend(G, row, up, avail, tc), base = cell.o.find((k) => avail[k]);
+    if (a === base) return cell.c;
+    return { stand: 'S', hit: 'H', double: 'D', split: 'P', surrender: 'R' }[a] + '*';
+  }
+  let stratTC = null;
+  VIEWS.bjstrat = () => {
+    const b = P(), G = game(), cs = cellSel && cellSel.split('|');
+    let detail = '';
+    if (cs) {
+      const [row, up] = [cs[0], +cs[1]], c = G.table[row][up], evs = Object.entries(c.ev).sort((x, y) => y[1] - x[1]), best = evs[0][1];
+      const devs = G.indices.filter((d) => d.row === row && d.up === up);
+      detail = `<section class="panel"><span class="eyebrow">Case choisie</span><h2>${esc(rowLabel(row))} contre ${UPN(up)}</h2>
+        <div class="tw"><table class="t bjt"><thead><tr><th>Action</th><th class="n">EV (en mise)</th><th class="n">Écart avec la meilleure</th></tr></thead><tbody>${evs.map(([k, v]) => `<tr><td>${NAMEC[k]}</td><td class="n">${sgnP(v)}</td><td class="n">${v === best ? '—' : sgnP(v - best)}</td></tr>`).join('')}</tbody></table></div>
+        <p class="note">EV moyenne des mains de deux cartes qui forment cette ligne, sabot complet. ${G.rules.peek ? 'Avec peek : sachant que le croupier n\'a pas blackjack.' : 'Sans carte cachée : le blackjack du croupier est compté dans l\'EV.'}</p>
+        ${devs.length ? `<p><strong>Indice :</strong> ${devs.map((d) => `${ACTFR[d.act]} si TC ${d.dir > 0 ? '≥' : '<'} ${tcS(d.index)} (calcul exact ${fr(d.exact, 2)})`).join(' ; ')}.</p>` : ''}</section>`;
+    }
+    const custForm = cust ? `<section class="panel"><h2>Règles personnalisées</h2><div class="form">
+        <label class="f">Jeux de cartes<select data-bjr="decks">${[1, 2, 4, 5, 6, 8].map((n) => `<option ${cust.decks === n ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+        <label class="f">Soft 17<select data-bjr="h17"><option value="0" ${!cust.h17 ? 'selected' : ''}>Le croupier reste</option><option value="1" ${cust.h17 ? 'selected' : ''}>Le croupier tire</option></select></label>
+        <label class="f">Carte cachée<select data-bjr="peek"><option value="peek" ${cust.peek ? 'selected' : ''}>Oui (peek)</option><option value="enhc" ${!cust.peek && !cust.obo ? 'selected' : ''}>Non, toutes mises perdues</option><option value="obo" ${!cust.peek && cust.obo ? 'selected' : ''}>Non, mise initiale seule</option></select></label>
+        <label class="f">Double<select data-bjr="double">${[['any', 'Toute main'], ['9-11', '9, 10, 11'], ['10-11', '10, 11']].map(([v, l]) => `<option value="${v}" ${cust.double === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+        <label class="f">Double après split<select data-bjr="das"><option value="1" ${cust.das ? 'selected' : ''}>Oui</option><option value="0" ${!cust.das ? 'selected' : ''}>Non</option></select></label>
+        <label class="f">Mains max après split<select data-bjr="maxHands">${[2, 3, 4].map((n) => `<option ${cust.maxHands === n ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+        <label class="f">Re-split des as<select data-bjr="rsa"><option value="0" ${!cust.rsa ? 'selected' : ''}>Non</option><option value="1" ${cust.rsa ? 'selected' : ''}>Oui</option></select></label>
+        <label class="f">Abandon<select data-bjr="surrender"><option value="0" ${!cust.surrender ? 'selected' : ''}>Non</option><option value="1" ${cust.surrender ? 'selected' : ''}>Oui (tardif)</option></select></label>
+        <label class="f">Blackjack payé<select data-bjr="bj"><option value="1.5" ${cust.bj === 1.5 ? 'selected' : ''}>3:2</option><option value="1.2" ${cust.bj !== 1.5 ? 'selected' : ''}>6:5</option></select></label></div>
+      <div class="row"><button class="btn primary" data-act="bjcalc" ${custRun ? 'disabled' : ''}>${custRun ? `Calcul… ${custRun.done}/${custRun.total} lignes` : 'Calculer la stratégie exacte'}</button><button class="btn" data-act="bjcustcancel">Fermer</button><span class="note">Calcul exact dans ton navigateur, 10 à 40 secondes.</span></div>
+      ${custRun ? `<div class="meter"><i style="width:${custRun.done / custRun.total * 100}%"></i></div>` : ''}${!cust.peek && cust.surrender ? '<p class="note">L\'abandon n\'est pas modélisé sans carte cachée : il est ignoré.</p>' : ''}</section>` : '';
+    return head('Stratégie et règles', 'La stratégie de base exacte pour les règles de ta table, l\'EV de chaque action, les indices Hi-Lo et le coût de chaque règle.') +
+      `<section class="panel"><span class="eyebrow">Jeu de règles</span><div class="row">${Object.entries(D.presets).map(([k, p]) => `<button class="chip" aria-pressed="${b.rk === k}" data-act="bjrk" data-k="${k}">${esc(p.label)}</button>`).join('')}${b.custom ? `<button class="chip" aria-pressed="${b.rk === 'custom'}" data-act="bjrk" data-k="custom">Personnalisé</button>` : ''}<button class="btn small" data-act="bjcust">Entrer les règles de ma table</button></div>
+        <p class="note">${esc(ruleTxt(G.rules))}</p>${G.note ? `<p class="note">${esc(G.note)}</p>` : ''}
+        <div class="stats"><div class="stat hero"><span>Avantage de la maison</span><b>${pc(G.edge, 2)}</b><span>stratégie de base, calcul exact</span></div><div class="stat"><span>Indice d'assurance</span><b>TC ${tcS(ins(G))}</b><span>seuil exact ${fr(G.insurance.exact, 2)}</span></div><div class="stat"><span>Avantage au TC +3</span><b>${sgnP(G.edgeByTC.find((x) => x[0] === 3)[1])}</b><span>jeu optimal, sabot moyen</span></div></div></section>
+      ${custForm}
+      <section class="panel"><div class="row" style="justify-content:space-between"><h2>Tableau de stratégie</h2><div class="row"><label class="note">Afficher pour un true count <select data-bjstc><option value="">— stratégie de base —</option>${[-3, -2, -1, 0, 1, 2, 3, 4, 5, 6].map((t) => `<option value="${t}" ${stratTC === t ? 'selected' : ''}>${tcS(t)}</option>`).join('')}</select></label><button class="btn small" data-act="bjprint">Version imprimable</button></div></div>
+        <p class="note"><span class="dot" style="background:${ACTCOL.H}"></span>H tirer <span class="dot" style="background:${ACTCOL.S}"></span>S rester <span class="dot" style="background:${ACTCOL.D}"></span>Dh/Ds doubler, sinon tirer/rester <span class="dot" style="background:${ACTCOL.P}"></span>P séparer <span class="dot" style="background:${ACTCOL.R}"></span>Rh/Rs/Rp abandonner, sinon tirer/rester/séparer. Case soulignée : un indice existe. ${stratTC !== null ? 'Astérisque : décision changée par un indice à ce true count.' : ''} Clique une case pour l'EV de chaque action.</p>
+        <div class="bjcharts">${chart(G, 'hard', stratTC ?? undefined)}${chart(G, 'soft', stratTC ?? undefined)}${chart(G, 'pair', stratTC ?? undefined)}</div></section>
+      ${detail}
+      <div class="grid2"><section class="panel"><h2>Indices Hi-Lo de ce jeu</h2>${indexTbl(G)}<p class="note">Calcul SIGMA 52 : sabot moyen au true count donné, à mi-sabot, EV exacte des deux actions ; l'indice est le TC où elles s'égalisent, arrondi. Les tables publiées peuvent différer d'un point.</p></section>
+        <section class="panel"><h2>Ce que coûte chaque règle</h2><div class="tw"><table class="t bjt"><tbody>${D.ruleCosts.rows.map(([l, d]) => `<tr><td>${esc(l)}</td><td class="n" style="color:var(${d > 0 ? '--bad' : '--good'})">${sgnP(d)}</td></tr>`).join('')}</tbody></table></div><p class="note">Par rapport à « ${esc(D.ruleCosts.base)} » (${pc(D.ruleCosts.baseEdge, 2)}). Positif : la règle coûte au joueur.</p></section></div>
+      <section class="panel"><h2>Avantage du joueur par true count</h2><div class="tw"><table class="t bjt"><thead><tr><th>TC</th>${G.edgeByTC.map(([t]) => `<th class="n">${tcS(t)}</th>`).join('')}</tr></thead><tbody><tr><td>Avantage</td>${G.edgeByTC.map(([, e]) => `<td class="n" style="color:var(${e > 0 ? '--good' : '--bad'})">${sgnP(e, 1)}</td>`).join('')}</tr></tbody></table></div><p class="note">Composition moyenne à chaque TC, jeu optimal selon la composition, assurance prise quand elle est rentable. Sert à construire la rampe dans Bankroll.</p></section>`;
+  };
+  function indexTbl(G) {
+    const L = G.indices.slice().sort((a, b) => (a.set === b.set ? 0 : a.set === 'I18' ? -1 : b.set === 'I18' ? 1 : a.set === 'Fab4' ? -1 : 1));
+    return `<div class="tw"><table class="t bjt"><thead><tr><th>Main</th><th>Contre</th><th>Base</th><th>Déviation</th><th>Quand</th><th>Série</th></tr></thead><tbody><tr><td>Assurance</td><td>As</td><td>non</td><td><strong>prendre</strong></td><td class="mono">TC ≥ ${tcS(ins(G))}</td><td>I18</td></tr>${L.map((d) => `<tr><td>${esc(rowLabel(d.row))}</td><td>${UPN(d.up)}</td><td>${ACTFR[d.basic]}</td><td><strong>${ACTFR[d.act]}</strong></td><td class="mono">TC ${d.dir > 0 ? '≥' : '<'} ${tcS(d.index)}</td><td>${d.set === 'plus' ? '+' : d.set}</td></tr>`).join('')}</tbody></table></div>`;
+  }
+  ACT.bjrk = (t) => { P().rk = t.dataset.k; cellSel = null; tbl = null; save(); render(); };
+  ACT.bjcell = (t) => { cellSel = cellSel === t.dataset.k ? null : t.dataset.k; render(); };
+  ACT.bjcust = () => { cust = custDefault(); render(); };
+  ACT.bjcustcancel = () => { cust = null; custRun = null; render(); };
+  ONCHANGE.push((t) => {
+    if (t.dataset.bjstc !== undefined) { stratTC = t.value === '' ? null : +t.value; render(); return true; }
+    if (t.dataset.bjr && cust) {
+      const k = t.dataset.bjr, v = t.value;
+      if (k === 'peek') { cust.peek = v === 'peek'; cust.obo = v === 'obo'; }
+      else if (k === 'double') cust.double = v;
+      else if (['h17', 'das', 'rsa', 'surrender'].includes(k)) cust[k] = v === '1';
+      else cust[k] = +v;
+      render(); return true;
+    }
+  });
+  ACT.bjcalc = () => {
+    if (custRun) return;
+    const rules = BJ.R(Object.assign({}, cust, { surrender: cust.surrender && cust.peek })), calc = BJ.Calc(rules), base = BJ.shoeOf(rules.decks), rows = BJ.ROWS.slice(), table = {};
+    custRun = { done: 0, total: rows.length }; render();
+    const step = () => {
+      const row = rows[custRun.done]; table[row.id] = {};
+      for (const up of BJ.UPS) { const ev = BJ.rowEV(calc, base, row, up), d = BJ.decide(ev); table[row.id][up] = { c: d.code, o: d.order, ev: Object.fromEntries(Object.entries(ev).map(([k, v]) => [k, Math.round(v * 1e4) / 1e4])) }; }
+      custRun.done++;
+      if (custRun.done < rows.length) { if (tabNow() === 'bjstrat') render(); setTimeout(step, 0); return; }
+      const strat = { calc, table: Object.fromEntries(Object.entries(table).map(([r, o]) => [r, Object.fromEntries(Object.entries(o).map(([u, c]) => [u, { order: c.o }]))])) };
+      const edge = BJ.houseEdge(rules, { strat });
+      const b = P(); b.custom = { rules, table, edge: Math.round(edge * 1e4) / 1e4 }; b.rk = 'custom'; save();
+      custRun = null; cust = null; tbl = null; render();
+    };
+    setTimeout(step, 30);
+  };
+  ACT.bjprint = () => {
+    const G = game(), w = window.open('', '_blank'); if (!w) return;
+    const tbl2 = (kind) => { const rows = BJ.ROWS.filter((r) => r.kind === kind); return `<table><tr><th></th>${BJ.UPS.map((u) => `<th>${UPN(u)}</th>`).join('')}</tr>${rows.map((r) => `<tr><th>${r.label}</th>${BJ.UPS.map((u) => { const c = G.table[r.id][u].c; return `<td class="${c[0]}">${c}</td>`; }).join('')}</tr>`).join('')}</table>`; };
+    w.document.write(`<!doctype html><meta charset="utf-8"><title>Stratégie de base · ${esc(G.label)}</title><style>body{font:12px system-ui,sans-serif;margin:16px}h1{font-size:16px}table{border-collapse:collapse;margin:0 0 12px}td,th{border:1px solid #999;padding:2px 6px;text-align:center}.H{background:#f6d5d5}.S{background:#eee}.D{background:#d3ecd3}.P{background:#e8d0db}.R{background:#f3e3b6}.wrap{display:flex;gap:16px;flex-wrap:wrap}</style><h1>Stratégie de base · ${esc(G.label)}</h1><p>${esc(ruleTxt(G.rules))}. Avantage de la maison : ${pc(G.edge, 2)}. H tirer, S rester, Dh/Ds doubler sinon tirer/rester, P séparer, Rh/Rs/Rp abandonner sinon tirer/rester/séparer.</p><div class="wrap">${tbl2('hard')}${tbl2('soft')}${tbl2('pair')}</div><p>SIGMA 52 · pour l'entraînement hors table.</p><script>print()<\/script>`);
+    w.document.close();
+  };
+
+  // =====================================================================
+  // Entraîneur : décisions notées en EV
+  // =====================================================================
+  const tr = { mode: 'weak', block: 'hard', spot: null, ans: null, n: 0, ok: 0, t0: 0, tInt: null };
+  const MODES = [['weak', 'Faiblesses'], ['all', 'Toutes les mains'], ['block', 'Par bloc'], ['dev', 'Indices'], ['mix', 'Mixte'], ['review', 'Révisions']];
+  const BLOCKS = [['hard', 'Mains dures'], ['soft', 'Mains souples'], ['pair', 'Paires'], ['surr', 'Abandon']];
+  function cardsForRow(rowId) {
+    const row = BJ.ROWS.find((r) => r.id === rowId), combos = BJ.combosOf(row), [a, b] = pick(combos);
+    return shuffle([cardOfVal(a), cardOfVal(b)]);
+  }
+  function randomUp() { const r = ri(13); return r >= 9 ? 10 : r === 0 ? 1 : r + 1; }
+  function randomHand() {
+    for (;;) { const a = randomUp(), b = randomUp(); if ((a === 1 && b === 10) || (a === 10 && b === 1)) continue; return shuffle([cardOfVal(a), cardOfVal(b)]); }
+  }
+  function spotFor(row, up, tc, kind) { return { kind: kind || (tc === null || tc === undefined ? 'base' : 'dev'), row, up, cards: cardsForRow(row), upCard: cardOfVal(up), tc: tc ?? null }; }
+  function newSpot() {
+    const b = P(), G = game(); tr.ans = null;
+    let mode = tr.mode;
+    if (mode === 'review') { const due = dueBJ().filter((r) => r.spot && r.spot.kind !== 'quiz'); const q = dueBJ().find((r) => r.spot?.kind === 'quiz'); if (!due.length && !q) { tr.mode = 'weak'; return newSpot(); }
+      if (!due.length && q) { tr.spot = { kind: 'quiz', key: q.key, mod: q.spot.mod, qi: q.spot.qi }; return; }
+      const it = due[0], s = it.spot; tr.spot = s.kind === 'ins' ? { kind: 'ins', tc: s.tc, upCard: cardOfVal(1), cards: randomHand(), key: it.key } : { ...spotFor(s.row, s.up, s.tc, s.kind), key: it.key }; return; }
+    if (mode === 'mix') mode = rnd() < 0.7 ? 'weak' : 'dev';
+    if (mode === 'dev') {
+      if (rnd() < 0.15) { const i = ins(G), tc = i + ri(5) - 2; tr.spot = { kind: 'ins', tc, upCard: cardOfVal(1), cards: randomHand() }; return; }
+      const devs = G.indices; if (!devs.length) { tr.mode = 'weak'; return newSpot(); }
+      const d = pick(devs), tc = d.index + ri(5) - 2;
+      tr.spot = spotFor(d.row, d.up, tc, 'dev'); return;
+    }
+    if (mode === 'block') {
+      let rows = BJ.ROWS.filter((r) => r.kind === tr.block);
+      if (tr.block === 'surr') { rows = BJ.ROWS.filter((r) => ['h14', 'h15', 'h16', 'h17', 'p8'].includes(r.id)); }
+      const row = pick(rows).id, up = tr.block === 'surr' ? pick([8, 9, 10, 1]) : pick(BJ.UPS);
+      tr.spot = spotFor(row, up, null); return;
+    }
+    if (mode === 'weak') {
+      // Pondération : cases jamais vues ou ratées plus souvent ; les cases faciles (17+ dur, 5-8 dur) moins souvent.
+      const cells = allCells().map((k) => { const c = b.cells[k], [row] = k.split('|'); const easy = /^h(5|6|7|8|17|18|19)$/.test(row) || row === 's9' || row === 'p10' ? 0.25 : 1; const w = (!c ? 2 : c.st >= 3 ? 0.15 : 1 + (c.n - c.ok) / Math.max(1, c.n) * 3) * easy; return [k, w]; });
+      let tot = cells.reduce((a, x) => a + x[1], 0), r = rnd() * tot, k = cells[0][0];
+      for (const [kk, w] of cells) { r -= w; if (r <= 0) { k = kk; break; } }
+      const [row, up] = k.split('|'); tr.spot = spotFor(row, +up, null); return;
+    }
+    // Toutes les mains : distribution réelle.
+    const cs = randomHand(), up = randomUp(), row = rowOf(cs, true);
+    if (!row || row === 'soft12') return newSpot();
+    tr.spot = { kind: 'base', row, up, cards: cs, upCard: cardOfVal(up), tc: null };
+  }
+  function availOf(G, row, up) { const ev = G.table[row][up].ev; return { stand: true, hit: true, double: ev.double !== undefined, split: ev.split !== undefined, surrender: ev.surrender !== undefined }; }
+  function evAtTC(G, row, up, tc) {
+    const s = BJ.shoeAtTC(Math.max(1, G.rules.decks / 2), tc), calc = BJ.Calc(G.rules, s, true);
+    return BJ.rowEV(calc, s, BJ.ROWS.find((r) => r.id === row), up);
+  }
+  function answer(a) {
+    const s = tr.spot, G = game(), b = P(); if (!s || tr.ans) return;
+    if (tr.tInt) { clearInterval(tr.tInt); tr.tInt = null; }
+    if (s.kind === 'ins') {
+      const right = s.tc >= ins(G) ? 'yes' : 'no', ok = a === right;
+      tr.ans = { a, right, ok }; tr.n++; if (ok) tr.ok++;
+      const c = b.count.ins; c.n++; if (ok) c.ok++; c.last.push(ok ? 1 : 0); if (c.last.length > 50) c.last.shift();
+      (b.devHist ||= []).push(ok ? 1 : 0); if (b.devHist.length > 200) b.devHist.shift();
+      reviewGrade(s.key || 'ins:' + s.tc, { kind: 'ins', tc: s.tc }, ok ? 3 : 1);
+      save(); render(); return;
+    }
+    const avail = availOf(G, s.row, s.up), right = recommend(G, s.row, s.up, avail, s.tc), ok = a === right;
+    let ev = G.table[s.row][s.up].ev; if (s.tc !== null) { try { ev = evAtTC(G, s.row, s.up, s.tc); } catch (e) { /* EV moyenne */ } }
+    const loss = Math.max(0, (ev[right] ?? 0) - (ev[a] ?? -1));
+    tr.ans = { a, right, ok, ev, loss, dt: tr.t0 ? (Date.now() - tr.t0) / 1000 : null }; tr.n++; if (ok) tr.ok++;
+    if (s.tc === null) recordCell(s.row, s.up, ok);
+    else { (b.devHist ||= []).push(ok ? 1 : 0); if (b.devHist.length > 200) b.devHist.shift(); const d = b.daily.date === today() ? b.daily : (b.daily = { date: today(), n: 0, ok: 0 }); d.n++; if (ok) d.ok++; }
+    const key = s.key || (s.tc === null ? 'bs:' + cellKey(s.row, s.up) : 'dev:' + cellKey(s.row, s.up) + ':' + s.tc);
+    reviewGrade(key, { kind: s.tc === null ? 'base' : 'dev', row: s.row, up: s.up, tc: s.tc }, ok ? 3 : 1);
+    save(); render();
+  }
+  function why(G, s, right) {
+    const ds = G.indices.filter((x) => x.row === s.row && x.up === s.up);
+    if (s.tc !== null && ds.length) {
+      const txt = ds.map((d) => `${ACTFR[d.act]} si TC ${d.dir > 0 ? '≥' : '<'} ${tcS(d.index)}`).join(' ; '), on = ds.some((d) => (d.dir > 0 ? s.tc >= d.index : s.tc < d.index));
+      return `Indice${ds.length > 1 ? 's' : ''} : ${txt}. Ici TC ${tcS(s.tc)} : ${on ? 'la déviation s\'applique, ' + ACTFR[right] : 'on garde la stratégie de base, ' + ACTFR[right]}.`;
+    }
+    const r = s.row, u = s.up, weak = u >= 2 && u <= 6;
+    if (right === 'split') return r === 'p8' ? '16 est le pire total : deux mains partant de 8 perdent moins.' : r === 'p1' ? 'Deux mains qui partent d\'un as valent bien plus que soft 12.' : weak ? 'Contre un croupier faible, deux mains rapportent plus qu\'une.' : 'Séparer donne la meilleure EV dans ce cas.';
+    if (right === 'double') return r[0] === 's' ? 'Main souple : une carte ne peut pas la crever, et le croupier est faible. On met plus d\'argent quand on est favori.' : 'Total fort au départ : une carte de 10 donne une excellente main ; on double la mise quand on est favori.';
+    if (right === 'surrender') return 'La main perd plus de la moitié du temps : récupérer la moitié de la mise coûte moins cher.';
+    if (right === 'stand') return weak ? 'Le croupier crève souvent avec cette carte : inutile de risquer de crever toi-même.' : 'Ton total bat le plus souvent la main finale du croupier.';
+    return weak ? 'Total trop faible pour rester, même contre une carte faible.' : 'Contre cette carte, le croupier finit souvent à 17 ou plus : rester perd plus que tirer.';
+  }
+  VIEWS.bjentr = () => {
+    const b = P(), G = game(), m = mastery();
+    if (!tr.spot) newSpot();
+    const s = tr.spot;
+    let body = '';
+    if (s.kind === 'quiz') {
+      const mod = K.MODULES.find((x) => x.id === s.mod), q = mod.quiz[s.qi], a = tr.ans;
+      body = `<section class="panel"><span class="eyebrow">Révision · ${esc(mod.title)}</span><p>${esc(q.q)}</p><div class="opts">${q.opts.map((o, oi) => `<button class="opt${a && oi === q.ok ? ' ok' : ''}${a && a.a === oi && oi !== q.ok ? ' ko' : ''}" data-act="bjrq" data-i="${oi}" ${a ? 'disabled' : ''}>${esc(o)}</button>`).join('')}</div>${a ? `<div class="verdict ${a.ok ? 'good' : 'bad'}"><b>${a.ok ? 'Juste.' : 'Non.'}</b><span>${esc(q.why)}</span></div><div class="row"><button class="btn primary" data-act="bjnext">Suivante (Entrée)</button></div>` : ''}</section>`;
+    } else if (s.kind === 'ins') {
+      const a = tr.ans;
+      body = `<section class="panel bjspot"><div class="row" style="justify-content:space-between"><span class="eyebrow">Assurance</span><span class="pill acc">True count ${tcS(s.tc)}</span></div>
+        <div class="bjfelt"><div><span class="note">Croupier</span>${cardsRow([s.upCard])}</div><div><span class="note">Toi · ${totalTxt(s.cards)}</span>${cardsRow(s.cards)}</div></div>
+        <div class="row">${a ? '' : '<button class="btn primary" data-act="bjins" data-v="yes">Prendre l\'assurance (O)</button><button class="btn" data-act="bjins" data-v="no">Refuser (N)</button>'}</div>
+        ${a ? `<div class="verdict ${a.ok ? 'good' : 'bad'}"><b>${a.ok ? 'Juste.' : 'Erreur.'} ${a.right === 'yes' ? 'Assurance rentable' : 'Assurance perdante'} à TC ${tcS(s.tc)}.</b><span>Indice d'assurance de ce jeu : TC ≥ ${tcS(ins(G))} (seuil exact ${fr(G.insurance.exact, 2)}). En dessous, moins d'un tiers des cartes restantes valent 10.</span></div><div class="row"><button class="btn primary" data-act="bjnext">Suivante (Entrée)</button></div>` : ''}</section>`;
+    } else {
+      const a = tr.ans, avail = availOf(G, s.row, s.up);
+      const btns = ['hit', 'stand', 'double', 'split', 'surrender'].filter((k) => avail[k]).map((k) => `<button class="btn${a && k === a.right ? ' primary' : ''}" data-act="bjans" data-a="${k}" ${a ? 'disabled' : ''}>${NAMEC[k]} <kbd>${KEYS[k].toUpperCase()}</kbd></button>`).join('');
+      let verdict = '';
+      if (a) {
+        const evs = Object.entries(a.ev).filter(([k]) => avail[k]).sort((x, y) => y[1] - x[1]);
+        verdict = `<div class="verdict ${a.ok ? 'good' : 'bad'}"><b>${a.ok ? 'Juste' : 'Erreur : ' + ACTFR[a.right]}${a.ok ? '' : ` · coût ${fr(a.loss * 100, 2)} % de la mise`}${a.dt !== null && b.opts.timer ? ` · ${fr(a.dt, 1)} s` : ''}</b><span>${esc(why(G, s, a.right))}</span></div>
+          <div class="tw"><table class="t bjt"><thead><tr><th>Action</th><th class="n">EV</th></tr></thead><tbody>${evs.map(([k, v]) => `<tr${k === a.a ? ' style="font-weight:600"' : ''}><td>${NAMEC[k]}${k === a.right ? ' ✓' : ''}</td><td class="n">${sgnP(v)}</td></tr>`).join('')}</tbody></table></div>
+          <p class="note">${s.tc === null ? 'EV moyenne de la ligne, sabot complet (' + esc(G.label) + ').' : 'EV au TC ' + tcS(s.tc) + ' (sabot moyen à mi-sabot).'}</p>
+          <div class="row"><button class="btn primary" data-act="bjnext">Suivante (Entrée)</button><button class="btn small" data-act="bjcell" data-k="${cellKey(s.row, s.up)}" data-tab="bjstrat">Voir la case</button></div>`;
+      }
+      body = `<section class="panel bjspot"><div class="row" style="justify-content:space-between"><span class="eyebrow">${s.tc === null ? 'Stratégie de base' : 'Indices'} · ${esc(G.label)}</span>${s.tc !== null ? `<span class="pill acc">True count ${tcS(s.tc)}</span>` : ''}${b.opts.timer && !a ? `<span class="pill" id="bjtimer">${b.opts.timer} s</span>` : ''}</div>
+        <div class="bjfelt"><div><span class="note">Croupier</span><div class="cards">${cardHTML(s.upCard)}${G.rules.peek ? backHTML() : ''}</div></div><div><span class="note">Toi · ${totalTxt(s.cards)}</span>${cardsRow(s.cards)}</div></div>
+        <div class="row">${btns}</div>${verdict}</section>`;
+    }
+    const tbls = ['hard', 'soft', 'pair'].map((kind) => { const rows = BJ.ROWS.filter((r) => r.kind === kind); return `<table class="t bjchart bjheat"><thead><tr><th></th>${BJ.UPS.map((u) => `<th class="n">${UPN(u)}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => `<tr><td>${esc(r.label)}</td>${BJ.UPS.map((u) => { const c = b.cells[cellKey(r.id, u)]; const col = !c ? 'var(--sunk)' : c.st >= 3 ? 'color-mix(in srgb, var(--good) 45%, var(--surface))' : c.ok / c.n >= 0.8 ? 'color-mix(in srgb, var(--gold) 35%, var(--surface))' : 'color-mix(in srgb, var(--bad) 40%, var(--surface))'; return `<td style="background:${col}" title="${c ? c.ok + '/' + c.n : 'jamais vue'}"></td>`; }).join('')}</tr>`).join('')}</tbody></table>`; }).join('');
+    return head('Entraîneur', 'Chaque décision est notée contre la stratégie exacte de tes règles, avec l\'EV de chaque action. Raccourcis : T tirer, S rester, D doubler, P séparer, A abandonner, Entrée pour la suivante.') +
+      `<div class="row">${MODES.map(([k, l]) => `<button class="chip" aria-pressed="${tr.mode === k}" data-act="bjmode" data-m="${k}">${l}${k === 'review' && dueBJ().length ? ' · ' + dueBJ().length : ''}</button>`).join('')}</div>
+      ${tr.mode === 'block' ? `<div class="row">${BLOCKS.map(([k, l]) => `<button class="chip" aria-pressed="${tr.block === k}" data-act="bjblock" data-b="${k}">${l}</button>`).join('')}</div>` : ''}
+      <div class="row"><label class="note">Chrono par décision <select data-bjtimer>${[0, 2, 3, 5].map((n) => `<option value="${n}" ${b.opts.timer === n ? 'selected' : ''}>${n ? n + ' s' : 'aucun'}</option>`).join('')}</select></label><span class="note">Session : ${tr.ok}/${tr.n}</span></div>
+      ${body}
+      <section class="panel"><div class="row" style="justify-content:space-between"><h2>Ta maîtrise case par case</h2><span class="note">${m.mast}/${m.cells} cases réussies 3 fois de suite · ${m.acc === null ? '—' : pc(m.acc)} sur les ${m.n} dernières</span></div>
+        <div class="bjheats">${tbls}</div><p class="note"><span class="dot" style="background:color-mix(in srgb, var(--good) 45%, var(--surface))"></span>maîtrisée <span class="dot" style="background:color-mix(in srgb, var(--gold) 35%, var(--surface))"></span>80 % et plus <span class="dot" style="background:color-mix(in srgb, var(--bad) 40%, var(--surface))"></span>à travailler <span class="dot" style="background:var(--sunk)"></span>jamais vue</p></section>`;
+  };
+  AFTER.bjentr = () => {
+    const b = P(), s = tr.spot;
+    if (tr.tInt) { clearInterval(tr.tInt); tr.tInt = null; }
+    if (!s || tr.ans || s.kind === 'quiz' || s.kind === 'ins') return;
+    tr.t0 = Date.now();
+    if (!b.opts.timer) return;
+    const end = tr.t0 + b.opts.timer * 1000;
+    tr.tInt = setInterval(() => {
+      if (tabNow() !== 'bjentr' || tr.ans) { clearInterval(tr.tInt); tr.tInt = null; return; }
+      const left = Math.max(0, Math.ceil((end - Date.now()) / 1000)), el = $('#bjtimer'); if (el) el.textContent = left + ' s';
+      if (left <= 0) { clearInterval(tr.tInt); tr.tInt = null; answer('__timeout'); }
+    }, 200);
+  };
+  ACT.bjans = (t) => answer(t.dataset.a);
+  ACT.bjins = (t) => answer(t.dataset.v);
+  ACT.bjnext = () => { newSpot(); render(); };
+  ACT.bjmode = (t) => { tr.mode = t.dataset.m; newSpot(); render(); };
+  ACT.bjblock = (t) => { tr.block = t.dataset.b; newSpot(); render(); };
+  ACT.bjrq = (t) => {
+    const s = tr.spot, mod = K.MODULES.find((x) => x.id === s.mod), q = mod.quiz[s.qi], ok = +t.dataset.i === q.ok;
+    tr.ans = { a: +t.dataset.i, ok }; reviewGrade(s.key, null, ok ? 3 : 1); save(); render();
+  };
+  ONCHANGE.push((t) => { if (t.dataset.bjtimer !== undefined) { P().opts.timer = +t.value; save(); render(); return true; } });
+
+  // =====================================================================
+  // Comptage
+  // =====================================================================
+  const cd = { drill: 'deck', st: 'idle', cards: [], i: 0, rc: 0, t0: 0, t1: 0, res: null, speed: 700, nCards: 20, group: 1, iv: null, q: null, show: 3 };
+  const DRILLS = [['deck', 'Paquet chrono'], ['flash', 'Défilement'], ['round', 'Tour de table'], ['tc', 'True count'], ['tray', 'Bac à défausse'], ['ramp', 'Rampe de mises']];
+  const hilo = (c) => BJ.HILO[val(c)];
+  function deck52() { return shuffle([...Array(52).keys()]); }
+  function cdReset() { if (cd.iv) { clearInterval(cd.iv); cd.iv = null; } cd.st = 'idle'; cd.res = null; cd.q = null; cd.cards = []; cd.i = 0; }
+  function cdQuestion() {
+    const G = game(), b = P();
+    if (cd.drill === 'tc') { const decks = G.rules.decks, left = Math.max(0.5, Math.round((0.5 + rnd() * (decks - 1)) * 2) / 2), tc0 = ri(13) - 4, rc = Math.round(tc0 * left + (rnd() - 0.5) * left); cd.q = { rc, left, ans: Math.trunc(rc / left) }; }
+    if (cd.drill === 'tray') { const decks = G.rules.decks, out = Math.round((0.5 + rnd() * (decks - 1)) * 2) / 2; cd.q = { decks, out, left: decks - out, jitter: (rnd() - 0.5) * 0.12 }; }
+    if (cd.drill === 'ramp') { const tc = ri(10) - 3; cd.q = { tc, ans: rampUnits(b.ramp, tc) }; }
+    cd.st = 'ask'; cd.res = null;
+  }
+  function cdStart() {
+    const b = P(); cdReset();
+    if (['tc', 'tray', 'ramp'].includes(cd.drill)) return cdQuestion();
+    if (cd.drill === 'deck') { cd.cards = deck52(); cd.i = 0; cd.st = 'run'; cd.t0 = 0; return; }
+    if (cd.drill === 'flash') {
+      cd.cards = deck52().slice(0, cd.nCards); cd.i = 0; cd.st = 'run';
+      cd.iv = setInterval(() => { cd.i = Math.min(cd.cards.length, cd.i + cd.group); if (cd.i >= cd.cards.length) { clearInterval(cd.iv); cd.iv = null; setTimeout(() => { cd.st = 'ask'; render(); }, cd.speed); } if (tabNow() === 'bjcompte') render(); else { clearInterval(cd.iv); cd.iv = null; } }, cd.speed);
+      return;
+    }
+    if (cd.drill === 'round') {
+      const d = deck52(); let k = 0; const hands = [], n = 3 + ri(4);
+      for (let i = 0; i < n; i++) { const h = [d[k++], d[k++]]; while (handOf(h).t < 13 && rnd() < 0.7) h.push(d[k++]); hands.push(h); }
+      const dealer = [d[k++], d[k++]]; while (handOf(dealer).t < 17) dealer.push(d[k++]);
+      cd.cards = { hands, dealer }; cd.st = 'run';
+      cd.iv = setTimeout(() => { cd.iv = null; cd.st = 'ask'; if (tabNow() === 'bjcompte') render(); }, cd.show * 1000);
+    }
+    void b;
+  }
+  function rampUnits(ramp, tc) { return tc <= 0 ? ramp[0] : ramp[Math.min(6, tc)]; }
+  function cdRecord(k, ok, extra) { const c = P().count[k]; c.n++; if (ok) c.ok++; c.last.push(extra || (ok ? 1 : 0)); if (c.last.length > 50) c.last.shift(); save(); }
+  VIEWS.bjcompte = () => {
+    const b = P(), c = b.count[cd.drill] || { ok: 0, n: 0 };
+    let body = '';
+    if (cd.drill === 'deck') {
+      if (cd.st === 'idle') body = `<p>51 cartes défilent quand tu appuies sur <kbd>Espace</kbd> (ou le bouton). Tiens le running count Hi-Lo. À la fin, devine si la 52e carte, cachée, est basse, neutre ou haute : le paquet complet vaut 0, donc ton compte final l'indique. Le chrono part à la première carte.</p><div class="row"><button class="btn primary" data-act="bjcd">Commencer</button></div>`;
+      else if (cd.st === 'run') { const c0 = cd.cards[cd.i]; body = `<div class="row" style="justify-content:space-between"><span class="note">Carte ${cd.i + 1}/51</span><span class="mono" id="bjclock">${cd.t0 ? fr((Date.now() - cd.t0) / 1000, 1) + ' s' : '0,0 s'}</span></div><div class="bjbig">${cardHTML(c0)}</div><div class="row"><button class="btn primary" data-act="bjflip">Carte suivante (Espace)</button></div>`; }
+      else if (cd.st === 'ask') body = `<p>Temps : <strong>${fr((cd.t1 - cd.t0) / 1000, 1)} s</strong>. La dernière carte est :</p><div class="row"><button class="btn" data-act="bjlast" data-v="1">Basse (2-6)</button><button class="btn" data-act="bjlast" data-v="0">Neutre (7-9)</button><button class="btn" data-act="bjlast" data-v="-1">Haute (10-As)</button></div>`;
+      else if (cd.st === 'done') body = `<div class="verdict ${cd.res.ok ? 'good' : 'bad'}"><b>${cd.res.ok ? 'Juste' : 'Faux'} · ${fr(cd.res.s, 1)} s</b><span>La dernière carte : ${cardHTML(cd.cards[51], true)}. Running count après 51 cartes : ${tcS(cd.res.rc)}.</span></div><div class="row"><button class="btn primary" data-act="bjcd">Recommencer</button></div>`;
+    } else if (cd.drill === 'flash') {
+      if (cd.st === 'idle') body = `<p>Les cartes défilent seules. Donne le running count à la fin.</p><div class="form"><label class="f">Cartes<select data-bjcd="nCards">${[10, 20, 30, 52].map((n) => `<option ${cd.nCards === n ? 'selected' : ''}>${n}</option>`).join('')}</select></label><label class="f">Vitesse<select data-bjcd="speed">${[[1200, 'Lente'], [700, 'Moyenne'], [450, 'Rapide'], [300, 'Casino']].map(([v, l]) => `<option value="${v}" ${cd.speed === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label><label class="f">Cartes à la fois<select data-bjcd="group">${[1, 2, 3].map((n) => `<option ${cd.group === n ? 'selected' : ''}>${n}</option>`).join('')}</select></label></div><div class="row"><button class="btn primary" data-act="bjcd">Commencer</button></div>`;
+      else if (cd.st === 'run') body = `<div class="bjbig">${cd.cards.slice(Math.max(0, cd.i - cd.group), cd.i).map((x) => cardHTML(x)).join('')}</div><p class="note">${cd.i}/${cd.cards.length}</p>`;
+      else if (cd.st === 'ask') body = `<form id="bjrcf" class="row"><label class="f">Running count<input name="rc" inputmode="numeric" autocomplete="off" autofocus></label><button class="btn primary">Valider</button></form>`;
+      else body = `<div class="verdict ${cd.res.ok ? 'good' : 'bad'}"><b>${cd.res.ok ? 'Juste' : 'Faux'} : ${tcS(cd.res.rc)}</b><span>Tu as répondu ${esc(cd.res.got)}. ${cd.cards.map((x) => `${cardHTML(x, true)}`).join('')}</span></div><div class="row"><button class="btn primary" data-act="bjcd">Recommencer</button></div>`;
+    } else if (cd.drill === 'round') {
+      if (cd.st === 'idle') body = `<p>Un tour de table complet s'affiche quelques secondes : plusieurs mains et celle du croupier. Donne le compte de ce tour (somme Hi-Lo de toutes les cartes).</p><div class="form"><label class="f">Durée d'affichage<select data-bjcd="show">${[2, 3, 4, 6].map((n) => `<option value="${n}" ${cd.show === n ? 'selected' : ''}>${n} s</option>`).join('')}</select></label></div><div class="row"><button class="btn primary" data-act="bjcd">Commencer</button></div>`;
+      else if (cd.st === 'run') body = `<div class="bjround"><div><span class="note">Croupier</span>${cardsRow(cd.cards.dealer, true)}</div>${cd.cards.hands.map((h, i) => `<div><span class="note">Joueur ${i + 1}</span>${cardsRow(h, true)}</div>`).join('')}</div>`;
+      else if (cd.st === 'ask') body = `<form id="bjrcf" class="row"><label class="f">Compte du tour<input name="rc" inputmode="numeric" autocomplete="off" autofocus></label><button class="btn primary">Valider</button></form>`;
+      else body = `<div class="verdict ${cd.res.ok ? 'good' : 'bad'}"><b>${cd.res.ok ? 'Juste' : 'Faux'} : ${tcS(cd.res.rc)}</b><span>Tu as répondu ${esc(cd.res.got)}.</span></div><div class="bjround"><div><span class="note">Croupier</span>${cardsRow(cd.cards.dealer, true)}</div>${cd.cards.hands.map((h, i) => `<div><span class="note">Joueur ${i + 1}</span>${cardsRow(h, true)}</div>`).join('')}</div><div class="row"><button class="btn primary" data-act="bjcd">Recommencer</button></div>`;
+    } else if (cd.drill === 'tc') {
+      if (cd.st === 'idle') body = `<p>Running count et paquets restants : donne le true count, tronqué vers zéro (+2,8 → +2 ; −1,5 → −1).</p><div class="row"><button class="btn primary" data-act="bjcd">Commencer</button></div>`;
+      else body = `<div class="stats"><div class="stat"><span>Running count</span><b>${tcS(cd.q.rc)}</b></div><div class="stat"><span>Paquets restants</span><b>${fr(cd.q.left, 1)}</b></div></div>${cd.st === 'ask' ? `<form id="bjtcf" class="row"><label class="f">True count<input name="tc" inputmode="numeric" autocomplete="off" autofocus></label><button class="btn primary">Valider</button></form>` : `<div class="verdict ${cd.res.ok ? 'good' : 'bad'}"><b>${cd.res.ok ? 'Juste' : 'Faux'} : TC ${tcS(cd.q.ans)}</b><span>${tcS(cd.q.rc)} ÷ ${fr(cd.q.left, 1)} = ${fr(cd.q.rc / cd.q.left, 2)}, tronqué vers zéro.</span></div><div class="row"><button class="btn primary" data-act="bjcdq">Suivante (Entrée)</button></div>`}`;
+    } else if (cd.drill === 'tray') {
+      if (cd.st === 'idle') body = `<p>Le bac à défausse montre les cartes jouées. Estime les paquets restants dans le sabot, au demi-paquet près.</p><div class="row"><button class="btn primary" data-act="bjcd">Commencer</button></div>`;
+      else { const q = cd.q, H = 180, h = Math.max(4, (q.out + q.jitter) / q.decks * H);
+        body = `<div class="row" style="align-items:flex-end;gap:24px"><svg viewBox="0 0 90 ${H + 20}" width="90" height="${H + 20}" role="img" aria-label="Bac à défausse"><rect x="10" y="10" width="70" height="${H}" rx="4" fill="none" stroke="var(--line)" stroke-width="2"/>${Array.from({ length: Math.round(h / 3) }, (_, i) => `<rect x="14" y="${10 + H - (i + 1) * 3}" width="62" height="2.2" fill="${i % 2 ? '#e9e2e4' : '#f6f1f2'}" stroke="#cfc3c7" stroke-width=".3"/>`).join('')}</svg>
+          <div class="note">Sabot de ${q.decks} jeux · bac plein = ${q.decks} paquets.</div></div>
+          ${cd.st === 'ask' ? `<div class="row">${Array.from({ length: q.decks * 2 - 1 }, (_, i) => (i + 1) / 2).map((v) => `<button class="btn small" data-act="bjtray" data-v="${v}">${fr(v, 1)}</button>`).join('')}</div><p class="note">Paquets restants ?</p>` : `<div class="verdict ${cd.res.ok ? 'good' : 'bad'}"><b>${cd.res.ok ? 'Juste' : 'Faux'} : ${fr(q.left, 1)} paquets restants</b><span>${fr(q.out, 1)} paquets en défausse sur ${q.decks}. Tu as répondu ${fr(cd.res.got, 1)}.</span></div><div class="row"><button class="btn primary" data-act="bjcdq">Suivante (Entrée)</button></div>`}`; }
+    } else if (cd.drill === 'ramp') {
+      if (cd.st === 'idle') body = `<p>Un true count s'affiche : donne ta mise en unités selon ta rampe (définie dans Bankroll : ${b.ramp.map((u, i) => (i === 0 ? 'TC ≤ 0' : i === 6 ? 'TC ≥ +6' : 'TC ' + tcS(i)) + ' → ' + u).join(' · ')}).</p><div class="row"><button class="btn primary" data-act="bjcd">Commencer</button></div>`;
+      else { const opts = [...new Set(b.ramp)].sort((x, y) => x - y);
+        body = `<div class="stats"><div class="stat hero"><span>True count</span><b>${tcS(cd.q.tc)}</b></div></div>${cd.st === 'ask' ? `<div class="row">${opts.map((u) => `<button class="btn" data-act="bjramp" data-v="${u}">${u} unité${u > 1 ? 's' : ''}</button>`).join('')}</div>` : `<div class="verdict ${cd.res.ok ? 'good' : 'bad'}"><b>${cd.res.ok ? 'Juste' : 'Faux'} : ${cd.q.ans} unité${cd.q.ans > 1 ? 's' : ''}</b></div><div class="row"><button class="btn primary" data-act="bjcdq">Suivante (Entrée)</button></div>`}`; }
+    }
+    const st = DRILLS.map(([k, l]) => { const s = b.count[k]; return `<div class="stat"><span>${l}</span><b>${s.n ? pc(s.ok / s.n, 0) : '—'}</b><span>${s.n} essais${k === 'deck' && s.best ? ' · record ' + fr(s.best, 1) + ' s' : ''}</span></div>`; }).join('');
+    return head('Comptage Hi-Lo', '2 à 6 : +1 · 7 à 9 : 0 · 10 à As : −1. Running count, true count, estimation du sabot et mise : les cinq gestes du compteur, chacun entraîné à part.') +
+      `<div class="row">${DRILLS.map(([k, l]) => `<button class="chip" aria-pressed="${cd.drill === k}" data-act="bjdrill" data-d="${k}">${l}</button>`).join('')}</div>
+      <section class="panel"><span class="eyebrow">${esc(DRILLS.find((x) => x[0] === cd.drill)[1])} · ${c.n ? c.ok + '/' + c.n + ' justes' : 'premier essai'}</span>${body}</section>
+      <div class="stats">${st}</div>`;
+  };
+  AFTER.bjcompte = () => { const f = $('#bjrcf input, #bjtcf input'); if (f) f.focus(); if (cd.drill === 'deck' && cd.st === 'run' && cd.t0) { const tick = () => { const el = $('#bjclock'); if (!el || cd.st !== 'run') return; el.textContent = fr((Date.now() - cd.t0) / 1000, 1) + ' s'; requestAnimationFrame(tick); }; requestAnimationFrame(tick); } };
+  ACT.bjdrill = (t) => { cd.drill = t.dataset.d; cdReset(); render(); };
+  ACT.bjcd = () => { cdStart(); render(); };
+  ACT.bjcdq = () => { cdQuestion(); render(); };
+  ACT.bjflip = () => {
+    if (cd.st !== 'run' || cd.drill !== 'deck') return;
+    if (!cd.t0) cd.t0 = Date.now();
+    cd.i++;
+    if (cd.i >= 51) { cd.t1 = Date.now(); cd.st = 'ask'; }
+    render();
+  };
+  ACT.bjlast = (t) => {
+    const rc = cd.cards.slice(0, 51).reduce((a, x) => a + hilo(x), 0), last = hilo(cd.cards[51]), ok = +t.dataset.v === last, s = (cd.t1 - cd.t0) / 1000, b = P();
+    cd.res = { ok, s, rc }; cd.st = 'done';
+    if (ok && (!b.count.deck.best || s < b.count.deck.best)) b.count.deck.best = Math.round(s * 10) / 10;
+    cdRecord('deck', ok, { ok, s: Math.round(s * 10) / 10 }); render();
+  };
+  ACT.bjtray = (t) => { const v = +t.dataset.v, ok = Math.abs(v - cd.q.left) < 0.01; cd.res = { ok, got: v }; cd.st = 'done'; cdRecord('tray', ok); render(); };
+  ACT.bjramp = (t) => { const v = +t.dataset.v, ok = v === cd.q.ans; cd.res = { ok }; cd.st = 'done'; cdRecord('ramp', ok); render(); };
+  ONCHANGE.push((t) => { if (t.dataset.bjcd) { cd[t.dataset.bjcd] = +t.value; render(); return true; } });
+  document.addEventListener('submit', (e) => {
+    const id = e.target.id; if (id !== 'bjrcf' && id !== 'bjtcf' && id !== 'bjtrc') return;
+    e.preventDefault();
+    const v = String(new FormData(e.target).get(id === 'bjtcf' ? 'tc' : 'rc') || '').trim().replace('−', '-').replace('+', ''), n = parseInt(v, 10);
+    if (id === 'bjtrc') return tblCountAnswer(n);
+    if (id === 'bjtcf') { const ok = n === cd.q.ans; cd.res = { ok, got: v }; cd.st = 'done'; cdRecord('tc', ok); return render(); }
+    const cards = cd.drill === 'round' ? [...cd.cards.dealer, ...cd.cards.hands.flat()] : cd.cards, rc = cards.reduce((a, x) => a + hilo(x), 0), ok = n === rc;
+    cd.res = { ok, rc, got: v || '(vide)' }; cd.st = 'done'; cdRecord(cd.drill, ok); render();
+  });
+
+  // =====================================================================
+  // Table d'entraînement
+  // =====================================================================
+  let tbl = null;
+  function tblNew() {
+    const G = game(), r = G.rules, b = P();
+    const t = { rules: r, G, n: r.decks, shoe: [], pos: 0, cut: 0, rc: 0, others: b.tblOpts?.others ?? 2, pen: b.tblOpts?.pen ?? 0.75, mode: b.tblOpts?.mode || 'train', showCount: false, phase: 'bet', hands: [], cur: 0, dealer: [], holeUp: false, oth: [], bet: 1, msgs: [], fb: [], sess: { hands: 0, net: 0, dec: 0, err: 0, evl: 0, cnt: 0, cntOk: 0, bets: 0, betOk: 0, shoes: 0 }, ask: null, shuffleNote: false };
+    tblShuffle(t); return t;
+  }
+  function tblShuffle(t) { t.shoe = []; for (let d = 0; d < t.n; d++) t.shoe.push(...deck52()); shuffle(t.shoe); t.pos = 0; t.rc = 0; t.cut = Math.floor(t.shoe.length * t.pen); t.sess.shoes++; t.shuffleNote = true; }
+  const decksLeft = (t) => Math.max(0.5, (t.shoe.length - t.pos) / 52);
+  const tcOf = (t) => Math.trunc(t.rc / decksLeft(t));
+  function tDraw(t, seen = true) { const c = t.shoe[t.pos++]; if (seen) t.rc += hilo(c); return c; }
+  const reveal = (t, c) => { t.rc += hilo(c); };
+  // Composition inconnue du joueur (sabot restant + carte cachée), au format du moteur.
+  function compOf(t) { const s = new Array(11).fill(0); for (let i = t.pos; i < t.shoe.length; i++) s[val(t.shoe[i])]++; if (t.rules.peek && !t.holeUp && t.dealer[1] !== undefined) s[val(t.dealer[1])]++; return s; }
+  function tblDeal() {
+    const t = tbl, b = P(); t.fb = []; t.msgs = [];
+    if (t.pos >= t.cut) tblShuffle(t);
+    // Mise : comparée à la rampe au TC avant la donne.
+    const tc = tcOf(t), want = rampUnits(b.ramp, tc);
+    t.sess.bets++; b.tbl.bets++; const betOk = t.bet === want; if (betOk) { t.sess.betOk++; b.tbl.betOk++; }
+    if (!betOk) t.fb.push({ bad: true, txt: `Mise : ${t.bet} unité${t.bet > 1 ? 's' : ''} ; ta rampe dit ${want} à TC ${tcS(tc)}.` });
+    t.betTC = tc;
+    t.oth = []; for (let i = 0; i < t.others; i++) t.oth.push({ cards: [] });
+    t.hands = [{ cards: [], bet: t.bet, done: false, split: false }]; t.cur = 0; t.dealer = []; t.holeUp = false;
+    for (let round = 0; round < 2; round++) {
+      for (const o of t.oth) o.cards.push(tDraw(t));
+      t.hands[0].cards.push(tDraw(t));
+      if (round === 0) t.dealer.push(tDraw(t)); else if (t.rules.peek) t.dealer.push(tDraw(t, false));
+    }
+    t.phase = 'play'; t.insTaken = null;
+    const up = val(t.dealer[0]);
+    if (up === 1) { t.phase = 'ins'; return; }
+    tblAfterIns();
+  }
+  function tblAfterIns() {
+    const t = tbl, up = val(t.dealer[0]);
+    if (t.rules.peek && (up === 1 || up === 10) && isBJ(t.dealer)) { t.holeUp = true; reveal(t, t.dealer[1]); for (const o of t.oth) void o; return tblSettle(); }
+    if (isBJ(t.hands[0].cards)) { t.hands[0].done = true; }
+    // Les autres joueurs (assis avant toi) jouent la stratégie de base.
+    for (const o of t.oth) { while (!isBJ(o.cards)) { const h = handOf(o.cards); const row = rowOf(o.cards, false), a = row && row !== 'soft12' && t.G.table[row] ? recommend(t.G, row, up, { stand: true, hit: true, double: o.cards.length === 2 && t.G.table[row][up].ev.double !== undefined, split: false, surrender: false }, null) : h.t < 17 ? 'hit' : 'stand'; if (h.t >= 21 || a === 'stand' || a === 'surrender') break; o.cards.push(tDraw(t)); if (a === 'double') break; } }
+    t.phase = t.hands[0].done ? 'dealer' : 'play';
+    if (t.phase === 'dealer') tblDealer();
+    else tblMaybeAskCount();
+  }
+  function tblMaybeAskCount() { const t = tbl; if (t.mode !== 'free' && rnd() < 0.12) t.ask = { at: 'play' }; }
+  function availFor(t, h) {
+    const cs = h.cards, two = cs.length === 2, hh = handOf(cs), r = t.rules, nH = t.hands.length;
+    const pair = two && val(cs[0]) === val(cs[1]), canSplit = pair && nH < r.maxHands && (val(cs[0]) !== 1 || !h.split || r.rsa);
+    const dOk = two && (r.double === 'any' || (!hh.soft && (r.double === '9-11' ? hh.t >= 9 && hh.t <= 11 : hh.t >= 10 && hh.t <= 11))) && (!h.split || r.das);
+    return { stand: true, hit: !(h.aces && !r.hsa), double: dOk && !(h.aces && !r.hsa), split: canSplit, surrender: two && !h.split && nH === 1 && r.surrender && r.peek };
+  }
+  function tblRecommend(t, h) {
+    const up = val(t.dealer[0]), avail = availFor(t, h), row = rowOf(h.cards, avail.split), tc = tcOf(t);
+    if (row === 'soft12') return { act: 'hit', avail, row, tc };
+    if (!row || !t.G.table[row]) return { act: handOf(h.cards).t >= 17 ? 'stand' : 'hit', avail, row, tc };
+    return { act: recommend(t.G, row, up, avail, tc), avail, row, tc };
+  }
+  function exactEV(t, h, avail) {
+    try {
+      const comp = compOf(t), up = val(t.dealer[0]), calc = BJ.Calc(t.rules, comp, true), cs = h.cards.map(val), hh = handOf(h.cards);
+      let ev;
+      if (cs.length === 2) ev = calc.actions(comp, up, cs[0], cs[1]);
+      else { const lost = t.rules.peek ? 0 : 1, n = calc.node(comp, up, hh.sum, hh.ace, lost); ev = { stand: n.stand, hit: n.hit }; }
+      return Object.fromEntries(Object.entries(ev).filter(([k]) => avail[k]));
+    } catch (e) { return null; }
+  }
+  function tblAct(a) {
+    const t = tbl, b = P(); if (t.phase !== 'play' || t.ask) return;
+    const h = t.hands[t.cur], rec = tblRecommend(t, h);
+    if (!rec.avail[a]) return;
+    const ok = a === rec.act, ev = exactEV(t, h, rec.avail), loss = ev && ev[rec.act] !== undefined && ev[a] !== undefined ? Math.max(0, ev[rec.act] - ev[a]) : 0;
+    t.sess.dec++; b.tbl.dec++;
+    if (!ok) { t.sess.err++; b.tbl.err++; t.sess.evl += loss * h.bet; b.tbl.evl += loss * h.bet; }
+    const devTxt = rec.row && t.G.indices.find((d) => d.row === rec.row && d.up === val(t.dealer[0])) ? ` (TC ${tcS(rec.tc)})` : '';
+    t.fb.push({ bad: !ok, txt: `${ok ? '✓' : '✗'} ${totalTxt(h.cards)} contre ${UPN(val(t.dealer[0]))} : ${ACTFR[a]}${ok ? '' : ` — juste : ${ACTFR[rec.act]}${devTxt}${loss ? `, coût ${fr(loss * 100, 1)} % de la mise` : ''}`}` });
+    if (!ok && rec.row && rec.row !== 'soft12' && t.G.table[rec.row] && rec.act === recommend(t.G, rec.row, val(t.dealer[0]), rec.avail, null) && h.cards.length === 2) reviewGrade('bs:' + cellKey(rec.row, val(t.dealer[0])), { kind: 'base', row: rec.row, up: val(t.dealer[0]), tc: null }, 1);
+    if (a === 'stand') h.done = true;
+    else if (a === 'hit') { h.cards.push(tDraw(t)); if (handOf(h.cards).t >= 21) h.done = true; }
+    else if (a === 'double') { h.bet *= 2; h.cards.push(tDraw(t)); h.done = true; h.doubled = true; }
+    else if (a === 'surrender') { h.surr = true; h.done = true; }
+    else if (a === 'split') {
+      const c2 = h.cards.pop(), aces = val(c2) === 1;
+      h.split = true; h.aces = aces; h.cards.push(tDraw(t));
+      t.hands.splice(t.cur + 1, 0, { cards: [c2, tDraw(t)], bet: h.bet, done: false, split: true, aces });
+      if (aces && !t.rules.hsa) { h.done = true; t.hands[t.cur + 1].done = true; }
+    }
+    if (handOf(h.cards).t >= 21) h.done = true;
+    while (t.cur < t.hands.length && t.hands[t.cur].done) t.cur++;
+    if (t.cur >= t.hands.length) tblDealer();
+    else if (handOf(t.hands[t.cur].cards).t >= 21) { t.hands[t.cur].done = true; tblAct2(); }
+    save(); render();
+  }
+  function tblAct2() { const t = tbl; while (t.cur < t.hands.length && t.hands[t.cur].done) t.cur++; if (t.cur >= t.hands.length) tblDealer(); }
+  function tblDealer() {
+    const t = tbl;
+    t.phase = 'dealer';
+    if (t.rules.peek) { t.holeUp = true; reveal(t, t.dealer[1]); } else { t.dealer.push(tDraw(t)); t.holeUp = true; }
+    const live = t.hands.some((h) => !h.surr && handOf(h.cards).t <= 21) || t.oth.some((o) => handOf(o.cards).t <= 21);
+    const dBJ = isBJ(t.dealer);
+    if (!dBJ && live && !(t.hands.length === 1 && isBJ(t.hands[0].cards) && !t.oth.length)) {
+      for (;;) { const h = handOf(t.dealer); if (h.t > 17 || (h.t === 17 && !(t.rules.h17 && h.soft))) break; t.dealer.push(tDraw(t)); }
+    }
+    tblSettle();
+  }
+  function tblSettle() {
+    const t = tbl, b = P(), d = handOf(t.dealer), dBJ = isBJ(t.dealer);
+    if (!t.holeUp) { t.holeUp = true; if (t.rules.peek) reveal(t, t.dealer[1]); }
+    let net = 0, obo = false;
+    if (t.insTaken) net += dBJ ? t.bet : -t.bet / 2;
+    for (const h of t.hands) {
+      const hh = handOf(h.cards), nat = isBJ(h.cards) && t.hands.length === 1;
+      if (h.surr) { net -= h.bet / 2; continue; }
+      if (nat) { net += dBJ ? 0 : t.rules.bj * h.bet; continue; }
+      if (hh.t > 21) { net -= h.bet; continue; }
+      if (dBJ) { if (!t.rules.peek && t.rules.obo) { if (!obo) { net -= t.bet; obo = true; } } else net -= t.rules.peek ? t.bet : h.bet; if (t.rules.peek) break; continue; }
+      if (d.t > 21 || hh.t > d.t) net += h.bet; else if (hh.t < d.t) net -= h.bet;
+    }
+    t.last = net; t.sess.net += net; t.sess.hands++; b.tbl.hands++;
+    t.phase = 'done';
+    if (t.mode !== 'free' && rnd() < 0.15) t.ask = { at: 'end' };
+    save();
+  }
+  function tblCountAnswer(n) {
+    const t = tbl, b = P(); if (!t || !t.ask) return;
+    const ok = n === t.rc; t.sess.cnt++; b.tbl.cnt++; if (ok) { t.sess.cntOk++; b.tbl.cntOk++; }
+    t.fb.push({ bad: !ok, txt: ok ? `✓ Running count juste : ${tcS(t.rc)}.` : `✗ Running count : ${tcS(t.rc)} (tu as dit ${Number.isFinite(n) ? tcS(n) : '—'}).` });
+    t.ask = null; save(); render();
+  }
+  VIEWS.bjtable = () => {
+    const b = P(), G = game();
+    if (!tbl || tbl.G.label !== G.label || tbl.G.edge !== G.edge) tbl = tblNew();
+    const t = tbl, up = t.dealer[0], s = t.sess;
+    const dealerCards = t.dealer.length ? `<div class="cards">${cardHTML(t.dealer[0])}${t.dealer.length > 1 ? (t.holeUp ? t.dealer.slice(1).map((c) => cardHTML(c)).join('') : backHTML()) : (t.phase !== 'bet' && t.rules.peek ? backHTML() : '')}</div>` : '';
+    const showT = t.mode === 'train', tc = tcOf(t), out = t.pos / 52;
+    let ctrl = '';
+    if (t.ask) ctrl = `<form id="bjtrc" class="row"><label class="f">Contrôle : running count ?<input name="rc" inputmode="numeric" autocomplete="off" autofocus></label><button class="btn primary">Valider</button></form>`;
+    else if (t.phase === 'bet' || t.phase === 'done') {
+      const opts = [...new Set([1, 2, 3, 4, 5, 6, 8, 10, 12, ...b.ramp])].sort((x, y) => x - y);
+      ctrl = `${t.phase === 'done' ? `<div class="verdict ${t.last > 0 ? 'good' : t.last < 0 ? 'bad' : ''}"><b>${t.last > 0 ? 'Gagné' : t.last < 0 ? 'Perdu' : 'Égalité'} : ${t.last > 0 ? '+' : ''}${fr(t.last, 1)} unité${Math.abs(t.last) > 1 ? 's' : ''}</b></div>` : ''}
+        ${t.pos >= t.cut ? '<p class="pill warn">Carte de coupe atteinte : mélange à la prochaine donne.</p>' : ''}
+        <div class="row"><span class="note">Mise :</span>${opts.map((u) => `<button class="chip" aria-pressed="${t.bet === u}" data-act="bjbet" data-v="${u}">${u}</button>`).join('')}</div>
+        <div class="row"><button class="btn primary" data-act="bjdeal">Distribuer (Entrée)</button></div>`;
+    } else if (t.phase === 'ins') ctrl = `<p>Le croupier montre un as. ${isBJ(t.hands[0].cards) ? 'Even money (assurance) ?' : 'Assurance ?'}</p><div class="row"><button class="btn" data-act="bjtins" data-v="1">Prendre (O)</button><button class="btn" data-act="bjtins" data-v="0">Refuser (N)</button></div>`;
+    else if (t.phase === 'play') { const h = t.hands[t.cur], av = availFor(t, h); ctrl = `<div class="row">${['hit', 'stand', 'double', 'split', 'surrender'].filter((k) => av[k]).map((k) => `<button class="btn" data-act="bjtact" data-a="${k}">${NAMEC[k]} <kbd>${KEYS[k].toUpperCase()}</kbd></button>`).join('')}</div>`; }
+    const fb = (showT || t.phase === 'bet' || t.phase === 'done') && t.fb.length ? `<div class="bjfb">${t.fb.filter((f) => showT || t.phase === 'done').map((f) => `<div class="${f.bad ? 'bad' : 'good'}">${esc(f.txt)}</div>`).join('')}</div>` : '';
+    return head('Table d\'entraînement', 'Un sabot réel, des joueurs qui jouent avant toi, le croupier, la carte de coupe. Tu mises selon ta rampe, tu comptes, tu décides. Chaque décision est notée contre la stratégie de base et les indices au TC du moment.') +
+      `<section class="panel"><div class="row"><label class="note">Mode <select data-bjto="mode"><option value="train" ${t.mode === 'train' ? 'selected' : ''}>Entraînement (correction immédiate)</option><option value="exam" ${t.mode === 'exam' ? 'selected' : ''}>Examen (correction en fin de main)</option><option value="free" ${t.mode === 'free' ? 'selected' : ''}>Libre (sans contrôle de compte)</option></select></label>
+        <label class="note">Autres joueurs <select data-bjto="others">${[0, 1, 2, 3, 4, 5].map((n) => `<option ${t.others === n ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+        <label class="note">Pénétration <select data-bjto="pen">${[0.6, 0.67, 0.75, 0.83].map((p) => `<option value="${p}" ${Math.abs(t.pen - p) < 0.001 ? 'selected' : ''}>${Math.round(p * 100)} %</option>`).join('')}</select></label>
+        <button class="btn small" data-act="bjshowc">${t.showCount ? 'Masquer le compte' : 'Afficher le compte'}</button><button class="btn small" data-act="bjtreset">Nouveau sabot</button></div>
+        <p class="note">${esc(G.label)} · ${esc(ruleTxt(t.rules))}</p></section>
+      <section class="panel bjtable">
+        <div class="row" style="justify-content:space-between"><span class="note">Sabot : ${fr(out, 1)} paquet${out >= 2 ? 's' : ''} joué${out >= 2 ? 's' : ''} sur ${t.n}${t.showCount ? ` · RC ${tcS(t.rc)} · TC ${tcS(tc)}` : ''}</span><span class="note">${t.shuffleNote && t.pos < 20 ? 'Sabot mélangé : compte à 0.' : ''}</span></div>
+        <div class="bjdealer"><span class="note">Croupier${t.holeUp && t.dealer.length ? ' · ' + totalTxt(t.dealer) : ''}</span>${dealerCards}</div>
+        ${t.oth.length ? `<div class="bjround">${t.oth.map((o, i) => `<div><span class="note">Joueur ${i + 1} · ${totalTxt(o.cards)}</span>${cardsRow(o.cards, true)}</div>`).join('')}</div>` : ''}
+        <div class="bjhands">${t.hands.map((h, i) => h.cards.length ? `<div class="bjhand${t.phase === 'play' && i === t.cur ? ' on' : ''}"><span class="note">Toi${t.hands.length > 1 ? ' · main ' + (i + 1) : ''} · ${totalTxt(h.cards)} · ${h.bet} u${h.surr ? ' · abandon' : ''}</span>${cardsRow(h.cards)}</div>` : '').join('')}</div>
+        ${ctrl}${fb}</section>
+      <div class="stats"><div class="stat hero"><span>Séance</span><b>${s.net >= 0 ? '+' : ''}${fr(s.net, 1)} u</b><span>${s.hands} mains · ${s.shoes} sabot${s.shoes > 1 ? 's' : ''}</span></div>
+        <div class="stat"><span>Décisions justes</span><b>${s.dec ? pc(1 - s.err / s.dec) : '—'}</b><span>${s.err} erreur${s.err > 1 ? 's' : ''} · EV perdue ${fr(s.evl, 2)} u</span></div>
+        <div class="stat"><span>Mises selon la rampe</span><b>${s.bets ? pc(s.betOk / s.bets) : '—'}</b><span>${s.bets} mises</span></div>
+        <div class="stat"><span>Contrôles de compte</span><b>${s.cnt ? s.cntOk + '/' + s.cnt : '—'}</b><span>total : ${b.tbl.cnt ? pc(b.tbl.cntOk / b.tbl.cnt) : '—'}</span></div></div>
+      <p class="note">Le résultat en unités dépend surtout de la chance sur quelques centaines de mains. Ce qui se juge ici : décisions, compte, mises.</p>`;
+  };
+  AFTER.bjtable = () => { const f = $('#bjtrc input'); if (f) f.focus(); };
+  ACT.bjbet = (t) => { tbl.bet = +t.dataset.v; render(); };
+  ACT.bjdeal = () => { if (!tbl || tbl.ask || (tbl.phase !== 'bet' && tbl.phase !== 'done')) return; tbl.shuffleNote = false; tblDeal(); render(); };
+  ACT.bjtins = (t) => {
+    const T = tbl, b = P(); if (T.phase !== 'ins') return;
+    const take = t.dataset.v === '1', want = tcOf(T) >= ins(T.G), ok = take === want;
+    T.insTaken = take; T.sess.dec++; b.tbl.dec++; if (!ok) { T.sess.err++; b.tbl.err++; }
+    T.fb.push({ bad: !ok, txt: `${ok ? '✓' : '✗'} Assurance ${take ? 'prise' : 'refusée'} à TC ${tcS(tcOf(T))} (indice : TC ≥ ${tcS(ins(T.G))}).` });
+    T.phase = 'play'; tblAfterIns(); save(); render();
+  };
+  ACT.bjtact = (t) => tblAct(t.dataset.a);
+  ACT.bjshowc = () => { tbl.showCount = !tbl.showCount; render(); };
+  ACT.bjtreset = () => { tbl = tblNew(); render(); };
+  ONCHANGE.push((t) => {
+    if (!t.dataset.bjto) return;
+    const b = P(); b.tblOpts ||= {}; const k = t.dataset.bjto; b.tblOpts[k] = k === 'mode' ? t.value : +t.value; save();
+    if (k === 'mode') tbl.mode = t.value; else { tbl = tblNew(); }
+    render(); return true;
+  });
+
+  // =====================================================================
+  // Bankroll et simulation
+  // =====================================================================
+  let simRun = null, simRes = null;
+  VIEWS.bjbank = () => {
+    const b = P(), G = game(), k = b.bank, R = simRes || b.lastSim;
+    const kelly = (frac) => b.ramp.map((_, i) => { const tc = i === 0 ? 0 : i, e = (G.edgeByTC.find((x) => x[0] === tc) || [0, 0])[1]; return Math.max(1, Math.round(frac * k.bankroll * Math.max(0, e) / 1.33 / k.unit)); });
+    const kh = kelly(0.5);
+    let out = '';
+    if (R) {
+      const evh = R.mean * R.hph * R.unit, sdh = R.sd * Math.sqrt(R.hph) * R.unit, n0 = R.mean > 0 ? (R.sd / R.mean) ** 2 : null, ror = BJ.riskOfRuin(R.mean, R.sd, R.bankroll / R.unit);
+      out = `<div class="stats"><div class="stat hero"><span>Espérance par heure</span><b>${eur(evh)}</b><span>${fr(R.mean * 100, 2)} u / 100 mains · ${fr(R.hph, 0)} mains/h</span></div>
+        <div class="stat"><span>Écart-type par heure</span><b>${eur(sdh)}</b><span>${fr(R.sd * 10, 1)} u / 100 mains</span></div>
+        <div class="stat"><span>Avantage simulé</span><b>${sgnP(R.edge, 2)}</b><span>gain ÷ total misé · mise moyenne ${fr(R.avgBet, 2)} u</span></div>
+        <div class="stat"><span>N0</span><b>${n0 ? Math.round(n0).toLocaleString('fr-FR') : '∞'}</b><span>${n0 ? '≈ ' + Math.round(n0 / R.hph).toLocaleString('fr-FR') + ' h avant que l\'EV égale 1 écart-type' : 'espérance négative'}</span></div>
+        <div class="stat"><span>Risque de ruine</span><b>${pc(ror, 1)}</b><span>bankroll de ${eur(R.bankroll)} (${fr(R.bankroll / R.unit, 0)} u), formule de diffusion</span></div></div>
+        <section class="panel"><h2>30 trajectoires de 100 heures</h2><canvas id="bjsimc" height="240" aria-label="Trajectoires de bankroll simulées"></canvas><p class="note">Chaque trajectoire tire 100 heures au hasard selon l'espérance et l'écart-type mesurés. Ligne rouge : bankroll à zéro.</p></section>
+        <section class="panel"><h2>Fréquence des true counts</h2><div class="tw"><table class="t bjt"><thead><tr><th>TC</th>${R.tcs.map(([t]) => `<th class="n">${t <= -4 ? '≤ −4' : t >= 8 ? '≥ +8' : tcS(t)}</th>`).join('')}</tr></thead><tbody><tr><td>Mains</td>${R.tcs.map(([, f]) => `<td class="n">${pc(f, 1)}</td>`).join('')}</tr></tbody></table></div><p class="note">${fr(R.hands, 0)} mains simulées · ${esc(R.label)} · pénétration ${Math.round(R.pen * 100)} % · ${R.others} autre${R.others > 1 ? 's' : ''} joueur${R.others > 1 ? 's' : ''} · indices ${R.indices ? 'appliqués' : 'non appliqués'}.</p></section>`;
+    }
+    return head('Bankroll et simulation', 'Ta rampe de mises jouée sur des centaines de milliers de mains avec la stratégie et les indices de ton jeu : espérance, écart-type, N0, risque de ruine.') +
+      `<section class="panel"><h2>Rampe de mises (unités)</h2><div class="form">${b.ramp.map((u, i) => `<label class="f">${i === 0 ? 'TC ≤ 0' : i === 6 ? 'TC ≥ +6' : 'TC ' + tcS(i)}<input data-bjramp="${i}" value="${u}" inputmode="numeric"></label>`).join('')}</div>
+        <div class="row"><button class="btn small" data-act="bjkelly">Appliquer le demi-Kelly : ${kh.join(' · ')}</button><span class="note">Demi-Kelly : mise ≈ ½ × bankroll × avantage(TC) ÷ 1,33, en unités. Variance par main ≈ 1,33 (mesurée par la simulation).</span></div></section>
+      <section class="panel"><h2>Paramètres</h2><div class="form">
+        <label class="f">Unité (€)<input data-bjbank="unit" value="${k.unit}" inputmode="decimal"></label><label class="f">Bankroll (€)<input data-bjbank="bankroll" value="${k.bankroll}" inputmode="decimal"></label>
+        <label class="f">Mains par heure<input data-bjbank="hph" value="${k.hph}" inputmode="numeric"></label>
+        <label class="f">Pénétration<select data-bjbank="pen">${[0.6, 0.67, 0.75, 0.83].map((p) => `<option value="${p}" ${Math.abs(k.pen - p) < 0.001 ? 'selected' : ''}>${Math.round(p * 100)} %</option>`).join('')}</select></label>
+        <label class="f">Autres joueurs<select data-bjbank="others">${[0, 1, 2, 3, 4, 5].map((n) => `<option ${k.others === n ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+        <label class="f">Mains simulées<select data-bjbank="hands">${[100000, 300000, 1000000].map((n) => `<option value="${n}" ${k.hands === n ? 'selected' : ''}>${n.toLocaleString('fr-FR')}</option>`).join('')}</select></label>
+        <label class="f">Indices<select data-bjbank="indices"><option value="1" ${k.indices ? 'selected' : ''}>Appliqués</option><option value="0" ${!k.indices ? 'selected' : ''}>Stratégie de base seule</option></select></label></div>
+        <div class="row"><button class="btn primary" data-act="bjsim" ${simRun ? 'disabled' : ''}>${simRun ? `Simulation… ${Math.round(simRun.done / simRun.total * 100)} %` : 'Lancer la simulation'}</button><span class="note">${esc(G.label)}</span></div>
+        ${simRun ? `<div class="meter"><i style="width:${simRun.done / simRun.total * 100}%"></i></div>` : ''}</section>
+      ${out}
+      <p class="note">Simulation SIGMA 52 : sabot mélangé, carte de coupe, stratégie du tableau, indices au true count tronqué, assurance à l'indice. Le moteur exact et la simulation donnent le même avantage à environ 0,05 point près (effet de la carte de coupe et des mains de plus de deux cartes jouées au tableau). Elle ne modélise pas les contre-mesures du casino.</p>`;
+  };
+  AFTER.bjbank = () => {
+    const R = simRes || P().lastSim, cv = $('#bjsimc'); if (!R || !cv) return;
+    const evh = R.mean * R.hph * R.unit, sdh = R.sd * Math.sqrt(R.hph) * R.unit, gauss = () => { let u = 0; while (!u) u = rnd(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rnd()); };
+    const paths = []; for (let p = 0; p < 30; p++) { const pts = [R.bankroll]; let x = R.bankroll; for (let h = 0; h < 100; h++) { x += evh + sdh * gauss(); pts.push(x); } paths.push({ pts, color: '--accent', alpha: 0.35, width: 1.2 }); }
+    paths.push({ pts: Array.from({ length: 101 }, (_, h) => R.bankroll + evh * h), color: '--ink', width: 2 });
+    drawLines(cv, paths, { zero: false, floor: 0, fmt: (x) => fr(x / 1000, 1) + ' k€', xlabel: '100 h' });
+  };
+  ONCHANGE.push((t) => {
+    if (t.dataset.bjramp !== undefined) { const v = Math.max(1, Math.round(+String(t.value).replace(',', '.') || 1)); P().ramp[+t.dataset.bjramp] = v; save(); render(); return true; }
+    if (t.dataset.bjbank) { const k = t.dataset.bjbank, v = +String(t.value).replace(',', '.').replace(/\s/g, ''); P().bank[k] = k === 'indices' ? v === 1 : (Number.isFinite(v) ? v : P().bank[k]); save(); render(); return true; }
+  });
+  ACT.bjkelly = () => { const b = P(), G = game(), k = b.bank; b.ramp = b.ramp.map((_, i) => { const e = (G.edgeByTC.find((x) => x[0] === i) || [0, 0])[1]; return Math.max(1, Math.round(0.5 * k.bankroll * Math.max(0, e) / 1.33 / k.unit)); }); save(); render(); };
+  ACT.bjsim = () => {
+    if (simRun) return;
+    const b = P(), G = game(), k = b.bank, chunk = 25000, total = Math.max(chunk, k.hands);
+    const devs = G.indices, ramp = b.ramp.slice(), insIdx = ins(G);
+    const acc = { hands: 0, units: 0, bet: 0, s2: 0, tc: {} };
+    simRun = { done: 0, total }; render();
+    const step = () => {
+      const r = BJ.simulate({ rules: G.rules, table: Object.fromEntries(Object.entries(G.table).map(([row, o]) => [row, Object.fromEntries(Object.entries(o).map(([u, c]) => [u, { order: c.o }]))])), devs, useIndices: k.indices, insIndex: k.indices ? insIdx : null, ramp: (tc) => rampUnits(ramp, tc), hands: chunk, seed: 1 + Math.floor(rnd() * 1e9), pen: k.pen, others: k.others });
+      acc.hands += r.hands; acc.units += r.units; acc.bet += r.avgBet * r.hands; for (let i = 0; i < r.res.length; i++) acc.s2 += r.res[i] * r.res[i];
+      for (const [tc, n] of Object.entries(r.tcHist)) { const kk = Math.max(-4, Math.min(8, +tc)); acc.tc[kk] = (acc.tc[kk] || 0) + n; }
+      simRun.done = acc.hands;
+      if (acc.hands < total) { if (tabNow() === 'bjbank') render(); setTimeout(step, 0); return; }
+      const mean = acc.units / acc.hands, sd = Math.sqrt(acc.s2 / acc.hands - mean * mean);
+      simRes = { mean, sd, edge: acc.units / acc.bet, avgBet: acc.bet / acc.hands, hands: acc.hands, hph: k.hph, unit: k.unit, bankroll: k.bankroll, pen: k.pen, others: k.others, indices: k.indices, label: G.label, tcs: Object.entries(acc.tc).map(([t, n]) => [+t, n / acc.hands]).sort((x, y) => x[0] - y[0]), date: today() };
+      b.lastSim = simRes; simRun = null; save(); render();
+    };
+    setTimeout(step, 30);
+  };
+
+  // =====================================================================
+  // Journal
+  // =====================================================================
+  let jMsg = '';
+  const ATT = ['Aucune', 'Regards du chef de table', 'Remarque', 'Mise limitée ou mélange anticipé', 'Prié de ne plus jouer'];
+  VIEWS.bjjournal = () => {
+    const b = P(), ss = b.sessions.slice().sort((x, y) => y.date.localeCompare(x.date)), tot = ss.reduce((a, s) => a + s.result, 0), hrs = ss.reduce((a, s) => a + s.hours, 0);
+    const L = b.lastSim, exp = L ? L.mean * L.hph * L.unit * hrs : null, sdT = L ? L.sd * Math.sqrt(L.hph * hrs) * L.unit : null;
+    return head('Journal blackjack', 'Chaque séance réelle : durée, unité, résultat, compte maximal, signes d\'attention. Comparé à l\'espérance de ta dernière simulation.') +
+      `<div class="stats"><div class="stat hero"><span>Résultat total</span><b>${eur(tot)}</b><span>${ss.length} séance${ss.length > 1 ? 's' : ''} · ${fr(hrs, 1)} h</span></div>
+        <div class="stat"><span>Par heure</span><b>${hrs ? eur(tot / hrs) : '—'}</b><span>réel</span></div>
+        <div class="stat"><span>Attendu</span><b>${exp !== null && hrs ? eur(exp) : '—'}</b><span>${sdT ? '± ' + eur(sdT) + ' (1 écart-type)' : 'lance une simulation dans Bankroll'}</span></div>
+        <div class="stat"><span>Écart à l'espérance</span><b>${exp !== null && hrs && sdT ? fr((tot - exp) / sdT, 1) + ' σ' : '—'}</b><span>entre −2 et +2 : variance normale</span></div></div>
+      <section class="panel"><h2>Nouvelle séance</h2><form id="bjjf" class="form">
+        <label class="f">Date<input type="date" name="date" value="${today()}" required></label><label class="f">Casino<input name="casino" maxlength="40"></label>
+        <label class="f">Durée (h)<input name="hours" inputmode="decimal" required></label><label class="f">Unité (€)<input name="unit" inputmode="decimal" value="${b.bank.unit}"></label>
+        <label class="f">Résultat (€)<input name="result" inputmode="decimal" required placeholder="−120 ou 85"></label><label class="f">TC maximal vu<input name="tcmax" inputmode="numeric"></label>
+        <label class="f">Attention du casino<select name="att">${ATT.map((a, i) => `<option value="${i}">${a}</option>`).join('')}</select></label><label class="f">Règles de la table<input name="rules" maxlength="80" placeholder="6 jeux, S17, sans carte cachée…"></label>
+        <label class="f" style="grid-column:1/-1">Notes (erreurs, compte perdu, fatigue)<input name="notes" maxlength="200"></label>
+        <div class="row" style="grid-column:1/-1"><button class="btn primary">Enregistrer</button></div></form>${jMsg ? `<p class="note">${jMsg}</p>` : ''}</section>
+      ${ss.length ? `<section class="panel"><h2>Séances</h2><div class="tw"><table class="t bjt"><thead><tr><th>Date</th><th>Casino</th><th class="n">Heures</th><th class="n">Résultat</th><th class="n">TC max</th><th>Attention</th><th>Notes</th><th></th></tr></thead><tbody>${ss.map((s) => `<tr><td>${esc(s.date)}</td><td>${esc(s.casino)}</td><td class="n">${fr(s.hours, 1)}</td><td class="n" style="color:var(${s.result >= 0 ? '--good' : '--bad'})">${eur(s.result)}</td><td class="n">${s.tcmax === null ? '—' : tcS(s.tcmax)}</td><td>${esc(ATT[s.att])}</td><td>${esc(s.notes)}</td><td><button class="btn small" data-act="bjjdel" data-id="${s.id}">Suppr.</button></td></tr>`).join('')}</tbody></table></div>
+        ${ss.some((s) => s.att >= 3) ? '<p class="warnbox">Le casino a déjà réagi au moins une fois : espace tes visites, adoucis la rampe et change d\'établissement.</p>' : ''}</section>` : '<p class="note">Aucune séance enregistrée.</p>'}`;
+  };
+  document.addEventListener('submit', (e) => {
+    if (e.target.id !== 'bjjf') return; e.preventDefault();
+    const f = new FormData(e.target), num = (k) => +String(f.get(k) || '').replace(/\s/g, '').replace(',', '.').replace('−', '-');
+    const s = { id: 'b' + Date.now().toString(36), date: f.get('date'), casino: String(f.get('casino') || '').slice(0, 40), hours: num('hours'), unit: num('unit') || 0, result: num('result'), tcmax: String(f.get('tcmax') || '').trim() === '' ? null : Math.round(num('tcmax')), att: +f.get('att') || 0, rules: String(f.get('rules') || '').slice(0, 80), notes: String(f.get('notes') || '').slice(0, 200) };
+    if (!Number.isFinite(s.result) || !Number.isFinite(s.hours) || s.hours <= 0) { jMsg = 'Durée ou résultat illisible : écris par exemple 2,5 et −120.'; return render(); }
+    P().sessions.push(s); save(); jMsg = s.att >= 3 ? '<strong>Séance enregistrée.</strong> Le casino a réagi : change d\'établissement et revois ta rampe.' : 'Séance enregistrée.'; render();
+  });
+  ACT.bjjdel = (t) => { const b = P(); b.sessions = b.sessions.filter((s) => s.id !== t.dataset.id); save(); render(); };
+
+  // ---------- Clavier ----------
+  ONKEY.push((e, tab) => {
+    if (e.target.closest('input,select,textarea')) return;
+    const k = e.key.toLowerCase();
+    if (tab === 'bjentr') {
+      if (tr.ans && k === 'enter') { e.preventDefault(); ACT.bjnext(); return true; }
+      if (!tr.ans && tr.spot?.kind === 'ins') { if (k === 'o') { answer('yes'); return true; } if (k === 'n') { answer('no'); return true; } }
+      if (!tr.ans && tr.spot && tr.spot.kind !== 'quiz' && tr.spot.kind !== 'ins') { const a = Object.keys(KEYS).find((x) => KEYS[x] === k); if (a) { const av = availOf(game(), tr.spot.row, tr.spot.up); if (av[a]) { answer(a); return true; } } }
+    }
+    if (tab === 'bjcompte') {
+      if (cd.drill === 'deck' && cd.st === 'run' && (k === ' ' || k === 'enter')) { e.preventDefault(); ACT.bjflip(); return true; }
+      if (cd.st === 'done' && k === 'enter' && ['tc', 'tray', 'ramp'].includes(cd.drill)) { e.preventDefault(); cdQuestion(); render(); return true; }
+    }
+    if (tab === 'bjtable' && tbl && !tbl.ask) {
+      if ((tbl.phase === 'bet' || tbl.phase === 'done') && k === 'enter') { e.preventDefault(); ACT.bjdeal(); return true; }
+      if (tbl.phase === 'ins' && (k === 'o' || k === 'n')) { ACT.bjtins({ dataset: { v: k === 'o' ? '1' : '0' } }); return true; }
+      if (tbl.phase === 'play') { const a = Object.keys(KEYS).find((x) => KEYS[x] === k); if (a) { tblAct(a); return true; } }
+    }
+  });
+
+  // Lien direct vers un onglet blackjack (#bjtable…) : l'onglet n'existait pas au chargement du routeur.
+  const h0 = (location.hash || '').slice(1);
+  if (TB.some(([k]) => k === h0)) setTimeout(() => go(h0), 0);
+  X.BJAPP = { P, game, recommend, rowOf, handOf, val, availFor, tblNew, mastery, ladder, newSpot: () => { newSpot(); return tr.spot; }, answer, tr, cd, getTbl: () => tbl, setTbl: (x) => { tbl = x; }, tblDeal: () => tblDeal(), tblAct, rampUnits };
+})();

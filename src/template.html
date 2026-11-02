@@ -227,7 +227,7 @@ table.combos td, table.combos th { white-space: nowrap; padding: 6px 8px; }
 .bottomnav { display: none; }
 @media (max-width: 720px) {
   nav.tabs { display: none; } .hbtn.search span, .hbtn.search kbd { display: none; } .brand small { display: none; } .offline { display: none; }
-  .bottomnav { display: grid; grid-template-columns: repeat(5, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; background: var(--surface); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom, 0px); box-shadow: 0 -4px 18px rgba(0,0,0,.08); }
+  .bottomnav { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; background: var(--surface); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom, 0px); box-shadow: 0 -4px 18px rgba(0,0,0,.08); }
   .bottomnav button { border: 0; background: none; display: grid; justify-items: center; gap: 2px; padding: 8px 2px 7px; font-size: 11px; color: var(--muted); cursor: pointer; position: relative; }
   .bottomnav svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; }
   .bottomnav button[aria-current="page"] { color: var(--accent); font-weight: 600; }
@@ -347,9 +347,27 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
 .atlas .rgrid .rc { font-size: 10px; padding: 4px 0; border: 0; border-radius: 3px; cursor: pointer; } .atlas .rgrid .rc.off { opacity: .15; }
 .dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
 @media (max-width: 720px) { .atlas { grid-template-columns: 1fr; } .atlas .rgrid .rc { font-size: 8px; } }
+
+/* Blackjack */
+.bjcharts { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; align-items: start; }
+table.t.bjchart { width: 100%; table-layout: fixed; } table.t.bjchart th, table.t.bjchart td { padding: 4px 1px; text-align: center; font-size: 12px; letter-spacing: 0; } table.t.bjchart th:first-child, table.t.bjchart td:first-child { text-align: left; white-space: nowrap; width: 46px; }
+.bjc { font: 600 12px var(--f-mono); cursor: pointer; border: 1px solid var(--surface); } .bjc:hover { outline: 2px solid var(--accent); outline-offset: -2px; }
+.bjc.sel { outline: 2px solid var(--ink); outline-offset: -2px; } .bjc.dev { text-decoration: underline dotted; text-underline-offset: 3px; }
+.bjheats { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; align-items: start; }
+table.t.bjheat td { height: 16px; padding: 0; border: 1px solid var(--surface); } .bjheat td:first-child { font: 11px var(--f-mono); padding: 0 4px; }
+.bjfelt { display: flex; flex-wrap: wrap; gap: 28px; padding: 16px; border-radius: 12px; background: color-mix(in srgb, var(--wine) 12%, var(--sunk)); }
+.bjfelt > div { display: grid; gap: 6px; }
+.bjbig { display: flex; gap: 10px; min-height: 110px; align-items: center; } .bjbig .cd { width: 72px; height: 100px; font-size: 32px; } .bjbig .cd i { font-size: 26px; }
+.bjround { display: flex; flex-wrap: wrap; gap: 14px 22px; } .bjround > div { display: grid; gap: 4px; }
+.bjtable { background: color-mix(in srgb, var(--wine) 8%, var(--surface)); }
+.bjdealer, .bjhand { display: grid; gap: 6px; } .bjhands { display: flex; flex-wrap: wrap; gap: 18px; }
+.bjhand { padding: 8px; border-radius: 10px; border: 1px dashed transparent; } .bjhand.on { border-color: var(--accent); background: var(--surface); }
+.bjfb { display: grid; gap: 4px; font-size: 14px; } .bjfb .bad { color: var(--bad); } .bjfb .good { color: var(--good); }
+table.t.bjt td.n, table.t.bjt th.n { white-space: nowrap; }
+kbd { font: 600 11px var(--f-mono); border: 1px solid var(--line); border-radius: 4px; padding: 1px 4px; margin-left: 4px; opacity: .75; }
 </style>
 <header class="top"><div class="wrap">
-  <div class="bar"><div class="brand"><span class="mark" aria-hidden="true">σ52</span><span><b>SIGMA 52</b><small>labo poker · hors table</small></span></div><span class="offline" id="saveState"></span>
+  <div class="bar"><div class="brand"><span class="mark" aria-hidden="true">σ52</span><span><b>SIGMA 52</b><small>labo poker &amp; blackjack · hors table</small></span></div><span class="offline" id="saveState"></span>
     <div class="hbtns"><button class="hbtn search" data-act="cmdk" aria-label="Rechercher (Ctrl+K)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg><span>Rechercher</span><kbd>Ctrl K</kbd></button><button class="hbtn" data-act="theme" id="themeBtn" aria-label="Thème"></button></div></div>
   <nav class="tabs" role="tablist" id="tabs"></nav>
   <nav class="subnav" id="subnav" aria-label="Sections" hidden></nav>
@@ -439,4 +457,8 @@ body.discret-on { background: #000; } body.discret-on main { padding-top: 12px; 
 <script data-s52>/*__APP360__*/</script>
 <script data-s52>/*__APPTOOLS3__*/</script>
 <script data-s52>/*__APPUI__*/</script>
+<script data-s52>/*__BJENGINE__*/</script>
+<script data-s52>/*__BJDATA__*/</script>
+<script data-s52>/*__BJCOURSE__*/</script>
+<script data-s52>/*__APPBJ__*/</script>
 <script data-s52>window.__S52.start();</script>

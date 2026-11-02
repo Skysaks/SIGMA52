@@ -1,6 +1,6 @@
 # SIGMA 52
 
-Labo de poker personnel, utilisé **hors table** : avant et après les sessions, jamais pendant une main.
+Labo de poker et de blackjack personnel, utilisé **hors table** : avant et après les sessions, jamais pendant une main.
 σ pour l'écart-type, qui gouverne la variance ; 52 pour les cartes.
 
 © Florian Iglesias – All rights reserved
@@ -30,6 +30,27 @@ Labo de poker personnel, utilisé **hors table** : avant et après les sessions,
 
 Navigation par espaces (Aujourd'hui, Apprendre, Jouer, Étudier, Suivre) avec barre du bas sur mobile, recherche globale (Ctrl+K ou /), thème automatique, clair ou sombre, aide des raccourcis (?).
 
+## Blackjack (espace « Blackjack », usage personnel)
+
+Ce qui se transpose de SIGMA 52 : cours, exercices notés en EV, révisions espacées FSRS, table d'entraînement, simulation de variance, journal, copie hors ligne. Ce qui ne se transpose pas et a été écarté : bots profilés, exploitation d'adversaires, analyse d'historiques, solveur d'équilibre, ICM, aide en direct. Au blackjack, on joue contre une règle fixe : le jeu se calcule exactement.
+
+| Onglet | Rôle |
+|---|---|
+| Séance BJ | Révisions dues, 30 décisions du jour, paquet chrono, module suivant, **6 étapes de progression** (stratégie à 100 %, running count, true count et défausse, indices, table complète, cours et plan de mise), checklist avant le casino |
+| Cours BJ | **18 modules** avec quiz : cadre légal en France, règles et jeu européen sans carte cachée, coût de chaque règle, croupier, stratégie de base (dures, souples, paires, abandon, assurance), mémorisation, effet de retrait, Hi-Lo, true count, Illustrious 18 et Fab 4, rampe et Kelly, variance, N0 et risque de ruine, contre-mesures, conduite d'une séance, mythes. Tous les chiffres viennent du moteur |
+| Stratégie | 5 jeux de règles prédéfinis (Europe sans carte cachée par défaut, Strip, H17, double jeu, 6:5) ou **les règles de ta table** calculées dans le navigateur ; tableau coloré, EV de chaque action par case, affichage à un true count donné, indices Hi-Lo du jeu, coût de chaque règle, avantage par true count, version imprimable |
+| Entraîneur | Décisions notées contre la stratégie exacte avec l'EV perdue : faiblesses (cases ratées plus souvent), toutes les mains, par bloc, indices (TC affiché, assurance comprise), mixte, révisions ; chrono par décision ; carte de maîtrise des 330 cases ; raccourcis T S D P A |
+| Comptage | Paquet chrono (deviner la 52e carte), défilement (vitesse, cartes à la fois), tour de table affiché quelques secondes, conversion RC → TC, bac à défausse (estimer les paquets restants), rampe de mises |
+| Table BJ | Sabot réel avec carte de coupe, 0 à 5 joueurs avant toi, peek ou jeu européen, assurance, splits, doubles, abandon ; mise comparée à ta rampe, chaque décision notée (stratégie + indices au TC du moment, EV exacte sur la composition réelle), contrôles de running count au hasard ; modes entraînement, examen, libre |
+| Bankroll BJ | Rampe de mises par TC (bouton demi-Kelly), simulation de 100 000 à 1 000 000 de mains : espérance et écart-type par heure, avantage simulé, N0, risque de ruine, 30 trajectoires de 100 h, fréquence des true counts |
+| Journal BJ | Séances réelles (durée, unité, résultat, TC maximal, attention du casino), comparées à l'espérance simulée en écarts-types |
+
+**Moteur** (`src/bj_engine.js`) : probabilités exactes du croupier et EV de rester, tirer, doubler, séparer, abandonner pour toute composition de sabot (décisions suivantes optimales selon la composition). Approximations documentées dans le fichier : carte cachée tirée après le joueur, re-splits comptés main par main. Données précalculées par `node tools/build_bj.js` (~5 min) dans `src/bj_data.js`.
+
+**Validation** (`node test/bj.test.js`) : croupier identique à un calcul indépendant en sabot quasi infini ; stratégie 6 jeux S17 conforme aux cases de référence connues ; jeu européen (11 et 8,8 contre 10 tirés) ; simulation et calcul exact d'accord à 0,25 point près sur 1,5 M mains (écart mesuré sur 32 M mains : 0,01 point en européen, 0,04 à 0,05 point avec peek, effet de la carte de coupe et des mains de 3 cartes jouées au tableau) ; avantage de la maison 0,34 % (6 jeux S17 DAS abandon), 0,53 % (H17), 0,64 % (européen) ; coûts des règles dans les ordres de grandeur usuels (H17 +0,19, pas de DAS +0,14, 6:5 +1,36, 1 jeu −0,53 point). Indices calculés : assurance +3, 15 contre 10 +4, 14 contre 10 abandon +3 ; 16 contre 10 sort à +1 (crossover 1,3) quand la référence publiée donne 0 : écart d'un point assumé et signalé dans l'application. Test navigateur : `NODE_PATH=$(npm root -g) node test/ui_bj.test.js`.
+
+**Cadre** : en France, l'ANJ n'agrée en ligne que le poker, les paris sportifs et les paris hippiques ; le blackjack réel se joue en casino terrestre. Compter de tête est légal, le casino peut refuser un joueur. Aucune aide à la table.
+
 ## Calculs sur GitHub : bibliothèque de flops et Table live
 
 Le workflow `.github/workflows/library.yml` tourne **chaque nuit** (2 h 17 UTC), à chaque modification de `tools/library_queue.json` poussée sur `main`, ou avec le bouton « Run workflow » de l'onglet Actions. Il reprend toujours là où il s'est arrêté : un flop résolu n'est jamais recalculé, un job interrompu dépose ce qu'il a calculé.
@@ -53,6 +74,10 @@ Les rooms sanctionnent l'aide en temps réel (RTA) : fermeture du compte, solde 
 
 ```
 src/engine.js     évaluateur 7 cartes, ranges, équité exacte et Monte-Carlo, outs
+src/bj_engine.js  blackjack : croupier exact, EV par action, stratégie, avantage, indices, simulation de sabot
+src/bj_data.js    blackjack : tableaux, indices et avantages précalculés (tools/build_bj.js)
+src/bj_course.js  blackjack : 18 modules et quiz
+src/app_bj.js     blackjack : les 8 onglets de l'espace Blackjack
 src/matrix.js     matrice d'équité préflop 169 × 169 (générée par tools/build_matrix.js)
 src/solver.js     équilibre de Nash tapis/couché (jetons et ICM), ICM Malmuth-Harville
 src/board.js      répartition d'une range sur un board, textures
@@ -94,6 +119,7 @@ test/             tests du moteur, du solveur, du board, des spots, de la table 
 
 ```bash
 node tools/build_matrix.js 50000   # ~4 min sur 2 cœurs, seulement si le moteur change
+node tools/build_bj.js             # ~5 min, données blackjack (seulement si le moteur blackjack change)
 ./build.sh                         # écrit sigma52.html
 node tools/build_trainer.js 30      # ~30 min, régénère les spots de l'entraîneur
 node tools/train_live.js 1000000 fish,serre,normal 1001 lotA.json   # lot d'entraînement (~1 h par lot de 3 types)

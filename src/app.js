@@ -111,7 +111,7 @@
     const sub = $('#subnav');
     if (sub) { sub.innerHTML = g[2].length > 1 ? g[2].map((t) => `<button class="sub" aria-current="${t === tab ? 'page' : 'false'}" data-tab="${t}">${TABS.find((x) => x[0] === t)[1]}${t === 'spots' ? badge(due) : ''}</button>`).join('') : ''; sub.hidden = g[2].length <= 1; }
     const bn = $('#bottomnav');
-    if (bn) bn.innerHTML = GROUPS.map(([k, l]) => `<button data-group="${k}" aria-current="${k === g[0] ? 'page' : 'false'}">${ICON[k]}<span>${l}</span>${k === 'apprendre' && due ? '<i class="dot"></i>' : ''}</button>`).join('');
+    if (bn) bn.innerHTML = GROUPS.map(([k, l]) => `<button data-group="${k}" aria-current="${k === g[0] ? 'page' : 'false'}">${ICON[k] || ''}<span>${l}</span>${k === 'apprendre' && due ? '<i class="dot"></i>' : ''}</button>`).join('');
   }
   const VIEWS = {}, AFTER = {};
   function render() { renderTabs(); $('#view').innerHTML = VIEWS[tab](); AFTER[tab]?.(); }
@@ -764,7 +764,7 @@
   window.__S52 = {
     E, C, K, S, SV, B, HH, TS, $, esc, fr, eur, sgn, pct, today, addDays, rand, state, Store, render, go, head, heat, grid169,
     cardHTML, backHTML, cardsHTML, mastery, drawLines, journalStats, maxStake, bbOf, getAnRes: () => anRes, VIEWS, AFTER, TOOLVIEWS, TOOLS, ACT, ONCHANGE, ONINPUT, ONKEY, LINEUPS, runAnalysis,
-    getTab: () => tab, TABS, GROUPS, groupOf, setTool: (k) => { tool = k; }, setOpenMod: (id) => { openMod = id; qAns = {}; }, setSpotMode: (m) => { spotMode = m; daily = false; spot = null; },
+    getTab: () => tab, TABS, GROUPS, groupOf, ICON, setTool: (k) => { tool = k; }, setOpenMod: (id) => { openMod = id; qAns = {}; }, setSpotMode: (m) => { spotMode = m; daily = false; spot = null; },
     start() { render(); Store.init().then(render); },
   };
 })();
