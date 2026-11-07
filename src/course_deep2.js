@@ -38,7 +38,7 @@
       ["AKo contre QQ, tout à tapis préflop. Qui est favori ?", "QQ, environ <strong>57 %</strong> contre 43 % pour AKo (moteur SIGMA 52, moyenne sur les couleurs). Une paire contre deux overcards est un « coin flip » légèrement en faveur de la paire."],
       ["Pourquoi limper 8♥7♥ en début de parole est-il une erreur, même si la main est jouable ?", "Le limp n'a ni fold equity ni initiative : tu invites les joueurs derrière à relancer ou à entrer à bas prix, et tu joues un pot multiway hors de position. Soit la main est dans ta range d'ouverture et tu relances, soit tu couches."],
     ])]], quiz: [
-      ["AKs contre 77 à tapis préflop ?", ['≈ 48 % pour AKs', '≈ 65 % pour AKs'], 0, "Moteur SIGMA 52 : AKs 47,9 %, 77 52,1 %."],
+      ["AKs contre 77 à tapis préflop ?", ['≈ 48 % pour AKs', '≈ 65 % pour AKs'], 0, "Moteur SIGMA 52 (énumération exacte, moyenne sur les couleurs) : AKs 47,7 %, 77 52,3 %."],
       ["Premier à entrer, ta main n'est pas dans ta range d'ouverture. Tu…", ['Te couches', 'Limpes'], 0, "Premier à entrer : relance ou couche-toi."],
     ] });
 

@@ -117,8 +117,9 @@
   }
   function buildPlan(n) {
     const items = [], p = state.progress;
-    const due = p.review.filter((r) => r.due <= today()).slice(0, n >= 10 ? 3 : 2);
-    for (const r of due) items.push({ spot: r.spot, review: r, src: 'Révision due (mémoire FSRS)' });
+    const isReal = (r) => String(r.spot?.sid || '').startsWith('real:');
+    const due = p.review.filter((r) => r.due <= today()).sort((a, b) => isReal(b) - isReal(a)).slice(0, n >= 10 ? 4 : 2);
+    for (const r of due) items.push({ spot: r.spot, review: r, src: isReal(r) ? 'Ta vraie main : erreur à rejouer' : 'Révision due (mémoire FSRS)' });
     for (const m of topMist(7, n >= 10 ? 2 : 1)) if (m.spot && !items.some((x) => x.spot?.prompt === m.spot.prompt)) items.push({ spot: m.spot, src: `Erreur chère de la semaine (−${fr(m.lossBB, 2)} bb)` });
     const weak = weaknesses(), slots = n - items.length - (n >= 10 ? 3 : 1);
     for (let k = 0; k < slots; k++) { const w = weak[k % Math.min(weak.length, 3)]; const it = makeItem(w.type, w.why); if (it) items.push(it); }
@@ -129,6 +130,13 @@
     while (pool.length) { const last = out[out.length - 1]?.spot.type; let i = pool.findIndex((x) => x.spot.type !== last); if (i < 0) i = 0; out.push(pool.splice(i, 1)[0]); }
     return out.slice(0, n);
   }
+  // Séance « mes vraies erreurs » : les décisions de tes mains réelles en révision, les plus urgentes d'abord.
+  X.startRealPlan = () => {
+    const L = (X.realDue?.() || []).slice(0, 10); if (!L.length) return;
+    plan = { queue: L.map((r) => ({ spot: r.spot, review: r, src: 'Ta vraie main' })), done: 0, ok: 0, n: L.length, cur: null, ret: false, label: 'Mes vraies erreurs' };
+    SPOT().start('plan'); go('spots');
+  };
+  ACT.realdrill = () => X.startRealPlan();
   function startPlan(n, label) { plan = { queue: buildPlan(n), done: 0, ok: 0, n: 0, cur: null, ret: false, label }; plan.n = plan.queue.length; SPOT().start('plan'); go('spots'); }
   X.planNext = () => { if (!plan) return null; plan.cur = plan.queue.shift() || null; if (!plan.cur) { finishPlan(); return null; } return plan.cur; };
   function finishPlan() { const w = W(); if (plan) { if (plan.warm) { w.warm = { d: today(), ok: plan.ok, n: plan.done, green: plan.done >= 5 && plan.ok >= 4 }; } if (plan.ret) w.retLast = today(); else if (!plan.warm) { w.plans = w.plans || []; w.plans.push({ d: today(), n: plan.done, ok: plan.ok }); if (w.plans.length > 60) w.plans.shift(); } w.lastPlanRes = { label: plan.label, n: plan.done, ok: plan.ok, d: today(), show: true }; plan = null; save(); } }

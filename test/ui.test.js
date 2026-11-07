@@ -22,11 +22,11 @@ const SHOTS = process.env.SHOTS || '';
     await p.click('[data-act=plango] >> nth=0'); await p.waitForTimeout(60); await tab('jour');
 
     // Spots (dont le nouveau type) + révisions
-    await p.click('[data-act=daily]');
+    await tab('spots');
     for (let i = 0; i < 12; i++) { await p.click('[data-act=ans]'); await p.waitForSelector('.verdict'); await p.click('[data-act=next]'); }
     for (const m of ['rfi', 'vsopen', 'odds', 'tirage', 'pushfold', 'outs', 'meilleure', 'situations', 'mdf', 'combos', 'bounty']) { await p.click(`[data-mode=${m}]`); await p.click('[data-act=ans]'); await p.waitForSelector('.verdict'); await over('spots-' + m); }
     const prog = await p.evaluate(() => JSON.parse(localStorage.getItem('sigma52.progress')));
-    if (prog.daily.done !== 10) errs.push(name + ' compteur du jour ' + prog.daily.done);
+    if (Object.values(prog.stats).reduce((a, x) => a + x.n, 0) < 12) errs.push(name + ' réponses non comptées');
     await p.evaluate(() => { const pr = JSON.parse(localStorage.getItem('sigma52.progress')); pr.review.forEach((r) => (r.due = '2000-01-01')); localStorage.setItem('sigma52.progress', JSON.stringify(pr)); });
     await p.reload(); await p.waitForTimeout(300); await tab('jour'); await p.click('[data-act=review]'); await p.click('[data-act=ans]'); await p.waitForSelector('.verdict');
 

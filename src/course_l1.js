@@ -139,7 +139,7 @@
           <tr><td>Paire contre deux cartes supérieures</td><td>QQ contre AKo</td><td>57 % / 43 %</td></tr>
           <tr><td>Paire contre paire inférieure</td><td>JJ contre 55</td><td>80 % / 20 %</td></tr>
           <tr><td>Main dominée</td><td>AKo contre AQo</td><td>74 % / 26 %</td></tr>
-          <tr><td>Deux hautes contre deux basses</td><td>AKo contre 87s</td><td>58,5 % / 41,5 %</td></tr>
+          <tr><td>Deux hautes contre deux basses</td><td>AKo contre 87s</td><td>58,8 % / 41,2 %</td></tr>
           <tr><td>Petite paire contre deux hautes</td><td>22 contre AKo</td><td>53 % / 47 %</td></tr>
           <tr><td>AA contre la pire main</td><td>AA contre 72o</td><td>88 % / 12 %</td></tr></tbody></table>
           <p class="note">Valeurs de la matrice préflop de SIGMA 52 (moyenne sur les couleurs, effet de blocage inclus).</p>`],

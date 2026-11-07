@@ -41,7 +41,7 @@ Relecture complète des modules, exercices, quiz, examens et situations. Méthod
 | ante_straddle | Ouvertures à 2,5–3 straddles | 2,5 à 4 straddles selon la table (cohérent avec le module deep) | Incohérence interne |
 | etudes (main 1) | K♥J♥ sur K♦7♣2♠ : 85,2 % contre « une range de défense BB large » (267 combos) | 83,0 % contre la défense de la BB face au CO (254 combos) | Calcul exact, ranges actuelles de l'onglet Ranges (la range citée n'existait plus) |
 | etudes (main 2), examen N4 | JJ sur A♠8♦3♣ : 23,5 % | 23,6 % | Énumération exacte (51 combos) |
-| pots4bet | A♥K♦ contre QQ+, AKs : 33,4 % | 33,3 % | Énumération exacte (14 combos) |
+| pots4bet | A♥K♦ contre QQ+, AKs 33,4 % ; QQ+, AK 38,9 % ; JJ+, AK, A5s, A4s 45,2 % | 33,2 % ; 38,8 % ; 45,0 % | Énumération exacte préflop (1,7 million de boards par combo) ; les valeurs précédentes venaient d’un Monte-Carlo. AK reste juste au-dessus des 38,7 % requis |
 | champions | Sections par joueur réel (classement Hendon Mob, Ivey, Negreanu, Hellmuth, Chidwick, Mizrachi, Antonius, YoH ViraL) | Sections par profil (prédateur polyvalent, small-baller, lecteur serré, équilibré moderne, LAG imprévisible, presseur de tête-à-tête) + statistiques mesurées | Demande de l'utilisateur : profils sans noms. Les leçons tirées des sources publiques (MasterClass, *Power Hold'em Strategy*, *Play Poker Like the Pros*, Card Player, PokerNews) sont conservées sans attribution nominative ; la section YoH ViraL (parcours, pas un style) est retirée |
 | champions | « Douze styles de plus (inspiré de …) » avec noms | « Douze profils de plus » sans noms ; seuil « battu sur 50 mains » qualifié de repère, pas de preuve | Sur 50 mains, l'écart type d'un résultat dépasse 100 bb/100 |
 | styles | Noms d'anciens styles (Agresseur complet, GTO moderne, Parrain agressif…) ; « comparé au style réel » | Noms des profils actuels ; comparaison aux statistiques mesurées | Cohérence avec l'onglet Champions |
@@ -54,3 +54,9 @@ Relecture complète des modules, exercices, quiz, examens et situations. Méthod
 | examen N2, deep2 (blindes) | BB face à 2,5 bb : 30 % (« pot de 5 bb ») | ≈ 27 % (pot final 5,5 bb) | Même correction que les modules blindes et preflop2 |
 | situations | Solveur entre deux mains : « PokerStars interdit solveurs et charts » | solveurs interdits partout ; PokerStars tolère des charts préflop simples | Règles PokerStars 2019 sur les outils tiers |
 | situations | BB face à une ouverture à 2 bb : 25 % requis | ≈ 22 % (1 ÷ 4,5) | Petite blinde morte comprise |
+| push/fold (niveau 3) | Tableau HU : 5 bb, BB paie 62,2 % ; 15 bb, SB pousse 45,6 % | 62,1 % ; 45,7 % | Recalcul du solveur push/fold (62,14 % ; 45,65 %) |
+| niveau 1 (matchs préflop) | AKo contre 87s : 58,5 % / 41,5 % | 58,8 % / 41,2 % | Moyenne exacte sur les 48 combinaisons de couleurs (énumération complète) |
+| deep2 (exercice préflop) | AKs contre 77 : 47,9 % / 52,1 % | 47,7 % / 52,3 % | Énumération exacte, moyenne sur les 24 combinaisons |
+| Short Deck (deux modules) | AA contre KK ≈ 75 % dans un module, ≈ 74 % dans l'autre | ≈ 74,5 % partout | Moyenne sur les 36 combinaisons de couleurs (74,2 % à 75,0 % selon les couleurs) |
+
+Depuis la v28, `test/claims.test.js` recalcule à chaque test les chiffres clés ci-dessus (équités, push/fold, ICM, cartes du turn, résultats mesurés des Champions) et vérifie que le texte du cours les contient encore : un changement de ranges ou de moteur qui rendrait le cours faux fait échouer les tests.

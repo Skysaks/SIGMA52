@@ -369,6 +369,11 @@ table.t.bjt td.n, table.t.bjt th.n { white-space: nowrap; }
 .bjsegs button { cursor: pointer; } .bjsegs button.on { outline: 2px solid var(--ink); } .bjsegs button:disabled { cursor: default; opacity: .7; }
 .bjmap { display: grid; gap: 1px; max-width: 420px; } .bjmap i { aspect-ratio: 1; display: block; border-radius: 2px; }
 kbd { font: 600 11px var(--f-mono); border: 1px solid var(--line); border-radius: 4px; padding: 1px 4px; margin-left: 4px; opacity: .75; }
+.loopsteps{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-top:6px}
+.loopstep{display:grid;gap:2px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--sunk)}
+.loopstep b{font-size:18px}.loopstep.ok{border-color:var(--good)}
+.panel.loop{border-color:var(--accent)}
+@media (max-width:720px){.loopsteps{grid-template-columns:repeat(2,minmax(0,1fr))}.loopstep:last-child{grid-column:1/-1}}
 </style>
 <header class="top"><div class="wrap">
   <div class="bar"><div class="brand"><span class="mark" aria-hidden="true">σ52</span><span><b>SIGMA 52</b><small>labo poker &amp; blackjack · hors table</small></span></div><span class="offline" id="saveState"></span>
@@ -460,6 +465,7 @@ kbd { font: 600 11px var(--f-mono); border: 1px solid var(--line); border-radius
 <script data-s52>/*__APPDEBUTER__*/</script>
 <script data-s52>/*__APP360__*/</script>
 <script data-s52>/*__APPTOOLS3__*/</script>
+<script data-s52>/*__APPLOOP__*/</script>
 <script data-s52>/*__APPUI__*/</script>
 <script data-s52>/*__BJENGINE__*/</script>
 <script data-s52>/*__BJCOUNTS__*/</script>

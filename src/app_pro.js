@@ -68,16 +68,19 @@
   const baseProfil = VIEWS.profil;
   VIEWS.profil = () => {
     const html = baseProfil();
-    const add = `<section class="panel"><div class="row">${medalHTML()}</div><p class="note">Médailles de série : Bronze à 7 jours d'affilée, Argent à 30, Or à 100. Un jour compte dès que tu enregistres une progression.</p></section>` + leagueHTML(true) + eloHTML();
+    const add = `<section class="panel"><label class="row note" style="gap:6px"><input type="checkbox" data-act="gamif" ${state.settings.gamif ? 'checked' : ''}> Afficher la ligue, l'XP et la division sur l'accueil (désactivé par défaut : ces scores récompensent l'exercice, pas le jeu réel)</label></section><section class="panel"><div class="row">${medalHTML()}</div><p class="note">Médailles de série : Bronze à 7 jours d'affilée, Argent à 30, Or à 100. Un jour compte dès que tu enregistres une progression.</p></section>` + leagueHTML(true) + eloHTML();
     return html.replace('<section class="panel"><h2>Détail du score</h2>', add + '<section class="panel"><h2>Détail du score</h2>');
   };
   AFTER.profil = () => { const cv = $('#eloc'), h = elo().hist || []; if (cv && h.length >= 2) drawLines(cv, [{ pts: h.map((x) => x[1]) }], { zero: false, fmt: (v) => fr(v, 0) }); };
+  ACT.gamif = () => { state.settings.gamif = !state.settings.gamif; X.Store.save('settings'); X.render(); };
   const baseJour = VIEWS.jour;
   VIEWS.jour = () => {
     const html = baseJour(), L = league(), st = PR.standings(L), me = st.find((r) => r.me), E = elo(), ci = mental().checkins.find((c) => c.date === today());
     const card = `${noticeHTML(L)}<section class="panel"><div class="row" style="justify-content:space-between;align-items:center"><div class="row" style="gap:10px;align-items:center">${divBadge(L.div)}<strong>${me.rank}<sup>e</sup>/${PR.SIZE}</strong><span class="note mono">${L.xp || 0} XP</span><span class="note">·</span><strong>Elo ${Math.round(E.r)}</strong><span class="note">${PR.eloTitle(E.r)}</span>${medalHTML()}</div>
       <div class="row"><button class="btn small${ci ? '' : ' primary'}" data-tab="mental">${ci ? 'Check-in : ' + { go: 'feu vert', short: 'session courte', stop: 'pas de session' }[ci.level] : 'Check-in avant session'}</button><button class="btn small" data-tab="profil">Classement</button></div></div></section>`;
-    return html.replace('<div class="warnbox"><strong>Fair-play.</strong>', card + '<div class="warnbox"><strong>Fair-play.</strong>');
+    // Ligue, XP et division : en option (Profil) ; par défaut, l'accueil ne garde que le check-in avant session.
+    const lite = `<section class="panel"><div class="row" style="justify-content:space-between;align-items:center"><span class="note">Avant de jouer : check-in (sommeil, énergie, calme) → feu vert, session courte ou pas de session.</span><button class="btn small${ci ? '' : ' primary'}" data-tab="mental">${ci ? 'Check-in : ' + { go: 'feu vert', short: 'session courte', stop: 'pas de session' }[ci.level] : 'Check-in avant session'}</button></div></section>`;
+    return html.replace('<div class="warnbox"><strong>Fair-play.</strong>', (state.settings.gamif ? card : lite) + '<div class="warnbox"><strong>Fair-play.</strong>');
   };
 
   // ================= Carrière =================

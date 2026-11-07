@@ -139,7 +139,7 @@
     const nextMod = K.MODULES.find((m) => !((state.progress.quiz || {})[m.id] >= 0.8)), read = K.MODULES.filter((m) => (state.progress.quiz || {})[m.id] >= 0.8).length;
     const ms = maxStake(js.bank), due = dueReviews().length, li = state.notes.lastImport;
     return `<section style="display:grid;gap:8px"><span class="eyebrow">${new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
-      <h1>Ta séance d'aujourd'hui</h1><p class="lead">Révisions, 10 spots, un module, une session à la table d'entraînement. Puis la checklist avant de jouer en room.</p></section>
+      <h1>Ta séance d'aujourd'hui</h1><p class="lead">La boucle d'abord (jouer, importer, revoir, corriger, vérifier), puis le plan du jour. SIGMA 52 reste fermé pendant une session en room.</p></section>
     <div class="warnbox"><strong>Fair-play.</strong> SIGMA 52 se ferme avant d'ouvrir une table et ne se rouvre qu'après la session. Toute aide consultée pendant une main est sanctionnée par les rooms : fermeture du compte et solde confisqué.</div>
     <div class="stats">
       <div class="stat hero"><span>Spots réussis</span><b>${ts.n ? pct(ts.ok / ts.n) : '—'}</b><span>${ts.n} réponses · série ${state.progress.streak}</span></div>
@@ -472,6 +472,7 @@
       r.ev100 = me.hands ? (me.netBB - me.allins.reduce((a, x) => a + x.luck / x.bb, 0)) / me.hands * 100 : 0;
       r.kind = kind; anRes = r; anErr = ''; anOpen = null; window.__S52.lastAnText = text; window.__S52.lastAnKind = kind;
       if (kind === 'real') {
+        setTimeout(() => window.__S52.onRealImport?.(text), 0);
         state.notes.lastImport = { hands: r.hands, bb100: me.hands ? me.netBB / me.hands * 100 : 0, ev100: r.ev100, from: r.from, to: r.to, leaks: r.leaks.limps.length + r.leaks.tooLoose.length + r.leaks.tooTight.length, at: today() };
         for (const o of r.opponents) {
           const prev = state.notes.opponents[o.name] || { hands: 0, vpip: 0, pfr: 0, aggr: 0, calls: 0, sd: 0, sawFlop: 0 };

@@ -245,7 +245,7 @@
         ["Après le flop : petit et souvent", `<p>Ranges serrées et SPR bas : le 4-bettor mise souvent <strong>petit</strong> (environ un tiers du pot) au flop. La petite mise suffit pour engager le tapis sur trois rues, protège contre les overcards et garde les bluffs dans la range adverse. Sur les flops bas (8-5-2), le caller de la 4-bet a plus de paires moyennes : le 4-bettor checke plus souvent.</p>`],
         ["Face à une 5-bet à tapis", `<p>Tu 4-bettes à 22 bb, l'adversaire part à tapis à 100 bb (blindes hors du coup). Pot final si tu paies : 100 + 100 + 1,5 = 201,5 bb ; tu paies 78 bb. Il te faut 78 ÷ 201,5 ≈ <strong>38,7 %</strong> d'équité.</p>
           <div class="tw"><table class="t"><thead><tr><th>A♥K♦ contre…</th><th class="n">Équité</th></tr></thead><tbody>
-          <tr><td>QQ+, AKs</td><td class="n">33,3 %</td></tr><tr><td>QQ+, AK</td><td class="n">38,9 %</td></tr><tr><td>JJ+, AK, A5s, A4s</td><td class="n">45,2 %</td></tr></tbody></table></div>
+          <tr><td>QQ+, AKs</td><td class="n">33,2 %</td></tr><tr><td>QQ+, AK</td><td class="n">38,8 %</td></tr><tr><td>JJ+, AK, A5s, A4s</td><td class="n">45,0 %</td></tr></tbody></table></div>
           <p>Contre une range de 5-bet très serrée, AK est juste à l'équilibre ; dès que l'adversaire y met des bluffs ou JJ, le call devient clair. <strong>Tes bluffs de 4-bet, eux, se couchent</strong> face à la 5-bet : c'est leur rôle.</p>`],
         ["Exercices corrigés", ex([
           ["BTN ouvre 2,5 bb, BB 3-bette à 11 bb, BTN 4-bette à 25 bb, BB paie. Pot et SPR à 100 bb ?", "Pot = 25 + 25 = <strong>50 bb</strong> (la SB a couché ses 0,5 bb : pot 50,5). Tapis restants 75 bb. SPR ≈ 75 ÷ 50,5 ≈ <strong>1,5</strong>."],
@@ -259,7 +259,7 @@
         ["Un bon 4-bet bluff est…", ["A5s", "K9o", "72o", "J4s"], 0, "Bloqueur d'as et équité."],
         ["SPR = 82 ÷ 37,5. Valeur arrondie ?", ["2,2", "1,0", "4,5", "0,5"], 0, "82 ÷ 37,5 ≈ 2,19."],
         ["À SPR 2, une top paire bon kicker est…", ["Engagée pour le tapis", "À coucher face à toute mise", "Un bluff", "À checker-coucher"], 0, "Le tapis est trop court pour la coucher."],
-        ["Face à une 5-bet tapis, il faut environ 38,7 %. AK contre QQ+, AK a…", ["38,9 %", "25 %", "55 %", "70 %"], 0, "Juste à l'équilibre."],
+        ["Face à une 5-bet tapis, il faut environ 38,7 %. AK contre QQ+, AK a…", ["38,8 %", "25 %", "55 %", "70 %"], 0, "Juste à l'équilibre : 38,8 % contre 38,7 % requis."],
         ["Au flop d'un pot 4-bet, le 4-bettor mise souvent…", ["Petit (environ un tiers du pot)", "Tapis", "Deux fois le pot", "Jamais"], 0, "Le SPR bas permet d'engager le tapis avec de petites mises."],
       ],
     });
@@ -274,9 +274,9 @@
           <li>Ta range de mise est <strong>polarisée</strong> : des mains très fortes et des bluffs, pas de mains moyennes.</li></ol>
           <p>Exemple classique : turn qui complète une suite que ta range a beaucoup plus souvent que la sienne, après qu'il a payé le flop.</p>`],
         ["Les chiffres de l'overbet", `<div class="tw"><table class="t"><thead><tr><th>Taille</th><th class="n">Alpha (folds requis)</th><th class="n">Défense minimale</th><th class="n">Équité pour payer</th></tr></thead><tbody>
-          <tr><td>Pot (100 %)</td><td class="n">50 %</td><td class="n">50 %</td><td class="n">33,3 %</td></tr>
+          <tr><td>Pot (100 %)</td><td class="n">50 %</td><td class="n">50 %</td><td class="n">33,2 %</td></tr>
           <tr><td>150 % du pot</td><td class="n">60 %</td><td class="n">40 %</td><td class="n">37,5 %</td></tr>
-          <tr><td>200 % du pot</td><td class="n">66,7 %</td><td class="n">33,3 %</td><td class="n">40 %</td></tr></tbody></table></div>
+          <tr><td>200 % du pot</td><td class="n">66,7 %</td><td class="n">33,2 %</td><td class="n">40 %</td></tr></tbody></table></div>
           <p>Plus la mise grossit, plus la défense nécessaire baisse, mais plus chaque call doit avoir d'équité. Les bluffs d'overbet doivent donc faire coucher beaucoup ; la valeur doit battre les mains qui paient.</p>`],
         ["Les tailles géométriques", `<p>Pour mettre tout le tapis en <em>n</em> rues avec la même fraction <em>f</em> du pot à chaque rue : (1 + 2f)ⁿ = (P + 2S) ÷ P, où P est le pot et S le tapis restant.</p>
           <ul><li>Pot 20 bb, tapis 80 bb : (20 + 160) ÷ 20 = 9. En deux rues : 1 + 2f = 3, donc <strong>f = 100 %</strong> du pot à chaque rue. En trois rues : 9^(1/3) ≈ 2,08, donc <strong>f ≈ 54 %</strong>.</li></ul>

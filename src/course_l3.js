@@ -119,7 +119,7 @@
       sections: [
         ['Pourquoi tapis ou couché', `<p>Sous 12 à 15 bb, une relance normale engage déjà un tiers du tapis : se coucher ensuite coûte trop cher. Le tapis direct maximise la fold equity et retire à l'adversaire le jeu postflop.</p>`],
         ['L\'équilibre de Nash', `<table class="t"><thead><tr><th>Tapis effectif</th><th>SB pousse</th><th>BB paie</th></tr></thead><tbody>
-          <tr><td>5 bb</td><td>71,6 %</td><td>62,2 %</td></tr><tr><td>10 bb</td><td>58,4 %</td><td>37,4 %</td></tr><tr><td>15 bb</td><td>45,6 %</td><td>28,6 %</td></tr><tr><td>20 bb</td><td>40,3 %</td><td>21,7 %</td></tr></tbody></table>
+          <tr><td>5 bb</td><td>71,6 %</td><td>62,1 %</td></tr><tr><td>10 bb</td><td>58,4 %</td><td>37,4 %</td></tr><tr><td>15 bb</td><td>45,7 %</td><td>28,6 %</td></tr><tr><td>20 bb</td><td>40,3 %</td><td>21,7 %</td></tr></tbody></table>
           <p class="note">Tête-à-tête, sans ante, calculé par le solveur de SIGMA 52. La valeur à 10 bb correspond à la référence publiée.</p>
           <p>Principe : <strong>celui qui pousse est plus large que celui qui paie</strong>, car il gagne aussi quand l'adversaire se couche. Les antes élargissent les deux.</p>`],
         ['L\'ICM', `<p>En tournoi avec plusieurs places payées, doubler ton tapis ne double pas tes gains, mais le perdre les annule. Le modèle ICM (Malmuth-Harville) convertit les tapis en part du prize pool. Conséquence : près de la bulle et en table finale, on paie et on pousse moins large qu'à l'équilibre en jetons. Le <strong>risk premium</strong> est l'équité supplémentaire qu'il te faut pour risquer ton tapis.</p>

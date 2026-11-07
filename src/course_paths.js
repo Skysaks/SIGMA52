@@ -225,7 +225,7 @@
       goals: ['Connaître les règles qui changent tout dans chaque variante', 'Ajuster la valeur des mains de départ', 'Utiliser l\'outil Variantes pour vérifier une intuition'],
       sections: [
         ['Short Deck (6+)', `<ul><li>36 cartes : les 2 à 5 sont retirées. Dans la version la plus jouée (Triton), <strong>la couleur bat le full</strong> et <strong>le brelan bat la suite</strong> ; l'as fait aussi la suite basse A-6-7-8-9.</li>
-          <li>Les équités se resserrent : As-As contre Roi-Roi vaut environ 74 % (calcul SIGMA 52, contre 82 % en hold'em), As-Roi assorti contre Dame-Dame est presque à pile ou face (≈ 52 %).</li>
+          <li>Les équités se resserrent : As-As contre Roi-Roi vaut environ 74,5 % (calcul SIGMA 52, moyenne sur les couleurs, contre 82 % en hold'em), As-Roi assorti contre Dame-Dame est presque à pile ou face (≈ 52 %).</li>
           <li>Les suites sont plus fréquentes, les couleurs plus rares : les connecteurs gagnent en valeur, les petites couleurs perdent.</li></ul>`],
         ['Omaha 5 cartes', `<ul><li>5 cartes en main, toujours exactement 2 utilisées. Les mains sont plus fortes : les nuts arrivent plus souvent à l'abattage.</li>
           <li>As-As-Roi-Roi-Dame double assortie fait environ 63 % contre une main aléatoire (calcul SIGMA 52).</li>
