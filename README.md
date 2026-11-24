@@ -129,7 +129,6 @@ src/runout.js équité exacte de deux ranges pour chaque turn ; src/app_tools3.j
 src/flop_library.js bibliothèque de flops résolus (tools/build_aggregate.js, tirages 16 × 10) ; src/plo_preflop_data.js ranges préflop PLO (tools/build_plo_preflop.js)
 src/template.html styles et squelette
 tools/            génération de la matrice préflop
-founder/          étude des outils concurrents
 test/             tests du moteur, du solveur, du board, des spots, de la table et de l'interface
 ```
 

@@ -1,4 +1,4 @@
-// Onglet Débuter : feuille de route du débutant (reprise du « Poker Performance Lab » et du « Poker Decision Lab » de Florian),
+// Onglet Débuter : feuille de route du débutant,
 // branchée sur SIGMA 52 : programme de 12 semaines validé en partie automatiquement, carnet de décisions en 6 questions avec révision FSRS,
 // capital et garde-fous calculés sur le Journal, maths utiles, bilan et test de sortie, ressources, import des sauvegardes JSON existantes.
 (function () {
