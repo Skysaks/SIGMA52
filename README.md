@@ -5,6 +5,10 @@ Labo de poker et de blackjack personnel, utilisé **hors table** : avant et apr�
 
 © Florian Iglesias – All rights reserved
 
+**Démonstration** : [skysaks.github.io/SIGMA52](https://skysaks.github.io/SIGMA52/) (copie hors ligne, ≈ 6 Mo : cours, solveurs, simulateurs, journal).
+
+![SIGMA 52 sur ordinateur et téléphone](docs/captures/carte-sociale.png)
+
 ## Contenu
 
 | Onglet | Rôle |
