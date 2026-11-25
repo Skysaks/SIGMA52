@@ -32,8 +32,8 @@ jobs:
       target: ${{ steps.q.outputs.target }}
       sample: ${{ steps.q.outputs.sample }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
       - id: q
@@ -48,8 +48,8 @@ jobs:
       matrix:
         job: ${{ fromJson(needs.plan.outputs.matrix) }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
       - name: Résoudre jusqu'à l'échéance (une part par cœur)
@@ -68,7 +68,7 @@ jobs:
           tail -n 2 part*.log
           node -e "const fs=require('fs'),d='tools/data';let n=0,t=0;for(const f of fs.readdirSync(d).filter(x=>x.startsWith('lib_'+process.env.SCEN+'.part')))for(const x of JSON.parse(fs.readFileSync(d+'/'+f)).flops){n++;t+=x.s||0}fs.writeFileSync(d+'/run_'+process.env.SCEN+'_'+process.env.K+'.json',JSON.stringify({seconds:Math.round(Date.now()/1000)-$T0+60,flops:{[process.env.SCEN]:{n,t}}}));console.log(n,'flops')"
       - if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: lib-${{ matrix.job.scen }}-${{ matrix.job.k }}
           path: |
@@ -86,8 +86,8 @@ jobs:
       matrix:
         job: ${{ fromJson(needs.plan.outputs.live) }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
       - name: Entraîner le modèle de la Table live (un lot par cœur, graines uniques)
@@ -101,7 +101,7 @@ jobs:
           tail -n 2 live*.log
           echo "{\"seconds\":$(( $(date +%s) - T0 + 60 ))}" > tools/data/run_live_${{ matrix.job }}.json
       - if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: live-${{ matrix.job }}
           path: |
@@ -115,11 +115,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           merge-multiple: true
           path: tools/data
